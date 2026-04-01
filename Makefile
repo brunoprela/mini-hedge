@@ -1,4 +1,4 @@
-.PHONY: up down lint format typecheck tach-check test test-unit test-integration migrate seed run check install
+.PHONY: up down install run migrate seed lint format typecheck tach-check test test-unit test-integration check
 
 # --- Infrastructure ---
 
@@ -15,6 +15,12 @@ install:
 
 run:
 	uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+migrate:
+	@for ctx in platform security_master market_data positions; do \
+		echo "Running migrations for $$ctx..."; \
+		uv run alembic -n $$ctx upgrade head; \
+	done
 
 seed:
 	uv run python -m app.seed

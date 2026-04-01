@@ -6,9 +6,10 @@ import asyncio
 import contextlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 import structlog
+from alembic import command as alembic_command
+from alembic.config import Config as AlembicConfig
 from fastapi import FastAPI
 from sqlalchemy import text
 
@@ -40,30 +41,32 @@ from app.shared.logging import setup_logging
 
 logger = structlog.get_logger()
 
-# SQL migration files to run on startup
-MIGRATION_FILES = [
-    "app/modules/platform/migrations/versions/001_initial.sql",
-    "app/modules/security_master/migrations/versions/001_initial.sql",
-    "app/modules/market_data/migrations/versions/001_initial.sql",
-    "app/modules/positions/migrations/versions/001_initial.sql",
-]
+# Bounded contexts whose Alembic migrations run on startup.
+# Each name corresponds to a section in alembic.ini.
+MIGRATION_CONTEXTS = ["platform", "security_master", "market_data", "positions"]
 
 
-async def _run_migrations(engine) -> None:  # type: ignore[no-untyped-def]
-    """Run SQL migration files on startup.
+def _run_migrations_sync() -> None:
+    """Run Alembic migrations for every bounded context.
 
-    Uses the raw asyncpg connection because SQLAlchemy's execute() can't
-    handle multi-statement SQL scripts (asyncpg prepared-statement limitation).
+    Uses Alembic's programmatic API so each context gets its own
+    migration history (alembic_version table scoped to its schema).
     """
-    async with engine.connect() as conn:
-        raw = await conn.get_raw_connection()
-        for migration_path in MIGRATION_FILES:
-            path = Path(migration_path)
-            if path.exists():
-                sql = path.read_text()
-                await raw.driver_connection.execute(sql)
-                logger.info("migration_applied", path=str(path))
-        await conn.commit()
+    for ctx in MIGRATION_CONTEXTS:
+        cfg = AlembicConfig("alembic.ini", ini_section=ctx)
+        cfg.set_section_option(ctx, "script_location", f"app/modules/{ctx}/migrations")
+        alembic_command.upgrade(cfg, "head")
+        logger.info("migrations_applied", context=ctx)
+
+
+async def _run_migrations() -> None:
+    """Run Alembic migrations in a thread to avoid event-loop conflicts.
+
+    Each module's env.py calls asyncio.run() internally, which requires
+    its own event loop. Running in a thread avoids conflicting with
+    the already-running uvicorn loop.
+    """
+    await asyncio.to_thread(_run_migrations_sync)
 
 
 async def _seed_instruments(repo: InstrumentRepository) -> None:
@@ -100,7 +103,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     engine, session_factory = build_engine()
 
     # Run migrations
-    await _run_migrations(engine)
+    await _run_migrations()
 
     # Event bus
     event_bus = InProcessEventBus()
