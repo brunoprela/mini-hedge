@@ -1,0 +1,72 @@
+"""Position keeping business logic — implements PositionReader protocol."""
+
+from uuid import UUID
+
+from app.modules.positions.handlers import TradeHandler
+from app.modules.positions.interface import Position, TradeRequest
+from app.modules.positions.models import CurrentPosition
+from app.modules.positions.repository import CurrentPositionRepository
+
+
+def _to_position(record: CurrentPosition) -> Position:
+    return Position(
+        portfolio_id=UUID(record.portfolio_id),
+        instrument_id=record.instrument_id,
+        quantity=record.quantity,
+        avg_cost=record.avg_cost,
+        cost_basis=record.cost_basis,
+        market_price=record.market_price,
+        market_value=record.market_value,
+        unrealized_pnl=record.unrealized_pnl,
+        currency=record.currency,
+        last_updated=record.last_updated,
+    )
+
+
+class PositionService:
+    """Implements PositionReader protocol and trade entry."""
+
+    def __init__(
+        self,
+        position_repo: CurrentPositionRepository,
+        trade_handler: TradeHandler,
+    ) -> None:
+        self._position_repo = position_repo
+        self._trade_handler = trade_handler
+
+    async def get_position(
+        self,
+        portfolio_id: UUID,
+        instrument_id: str,
+    ) -> Position | None:
+        record = await self._position_repo.get_position(portfolio_id, instrument_id)
+        if record is None:
+            return None
+        return _to_position(record)
+
+    async def get_portfolio_positions(
+        self,
+        portfolio_id: UUID,
+    ) -> list[Position]:
+        records = await self._position_repo.get_portfolio_positions(portfolio_id)
+        return [_to_position(r) for r in records]
+
+    async def execute_trade(self, request: TradeRequest) -> Position:
+        """Process a trade and return the updated position."""
+        from uuid import uuid4
+
+        trade_id = str(uuid4())
+        await self._trade_handler.handle_trade(
+            portfolio_id=request.portfolio_id,
+            instrument_id=request.instrument_id.upper(),
+            side=request.side,
+            quantity=request.quantity,
+            price=request.price,
+            trade_id=trade_id,
+            currency=request.currency,
+        )
+
+        # Return updated position
+        position = await self.get_position(request.portfolio_id, request.instrument_id.upper())
+        assert position is not None
+        return position

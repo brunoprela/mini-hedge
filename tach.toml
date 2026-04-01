@@ -1,0 +1,19 @@
+exact = true
+exclude = ["tests"]
+source_roots = ["."]
+
+[[modules]]
+path = "app.shared"
+depends_on = []
+
+[[modules]]
+path = "app.modules.security_master"
+depends_on = ["app.shared"]
+
+[[modules]]
+path = "app.modules.market_data"
+depends_on = ["app.shared"]
+
+[[modules]]
+path = "app.modules.positions"
+depends_on = ["app.shared"]
