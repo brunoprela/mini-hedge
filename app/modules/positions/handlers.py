@@ -8,6 +8,7 @@ import structlog
 
 from app.modules.positions.aggregate import PositionAggregate
 from app.modules.positions.repository import CurrentPositionRepository, EventStoreRepository
+from app.modules.positions.strategy import get_position_strategy
 from app.shared.events import BaseEvent, EventBus
 
 logger = structlog.get_logger()
@@ -117,10 +118,13 @@ class MarkToMarketHandler:
         new_price = Decimal(event.data["mid"])
 
         positions = await self._position_repo.get_by_instrument(instrument_id)
+        # Use equity strategy for now; when positions store asset_class,
+        # look up the correct strategy per position.
+        strategy = get_position_strategy("equity")
 
         for pos in positions:
-            new_market_value = pos.quantity * new_price
-            new_unrealized = new_market_value - pos.cost_basis
+            new_market_value = strategy.market_value(pos.quantity, new_price)
+            new_unrealized = strategy.unrealized_pnl(pos.quantity, pos.cost_basis, new_price)
 
             await self._position_repo.update_market_value(
                 portfolio_id=pos.portfolio_id,

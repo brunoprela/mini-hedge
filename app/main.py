@@ -21,6 +21,8 @@ from app.modules.market_data.routes import init_routes as init_market_data_route
 from app.modules.market_data.routes import router as market_data_router
 from app.modules.market_data.service import MarketDataService
 from app.modules.market_data.simulator import MarketDataSimulator
+from app.modules.platform.repository import FundRepository, PortfolioRepository
+from app.modules.platform.seed import build_seed_fund, build_seed_portfolios
 from app.modules.positions.handlers import MarkToMarketHandler, TradeHandler
 from app.modules.positions.repository import CurrentPositionRepository, EventStoreRepository
 from app.modules.positions.routes import init_routes as init_position_routes
@@ -33,12 +35,14 @@ from app.modules.security_master.seed import build_seed_records
 from app.modules.security_master.service import SecurityMasterService
 from app.shared.database import build_engine
 from app.shared.events import InProcessEventBus
+from app.shared.fund_context import DEFAULT_FUND_SLUG, set_current_fund
 from app.shared.logging import setup_logging
 
 logger = structlog.get_logger()
 
 # SQL migration files to run on startup
 MIGRATION_FILES = [
+    "app/modules/platform/migrations/versions/001_initial.sql",
     "app/modules/security_master/migrations/versions/001_initial.sql",
     "app/modules/market_data/migrations/versions/001_initial.sql",
     "app/modules/positions/migrations/versions/001_initial.sql",
@@ -63,12 +67,27 @@ async def _run_migrations(engine) -> None:  # type: ignore[no-untyped-def]
 
 
 async def _seed_instruments(repo: InstrumentRepository) -> None:
-    """Seed instruments if the table is empty."""
+    """Seed instruments and equity extensions if the table is empty."""
     existing = await repo.get_all_active()
     if not existing:
-        records = build_seed_records()
-        await repo.insert_batch(records)
-        logger.info("instruments_seeded", count=len(records))
+        instruments, extensions = build_seed_records()
+        await repo.insert_batch(instruments)
+        await repo.insert_batch_extensions(extensions)
+        logger.info("instruments_seeded", count=len(instruments), extensions=len(extensions))
+
+
+async def _seed_platform(
+    fund_repo: FundRepository,
+    portfolio_repo: PortfolioRepository,
+) -> None:
+    """Seed default fund and portfolios if none exist."""
+    existing = await fund_repo.get_all_active()
+    if not existing:
+        fund = build_seed_fund()
+        await fund_repo.insert(fund)
+        portfolios = build_seed_portfolios()
+        await portfolio_repo.insert_batch(portfolios)
+        logger.info("platform_seeded", fund=fund.slug, portfolios=len(portfolios))
 
 
 @asynccontextmanager
@@ -85,6 +104,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # Event bus
     event_bus = InProcessEventBus()
+
+    # Set default fund context (single-fund Phase 0)
+    set_current_fund(DEFAULT_FUND_SLUG)
+
+    # --- Platform ---
+    fund_repo = FundRepository(session_factory)
+    portfolio_repo = PortfolioRepository(session_factory)
+    await _seed_platform(fund_repo, portfolio_repo)
 
     # --- Security Master ---
     instrument_repo = InstrumentRepository(session_factory)

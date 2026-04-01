@@ -20,9 +20,10 @@ async def main() -> None:
         print(f"Already have {len(existing)} instruments, skipping seed.")
         return
 
-    records = build_seed_records()
-    await repo.insert_batch(records)
-    print(f"Seeded {len(records)} instruments.")
+    instruments, extensions = build_seed_records()
+    await repo.insert_batch(instruments)
+    await repo.insert_batch_extensions(extensions)
+    print(f"Seeded {len(instruments)} instruments + {len(extensions)} equity extensions.")
 
 
 if __name__ == "__main__":

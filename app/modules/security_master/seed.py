@@ -4,8 +4,10 @@ from datetime import date
 from decimal import Decimal
 from uuid import uuid4
 
-from app.modules.security_master.models import InstrumentRecord
+from app.modules.security_master.models import EquityExtensionRecord, InstrumentRecord
 
+# Each entry contains instrument fields + an optional "shares_outstanding"
+# that seeds the equity_extensions table.
 SEED_INSTRUMENTS: list[dict[str, object]] = [
     {
         "name": "Apple Inc.",
@@ -129,14 +131,25 @@ SEED_INSTRUMENTS: list[dict[str, object]] = [
     },
 ]
 
+# Fields that belong on equity_extensions, not on the base instrument.
+_EQUITY_EXTENSION_FIELDS = {"shares_outstanding"}
 
-def build_seed_records() -> list[InstrumentRecord]:
-    records = []
+
+def build_seed_records() -> tuple[list[InstrumentRecord], list[EquityExtensionRecord]]:
+    """Return (instruments, equity_extensions) seed records."""
+    instruments: list[InstrumentRecord] = []
+    extensions: list[EquityExtensionRecord] = []
+
     for data in SEED_INSTRUMENTS:
-        records.append(
-            InstrumentRecord(
-                id=str(uuid4()),
-                **data,  # type: ignore[arg-type]
-            )
-        )
-    return records
+        instrument_id = str(uuid4())
+
+        # Split extension fields from base instrument fields
+        ext_data = {k: data[k] for k in _EQUITY_EXTENSION_FIELDS if k in data}
+        instr_data = {k: v for k, v in data.items() if k not in _EQUITY_EXTENSION_FIELDS}
+
+        instruments.append(InstrumentRecord(id=instrument_id, **instr_data))
+
+        if ext_data:
+            extensions.append(EquityExtensionRecord(instrument_id=instrument_id, **ext_data))
+
+    return instruments, extensions

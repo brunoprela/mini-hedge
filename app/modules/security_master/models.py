@@ -4,7 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import uuid4
 
-from sqlalchemy import Boolean, Date, DateTime, Index, Numeric, String, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -32,7 +32,6 @@ class InstrumentRecord(Base):
     country: Mapped[str] = mapped_column(String(2), nullable=False)
     sector: Mapped[str | None] = mapped_column(String(128), nullable=True)
     industry: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    shares_outstanding: Mapped[Decimal | None] = mapped_column(Numeric(18, 0), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     listed_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -41,3 +40,20 @@ class InstrumentRecord(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
+
+
+class EquityExtensionRecord(Base):
+    """Equity-specific attributes — extension of the base instrument."""
+
+    __tablename__ = "equity_extensions"
+    __table_args__ = {"schema": "security_master"}
+
+    instrument_id: Mapped[str] = mapped_column(
+        PG_UUID(as_uuid=False),
+        ForeignKey("security_master.instruments.id"),
+        primary_key=True,
+    )
+    shares_outstanding: Mapped[Decimal | None] = mapped_column(Numeric(18, 0), nullable=True)
+    dividend_yield: Mapped[Decimal | None] = mapped_column(Numeric(8, 6), nullable=True)
+    market_cap: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+    free_float_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)

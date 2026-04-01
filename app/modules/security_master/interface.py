@@ -6,7 +6,6 @@ Other modules depend ONLY on this file, never on internals.
 from __future__ import annotations
 
 from datetime import date
-from decimal import Decimal
 from enum import StrEnum
 from typing import Protocol
 from uuid import UUID
@@ -23,6 +22,8 @@ class AssetClass(StrEnum):
     FUTURE = "future"
     ETF = "etf"
     FX = "fx"
+    SWAP = "swap"
+    PRIVATE = "private"
 
 
 class Instrument(BaseModel):
@@ -37,7 +38,6 @@ class Instrument(BaseModel):
     country: str
     sector: str | None = None
     industry: str | None = None
-    shares_outstanding: Decimal | None = None
     is_active: bool = True
     listed_date: date | None = None
 

@@ -9,7 +9,6 @@ CREATE TABLE IF NOT EXISTS security_master.instruments (
     country         VARCHAR(2) NOT NULL,
     sector          VARCHAR(128),
     industry        VARCHAR(128),
-    shares_outstanding NUMERIC(18,0),
     is_active       BOOLEAN NOT NULL DEFAULT TRUE,
     listed_date     DATE,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -19,3 +18,14 @@ CREATE TABLE IF NOT EXISTS security_master.instruments (
 CREATE INDEX IF NOT EXISTS ix_sm_instruments_ticker ON security_master.instruments (ticker);
 CREATE INDEX IF NOT EXISTS ix_sm_instruments_asset_class ON security_master.instruments (asset_class);
 CREATE INDEX IF NOT EXISTS ix_sm_instruments_active ON security_master.instruments (is_active);
+
+-- Asset-class extension table: equity-specific attributes
+-- Other asset classes (fixed_income, option, etc.) will get their own extension
+-- tables as they are added in later phases.
+CREATE TABLE IF NOT EXISTS security_master.equity_extensions (
+    instrument_id       UUID PRIMARY KEY REFERENCES security_master.instruments(id),
+    shares_outstanding  NUMERIC(18,0),
+    dividend_yield      NUMERIC(8,6),
+    market_cap          NUMERIC(18,2),
+    free_float_pct      NUMERIC(5,2)
+);

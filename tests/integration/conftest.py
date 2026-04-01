@@ -24,12 +24,13 @@ async def session_factory(postgres_url: str) -> async_sessionmaker[AsyncSession]
 
     # Create schemas and run migrations
     async with engine.begin() as conn:
+        await conn.execute(text("CREATE SCHEMA IF NOT EXISTS platform"))
         await conn.execute(text("CREATE SCHEMA IF NOT EXISTS security_master"))
         await conn.execute(text("CREATE SCHEMA IF NOT EXISTS market_data"))
         await conn.execute(text("CREATE SCHEMA IF NOT EXISTS positions"))
 
         migration_dir = Path("app/modules")
-        for module in ["security_master", "market_data", "positions"]:
+        for module in ["platform", "security_master", "market_data", "positions"]:
             sql_path = migration_dir / module / "migrations" / "versions" / "001_initial.sql"
             if sql_path.exists():
                 await conn.execute(text(sql_path.read_text()))

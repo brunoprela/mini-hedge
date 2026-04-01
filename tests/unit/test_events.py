@@ -43,3 +43,21 @@ class TestInProcessEventBus:
         await bus.publish("test.topic", BaseEvent(event_type="test", data={}))
 
         assert count == [1, 1]
+
+    @pytest.mark.asyncio
+    async def test_failing_handler_does_not_break_others(self) -> None:
+        """Error isolation: one handler raising should not prevent others."""
+        bus = InProcessEventBus()
+        received: list[BaseEvent] = []
+
+        async def bad_handler(event: BaseEvent) -> None:
+            raise RuntimeError("boom")
+
+        async def good_handler(event: BaseEvent) -> None:
+            received.append(event)
+
+        bus.subscribe("test.topic", bad_handler)
+        bus.subscribe("test.topic", good_handler)
+        await bus.publish("test.topic", BaseEvent(event_type="test", data={}))
+
+        assert len(received) == 1

@@ -23,7 +23,6 @@ def _to_instrument(record: InstrumentRecord) -> Instrument:
         country=record.country,
         sector=record.sector,
         industry=record.industry,
-        shares_outstanding=record.shares_outstanding,
         is_active=record.is_active,
         listed_date=record.listed_date,
     )

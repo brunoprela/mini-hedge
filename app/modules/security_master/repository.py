@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.modules.security_master.interface import AssetClass
-from app.modules.security_master.models import InstrumentRecord
+from app.modules.security_master.models import EquityExtensionRecord, InstrumentRecord
 
 
 class InstrumentRepository:
@@ -52,6 +52,11 @@ class InstrumentRepository:
             return list(result.scalars().all())
 
     async def insert_batch(self, records: list[InstrumentRecord]) -> None:
+        async with self._session_factory() as session:
+            session.add_all(records)
+            await session.commit()
+
+    async def insert_batch_extensions(self, records: list[EquityExtensionRecord]) -> None:
         async with self._session_factory() as session:
             session.add_all(records)
             await session.commit()

@@ -8,7 +8,10 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 from uuid import uuid4
 
+import structlog
 from pydantic import BaseModel, ConfigDict, Field
+
+logger = structlog.get_logger()
 
 
 class BaseEvent(BaseModel):
@@ -39,7 +42,9 @@ class EventBus(Protocol):
 class InProcessEventBus:
     """Simple async event bus backed by handler lists.
 
-    Handlers run concurrently via asyncio.gather for each published event.
+    Handlers run concurrently via asyncio.gather. Each handler is isolated:
+    a failure in one handler does not cancel or prevent other handlers from
+    completing (return_exceptions=True).
     """
 
     def __init__(self) -> None:
@@ -47,8 +52,18 @@ class InProcessEventBus:
 
     async def publish(self, topic: str, event: BaseEvent) -> None:
         handlers = self._handlers.get(topic, [])
-        if handlers:
-            await asyncio.gather(*(h(event) for h in handlers))
+        if not handlers:
+            return
+        results = await asyncio.gather(*(h(event) for h in handlers), return_exceptions=True)
+        for handler, result in zip(handlers, results, strict=True):
+            if isinstance(result, Exception):
+                logger.error(
+                    "event_handler_failed",
+                    topic=topic,
+                    handler=getattr(handler, "__qualname__", str(handler)),
+                    event_id=event.event_id,
+                    error=str(result),
+                )
 
     def subscribe(self, topic: str, handler: EventHandler) -> None:
         self._handlers[topic].append(handler)
