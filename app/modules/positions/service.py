@@ -1,6 +1,6 @@
 """Position keeping business logic — implements PositionReader protocol."""
 
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from app.modules.positions.handlers import TradeHandler
 from app.modules.positions.interface import Position, TradeRequest
@@ -53,8 +53,6 @@ class PositionService:
 
     async def execute_trade(self, request: TradeRequest) -> Position:
         """Process a trade and return the updated position."""
-        from uuid import uuid4
-
         trade_id = str(uuid4())
         await self._trade_handler.handle_trade(
             portfolio_id=request.portfolio_id,

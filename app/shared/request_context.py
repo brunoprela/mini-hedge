@@ -55,8 +55,30 @@ SYSTEM_CONTEXT = RequestContext(
 
 
 def get_request_context() -> RequestContext:
-    """Get the current request context. Falls back to SYSTEM_CONTEXT if unset."""
-    return _current_context.get(SYSTEM_CONTEXT)
+    """Get the current request context. Raises if no context is set.
+
+    Use :func:`get_request_context_or_system` for code paths that
+    legitimately run outside a request (e.g. event handlers).
+    """
+    try:
+        return _current_context.get()
+    except LookupError:
+        raise RuntimeError(
+            "No request context set. This code path requires an authenticated request. "
+            "If running outside a request, use get_request_context_or_system()."
+        ) from None
+
+
+def get_request_context_or_system() -> RequestContext:
+    """Get the current request context, falling back to SYSTEM_CONTEXT.
+
+    Only use this for code paths that legitimately run outside a
+    request — e.g. event handlers triggered by the simulator.
+    """
+    try:
+        return _current_context.get()
+    except LookupError:
+        return SYSTEM_CONTEXT
 
 
 def set_request_context(ctx: RequestContext) -> None:

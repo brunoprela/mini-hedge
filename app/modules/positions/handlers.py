@@ -1,6 +1,6 @@
 """Event handlers for position keeping — trade processing and mark-to-market."""
 
-from datetime import UTC
+from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -45,8 +45,6 @@ class TradeHandler:
         position = PositionAggregate.from_events(portfolio_id, instrument_id, stored_events)
 
         # Build trade event
-        from datetime import datetime
-
         now = datetime.now(UTC)
         trade_event = {
             "event_type": f"trade.{side}",

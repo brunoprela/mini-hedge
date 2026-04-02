@@ -106,6 +106,49 @@ class AuthService:
             delegated_by=delegated_by,
         )
 
+    async def issue_user_token(self, email: str, fund_slug: str) -> tuple[str, str, list[str]]:
+        """Validate a user + fund membership and return (token, fund_slug, roles).
+
+        Raises ValueError with a human-readable message on failure.
+        """
+        user = await self._user_repo.get_by_email(email)
+        if user is None or not user.is_active:
+            raise ValueError("Unknown or inactive user")
+
+        fund = await self._fund_repo.get_by_slug(fund_slug)
+        if fund is None:
+            raise ValueError(f"Fund not found: {fund_slug}")
+
+        membership = await self._membership_repo.get_by_user_and_fund(user.id, fund.id)
+        if membership is None:
+            raise ValueError(f"User has no access to fund {fund_slug}")
+
+        roles = [membership.role]
+        token = self.create_token(
+            actor_id=user.id,
+            actor_type=ActorType.USER,
+            fund_slug=fund_slug,
+            roles=roles,
+        )
+        return token, fund_slug, roles
+
+    def issue_agent_token(
+        self,
+        *,
+        agent_id: str,
+        fund_slug: str,
+        roles: list[str],
+        delegated_by: str,
+    ) -> str:
+        """Issue a JWT scoped to *fund_slug* for an LLM agent."""
+        return self.create_token(
+            actor_id=agent_id,
+            actor_type=ActorType.AGENT,
+            fund_slug=fund_slug,
+            roles=roles,
+            delegated_by=delegated_by,
+        )
+
     def _claims_to_context(self, claims: TokenClaims) -> RequestContext:
         roles = frozenset(claims.roles)
         return RequestContext(

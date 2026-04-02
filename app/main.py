@@ -6,6 +6,9 @@ import asyncio
 import contextlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from decimal import Decimal
+from typing import TYPE_CHECKING
+from uuid import uuid4
 
 import structlog
 from alembic import command as alembic_command
@@ -15,12 +18,12 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
-from app.config import get_settings
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import async_sessionmaker
 
-# Module imports
+from app.config import get_settings
 from app.modules.market_data.interface import PriceSnapshot
 from app.modules.market_data.repository import PriceRepository
-from app.modules.market_data.routes import init_routes as init_market_data_routes
 from app.modules.market_data.routes import router as market_data_router
 from app.modules.market_data.service import MarketDataService
 from app.modules.market_data.simulator import MarketDataSimulator
@@ -42,18 +45,17 @@ from app.modules.platform.seed import (
 )
 from app.modules.positions.handlers import MarkToMarketHandler, TradeHandler
 from app.modules.positions.repository import CurrentPositionRepository, EventStoreRepository
-from app.modules.positions.routes import init_routes as init_position_routes
 from app.modules.positions.routes import router as positions_router
 from app.modules.positions.service import PositionService
 from app.modules.security_master.repository import InstrumentRepository
-from app.modules.security_master.routes import init_routes as init_security_master_routes
 from app.modules.security_master.routes import router as security_master_router
 from app.modules.security_master.seed import build_seed_records
 from app.modules.security_master.service import SecurityMasterService
+from app.shared.auth import Permission, require_permission
 from app.shared.database import build_engine
-from app.shared.events import InProcessEventBus
+from app.shared.events import BaseEvent, InProcessEventBus
 from app.shared.logging import setup_logging
-from app.shared.request_context import ActorType, set_request_context
+from app.shared.request_context import RequestContext, set_request_context
 
 logger = structlog.get_logger()
 
@@ -81,8 +83,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if request.url.path in PUBLIC_PATHS:
             return await call_next(request)
 
-        # Allow /auth/* endpoints without auth (they issue tokens)
-        if request.url.path.startswith("/auth/"):
+        # Allow /auth/token without auth (it issues tokens).
+        # /auth/agent-token requires auth via its own dependency.
+        if request.url.path == "/auth/token":
             return await call_next(request)
 
         auth_service: AuthService | None = getattr(request.app.state, "auth_service", None)
@@ -181,6 +184,120 @@ async def _seed_platform(
 
 
 # ---------------------------------------------------------------------------
+# Per-module setup helpers (called from lifespan)
+# ---------------------------------------------------------------------------
+
+
+async def _setup_platform(
+    fastapi_app: FastAPI,
+    session_factory: async_sessionmaker,  # type: ignore[type-arg]
+    settings: object,
+) -> AuthService:
+    """Wire platform module: repos, seeding, FGA, auth service."""
+    fund_repo = FundRepository(session_factory)
+    portfolio_repo = PortfolioRepository(session_factory)
+    user_repo = UserRepository(session_factory)
+    membership_repo = FundMembershipRepository(session_factory)
+    api_key_repo = APIKeyRepository(session_factory)
+
+    await _seed_platform(fund_repo, portfolio_repo, user_repo, membership_repo, api_key_repo)
+
+    auth_service = AuthService(
+        user_repo=user_repo,
+        fund_repo=fund_repo,
+        membership_repo=membership_repo,
+        api_key_repo=api_key_repo,
+        jwt_secret=settings.jwt_secret,  # type: ignore[attr-defined]
+        jwt_algorithm=settings.jwt_algorithm,  # type: ignore[attr-defined]
+        jwt_expiry_minutes=settings.jwt_expiry_minutes,  # type: ignore[attr-defined]
+    )
+    fastapi_app.state.auth_service = auth_service
+    return auth_service
+
+
+async def _setup_fga(fastapi_app: FastAPI, settings: object) -> object | None:
+    """Initialize OpenFGA if enabled. Returns the FGA client or None."""
+    if not settings.fga_enabled:  # type: ignore[attr-defined]
+        return None
+
+    import app.shared.fga_resources  # noqa: F401 — triggers resource type registration
+    from app.modules.platform.seed import build_seed_fga_tuples
+    from app.shared.fga import initialize_fga
+
+    fga_client = await initialize_fga(
+        api_url=settings.fga_api_url,  # type: ignore[attr-defined]
+        store_name=settings.fga_store_name,  # type: ignore[attr-defined]
+    )
+    fastapi_app.state.fga = fga_client
+    tuples = build_seed_fga_tuples()
+    await fga_client.write_tuples(tuples)
+    logger.info("fga_tuples_seeded", count=len(tuples))
+    return fga_client
+
+
+async def _setup_security_master(
+    fastapi_app: FastAPI,
+    session_factory: async_sessionmaker,  # type: ignore[type-arg]
+) -> None:
+    """Wire security master module: repo, service, seeding."""
+    instrument_repo = InstrumentRepository(session_factory)
+    fastapi_app.state.security_master_service = SecurityMasterService(instrument_repo)
+    await _seed_instruments(instrument_repo)
+
+
+def _setup_market_data(
+    fastapi_app: FastAPI,
+    session_factory: async_sessionmaker,  # type: ignore[type-arg]
+    event_bus: InProcessEventBus,
+) -> MarketDataService:
+    """Wire market data module: repo, service, price event handler."""
+    price_repo = PriceRepository(session_factory)
+    market_data_service = MarketDataService(price_repo)
+    fastapi_app.state.market_data_service = market_data_service
+
+    event_bus.subscribe("prices.normalized", _make_price_handler(market_data_service))
+    return market_data_service
+
+
+def _setup_positions(
+    fastapi_app: FastAPI,
+    session_factory: async_sessionmaker,  # type: ignore[type-arg]
+    event_bus: InProcessEventBus,
+) -> None:
+    """Wire positions module: repos, handlers, service, MTM subscription."""
+    event_store_repo = EventStoreRepository(session_factory)
+    position_repo = CurrentPositionRepository(session_factory)
+    trade_handler = TradeHandler(event_store_repo, position_repo, event_bus)
+    fastapi_app.state.position_service = PositionService(position_repo, trade_handler)
+
+    mtm_handler = MarkToMarketHandler(position_repo, event_bus)
+    event_bus.subscribe("prices.normalized", mtm_handler.handle_price_update)
+
+
+# ---------------------------------------------------------------------------
+# Event handlers (extracted from lifespan)
+# ---------------------------------------------------------------------------
+
+
+def _make_price_handler(market_data_service: MarketDataService):  # type: ignore[no-untyped-def]
+    """Create a price event handler bound to the given service."""
+
+    async def on_price_event(event: BaseEvent) -> None:
+        snapshot = PriceSnapshot(
+            instrument_id=event.data["instrument_id"],
+            bid=Decimal(event.data["bid"]),
+            ask=Decimal(event.data["ask"]),
+            mid=Decimal(event.data["mid"]),
+            timestamp=event.timestamp,
+            source=event.data["source"],
+        )
+        market_data_service.update_latest(snapshot)
+        await market_data_service.store_price(snapshot)
+
+    return on_price_event
+
+
+# ---------------------------------------------------------------------------
 # Lifespan
 # ---------------------------------------------------------------------------
 
@@ -203,81 +320,12 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     # Event bus
     event_bus = InProcessEventBus()
 
-    # --- Platform ---
-    fund_repo = FundRepository(session_factory)
-    portfolio_repo = PortfolioRepository(session_factory)
-    user_repo = UserRepository(session_factory)
-    membership_repo = FundMembershipRepository(session_factory)
-    api_key_repo = APIKeyRepository(session_factory)
-
-    await _seed_platform(fund_repo, portfolio_repo, user_repo, membership_repo, api_key_repo)
-
-    # --- OpenFGA ---
-    fga_client = None
-    if settings.fga_enabled:
-        import app.shared.fga_resources  # noqa: F401 — triggers resource type registration
-        from app.modules.platform.seed import build_seed_fga_tuples
-        from app.shared.fga import initialize_fga
-
-        fga_client = await initialize_fga(
-            api_url=settings.fga_api_url,
-            store_name=settings.fga_store_name,
-        )
-        fastapi_app.state.fga = fga_client
-        tuples = build_seed_fga_tuples()
-        await fga_client.write_tuples(tuples)
-        logger.info("fga_tuples_seeded", count=len(tuples))
-
-    # Auth service
-    auth_service = AuthService(
-        user_repo=user_repo,
-        fund_repo=fund_repo,
-        membership_repo=membership_repo,
-        api_key_repo=api_key_repo,
-        jwt_secret=settings.jwt_secret,
-        jwt_algorithm=settings.jwt_algorithm,
-        jwt_expiry_minutes=settings.jwt_expiry_minutes,
-    )
-    fastapi_app.state.auth_service = auth_service
-
-    # --- Security Master ---
-    instrument_repo = InstrumentRepository(session_factory)
-    security_master_service = SecurityMasterService(instrument_repo)
-    init_security_master_routes(security_master_service)
-    await _seed_instruments(instrument_repo)
-
-    # --- Market Data ---
-    price_repo = PriceRepository(session_factory)
-    market_data_service = MarketDataService(price_repo)
-    init_market_data_routes(market_data_service)
-
-    # Wire: price events update in-memory cache and persist to DB
-    async def on_price_event(event):  # type: ignore[no-untyped-def]
-        from decimal import Decimal
-
-        snapshot = PriceSnapshot(
-            instrument_id=event.data["instrument_id"],
-            bid=Decimal(event.data["bid"]),
-            ask=Decimal(event.data["ask"]),
-            mid=Decimal(event.data["mid"]),
-            timestamp=event.timestamp,
-            source=event.data["source"],
-        )
-        market_data_service.update_latest(snapshot)
-        await market_data_service.store_price(snapshot)
-
-    event_bus.subscribe("prices.normalized", on_price_event)
-
-    # --- Positions ---
-    event_store_repo = EventStoreRepository(session_factory)
-    position_repo = CurrentPositionRepository(session_factory)
-    trade_handler = TradeHandler(event_store_repo, position_repo, event_bus)
-    position_service = PositionService(position_repo, trade_handler)
-    init_position_routes(position_service)
-
-    # Wire: price events trigger mark-to-market
-    mtm_handler = MarkToMarketHandler(position_repo, event_bus)
-    event_bus.subscribe("prices.normalized", mtm_handler.handle_price_update)
+    # --- Module setup ---
+    await _setup_platform(fastapi_app, session_factory, settings)
+    fga_client = await _setup_fga(fastapi_app, settings)
+    await _setup_security_master(fastapi_app, session_factory)
+    _setup_market_data(fastapi_app, session_factory, event_bus)
+    _setup_positions(fastapi_app, session_factory, event_bus)
 
     # --- Simulator ---
     simulator_task: asyncio.Task | None = None  # type: ignore[type-arg]
@@ -346,9 +394,7 @@ class TokenResponse(BaseModel):
 
 class AgentTokenRequest(BaseModel):
     agent_name: str
-    fund_slug: str = "fund-alpha"
     roles: list[str] = ["viewer"]
-    delegated_by_email: str | None = None
 
 
 @app.post("/auth/token", response_model=TokenResponse)
@@ -359,72 +405,44 @@ async def create_token(request: TokenRequest) -> TokenResponse:
     the user exists and issue a token directly.
     """
     auth: AuthService = app.state.auth_service
-    user = await auth._user_repo.get_by_email(request.email)
-    if user is None or not user.is_active:
-        raise HTTPException(status_code=401, detail="Unknown or inactive user")
-
-    # Look up fund membership to get role
-    fund = await auth._fund_repo.get_by_slug(request.fund_slug)
-    if fund is None:
-        raise HTTPException(status_code=404, detail=f"Fund not found: {request.fund_slug}")
-
-    membership = await auth._membership_repo.get_by_user_and_fund(user.id, fund.id)
-    if membership is None:
-        raise HTTPException(
-            status_code=403,
-            detail=f"User has no access to fund {request.fund_slug}",
-        )
-
-    token = auth.create_token(
-        actor_id=user.id,
-        actor_type=ActorType.USER,
-        fund_slug=request.fund_slug,
-        roles=[membership.role],
-    )
+    try:
+        token, fund_slug, roles = await auth.issue_user_token(request.email, request.fund_slug)
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e)) from e
 
     return TokenResponse(
         access_token=token,
         actor_type="user",
-        fund_slug=request.fund_slug,
-        roles=[membership.role],
+        fund_slug=fund_slug,
+        roles=roles,
     )
 
 
 @app.post("/auth/agent-token", response_model=TokenResponse)
-async def create_agent_token(request: AgentTokenRequest) -> TokenResponse:
+async def create_agent_token(
+    request: AgentTokenRequest,
+    ctx: RequestContext = require_permission(Permission.FUNDS_MANAGE),
+) -> TokenResponse:
     """Issue a JWT for an LLM agent.
 
-    If delegated_by_email is set, the token carries the delegating user's ID
-    so downstream systems can audit who authorized the agent.
+    Requires an authenticated user with ``funds:manage`` permission.
+    The agent token is scoped to the caller's fund and carries the
+    delegating user's ID for audit.
     """
     auth: AuthService = app.state.auth_service
 
-    fund = await auth._fund_repo.get_by_slug(request.fund_slug)
-    if fund is None:
-        raise HTTPException(status_code=404, detail=f"Fund not found: {request.fund_slug}")
-
-    delegated_by: str | None = None
-    if request.delegated_by_email:
-        user = await auth._user_repo.get_by_email(request.delegated_by_email)
-        if user is None:
-            raise HTTPException(status_code=404, detail="Delegating user not found")
-        delegated_by = user.id
-
-    from uuid import uuid4
-
     agent_id = str(uuid4())
-    token = auth.create_token(
-        actor_id=agent_id,
-        actor_type=ActorType.AGENT,
-        fund_slug=request.fund_slug,
+    token = auth.issue_agent_token(
+        agent_id=agent_id,
+        fund_slug=ctx.fund_slug,
         roles=request.roles,
-        delegated_by=delegated_by,
+        delegated_by=ctx.actor_id,
     )
 
     return TokenResponse(
         access_token=token,
         actor_type="agent",
-        fund_slug=request.fund_slug,
+        fund_slug=ctx.fund_slug,
         roles=request.roles,
     )
 
