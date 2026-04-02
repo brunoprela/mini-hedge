@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.modules.positions.handlers import TradeHandler
+from app.modules.positions.interface import TradeSide
 from app.modules.positions.repository import CurrentPositionRepository, EventStoreRepository
 from app.modules.positions.service import PositionService
 from app.shared.events import InProcessEventBus
@@ -46,7 +47,7 @@ class TestPositionKeeping:
         # Buy
         buy = make_trade(
             instrument_id="MSFT",
-            side="buy",
+            side=TradeSide.BUY,
             quantity=Decimal("50"),
             price=Decimal("400.00"),
         )
@@ -55,7 +56,7 @@ class TestPositionKeeping:
         # Sell at higher price
         sell = make_trade(
             instrument_id="MSFT",
-            side="sell",
+            side=TradeSide.SELL,
             quantity=Decimal("50"),
             price=Decimal("420.00"),
         )

@@ -17,6 +17,7 @@ import structlog
 from cachetools import TTLCache
 from jwt import PyJWTError
 
+from app.modules.platform.models import FundStatus
 from app.shared.auth import (
     TokenClaims,
     decode_keycloak_token,
@@ -111,7 +112,7 @@ class AuthService:
             return None
 
         fund = await self._fund_repo.get_by_id(record.fund_id)
-        if fund is None or fund.status != "active":
+        if fund is None or fund.status != FundStatus.ACTIVE:
             logger.warning("api_key_fund_inactive", fund_id=record.fund_id)
             return None
 

@@ -10,6 +10,7 @@ from app.modules.platform.models import (
     APIKeyRecord,
     FundMembershipRecord,
     FundRecord,
+    FundStatus,
     PortfolioRecord,
     UserRecord,
 )
@@ -31,7 +32,9 @@ class FundRepository:
 
     async def get_all_active(self) -> list[FundRecord]:
         async with self._session_factory() as session:
-            result = await session.execute(select(FundRecord).where(FundRecord.status == "active"))
+            result = await session.execute(
+                select(FundRecord).where(FundRecord.status == FundStatus.ACTIVE)
+            )
             return list(result.scalars().all())
 
     async def insert(self, record: FundRecord) -> None:
@@ -184,7 +187,7 @@ class FundMembershipRepository:
                 )
                 .where(
                     FundMembershipRecord.user_id == user_id,
-                    FundRecord.status == "active",
+                    FundRecord.status == FundStatus.ACTIVE,
                 )
             )
             return list(result.tuples().all())

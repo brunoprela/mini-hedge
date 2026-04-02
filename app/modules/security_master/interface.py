@@ -6,24 +6,15 @@ Other modules depend ONLY on this file, never on internals.
 from __future__ import annotations
 
 from datetime import date
-from enum import StrEnum
 from typing import Protocol
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
-# --- Value objects (immutable, serializable) ---
+from app.shared.types import AssetClass
 
-
-class AssetClass(StrEnum):
-    EQUITY = "equity"
-    FIXED_INCOME = "fixed_income"
-    OPTION = "option"
-    FUTURE = "future"
-    ETF = "etf"
-    FX = "fx"
-    SWAP = "swap"
-    PRIVATE = "private"
+# Re-export so existing consumers keep working
+__all__ = ["AssetClass", "Instrument", "SecurityMasterReader"]
 
 
 class Instrument(BaseModel):

@@ -10,6 +10,8 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any, Protocol
 
+from app.shared.types import AssetClass
+
 
 class PositionStrategy(Protocol):
     """Asset-class-specific position value calculation."""
@@ -47,12 +49,21 @@ class EquityPositionStrategy:
 
 # Registry: maps asset class to strategy implementation.
 # New asset classes register here — no changes to aggregate or handlers.
-POSITION_STRATEGIES: dict[str, PositionStrategy] = {
-    "equity": EquityPositionStrategy(),
-    "etf": EquityPositionStrategy(),
+POSITION_STRATEGIES: dict[AssetClass, PositionStrategy] = {
+    AssetClass.EQUITY: EquityPositionStrategy(),
+    AssetClass.ETF: EquityPositionStrategy(),
 }
 
 
-def get_position_strategy(asset_class: str) -> PositionStrategy:
-    """Look up the strategy for an asset class, defaulting to equity."""
-    return POSITION_STRATEGIES.get(asset_class, POSITION_STRATEGIES["equity"])
+def get_position_strategy(asset_class: AssetClass) -> PositionStrategy:
+    """Look up the strategy for an asset class.
+
+    Raises KeyError if no strategy is registered for the given asset class.
+    """
+    try:
+        return POSITION_STRATEGIES[asset_class]
+    except KeyError:
+        raise KeyError(
+            f"No position strategy registered for asset class '{asset_class}'. "
+            f"Registered: {sorted(POSITION_STRATEGIES.keys())}"
+        ) from None

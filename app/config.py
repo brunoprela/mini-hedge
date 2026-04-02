@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     log_level: str = "DEBUG"
 
     simulator_interval_ms: int = 1000
-    simulator_enabled: bool = True
+    simulator_enabled: bool = False
 
     jwt_secret: str = _DEV_JWT_SECRET
     jwt_algorithm: str = "HS256"
@@ -28,7 +28,8 @@ class Settings(BaseSettings):
     fga_enabled: bool = True
 
     keycloak_url: str = "http://localhost:8180"
-    keycloak_browser_url: str = ""  # Browser-facing URL for issuer validation; defaults to keycloak_url
+    # Browser-facing URL for issuer validation; defaults to keycloak_url
+    keycloak_browser_url: str = ""
     keycloak_realm: str = "minihedge"
     keycloak_client_id: str = "mini-hedge-ui"
 

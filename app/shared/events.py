@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import defaultdict
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any, Protocol
 from uuid import uuid4
@@ -28,7 +29,7 @@ class BaseEvent(BaseModel):
     fund_slug: str | None = None
 
 
-EventHandler = Any  # Callable[[BaseEvent], Awaitable[None]] — relaxed for Protocol compat
+EventHandler = Callable[[BaseEvent], Awaitable[None]]
 
 
 class EventBus(Protocol):

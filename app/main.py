@@ -8,13 +8,11 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import TYPE_CHECKING
-from uuid import uuid4
 
 import structlog
 from alembic import command as alembic_command
 from alembic.config import Config as AlembicConfig
-from fastapi import Depends, FastAPI, Request, Response
-from pydantic import BaseModel
+from fastapi import FastAPI, Request, Response
 from sqlalchemy import text
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
@@ -35,6 +33,7 @@ from app.modules.platform.repository import (
     PortfolioRepository,
     UserRepository,
 )
+from app.modules.platform.routes import router as platform_router
 from app.modules.platform.seed import (
     DEV_API_KEY,
     build_seed_api_key,
@@ -51,11 +50,10 @@ from app.modules.security_master.repository import InstrumentRepository
 from app.modules.security_master.routes import router as security_master_router
 from app.modules.security_master.seed import build_seed_records
 from app.modules.security_master.service import SecurityMasterService
-from app.shared.auth import Permission, get_actor_context, require_permission
 from app.shared.database import build_engine
 from app.shared.events import BaseEvent, InProcessEventBus
 from app.shared.logging import setup_logging
-from app.shared.request_context import RequestContext, set_request_context
+from app.shared.request_context import set_request_context
 
 logger = structlog.get_logger()
 
@@ -380,77 +378,12 @@ async def _unhandled_exception_handler(request: Request, exc: Exception) -> Resp
         media_type="application/json",
     )
 
+
 # Register routers
+app.include_router(platform_router, prefix="/api/v1")
 app.include_router(security_master_router, prefix="/api/v1")
 app.include_router(market_data_router, prefix="/api/v1")
 app.include_router(positions_router, prefix="/api/v1")
-
-
-# ---------------------------------------------------------------------------
-# Auth endpoints
-# ---------------------------------------------------------------------------
-
-
-class AgentTokenRequest(BaseModel):
-    agent_name: str
-    roles: list[str] = ["viewer"]
-
-
-class AgentTokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    actor_type: str
-    fund_slug: str
-    roles: list[str]
-
-
-class FundInfo(BaseModel):
-    fund_slug: str
-    fund_name: str
-    role: str
-
-
-@app.get("/api/v1/me/funds", response_model=list[FundInfo])
-async def list_my_funds(
-    ctx: RequestContext = Depends(get_actor_context),
-) -> list[FundInfo]:
-    """Return all funds the authenticated user has access to.
-
-    Requires authentication only — no specific permission needed.
-    This endpoint bootstraps the fund selector before fund context exists.
-    """
-    auth: AuthService = app.state.auth_service
-    funds = await auth.get_user_funds(ctx.actor_id)
-    return [FundInfo(**f) for f in funds]
-
-
-@app.post("/auth/agent-token", response_model=AgentTokenResponse)
-async def create_agent_token(
-    request: AgentTokenRequest,
-    ctx: RequestContext = require_permission(Permission.FUNDS_MANAGE),
-) -> AgentTokenResponse:
-    """Issue a JWT for an LLM agent.
-
-    Requires an authenticated user with ``funds:manage`` permission.
-    The agent token is scoped to the caller's fund and carries the
-    delegating user's ID for audit.
-    """
-    auth: AuthService = app.state.auth_service
-
-    agent_id = str(uuid4())
-    token = auth.issue_agent_token(
-        agent_id=agent_id,
-        fund_slug=ctx.fund_slug,
-        roles=request.roles,
-        delegated_by=ctx.actor_id,
-    )
-
-    return AgentTokenResponse(
-        access_token=token,
-        actor_type="agent",
-        fund_slug=ctx.fund_slug,
-        roles=request.roles,
-    )
 
 
 @app.get("/health")

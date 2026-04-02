@@ -6,10 +6,12 @@ from app.modules.platform.models import (
     APIKeyRecord,
     FundMembershipRecord,
     FundRecord,
+    FundStatus,
     PortfolioRecord,
     UserRecord,
 )
-from app.shared.auth import hash_api_key
+from app.shared.auth import Role, hash_api_key
+from app.shared.request_context import ActorType
 
 # Fixed UUIDs for reproducible local development
 DEFAULT_FUND_ID = "10000000-0000-0000-0000-000000000001"
@@ -27,7 +29,7 @@ def build_seed_fund() -> FundRecord:
         id=DEFAULT_FUND_ID,
         slug="fund-alpha",
         name="Alpha Capital Partners",
-        status="active",
+        status=FundStatus.ACTIVE,
         base_currency="USD",
     )
 
@@ -64,7 +66,7 @@ def build_seed_membership() -> FundMembershipRecord:
     return FundMembershipRecord(
         user_id=DEFAULT_USER_ID,
         fund_id=DEFAULT_FUND_ID,
-        role="admin",
+        role=Role.ADMIN,
     )
 
 
@@ -73,9 +75,9 @@ def build_seed_api_key() -> APIKeyRecord:
         id=DEFAULT_API_KEY_ID,
         key_hash=hash_api_key(DEV_API_KEY),
         name="Dev API Key",
-        actor_type="apikey",
+        actor_type=ActorType.API_KEY,
         fund_id=DEFAULT_FUND_ID,
-        roles=["admin"],
+        roles=[Role.ADMIN],
     )
 
 

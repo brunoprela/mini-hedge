@@ -7,6 +7,8 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
+from app.modules.positions.interface import PositionEventType
+
 
 @dataclass
 class LotState:
@@ -42,9 +44,9 @@ class PositionAggregate:
     def apply(self, event: dict) -> list[dict]:
         """Apply an event and return any downstream events to emit."""
         match event["event_type"]:
-            case "trade.buy":
+            case PositionEventType.TRADE_BUY:
                 return self._apply_buy(event)
-            case "trade.sell":
+            case PositionEventType.TRADE_SELL:
                 return self._apply_sell(event)
             case _:
                 return []
@@ -116,7 +118,7 @@ class PositionAggregate:
 
     def _position_changed_event(self) -> dict:
         return {
-            "event_type": "position.changed",
+            "event_type": PositionEventType.POSITION_CHANGED,
             "data": {
                 "portfolio_id": str(self.portfolio_id),
                 "instrument_id": self.instrument_id,
@@ -128,7 +130,7 @@ class PositionAggregate:
 
     def _pnl_realized_event(self, amount: Decimal, price: Decimal) -> dict:
         return {
-            "event_type": "pnl.realized",
+            "event_type": PositionEventType.PNL_REALIZED,
             "data": {
                 "portfolio_id": str(self.portfolio_id),
                 "instrument_id": self.instrument_id,

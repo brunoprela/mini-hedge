@@ -66,5 +66,6 @@ class PositionService:
 
         # Return updated position
         position = await self.get_position(request.portfolio_id, request.instrument_id.upper())
-        assert position is not None
+        if position is None:
+            raise RuntimeError(f"Position read-back failed after trade for {request.instrument_id}")
         return position

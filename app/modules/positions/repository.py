@@ -46,10 +46,12 @@ class EventStoreRepository:
         event_type: str,
         event_data: dict,
         sequence_number: int,
+        fund_slug: str,
     ) -> None:
         async with self._session_factory() as session:
             event = PositionEvent(
                 aggregate_id=aggregate_id,
+                fund_slug=fund_slug,
                 sequence_number=sequence_number,
                 event_type=event_type,
                 event_data=event_data,
@@ -97,6 +99,7 @@ class CurrentPositionRepository:
         cost_basis: Decimal,
         realized_pnl: Decimal,
         currency: str,
+        fund_slug: str,
     ) -> None:
         async with self._session_factory() as session:
             now = datetime.now(UTC)
@@ -105,6 +108,7 @@ class CurrentPositionRepository:
                 .values(
                     portfolio_id=str(portfolio_id),
                     instrument_id=instrument_id,
+                    fund_slug=fund_slug,
                     quantity=quantity,
                     avg_cost=avg_cost,
                     cost_basis=cost_basis,

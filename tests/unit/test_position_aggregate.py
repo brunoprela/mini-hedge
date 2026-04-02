@@ -3,6 +3,7 @@
 from decimal import Decimal
 
 from app.modules.positions.aggregate import PositionAggregate
+from app.modules.positions.interface import PositionEventType, TradeSide
 from tests.factories import DEFAULT_PORTFOLIO_ID, make_trade_event
 
 
@@ -19,7 +20,7 @@ class TestBuy:
         assert len(agg.lots) == 1
         assert agg.lots[0].quantity == Decimal("100")
         assert len(downstream) == 1
-        assert downstream[0]["event_type"] == "position.changed"
+        assert downstream[0]["event_type"] == PositionEventType.POSITION_CHANGED
 
     def test_multiple_buys_average_cost(self) -> None:
         agg = PositionAggregate(portfolio_id=DEFAULT_PORTFOLIO_ID, instrument_id="AAPL")
@@ -36,10 +37,12 @@ class TestBuy:
 class TestSell:
     def test_sell_fifo_realized_pnl(self) -> None:
         agg = PositionAggregate(portfolio_id=DEFAULT_PORTFOLIO_ID, instrument_id="AAPL")
-        agg.apply(make_trade_event(side="buy", quantity="100", price="100.00"))
-        agg.apply(make_trade_event(side="buy", quantity="100", price="200.00"))
+        agg.apply(make_trade_event(side=TradeSide.BUY, quantity="100", price="100.00"))
+        agg.apply(make_trade_event(side=TradeSide.BUY, quantity="100", price="200.00"))
 
-        downstream = agg.apply(make_trade_event(side="sell", quantity="100", price="180.00"))
+        downstream = agg.apply(
+            make_trade_event(side=TradeSide.SELL, quantity="100", price="180.00")
+        )
 
         # FIFO: sells from first lot (bought at 100), realized = 100 * (180 - 100) = 8000
         assert agg.quantity == Decimal("100")
@@ -50,9 +53,9 @@ class TestSell:
 
     def test_sell_partial_lot(self) -> None:
         agg = PositionAggregate(portfolio_id=DEFAULT_PORTFOLIO_ID, instrument_id="AAPL")
-        agg.apply(make_trade_event(side="buy", quantity="100", price="100.00"))
+        agg.apply(make_trade_event(side=TradeSide.BUY, quantity="100", price="100.00"))
 
-        agg.apply(make_trade_event(side="sell", quantity="50", price="120.00"))
+        agg.apply(make_trade_event(side=TradeSide.SELL, quantity="50", price="120.00"))
 
         assert agg.quantity == Decimal("50")
         assert agg.realized_pnl == Decimal("1000.00")  # 50 * (120 - 100)
@@ -61,9 +64,9 @@ class TestSell:
 
     def test_sell_all_clears_position(self) -> None:
         agg = PositionAggregate(portfolio_id=DEFAULT_PORTFOLIO_ID, instrument_id="AAPL")
-        agg.apply(make_trade_event(side="buy", quantity="100", price="100.00"))
+        agg.apply(make_trade_event(side=TradeSide.BUY, quantity="100", price="100.00"))
 
-        agg.apply(make_trade_event(side="sell", quantity="100", price="110.00"))
+        agg.apply(make_trade_event(side=TradeSide.SELL, quantity="100", price="110.00"))
 
         assert agg.quantity == Decimal("0")
         assert agg.cost_basis == Decimal("0")
@@ -75,7 +78,7 @@ class TestShortSelling:
     def test_short_sell_creates_negative_lot(self) -> None:
         agg = PositionAggregate(portfolio_id=DEFAULT_PORTFOLIO_ID, instrument_id="AAPL")
 
-        agg.apply(make_trade_event(side="sell", quantity="100", price="150.00"))
+        agg.apply(make_trade_event(side=TradeSide.SELL, quantity="100", price="150.00"))
 
         assert agg.quantity == Decimal("-100")
         assert len(agg.lots) == 1
@@ -85,9 +88,9 @@ class TestShortSelling:
 class TestFromEvents:
     def test_rebuild_from_events(self) -> None:
         events = [
-            make_trade_event(side="buy", quantity="100", price="100.00"),
-            make_trade_event(side="buy", quantity="50", price="120.00"),
-            make_trade_event(side="sell", quantity="75", price="130.00"),
+            make_trade_event(side=TradeSide.BUY, quantity="100", price="100.00"),
+            make_trade_event(side=TradeSide.BUY, quantity="50", price="120.00"),
+            make_trade_event(side=TradeSide.SELL, quantity="75", price="130.00"),
         ]
 
         agg = PositionAggregate.from_events(DEFAULT_PORTFOLIO_ID, "AAPL", events)

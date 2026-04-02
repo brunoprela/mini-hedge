@@ -14,11 +14,14 @@ from enum import StrEnum
 from uuid import uuid4
 
 import jwt
+import structlog
 from fastapi import Depends, HTTPException, Request
 from jwt import PyJWKClient
 from pydantic import BaseModel, ConfigDict
 
 from app.shared.request_context import ActorType, RequestContext, get_request_context
+
+logger = structlog.get_logger()
 
 # ---------------------------------------------------------------------------
 # RBAC: Roles and Permissions
@@ -99,6 +102,7 @@ def resolve_permissions(roles: frozenset[str]) -> frozenset[str]:
         try:
             role = Role(role_name)
         except ValueError:
+            logger.warning("unknown_role_ignored", role=role_name)
             continue
         perms |= ROLE_PERMISSIONS.get(role, frozenset())
     return frozenset(perms)

@@ -58,8 +58,6 @@ async def execute_trade(
     ctx: RequestContext = require_permission(Permission.TRADES_EXECUTE),
     _access: None = require_access(Portfolio.relation("can_trade"), source=ParamSource.BODY),
 ) -> Position:
-    if trade_request.side not in ("buy", "sell"):
-        raise HTTPException(status_code=400, detail="side must be 'buy' or 'sell'")
     if trade_request.quantity <= 0:
         raise HTTPException(status_code=400, detail="quantity must be positive")
     if trade_request.price <= 0:

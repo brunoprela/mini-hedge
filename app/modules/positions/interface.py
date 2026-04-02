@@ -7,10 +7,23 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
+from enum import StrEnum
 from typing import Protocol
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
+
+
+class TradeSide(StrEnum):
+    BUY = "buy"
+    SELL = "sell"
+
+
+class PositionEventType(StrEnum):
+    TRADE_BUY = "trade.buy"
+    TRADE_SELL = "trade.sell"
+    POSITION_CHANGED = "position.changed"
+    PNL_REALIZED = "pnl.realized"
 
 
 class Position(BaseModel):
@@ -57,7 +70,7 @@ class TradeRequest(BaseModel):
 
     portfolio_id: UUID
     instrument_id: str
-    side: str  # "buy" or "sell"
+    side: TradeSide
     quantity: Decimal
     price: Decimal
     currency: str = "USD"

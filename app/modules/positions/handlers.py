@@ -7,10 +7,12 @@ from uuid import UUID
 import structlog
 
 from app.modules.positions.aggregate import PositionAggregate
+from app.modules.positions.interface import PositionEventType, TradeSide
 from app.modules.positions.repository import CurrentPositionRepository, EventStoreRepository
 from app.modules.positions.strategy import get_position_strategy
 from app.shared.events import BaseEvent, EventBus
 from app.shared.request_context import get_request_context
+from app.shared.types import AssetClass
 
 logger = structlog.get_logger()
 
@@ -32,12 +34,13 @@ class TradeHandler:
         self,
         portfolio_id: UUID,
         instrument_id: str,
-        side: str,
+        side: TradeSide,
         quantity: Decimal,
         price: Decimal,
         trade_id: str,
         currency: str = "USD",
     ) -> None:
+        ctx = get_request_context()
         aggregate_id = f"{portfolio_id}:{instrument_id}"
 
         # Load current state from event store
@@ -46,8 +49,11 @@ class TradeHandler:
 
         # Build trade event
         now = datetime.now(UTC)
+        event_type = (
+            PositionEventType.TRADE_BUY if side == TradeSide.BUY else PositionEventType.TRADE_SELL
+        )
         trade_event = {
-            "event_type": f"trade.{side}",
+            "event_type": event_type,
             "timestamp": now.isoformat(),
             "data": {
                 "portfolio_id": str(portfolio_id),
@@ -70,6 +76,7 @@ class TradeHandler:
             event_type=trade_event["event_type"],
             event_data=trade_event["data"],
             sequence_number=seq,
+            fund_slug=ctx.fund_slug,
         )
 
         # Update read model
@@ -81,12 +88,16 @@ class TradeHandler:
             cost_basis=position.cost_basis,
             realized_pnl=position.realized_pnl,
             currency=currency,
+            fund_slug=ctx.fund_slug,
         )
 
         # Publish downstream events with actor context
-        ctx = get_request_context()
         for de in downstream_events:
-            topic = "positions.changed" if "position" in de["event_type"] else "pnl.updated"
+            topic = (
+                "positions.changed"
+                if de["event_type"] == PositionEventType.POSITION_CHANGED
+                else "pnl.realized"
+            )
             await self._event_bus.publish(
                 topic,
                 BaseEvent(
@@ -126,7 +137,7 @@ class MarkToMarketHandler:
         positions = await self._position_repo.get_by_instrument(instrument_id)
         # Use equity strategy for now; when positions store asset_class,
         # look up the correct strategy per position.
-        strategy = get_position_strategy("equity")
+        strategy = get_position_strategy(AssetClass.EQUITY)
 
         for pos in positions:
             new_market_value = strategy.market_value(pos.quantity, new_price)

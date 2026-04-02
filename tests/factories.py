@@ -5,8 +5,9 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 
 from app.modules.market_data.interface import PriceSnapshot
-from app.modules.positions.interface import TradeRequest
-from app.modules.security_master.interface import AssetClass, Instrument
+from app.modules.positions.interface import PositionEventType, TradeRequest, TradeSide
+from app.modules.security_master.interface import Instrument
+from app.shared.types import AssetClass
 
 DEFAULT_PORTFOLIO_ID = UUID("00000000-0000-0000-0000-000000000001")
 
@@ -62,7 +63,7 @@ def make_trade(
     *,
     portfolio_id: UUID = DEFAULT_PORTFOLIO_ID,
     instrument_id: str = "AAPL",
-    side: str = "buy",
+    side: TradeSide = TradeSide.BUY,
     quantity: Decimal = Decimal("100"),
     price: Decimal = Decimal("150.00"),
     currency: str = "USD",
@@ -81,14 +82,17 @@ def make_trade_event(
     *,
     portfolio_id: UUID = DEFAULT_PORTFOLIO_ID,
     instrument_id: str = "AAPL",
-    side: str = "buy",
+    side: TradeSide = TradeSide.BUY,
     quantity: str = "100",
     price: str = "150.00",
     trade_id: str | None = None,
     timestamp: str | None = None,
 ) -> dict:
+    event_type = (
+        PositionEventType.TRADE_BUY if side == TradeSide.BUY else PositionEventType.TRADE_SELL
+    )
     return {
-        "event_type": f"trade.{side}",
+        "event_type": event_type,
         "timestamp": timestamp or datetime.now(UTC).isoformat(),
         "data": {
             "portfolio_id": str(portfolio_id),

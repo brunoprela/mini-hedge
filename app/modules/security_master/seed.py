@@ -5,6 +5,7 @@ from decimal import Decimal
 from uuid import uuid4
 
 from app.modules.security_master.models import EquityExtensionRecord, InstrumentRecord
+from app.shared.types import AssetClass
 
 # Each entry contains instrument fields + an optional "shares_outstanding"
 # that seeds the equity_extensions table.
@@ -12,7 +13,7 @@ SEED_INSTRUMENTS: list[dict[str, object]] = [
     {
         "name": "Apple Inc.",
         "ticker": "AAPL",
-        "asset_class": "equity",
+        "asset_class": AssetClass.EQUITY,
         "currency": "USD",
         "exchange": "NASDAQ",
         "country": "US",
@@ -24,7 +25,7 @@ SEED_INSTRUMENTS: list[dict[str, object]] = [
     {
         "name": "Microsoft Corporation",
         "ticker": "MSFT",
-        "asset_class": "equity",
+        "asset_class": AssetClass.EQUITY,
         "currency": "USD",
         "exchange": "NASDAQ",
         "country": "US",
@@ -36,7 +37,7 @@ SEED_INSTRUMENTS: list[dict[str, object]] = [
     {
         "name": "Alphabet Inc.",
         "ticker": "GOOGL",
-        "asset_class": "equity",
+        "asset_class": AssetClass.EQUITY,
         "currency": "USD",
         "exchange": "NASDAQ",
         "country": "US",
@@ -48,7 +49,7 @@ SEED_INSTRUMENTS: list[dict[str, object]] = [
     {
         "name": "Amazon.com Inc.",
         "ticker": "AMZN",
-        "asset_class": "equity",
+        "asset_class": AssetClass.EQUITY,
         "currency": "USD",
         "exchange": "NASDAQ",
         "country": "US",
@@ -60,7 +61,7 @@ SEED_INSTRUMENTS: list[dict[str, object]] = [
     {
         "name": "JPMorgan Chase & Co.",
         "ticker": "JPM",
-        "asset_class": "equity",
+        "asset_class": AssetClass.EQUITY,
         "currency": "USD",
         "exchange": "NYSE",
         "country": "US",
@@ -72,7 +73,7 @@ SEED_INSTRUMENTS: list[dict[str, object]] = [
     {
         "name": "Goldman Sachs Group Inc.",
         "ticker": "GS",
-        "asset_class": "equity",
+        "asset_class": AssetClass.EQUITY,
         "currency": "USD",
         "exchange": "NYSE",
         "country": "US",
@@ -84,7 +85,7 @@ SEED_INSTRUMENTS: list[dict[str, object]] = [
     {
         "name": "Johnson & Johnson",
         "ticker": "JNJ",
-        "asset_class": "equity",
+        "asset_class": AssetClass.EQUITY,
         "currency": "USD",
         "exchange": "NYSE",
         "country": "US",
@@ -96,7 +97,7 @@ SEED_INSTRUMENTS: list[dict[str, object]] = [
     {
         "name": "Exxon Mobil Corporation",
         "ticker": "XOM",
-        "asset_class": "equity",
+        "asset_class": AssetClass.EQUITY,
         "currency": "USD",
         "exchange": "NYSE",
         "country": "US",
@@ -108,7 +109,7 @@ SEED_INSTRUMENTS: list[dict[str, object]] = [
     {
         "name": "Tesla Inc.",
         "ticker": "TSLA",
-        "asset_class": "equity",
+        "asset_class": AssetClass.EQUITY,
         "currency": "USD",
         "exchange": "NASDAQ",
         "country": "US",
@@ -120,7 +121,7 @@ SEED_INSTRUMENTS: list[dict[str, object]] = [
     {
         "name": "NVIDIA Corporation",
         "ticker": "NVDA",
-        "asset_class": "equity",
+        "asset_class": AssetClass.EQUITY,
         "currency": "USD",
         "exchange": "NASDAQ",
         "country": "US",
