@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
@@ -35,9 +36,11 @@ class TenantSessionFactory:
         async with self._inner() as session:
             fund_id = self._resolve_fund_id()
             if fund_id is not None:
+                # SET LOCAL doesn't support bind parameters in PostgreSQL.
+                # Validate as UUID to prevent SQL injection, then interpolate.
+                safe_id = str(UUID(fund_id))
                 await session.execute(
-                    text("SET LOCAL app.current_fund_id = :fid"),
-                    {"fid": fund_id},
+                    text(f"SET LOCAL app.current_fund_id = '{safe_id}'"),
                 )
             else:
                 await session.execute(
@@ -47,12 +50,23 @@ class TenantSessionFactory:
 
     @staticmethod
     def _resolve_fund_id() -> str | None:
-        """Read fund_id from the current request context, or None for system."""
+        """Read fund_id from the current request context, or None for system.
+
+        Returns None (→ BYPASS) only when no request context exists at all,
+        which is correct for system processes like MTM and migrations.
+        If a request context exists but fund_id is missing, that's a bug
+        in the auth layer — raise rather than silently bypassing RLS.
+        """
         try:
             ctx = get_request_context()
-            return ctx.fund_id
         except RuntimeError:
-            return None
+            return None  # No request context → system/MTM → BYPASS
+        if ctx.fund_id is None:
+            raise RuntimeError(
+                f"Request context exists (actor={ctx.actor_id}) but fund_id is None. "
+                "This indicates a bug in the auth layer — RLS cannot be applied."
+            )
+        return ctx.fund_id
 
 
 def build_engine(
