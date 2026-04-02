@@ -25,7 +25,6 @@ from app.modules.market_data.repository import PriceRepository
 from app.modules.market_data.routes import router as market_data_router
 from app.modules.market_data.service import MarketDataService
 from app.modules.market_data.simulator import MarketDataSimulator
-from app.modules.platform.auth_service import AuthService
 from app.modules.platform.repository import (
     APIKeyRepository,
     FundMembershipRepository,
@@ -42,6 +41,7 @@ from app.modules.platform.seed import (
     build_seed_portfolios,
     build_seed_user,
 )
+from app.modules.platform.service import AuthService
 from app.modules.positions.handlers import MarkToMarketHandler, TradeHandler
 from app.modules.positions.repository import CurrentPositionRepository, EventStoreRepository
 from app.modules.positions.routes import router as positions_router

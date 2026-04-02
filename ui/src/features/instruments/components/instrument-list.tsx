@@ -1,19 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useFundContext } from "@/shared/hooks/use-fund-context";
-import {
-  instrumentsQueryOptions,
-  instrumentSearchQueryOptions,
-} from "../api";
+import { useInstruments, useInstrumentSearch } from "../hooks/use-instruments";
 
 export function InstrumentList() {
-  const { fundSlug } = useFundContext();
   const [search, setSearch] = useState("");
 
-  const allQuery = useQuery(instrumentsQueryOptions(fundSlug));
-  const searchQuery = useQuery(instrumentSearchQueryOptions(fundSlug, search));
+  const allQuery = useInstruments();
+  const searchQuery = useInstrumentSearch(search);
 
   const instruments = search.length >= 1 ? searchQuery.data : allQuery.data;
   const isLoading = search.length >= 1 ? searchQuery.isLoading : allQuery.isLoading;

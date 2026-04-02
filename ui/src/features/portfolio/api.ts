@@ -1,18 +1,8 @@
 import { queryOptions } from "@tanstack/react-query";
 import { clientFetch } from "@/shared/lib/api";
+import type { Position } from "./types";
 
-export interface Position {
-  instrument_id: string;
-  quantity: string;
-  avg_cost: string;
-  cost_basis: string;
-  realized_pnl: string;
-  market_price: string;
-  market_value: string;
-  unrealized_pnl: string;
-  currency: string;
-  last_updated: string;
-}
+export type { Position };
 
 export function positionsQueryOptions(fundSlug: string, portfolioId: string) {
   return queryOptions({

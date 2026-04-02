@@ -1,14 +1,8 @@
 import { queryOptions } from "@tanstack/react-query";
 import { clientFetch } from "@/shared/lib/api";
+import type { PriceSnapshot } from "./types";
 
-export interface PriceSnapshot {
-  instrument_id: string;
-  bid: string;
-  ask: string;
-  mid: string;
-  timestamp: string;
-  source: string;
-}
+export type { PriceSnapshot };
 
 export function latestPriceQueryOptions(
   fundSlug: string,

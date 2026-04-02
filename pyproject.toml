@@ -50,6 +50,9 @@ ignore = [
     "TC003",  # typing-only-standard-library-import — interface files need runtime types for Pydantic
 ]
 
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-base-classes = ["pydantic.BaseModel"]
+
 [tool.mypy]
 python_version = "3.12"
 strict = true

@@ -1,7 +1,5 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { useFundContext } from "@/shared/hooks/use-fund-context";
 import {
   formatPrice,
   formatQuantity,
@@ -9,13 +7,10 @@ import {
   pnlColorClass,
   formatTimestamp,
 } from "@/shared/lib/formatters";
-import { positionsQueryOptions } from "../api";
+import { usePositions } from "../hooks/use-positions";
 
 export function PositionTable({ portfolioId }: { portfolioId: string }) {
-  const { fundSlug } = useFundContext();
-  const { data: positions, isLoading } = useQuery(
-    positionsQueryOptions(fundSlug, portfolioId)
-  );
+  const { data: positions, isLoading } = usePositions(portfolioId);
 
   if (isLoading) {
     return <p className="text-sm text-[var(--muted-foreground)]">Loading positions...</p>;

@@ -5,8 +5,9 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from app.modules.platform.auth_service import AuthService
-from app.shared.auth import Permission, get_actor_context, require_permission
+from app.modules.platform.interface import FundInfo
+from app.modules.platform.service import AuthService
+from app.shared.auth import Permission, get_actor_context, require_permission, resolve_permissions
 from app.shared.request_context import ActorType, RequestContext
 
 router = APIRouter(tags=["platform"])
@@ -35,12 +36,6 @@ class AgentTokenResponse(BaseModel):
     actor_type: str
     fund_slug: str
     roles: list[str]
-
-
-class FundInfo(BaseModel):
-    fund_slug: str
-    fund_name: str
-    role: str
 
 
 # ---------------------------------------------------------------------------
@@ -72,8 +67,19 @@ async def create_agent_token(
 
     Requires an authenticated user with ``funds:manage`` permission.
     The agent token is scoped to the caller's fund and carries the
-    delegating user's ID for audit.
+    delegating user's ID for audit. The agent cannot be granted more
+    permissions than the delegating user holds.
     """
+    # Prevent privilege escalation: agent permissions must be a subset
+    # of the delegator's permissions.
+    agent_permissions = resolve_permissions(frozenset(body.roles))
+    if not agent_permissions <= ctx.permissions:
+        escalated = sorted(agent_permissions - ctx.permissions)
+        raise HTTPException(
+            status_code=403,
+            detail=f"Cannot delegate permissions you don't hold: {', '.join(escalated)}",
+        )
+
     agent_id = str(uuid4())
     token = auth.issue_agent_token(
         agent_id=agent_id,

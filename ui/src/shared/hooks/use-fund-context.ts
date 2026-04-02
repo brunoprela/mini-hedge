@@ -3,12 +3,7 @@
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { clientFetch } from "@/shared/lib/api";
-
-export interface FundInfo {
-  fund_slug: string;
-  fund_name: string;
-  role: string;
-}
+import type { FundInfo } from "@/features/platform/types";
 
 export function useFundContext() {
   const params = useParams<{ fundSlug: string }>();
