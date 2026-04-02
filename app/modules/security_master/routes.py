@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.modules.security_master.interface import AssetClass, Instrument
 from app.modules.security_master.service import SecurityMasterService
@@ -14,8 +14,9 @@ router = APIRouter(prefix="/instruments", tags=["instruments"])
 
 
 def _get_service(request: Request) -> SecurityMasterService:
-    svc = getattr(request.app.state, "security_master_service", None)
-    service: SecurityMasterService | None = svc
+    service: SecurityMasterService | None = getattr(
+        request.app.state, "security_master_service", None
+    )
     if service is None:
         raise HTTPException(status_code=503, detail="SecurityMasterService not initialized")
     return service
@@ -23,30 +24,30 @@ def _get_service(request: Request) -> SecurityMasterService:
 
 @router.get("", response_model=list[Instrument])
 async def list_instruments(
-    request: Request,
     asset_class: AssetClass | None = Query(default=None),
     ctx: RequestContext = require_permission(Permission.INSTRUMENTS_READ),
+    service: SecurityMasterService = Depends(_get_service),
 ) -> list[Instrument]:
-    return await _get_service(request).get_all_active(asset_class)
+    return await service.get_all_active(asset_class)
 
 
 @router.get("/search", response_model=list[Instrument])
 async def search_instruments(
-    request: Request,
     q: str = Query(min_length=1),
     limit: int = Query(default=20, le=100),
     ctx: RequestContext = require_permission(Permission.INSTRUMENTS_READ),
+    service: SecurityMasterService = Depends(_get_service),
 ) -> list[Instrument]:
-    return await _get_service(request).search(q, limit)
+    return await service.search(q, limit)
 
 
 @router.get("/{instrument_id}", response_model=Instrument)
 async def get_instrument(
-    request: Request,
     instrument_id: UUID,
     ctx: RequestContext = require_permission(Permission.INSTRUMENTS_READ),
+    service: SecurityMasterService = Depends(_get_service),
 ) -> Instrument:
     try:
-        return await _get_service(request).get_by_id(instrument_id)
+        return await service.get_by_id(instrument_id)
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=e.message) from e

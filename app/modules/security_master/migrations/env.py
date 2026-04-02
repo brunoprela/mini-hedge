@@ -44,6 +44,8 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection) -> None:  # type: ignore[no-untyped-def]
+    # Bypass RLS policies during migrations
+    connection.execute(text("SET app.current_fund_id = 'BYPASS'"))
     context.configure(
         connection=connection,
         target_metadata=target_metadata,

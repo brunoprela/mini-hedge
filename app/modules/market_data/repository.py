@@ -4,13 +4,13 @@ from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.modules.market_data.models import PriceRecord
+from app.shared.database import TenantSessionFactory
 
 
 class PriceRepository:
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(self, session_factory: TenantSessionFactory) -> None:
         self._session_factory = session_factory
 
     async def get_latest(self, instrument_id: str) -> PriceRecord | None:

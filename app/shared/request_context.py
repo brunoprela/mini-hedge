@@ -33,6 +33,7 @@ class RequestContext(BaseModel):
     actor_id: str
     actor_type: ActorType
     fund_slug: str
+    fund_id: str | None = None  # UUID of the fund, resolved during auth
     roles: frozenset[str] = frozenset()
     permissions: frozenset[str] = frozenset()
     request_id: str = Field(default_factory=lambda: str(uuid4()))

@@ -6,13 +6,13 @@ from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.modules.positions.models import CurrentPosition, PositionEvent
+from app.shared.database import TenantSessionFactory
 
 
 class EventStoreRepository:
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(self, session_factory: TenantSessionFactory) -> None:
         self._session_factory = session_factory
 
     async def get_events(self, aggregate_id: str) -> list[dict]:
@@ -46,12 +46,12 @@ class EventStoreRepository:
         event_type: str,
         event_data: dict,
         sequence_number: int,
-        fund_slug: str,
+        fund_id: str,
     ) -> None:
         async with self._session_factory() as session:
             event = PositionEvent(
                 aggregate_id=aggregate_id,
-                fund_slug=fund_slug,
+                fund_id=fund_id,
                 sequence_number=sequence_number,
                 event_type=event_type,
                 event_data=event_data,
@@ -61,7 +61,7 @@ class EventStoreRepository:
 
 
 class CurrentPositionRepository:
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(self, session_factory: TenantSessionFactory) -> None:
         self._session_factory = session_factory
 
     async def get_position(
@@ -99,7 +99,7 @@ class CurrentPositionRepository:
         cost_basis: Decimal,
         realized_pnl: Decimal,
         currency: str,
-        fund_slug: str,
+        fund_id: str,
     ) -> None:
         async with self._session_factory() as session:
             now = datetime.now(UTC)
@@ -108,7 +108,7 @@ class CurrentPositionRepository:
                 .values(
                     portfolio_id=str(portfolio_id),
                     instrument_id=instrument_id,
-                    fund_slug=fund_slug,
+                    fund_id=fund_id,
                     quantity=quantity,
                     avg_cost=avg_cost,
                     cost_basis=cost_basis,

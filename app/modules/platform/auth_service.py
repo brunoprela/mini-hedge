@@ -121,6 +121,7 @@ class AuthService:
             actor_id=record.id,
             actor_type=ActorType(record.actor_type),
             fund_slug=fund.slug,
+            fund_id=fund.id,
             roles=roles,
             permissions=resolve_permissions(roles),
         )
@@ -131,6 +132,7 @@ class AuthService:
         actor_id: str,
         actor_type: ActorType,
         fund_slug: str,
+        fund_id: str | None = None,
         roles: list[str],
         delegated_by: str | None = None,
     ) -> str:
@@ -139,6 +141,7 @@ class AuthService:
             actor_id=actor_id,
             actor_type=actor_type,
             fund_slug=fund_slug,
+            fund_id=fund_id,
             roles=roles,
             secret=self._jwt_secret,
             algorithm=self._jwt_algorithm,
@@ -177,6 +180,7 @@ class AuthService:
             return None
 
         # Resolve fund membership (with cache)
+        fund_id: str | None = None
         if fund_slug is None:
             # Default to first fund the user belongs to
             memberships = await self._membership_repo.get_by_user(user.id)
@@ -188,6 +192,7 @@ class AuthService:
             if fund is None:
                 return None
             fund_slug = fund.slug
+            fund_id = fund.id
             role = membership.role
         else:
             cache_key = (user.id, fund_slug)
@@ -207,6 +212,7 @@ class AuthService:
                         fund_slug=fund_slug,
                     )
                     return None
+                fund_id = fund.id
                 role = membership.role
                 self._membership_cache[cache_key] = role
 
@@ -215,6 +221,7 @@ class AuthService:
             actor_id=user.id,
             actor_type=ActorType.USER,
             fund_slug=fund_slug,
+            fund_id=fund_id,
             roles=roles,
             permissions=resolve_permissions(roles),
         )
@@ -249,6 +256,7 @@ class AuthService:
             actor_id=user.id,
             actor_type=ActorType.USER,
             fund_slug=fund_slug,
+            fund_id=fund.id,
             roles=roles,
         )
         return token, fund_slug, roles
@@ -258,6 +266,7 @@ class AuthService:
         *,
         agent_id: str,
         fund_slug: str,
+        fund_id: str | None = None,
         roles: list[str],
         delegated_by: str,
     ) -> str:
@@ -266,6 +275,7 @@ class AuthService:
             actor_id=agent_id,
             actor_type=ActorType.AGENT,
             fund_slug=fund_slug,
+            fund_id=fund_id,
             roles=roles,
             delegated_by=delegated_by,
         )
@@ -276,6 +286,7 @@ class AuthService:
             actor_id=claims.sub,
             actor_type=claims.actor_type,
             fund_slug=claims.fund_slug,
+            fund_id=claims.fund_id,
             roles=roles,
             permissions=resolve_permissions(roles),
             delegated_by=claims.delegated_by,

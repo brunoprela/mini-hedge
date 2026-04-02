@@ -121,6 +121,7 @@ class TokenClaims(BaseModel):
     sub: str  # actor ID
     actor_type: ActorType
     fund_slug: str
+    fund_id: str | None = None  # UUID of the fund
     roles: list[str]
     exp: datetime
     iat: datetime
@@ -133,6 +134,7 @@ def encode_token(
     actor_id: str,
     actor_type: ActorType,
     fund_slug: str,
+    fund_id: str | None = None,
     roles: list[str],
     secret: str,
     algorithm: str = "HS256",
@@ -150,6 +152,8 @@ def encode_token(
         "exp": now + timedelta(minutes=expiry_minutes),
         "jti": str(uuid4()),
     }
+    if fund_id:
+        payload["fund_id"] = fund_id
     if delegated_by:
         payload["delegated_by"] = delegated_by
     return jwt.encode(payload, secret, algorithm=algorithm)
@@ -167,6 +171,7 @@ def decode_token(
         sub=payload["sub"],
         actor_type=ActorType(payload["actor_type"]),
         fund_slug=payload["fund_slug"],
+        fund_id=payload.get("fund_id"),
         roles=payload["roles"],
         exp=datetime.fromtimestamp(payload["exp"], tz=UTC),
         iat=datetime.fromtimestamp(payload["iat"], tz=UTC),

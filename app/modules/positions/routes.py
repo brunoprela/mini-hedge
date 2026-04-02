@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.modules.positions.interface import Position, TradeRequest
 from app.modules.positions.service import PositionService
@@ -23,12 +23,12 @@ def _get_service(request: Request) -> PositionService:
 
 @router.get("/{portfolio_id}/positions", response_model=list[Position])
 async def list_positions(
-    request: Request,
     portfolio_id: UUID,
     ctx: RequestContext = require_permission(Permission.POSITIONS_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
+    service: PositionService = Depends(_get_service),
 ) -> list[Position]:
-    return await _get_service(request).get_portfolio_positions(portfolio_id)
+    return await service.get_portfolio_positions(portfolio_id)
 
 
 @router.get(
@@ -36,13 +36,13 @@ async def list_positions(
     response_model=Position,
 )
 async def get_position(
-    request: Request,
     portfolio_id: UUID,
     instrument_id: str,
     ctx: RequestContext = require_permission(Permission.POSITIONS_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
+    service: PositionService = Depends(_get_service),
 ) -> Position:
-    position = await _get_service(request).get_position(portfolio_id, instrument_id.upper())
+    position = await service.get_position(portfolio_id, instrument_id.upper())
     if position is None:
         raise HTTPException(
             status_code=404,
@@ -53,13 +53,13 @@ async def get_position(
 
 @router.post("/trades", response_model=Position, status_code=201)
 async def execute_trade(
-    request: Request,
     trade_request: TradeRequest,
     ctx: RequestContext = require_permission(Permission.TRADES_EXECUTE),
     _access: None = require_access(Portfolio.relation("can_trade"), source=ParamSource.BODY),
+    service: PositionService = Depends(_get_service),
 ) -> Position:
     if trade_request.quantity <= 0:
         raise HTTPException(status_code=400, detail="quantity must be positive")
     if trade_request.price <= 0:
         raise HTTPException(status_code=400, detail="price must be positive")
-    return await _get_service(request).execute_trade(trade_request)
+    return await service.execute_trade(trade_request, ctx)

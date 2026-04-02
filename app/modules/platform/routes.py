@@ -50,24 +50,23 @@ class FundInfo(BaseModel):
 
 @router.get("/me/funds", response_model=list[FundInfo])
 async def list_my_funds(
-    request: Request,
     ctx: RequestContext = Depends(get_actor_context),
+    auth: AuthService = Depends(_get_auth_service),
 ) -> list[FundInfo]:
     """Return all funds the authenticated user has access to.
 
     Requires authentication only — no specific permission needed.
     This endpoint bootstraps the fund selector before fund context exists.
     """
-    auth = _get_auth_service(request)
     funds = await auth.get_user_funds(ctx.actor_id)
     return [FundInfo(**f) for f in funds]
 
 
 @router.post("/auth/agent-token", response_model=AgentTokenResponse)
 async def create_agent_token(
-    request: Request,
     body: AgentTokenRequest,
     ctx: RequestContext = require_permission(Permission.FUNDS_MANAGE),
+    auth: AuthService = Depends(_get_auth_service),
 ) -> AgentTokenResponse:
     """Issue a JWT for an LLM agent.
 
@@ -75,12 +74,11 @@ async def create_agent_token(
     The agent token is scoped to the caller's fund and carries the
     delegating user's ID for audit.
     """
-    auth = _get_auth_service(request)
-
     agent_id = str(uuid4())
     token = auth.issue_agent_token(
         agent_id=agent_id,
         fund_slug=ctx.fund_slug,
+        fund_id=ctx.fund_id,
         roles=body.roles,
         delegated_by=ctx.actor_id,
     )

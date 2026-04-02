@@ -3,13 +3,14 @@
 from decimal import Decimal
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.modules.positions.handlers import TradeHandler
 from app.modules.positions.interface import TradeSide
 from app.modules.positions.repository import CurrentPositionRepository, EventStoreRepository
 from app.modules.positions.service import PositionService
+from app.shared.database import TenantSessionFactory
 from app.shared.events import InProcessEventBus
+from app.shared.request_context import RequestContext
 from tests.factories import DEFAULT_PORTFOLIO_ID, make_trade
 
 
@@ -18,7 +19,8 @@ class TestPositionKeeping:
     @pytest.mark.asyncio
     async def test_buy_creates_position(
         self,
-        session_factory: async_sessionmaker[AsyncSession],
+        session_factory: TenantSessionFactory,
+        request_context: RequestContext,
     ) -> None:
         event_bus = InProcessEventBus()
         event_store = EventStoreRepository(session_factory)
@@ -27,7 +29,7 @@ class TestPositionKeeping:
         service = PositionService(position_repo, trade_handler)
 
         trade = make_trade(instrument_id="AAPL", quantity=Decimal("100"), price=Decimal("150.00"))
-        position = await service.execute_trade(trade)
+        position = await service.execute_trade(trade, request_context)
 
         assert position.quantity == Decimal("100")
         assert position.avg_cost == Decimal("150.00")
@@ -36,7 +38,8 @@ class TestPositionKeeping:
     @pytest.mark.asyncio
     async def test_buy_then_sell_realizes_pnl(
         self,
-        session_factory: async_sessionmaker[AsyncSession],
+        session_factory: TenantSessionFactory,
+        request_context: RequestContext,
     ) -> None:
         event_bus = InProcessEventBus()
         event_store = EventStoreRepository(session_factory)
@@ -51,7 +54,7 @@ class TestPositionKeeping:
             quantity=Decimal("50"),
             price=Decimal("400.00"),
         )
-        await service.execute_trade(buy)
+        await service.execute_trade(buy, request_context)
 
         # Sell at higher price
         sell = make_trade(
@@ -60,7 +63,7 @@ class TestPositionKeeping:
             quantity=Decimal("50"),
             price=Decimal("420.00"),
         )
-        position = await service.execute_trade(sell)
+        position = await service.execute_trade(sell, request_context)
 
         assert position.quantity == Decimal("0")
         # Realized P&L: 50 * (420 - 400) = 1000
@@ -68,7 +71,8 @@ class TestPositionKeeping:
     @pytest.mark.asyncio
     async def test_portfolio_positions(
         self,
-        session_factory: async_sessionmaker[AsyncSession],
+        session_factory: TenantSessionFactory,
+        request_context: RequestContext,
     ) -> None:
         event_bus = InProcessEventBus()
         event_store = EventStoreRepository(session_factory)
@@ -78,10 +82,12 @@ class TestPositionKeeping:
 
         # Buy two different instruments
         await service.execute_trade(
-            make_trade(instrument_id="GOOGL", quantity=Decimal("10"), price=Decimal("175.00"))
+            make_trade(instrument_id="GOOGL", quantity=Decimal("10"), price=Decimal("175.00")),
+            request_context,
         )
         await service.execute_trade(
-            make_trade(instrument_id="NVDA", quantity=Decimal("5"), price=Decimal("880.00"))
+            make_trade(instrument_id="NVDA", quantity=Decimal("5"), price=Decimal("880.00")),
+            request_context,
         )
 
         positions = await service.get_portfolio_positions(DEFAULT_PORTFOLIO_ID)

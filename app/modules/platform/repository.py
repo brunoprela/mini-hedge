@@ -4,7 +4,6 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.modules.platform.models import (
     APIKeyRecord,
@@ -14,10 +13,11 @@ from app.modules.platform.models import (
     PortfolioRecord,
     UserRecord,
 )
+from app.shared.database import TenantSessionFactory
 
 
 class FundRepository:
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(self, session_factory: TenantSessionFactory) -> None:
         self._session_factory = session_factory
 
     async def get_by_id(self, fund_id: str) -> FundRecord | None:
@@ -44,7 +44,7 @@ class FundRepository:
 
 
 class PortfolioRepository:
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(self, session_factory: TenantSessionFactory) -> None:
         self._session_factory = session_factory
 
     async def get_by_fund(self, fund_id: str) -> list[PortfolioRecord]:
@@ -76,7 +76,7 @@ class PortfolioRepository:
 
 
 class UserRepository:
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(self, session_factory: TenantSessionFactory) -> None:
         self._session_factory = session_factory
 
     async def get_by_id(self, user_id: str) -> UserRecord | None:
@@ -154,7 +154,7 @@ class UserRepository:
 
 
 class FundMembershipRepository:
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(self, session_factory: TenantSessionFactory) -> None:
         self._session_factory = session_factory
 
     async def get_by_user_and_fund(self, user_id: str, fund_id: str) -> FundMembershipRecord | None:
@@ -199,7 +199,7 @@ class FundMembershipRepository:
 
 
 class APIKeyRepository:
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(self, session_factory: TenantSessionFactory) -> None:
         self._session_factory = session_factory
 
     async def get_by_hash(self, key_hash: str) -> APIKeyRecord | None:

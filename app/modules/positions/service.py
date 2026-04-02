@@ -6,6 +6,7 @@ from app.modules.positions.handlers import TradeHandler
 from app.modules.positions.interface import Position, TradeRequest
 from app.modules.positions.models import CurrentPosition
 from app.modules.positions.repository import CurrentPositionRepository
+from app.shared.request_context import RequestContext
 
 
 def _to_position(record: CurrentPosition) -> Position:
@@ -51,10 +52,11 @@ class PositionService:
         records = await self._position_repo.get_portfolio_positions(portfolio_id)
         return [_to_position(r) for r in records]
 
-    async def execute_trade(self, request: TradeRequest) -> Position:
+    async def execute_trade(self, request: TradeRequest, ctx: RequestContext) -> Position:
         """Process a trade and return the updated position."""
         trade_id = str(uuid4())
         await self._trade_handler.handle_trade(
+            ctx=ctx,
             portfolio_id=request.portfolio_id,
             instrument_id=request.instrument_id.upper(),
             side=request.side,

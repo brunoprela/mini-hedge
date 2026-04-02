@@ -17,7 +17,7 @@ from sqlalchemy import text
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import async_sessionmaker
+    from app.shared.database import TenantSessionFactory
 
 from app.config import get_settings
 from app.modules.market_data.interface import PriceSnapshot
@@ -186,7 +186,7 @@ async def _seed_platform(
 
 async def _setup_platform(
     fastapi_app: FastAPI,
-    session_factory: async_sessionmaker,  # type: ignore[type-arg]
+    session_factory: TenantSessionFactory,
     settings: object,
 ) -> AuthService:
     """Wire platform module: repos, seeding, FGA, auth service."""
@@ -237,7 +237,7 @@ async def _setup_fga(fastapi_app: FastAPI, settings: object) -> object | None:
 
 async def _setup_security_master(
     fastapi_app: FastAPI,
-    session_factory: async_sessionmaker,  # type: ignore[type-arg]
+    session_factory: TenantSessionFactory,
 ) -> None:
     """Wire security master module: repo, service, seeding."""
     instrument_repo = InstrumentRepository(session_factory)
@@ -247,7 +247,7 @@ async def _setup_security_master(
 
 def _setup_market_data(
     fastapi_app: FastAPI,
-    session_factory: async_sessionmaker,  # type: ignore[type-arg]
+    session_factory: TenantSessionFactory,
     event_bus: InProcessEventBus,
 ) -> MarketDataService:
     """Wire market data module: repo, service, price event handler."""
@@ -261,7 +261,7 @@ def _setup_market_data(
 
 def _setup_positions(
     fastapi_app: FastAPI,
-    session_factory: async_sessionmaker,  # type: ignore[type-arg]
+    session_factory: TenantSessionFactory,
     event_bus: InProcessEventBus,
 ) -> None:
     """Wire positions module: repos, handlers, service, MTM subscription."""

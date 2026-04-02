@@ -11,7 +11,7 @@ from app.modules.positions.interface import PositionEventType, TradeSide
 from app.modules.positions.repository import CurrentPositionRepository, EventStoreRepository
 from app.modules.positions.strategy import get_position_strategy
 from app.shared.events import BaseEvent, EventBus
-from app.shared.request_context import get_request_context
+from app.shared.request_context import RequestContext
 from app.shared.types import AssetClass
 
 logger = structlog.get_logger()
@@ -32,6 +32,7 @@ class TradeHandler:
 
     async def handle_trade(
         self,
+        ctx: RequestContext,
         portfolio_id: UUID,
         instrument_id: str,
         side: TradeSide,
@@ -40,7 +41,6 @@ class TradeHandler:
         trade_id: str,
         currency: str = "USD",
     ) -> None:
-        ctx = get_request_context()
         aggregate_id = f"{portfolio_id}:{instrument_id}"
 
         # Load current state from event store
@@ -76,7 +76,7 @@ class TradeHandler:
             event_type=trade_event["event_type"],
             event_data=trade_event["data"],
             sequence_number=seq,
-            fund_slug=ctx.fund_slug,
+            fund_id=ctx.fund_id,
         )
 
         # Update read model
@@ -88,10 +88,10 @@ class TradeHandler:
             cost_basis=position.cost_basis,
             realized_pnl=position.realized_pnl,
             currency=currency,
-            fund_slug=ctx.fund_slug,
+            fund_id=ctx.fund_id,
         )
 
-        # Publish downstream events with actor context
+        # Publish downstream events
         for de in downstream_events:
             topic = (
                 "positions.changed"

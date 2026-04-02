@@ -3,14 +3,14 @@
 from uuid import UUID
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.modules.security_master.interface import AssetClass
 from app.modules.security_master.models import EquityExtensionRecord, InstrumentRecord
+from app.shared.database import TenantSessionFactory
 
 
 class InstrumentRepository:
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(self, session_factory: TenantSessionFactory) -> None:
         self._session_factory = session_factory
 
     async def get_by_id(self, instrument_id: UUID) -> InstrumentRecord | None:
