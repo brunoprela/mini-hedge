@@ -40,7 +40,7 @@ services:
       OPENFGA_PLAYGROUND_ENABLED: "true"
     ports:
       - "8080:8080"
-      - "3000:3000"
+      - "3001:3000"
     depends_on:
       openfga-migrate:
         condition: service_completed_successfully
@@ -90,7 +90,7 @@ services:
 
   app:
     build: .
-    profiles: ["app"]
+    profiles: ["core"]
     command: >
       sh -c "uv sync --frozen && uv run uvicorn app.main:app
       --host 0.0.0.0
@@ -104,6 +104,7 @@ services:
       FGA_STORE_NAME: "minihedge"
       FGA_ENABLED: "true"
       KEYCLOAK_URL: "http://keycloak:8180"
+      KEYCLOAK_BROWSER_URL: "http://localhost:8180"
       KEYCLOAK_REALM: "minihedge"
       KEYCLOAK_CLIENT_ID: "mini-hedge-ui"
       APP_ENV: "local"
@@ -123,6 +124,29 @@ services:
       keycloak:
         condition: service_healthy
       redis:
+        condition: service_healthy
+
+  ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile.dev
+    profiles: ["core"]
+    command: pnpm dev --hostname 0.0.0.0
+    ports:
+      - "3000:3000"
+    environment:
+      NEXTAUTH_URL: "http://localhost:3000"
+      NEXTAUTH_SECRET: "minihedge-ui-dev-secret-change-in-production"
+      AUTH_KEYCLOAK_ID: "mini-hedge-ui"
+      AUTH_KEYCLOAK_ISSUER: "http://keycloak:8180/realms/minihedge"
+      API_URL: "http://app:8000"
+      NEXT_PUBLIC_KEYCLOAK_ISSUER: "http://localhost:8180/realms/minihedge"
+      NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: "mini-hedge-ui"
+    volumes:
+      - ./ui/src:/app/src
+      - ./ui/public:/app/public
+    depends_on:
+      keycloak:
         condition: service_healthy
 
 volumes:

@@ -1,23 +1,27 @@
-.PHONY: up down install run migrate seed lint format typecheck tach-check test test-unit test-integration check
+.PHONY: up down install run run-local run-ui migrate seed lint format typecheck tach-check test test-unit test-integration check
 
 # --- Infrastructure ---
 
 up:
-	docker compose --profile core up -d
+	docker compose --profile core up -d --build
 
 down:
-	docker compose --profile core --profile app down
+	docker compose --profile core down
 
 # --- Development ---
 
 install:
 	uv sync
+	cd ui && pnpm install
 
-run:
-	docker compose --profile core --profile app up --build
+logs:
+	docker compose --profile core logs -f
 
 run-local:
 	uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+run-ui:
+	cd ui && pnpm dev
 
 migrate:
 	@for ctx in platform security_master market_data positions; do \

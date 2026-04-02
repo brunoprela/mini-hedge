@@ -56,6 +56,7 @@ class AuthService:
         jwt_algorithm: str = "HS256",
         jwt_expiry_minutes: int = 60,
         keycloak_url: str = "",
+        keycloak_browser_url: str = "",
         keycloak_realm: str = "",
         keycloak_client_id: str = "",
     ) -> None:
@@ -67,6 +68,7 @@ class AuthService:
         self._jwt_algorithm = jwt_algorithm
         self._jwt_expiry_minutes = jwt_expiry_minutes
         self._keycloak_url = keycloak_url
+        self._keycloak_browser_url = keycloak_browser_url
         self._keycloak_realm = keycloak_realm
         self._keycloak_client_id = keycloak_client_id
         self._membership_cache: TTLCache[tuple[str, str], str] = TTLCache(
@@ -157,6 +159,7 @@ class AuthService:
                 keycloak_url=self._keycloak_url,
                 realm=self._keycloak_realm,
                 client_id=self._keycloak_client_id,
+                keycloak_browser_url=self._keycloak_browser_url,
             )
         except PyJWTError as e:
             logger.warning("keycloak_jwt_validation_failed", error=str(e))

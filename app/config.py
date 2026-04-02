@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     fga_enabled: bool = True
 
     keycloak_url: str = "http://localhost:8180"
+    keycloak_browser_url: str = ""  # Browser-facing URL for issuer validation; defaults to keycloak_url
     keycloak_realm: str = "minihedge"
     keycloak_client_id: str = "mini-hedge-ui"
 

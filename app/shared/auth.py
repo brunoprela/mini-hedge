@@ -205,14 +205,20 @@ def decode_keycloak_token(
     keycloak_url: str,
     realm: str,
     client_id: str,
+    keycloak_browser_url: str = "",
 ) -> KeycloakClaims:
     """Decode and validate a Keycloak-issued JWT using JWKS.
+
+    *keycloak_url* is the server-side URL used to fetch JWKS keys.
+    *keycloak_browser_url*, when set, is used for issuer validation
+    (Keycloak stamps tokens with the browser-facing URL).
 
     Raises jwt.PyJWTError on failure (expired, bad signature, wrong audience).
     """
     jwk_client = get_jwk_client(keycloak_url, realm)
     signing_key = jwk_client.get_signing_key_from_jwt(token)
-    issuer = f"{keycloak_url}/realms/{realm}"
+    issuer_base = keycloak_browser_url or keycloak_url
+    issuer = f"{issuer_base}/realms/{realm}"
 
     payload = jwt.decode(
         token,

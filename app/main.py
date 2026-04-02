@@ -13,7 +13,7 @@ from uuid import uuid4
 import structlog
 from alembic import command as alembic_command
 from alembic.config import Config as AlembicConfig
-from fastapi import FastAPI, Request, Response
+from fastapi import Depends, FastAPI, Request, Response
 from pydantic import BaseModel
 from sqlalchemy import text
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -51,7 +51,7 @@ from app.modules.security_master.repository import InstrumentRepository
 from app.modules.security_master.routes import router as security_master_router
 from app.modules.security_master.seed import build_seed_records
 from app.modules.security_master.service import SecurityMasterService
-from app.shared.auth import Permission, require_permission
+from app.shared.auth import Permission, get_actor_context, require_permission
 from app.shared.database import build_engine
 from app.shared.events import BaseEvent, InProcessEventBus
 from app.shared.logging import setup_logging
@@ -209,6 +209,7 @@ async def _setup_platform(
         jwt_algorithm=settings.jwt_algorithm,  # type: ignore[attr-defined]
         jwt_expiry_minutes=settings.jwt_expiry_minutes,  # type: ignore[attr-defined]
         keycloak_url=settings.keycloak_url,  # type: ignore[attr-defined]
+        keycloak_browser_url=settings.keycloak_browser_url,  # type: ignore[attr-defined]
         keycloak_realm=settings.keycloak_realm,  # type: ignore[attr-defined]
         keycloak_client_id=settings.keycloak_client_id,  # type: ignore[attr-defined]
     )
@@ -369,6 +370,16 @@ app = FastAPI(
 # Auth middleware — registered at module level; looks up auth_service from app.state
 app.add_middleware(AuthMiddleware)
 
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception) -> Response:
+    logger.exception("unhandled_exception", path=request.url.path, error=str(exc))
+    return Response(
+        content='{"detail":"Internal server error"}',
+        status_code=500,
+        media_type="application/json",
+    )
+
 # Register routers
 app.include_router(security_master_router, prefix="/api/v1")
 app.include_router(market_data_router, prefix="/api/v1")
@@ -401,9 +412,13 @@ class FundInfo(BaseModel):
 
 @app.get("/api/v1/me/funds", response_model=list[FundInfo])
 async def list_my_funds(
-    ctx: RequestContext = require_permission(Permission.FUNDS_READ),
+    ctx: RequestContext = Depends(get_actor_context),
 ) -> list[FundInfo]:
-    """Return all funds the authenticated user has access to."""
+    """Return all funds the authenticated user has access to.
+
+    Requires authentication only — no specific permission needed.
+    This endpoint bootstraps the fund selector before fund context exists.
+    """
     auth: AuthService = app.state.auth_service
     funds = await auth.get_user_funds(ctx.actor_id)
     return [FundInfo(**f) for f in funds]
