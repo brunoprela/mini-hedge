@@ -46,7 +46,6 @@ class PositionChangedData(BaseModel):
     quantity: str
     avg_cost: str
     cost_basis: str
-    currency: str
 
 
 class PnLRealizedData(BaseModel):
@@ -57,5 +56,4 @@ class PnLRealizedData(BaseModel):
     portfolio_id: str
     instrument_id: str
     realized_pnl: str
-    trade_id: str
-    currency: str
+    price: str

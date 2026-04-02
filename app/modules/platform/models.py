@@ -2,9 +2,8 @@
 
 from datetime import datetime
 from enum import StrEnum
-from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, func, text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -28,7 +27,7 @@ class FundRecord(Base):
     )
 
     id: Mapped[str] = mapped_column(
-        PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
+        PG_UUID(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
     )
     slug: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -48,7 +47,7 @@ class PortfolioRecord(Base):
     )
 
     id: Mapped[str] = mapped_column(
-        PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
+        PG_UUID(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
     )
     fund_id: Mapped[str] = mapped_column(
         PG_UUID(as_uuid=False), ForeignKey("platform.funds.id"), nullable=False
@@ -71,7 +70,7 @@ class UserRecord(Base):
     )
 
     id: Mapped[str] = mapped_column(
-        PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
+        PG_UUID(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
     )
     keycloak_sub: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
@@ -116,7 +115,7 @@ class APIKeyRecord(Base):
     )
 
     id: Mapped[str] = mapped_column(
-        PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
+        PG_UUID(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
     )
     key_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)

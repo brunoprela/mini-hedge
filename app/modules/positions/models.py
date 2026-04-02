@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from decimal import Decimal
-from uuid import uuid4
 
 from sqlalchemy import (
     BigInteger,
@@ -12,6 +11,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -25,7 +25,7 @@ class Base(DeclarativeBase):
 # --- Event Store (append-only, source of truth) ---
 
 
-class PositionEvent(Base):
+class PositionEventRecord(Base):
     __tablename__ = "events"
     __table_args__ = (
         UniqueConstraint("aggregate_id", "sequence_number"),
@@ -36,7 +36,7 @@ class PositionEvent(Base):
     )
 
     id: Mapped[str] = mapped_column(
-        PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
+        PG_UUID(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
     )
     aggregate_id: Mapped[str] = mapped_column(String(128), nullable=False)
     fund_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)
@@ -54,7 +54,7 @@ class PositionEvent(Base):
 # --- Read Model: Current Positions (denormalized for fast queries) ---
 
 
-class CurrentPosition(Base):
+class CurrentPositionRecord(Base):
     __tablename__ = "current_positions"
     __table_args__ = (
         Index("ix_pos_current_portfolio", "portfolio_id"),

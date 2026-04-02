@@ -134,7 +134,7 @@ class PositionAggregate:
             "data": {
                 "portfolio_id": str(self.portfolio_id),
                 "instrument_id": self.instrument_id,
-                "realized_amount": str(amount),
+                "realized_pnl": str(amount),
                 "price": str(price),
             },
         }

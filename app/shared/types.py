@@ -21,5 +21,8 @@ class AssetClass(StrEnum):
 # catch accidental misuse (passing a portfolio_id where instrument_id is expected).
 InstrumentId = NewType("InstrumentId", str)
 
+# PortfolioId is a UUID stored as str in PostgreSQL (PG_UUID(as_uuid=False)).
+PortfolioId = NewType("PortfolioId", str)
+
 # Money is Decimal — never float for financial values.
 Money = NewType("Money", Decimal)

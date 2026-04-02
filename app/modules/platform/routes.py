@@ -53,8 +53,7 @@ async def list_my_funds(
     Requires authentication only — no specific permission needed.
     This endpoint bootstraps the fund selector before fund context exists.
     """
-    funds = await auth.get_user_funds(ctx.actor_id)
-    return [FundInfo(**f) for f in funds]
+    return await auth.get_user_funds(ctx.actor_id)
 
 
 @router.post("/auth/agent-token", response_model=AgentTokenResponse)

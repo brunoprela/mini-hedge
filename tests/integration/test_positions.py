@@ -90,7 +90,7 @@ class TestPositionKeeping:
             request_context,
         )
 
-        positions = await service.get_portfolio_positions(DEFAULT_PORTFOLIO_ID)
+        positions = await service.get_by_portfolio(DEFAULT_PORTFOLIO_ID)
         tickers = {p.instrument_id for p in positions}
         assert "GOOGL" in tickers
         assert "NVDA" in tickers

@@ -28,7 +28,7 @@ async def list_positions(
     _access: None = require_access(Portfolio.relation("can_view")),
     service: PositionService = Depends(_get_service),
 ) -> list[Position]:
-    return await service.get_portfolio_positions(portfolio_id)
+    return await service.get_by_portfolio(portfolio_id)
 
 
 @router.get(

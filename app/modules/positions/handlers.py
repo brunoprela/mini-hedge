@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 from decimal import Decimal
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import structlog
 
@@ -38,17 +38,17 @@ class TradeHandler:
         side: TradeSide,
         quantity: Decimal,
         price: Decimal,
-        trade_id: str,
         currency: str = "USD",
     ) -> None:
         aggregate_id = f"{portfolio_id}:{instrument_id}"
 
         # Load current state from event store
-        stored_events = await self._event_store.get_events(aggregate_id)
+        stored_events = await self._event_store.get_by_aggregate(aggregate_id)
         position = PositionAggregate.from_events(portfolio_id, instrument_id, stored_events)
 
         # Build trade event
         now = datetime.now(UTC)
+        trade_id = str(uuid4())
         event_type = (
             PositionEventType.TRADE_BUY if side == TradeSide.BUY else PositionEventType.TRADE_SELL
         )

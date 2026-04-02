@@ -7,7 +7,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from app.modules.positions.models import CurrentPosition, PositionEvent
+from app.modules.positions.models import CurrentPositionRecord, PositionEventRecord
 from app.shared.database import TenantSessionFactory
 
 
@@ -15,12 +15,12 @@ class EventStoreRepository:
     def __init__(self, session_factory: TenantSessionFactory) -> None:
         self._session_factory = session_factory
 
-    async def get_events(self, aggregate_id: str) -> list[dict]:
+    async def get_by_aggregate(self, aggregate_id: str) -> list[dict]:
         async with self._session_factory() as session:
             stmt = (
-                select(PositionEvent)
-                .where(PositionEvent.aggregate_id == aggregate_id)
-                .order_by(PositionEvent.sequence_number)
+                select(PositionEventRecord)
+                .where(PositionEventRecord.aggregate_id == aggregate_id)
+                .order_by(PositionEventRecord.sequence_number)
             )
             result = await session.execute(stmt)
             return [
@@ -34,8 +34,8 @@ class EventStoreRepository:
 
     async def get_next_sequence(self, aggregate_id: str) -> int:
         async with self._session_factory() as session:
-            stmt = select(func.coalesce(func.max(PositionEvent.sequence_number), 0)).where(
-                PositionEvent.aggregate_id == aggregate_id
+            stmt = select(func.coalesce(func.max(PositionEventRecord.sequence_number), 0)).where(
+                PositionEventRecord.aggregate_id == aggregate_id
             )
             result = await session.execute(stmt)
             return result.scalar_one() + 1
@@ -49,7 +49,7 @@ class EventStoreRepository:
         fund_id: str,
     ) -> None:
         async with self._session_factory() as session:
-            event = PositionEvent(
+            event = PositionEventRecord(
                 aggregate_id=aggregate_id,
                 fund_id=fund_id,
                 sequence_number=sequence_number,
@@ -68,24 +68,24 @@ class CurrentPositionRepository:
         self,
         portfolio_id: UUID,
         instrument_id: str,
-    ) -> CurrentPosition | None:
+    ) -> CurrentPositionRecord | None:
         async with self._session_factory() as session:
-            stmt = select(CurrentPosition).where(
-                CurrentPosition.portfolio_id == str(portfolio_id),
-                CurrentPosition.instrument_id == instrument_id,
+            stmt = select(CurrentPositionRecord).where(
+                CurrentPositionRecord.portfolio_id == str(portfolio_id),
+                CurrentPositionRecord.instrument_id == instrument_id,
             )
             result = await session.execute(stmt)
             return result.scalar_one_or_none()
 
-    async def get_portfolio_positions(
+    async def get_by_portfolio(
         self,
         portfolio_id: UUID,
-    ) -> list[CurrentPosition]:
+    ) -> list[CurrentPositionRecord]:
         async with self._session_factory() as session:
             stmt = (
-                select(CurrentPosition)
-                .where(CurrentPosition.portfolio_id == str(portfolio_id))
-                .order_by(CurrentPosition.instrument_id)
+                select(CurrentPositionRecord)
+                .where(CurrentPositionRecord.portfolio_id == str(portfolio_id))
+                .order_by(CurrentPositionRecord.instrument_id)
             )
             result = await session.execute(stmt)
             return list(result.scalars().all())
@@ -104,7 +104,7 @@ class CurrentPositionRepository:
         async with self._session_factory() as session:
             now = datetime.now(UTC)
             stmt = (
-                pg_insert(CurrentPosition)
+                pg_insert(CurrentPositionRecord)
                 .values(
                     portfolio_id=str(portfolio_id),
                     instrument_id=instrument_id,
@@ -142,9 +142,9 @@ class CurrentPositionRepository:
         unrealized_pnl: Decimal,
     ) -> None:
         async with self._session_factory() as session:
-            stmt = select(CurrentPosition).where(
-                CurrentPosition.portfolio_id == portfolio_id,
-                CurrentPosition.instrument_id == instrument_id,
+            stmt = select(CurrentPositionRecord).where(
+                CurrentPositionRecord.portfolio_id == portfolio_id,
+                CurrentPositionRecord.instrument_id == instrument_id,
             )
             result = await session.execute(stmt)
             position = result.scalar_one_or_none()
@@ -155,8 +155,10 @@ class CurrentPositionRepository:
                 position.last_updated = datetime.now(UTC)
                 await session.commit()
 
-    async def get_by_instrument(self, instrument_id: str) -> list[CurrentPosition]:
+    async def get_by_instrument(self, instrument_id: str) -> list[CurrentPositionRecord]:
         async with self._session_factory() as session:
-            stmt = select(CurrentPosition).where(CurrentPosition.instrument_id == instrument_id)
+            stmt = select(CurrentPositionRecord).where(
+                CurrentPositionRecord.instrument_id == instrument_id
+            )
             result = await session.execute(stmt)
             return list(result.scalars().all())

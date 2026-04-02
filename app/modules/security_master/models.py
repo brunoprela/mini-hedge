@@ -2,9 +2,8 @@
 
 from datetime import date, datetime
 from decimal import Decimal
-from uuid import uuid4
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Numeric, String, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Numeric, String, func, text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -22,7 +21,7 @@ class InstrumentRecord(Base):
     )
 
     id: Mapped[str] = mapped_column(
-        PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
+        PG_UUID(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     ticker: Mapped[str] = mapped_column(String(32), nullable=False, unique=True)

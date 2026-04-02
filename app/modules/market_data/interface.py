@@ -35,3 +35,11 @@ class MarketDataReader(Protocol):
         start: datetime,
         end: datetime,
     ) -> list[PriceSnapshot]: ...
+
+
+class PriceWriter(Protocol):
+    """Write interface for price ingestion (simulator, feeds)."""
+
+    def update_latest(self, snapshot: PriceSnapshot) -> None: ...
+
+    async def store_price(self, snapshot: PriceSnapshot) -> None: ...

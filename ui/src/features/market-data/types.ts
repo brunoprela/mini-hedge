@@ -4,6 +4,7 @@ export interface PriceSnapshot {
   bid: string;
   ask: string;
   mid: string;
+  volume: string | null;
   timestamp: string;
   source: string;
 }

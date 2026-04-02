@@ -1,12 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/shared/lib/auth";
 import { serverFetch } from "@/shared/lib/api";
-
-interface FundInfo {
-  fund_slug: string;
-  fund_name: string;
-  role: string;
-}
+import type { FundInfo } from "@/features/platform/types";
 
 export default async function RootPage() {
   const session = await auth();

@@ -85,7 +85,7 @@ class PositionReader(Protocol):
         instrument_id: str,
     ) -> Position | None: ...
 
-    async def get_portfolio_positions(
+    async def get_by_portfolio(
         self,
         portfolio_id: UUID,
     ) -> list[Position]: ...

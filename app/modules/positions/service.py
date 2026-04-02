@@ -1,15 +1,15 @@
 """Position keeping business logic — implements PositionReader protocol."""
 
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from app.modules.positions.handlers import TradeHandler
 from app.modules.positions.interface import Position, TradeRequest
-from app.modules.positions.models import CurrentPosition
+from app.modules.positions.models import CurrentPositionRecord
 from app.modules.positions.repository import CurrentPositionRepository
 from app.shared.request_context import RequestContext
 
 
-def _to_position(record: CurrentPosition) -> Position:
+def _to_position(record: CurrentPositionRecord) -> Position:
     return Position(
         portfolio_id=UUID(record.portfolio_id),
         instrument_id=record.instrument_id,
@@ -45,16 +45,15 @@ class PositionService:
             return None
         return _to_position(record)
 
-    async def get_portfolio_positions(
+    async def get_by_portfolio(
         self,
         portfolio_id: UUID,
     ) -> list[Position]:
-        records = await self._position_repo.get_portfolio_positions(portfolio_id)
+        records = await self._position_repo.get_by_portfolio(portfolio_id)
         return [_to_position(r) for r in records]
 
     async def execute_trade(self, request: TradeRequest, ctx: RequestContext) -> Position:
         """Process a trade and return the updated position."""
-        trade_id = str(uuid4())
         await self._trade_handler.handle_trade(
             ctx=ctx,
             portfolio_id=request.portfolio_id,
@@ -62,7 +61,6 @@ class PositionService:
             side=request.side,
             quantity=request.quantity,
             price=request.price,
-            trade_id=trade_id,
             currency=request.currency,
         )
 

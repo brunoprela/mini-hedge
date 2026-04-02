@@ -17,6 +17,7 @@ import structlog
 from cachetools import TTLCache
 from jwt import PyJWTError
 
+from app.modules.platform.interface import FundInfo
 from app.modules.platform.models import FundStatus
 from app.shared.auth import (
     TokenClaims,
@@ -226,11 +227,11 @@ class AuthService:
             permissions=resolve_permissions(roles),
         )
 
-    async def get_user_funds(self, user_id: str) -> list[dict[str, str]]:
+    async def get_user_funds(self, user_id: str) -> list[FundInfo]:
         """Return funds the user has access to (for /me/funds endpoint)."""
         pairs = await self._membership_repo.get_funds_for_user(user_id)
         return [
-            {"fund_slug": fund.slug, "fund_name": fund.name, "role": membership.role}
+            FundInfo(fund_slug=fund.slug, fund_name=fund.name, role=membership.role)
             for fund, membership in pairs
         ]
 

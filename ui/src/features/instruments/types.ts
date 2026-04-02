@@ -5,8 +5,10 @@ export interface Instrument {
   name: string;
   asset_class: string;
   currency: string;
-  exchange: string | null;
-  country: string | null;
+  exchange: string;
+  country: string;
   sector: string | null;
+  industry: string | null;
   is_active: boolean;
+  listed_date: string | null;
 }

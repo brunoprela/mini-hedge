@@ -23,7 +23,7 @@ class FundInfo(BaseModel):
     role: str
 
 
-class Authenticator(Protocol):
+class AuthReader(Protocol):
     """Authentication interface exposed to other modules."""
 
     async def authenticate_jwt(
@@ -32,4 +32,4 @@ class Authenticator(Protocol):
 
     async def authenticate_api_key(self, raw_key: str) -> RequestContext | None: ...
 
-    async def get_user_funds(self, user_id: str) -> list[dict[str, str]]: ...
+    async def get_user_funds(self, user_id: str) -> list[FundInfo]: ...

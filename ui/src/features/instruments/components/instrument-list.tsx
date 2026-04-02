@@ -47,7 +47,7 @@ export function InstrumentList() {
                   </td>
                   <td className="px-4 py-2">{inst.name}</td>
                   <td className="px-4 py-2">{inst.asset_class}</td>
-                  <td className="px-4 py-2">{inst.exchange ?? "-"}</td>
+                  <td className="px-4 py-2">{inst.exchange}</td>
                   <td className="px-4 py-2">{inst.currency}</td>
                 </tr>
               ))}
