@@ -8,7 +8,7 @@ depends_on = []
 
 [[modules]]
 path = "app.modules.platform"
-depends_on = []
+depends_on = ["app.shared"]
 
 [[modules]]
 path = "app.modules.security_master"

@@ -1,11 +1,9 @@
 """Alembic environment for the security_master bounded context."""
 
-import asyncio
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import pool, text
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy import create_engine, pool, text
 
 from app.modules.security_master.models import Base
 
@@ -19,13 +17,17 @@ target_metadata = Base.metadata
 
 
 def _get_url() -> str:
-    """Resolve database URL: alembic config override > app settings."""
+    """Resolve database URL: alembic config override > app settings.
+
+    Converts async URLs (asyncpg) to sync (psycopg2) for Alembic.
+    """
     url = config.get_section_option(config.config_ini_section, "sqlalchemy.url")
     if url:
         return url
     from app.config import get_settings
 
-    return get_settings().database_url
+    raw = get_settings().database_url
+    return raw.replace("+asyncpg", "")
 
 
 def run_migrations_offline() -> None:
@@ -52,17 +54,13 @@ def do_run_migrations(connection) -> None:  # type: ignore[no-untyped-def]
         context.run_migrations()
 
 
-async def run_async_migrations() -> None:
-    engine = create_async_engine(_get_url(), poolclass=pool.NullPool)
-    async with engine.connect() as connection:
-        await connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}"))
-        await connection.commit()
-        await connection.run_sync(do_run_migrations)
-    await engine.dispose()
-
-
 def run_migrations_online() -> None:
-    asyncio.run(run_async_migrations())
+    engine = create_engine(_get_url(), poolclass=pool.NullPool)
+    with engine.connect() as connection:
+        connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}"))
+        connection.commit()
+        do_run_migrations(connection)
+    engine.dispose()
 
 
 if context.is_offline_mode():

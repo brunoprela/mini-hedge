@@ -1,0 +1,64 @@
+"""Request context propagation via contextvars.
+
+Every request carries an actor context: who is acting, what kind of actor,
+which fund they're operating in, and what they're allowed to do. This replaces
+the simpler fund_context.py and serves as the single source of identity
+for the entire request lifecycle.
+
+contextvars is async-safe and scoped to the current task, so concurrent
+requests never leak context.
+"""
+
+from __future__ import annotations
+
+from contextvars import ContextVar
+from enum import StrEnum
+from uuid import uuid4
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class ActorType(StrEnum):
+    USER = "user"
+    API_KEY = "apikey"
+    AGENT = "agent"
+    SYSTEM = "system"
+
+
+class RequestContext(BaseModel):
+    """Immutable identity + authorization context for a single request."""
+
+    model_config = ConfigDict(frozen=True)
+
+    actor_id: str
+    actor_type: ActorType
+    fund_slug: str
+    roles: frozenset[str] = frozenset()
+    permissions: frozenset[str] = frozenset()
+    request_id: str = Field(default_factory=lambda: str(uuid4()))
+    delegated_by: str | None = None
+
+
+_current_context: ContextVar[RequestContext] = ContextVar("request_context")
+
+# Default fund for single-fund Phase 0 deployment
+DEFAULT_FUND_SLUG = "fund-alpha"
+
+# System context used during startup (migrations, seeding) — not a request
+SYSTEM_CONTEXT = RequestContext(
+    actor_id="system",
+    actor_type=ActorType.SYSTEM,
+    fund_slug=DEFAULT_FUND_SLUG,
+    roles=frozenset({"admin"}),
+    permissions=frozenset(),
+)
+
+
+def get_request_context() -> RequestContext:
+    """Get the current request context. Falls back to SYSTEM_CONTEXT if unset."""
+    return _current_context.get(SYSTEM_CONTEXT)
+
+
+def set_request_context(ctx: RequestContext) -> None:
+    """Set the request context for this async task."""
+    _current_context.set(ctx)

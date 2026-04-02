@@ -23,6 +23,9 @@ class BaseEvent(BaseModel):
     event_type: str
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     data: dict[str, Any]
+    actor_id: str | None = None
+    actor_type: str | None = None
+    fund_slug: str | None = None
 
 
 EventHandler = Any  # Callable[[BaseEvent], Awaitable[None]] — relaxed for Protocol compat

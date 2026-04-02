@@ -10,6 +10,7 @@ from app.modules.positions.aggregate import PositionAggregate
 from app.modules.positions.repository import CurrentPositionRepository, EventStoreRepository
 from app.modules.positions.strategy import get_position_strategy
 from app.shared.events import BaseEvent, EventBus
+from app.shared.request_context import get_request_context
 
 logger = structlog.get_logger()
 
@@ -84,12 +85,19 @@ class TradeHandler:
             currency=currency,
         )
 
-        # Publish downstream events
+        # Publish downstream events with actor context
+        ctx = get_request_context()
         for de in downstream_events:
             topic = "positions.changed" if "position" in de["event_type"] else "pnl.updated"
             await self._event_bus.publish(
                 topic,
-                BaseEvent(event_type=de["event_type"], data=de["data"]),
+                BaseEvent(
+                    event_type=de["event_type"],
+                    data=de["data"],
+                    actor_id=ctx.actor_id,
+                    actor_type=ctx.actor_type.value,
+                    fund_slug=ctx.fund_slug,
+                ),
             )
 
         logger.info(

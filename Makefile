@@ -6,7 +6,7 @@ up:
 	docker compose --profile core up -d
 
 down:
-	docker compose --profile core down
+	docker compose --profile core --profile app down
 
 # --- Development ---
 
@@ -14,6 +14,9 @@ install:
 	uv sync
 
 run:
+	docker compose --profile core --profile app up --build
+
+run-local:
 	uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 migrate:

@@ -1,16 +1,28 @@
-"""Data access for platform schema — funds and portfolios."""
+"""Data access for platform schema — funds, portfolios, users, API keys."""
 
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.modules.platform.models import FundRecord, PortfolioRecord
+from app.modules.platform.models import (
+    APIKeyRecord,
+    FundMembershipRecord,
+    FundRecord,
+    PortfolioRecord,
+    UserRecord,
+)
 
 
 class FundRepository:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
+
+    async def get_by_id(self, fund_id: str) -> FundRecord | None:
+        async with self._session_factory() as session:
+            result = await session.execute(select(FundRecord).where(FundRecord.id == fund_id))
+            return result.scalar_one_or_none()
 
     async def get_by_slug(self, slug: str) -> FundRecord | None:
         async with self._session_factory() as session:
@@ -57,4 +69,79 @@ class PortfolioRepository:
     async def insert_batch(self, records: list[PortfolioRecord]) -> None:
         async with self._session_factory() as session:
             session.add_all(records)
+            await session.commit()
+
+
+class UserRepository:
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+        self._session_factory = session_factory
+
+    async def get_by_id(self, user_id: str) -> UserRecord | None:
+        async with self._session_factory() as session:
+            result = await session.execute(select(UserRecord).where(UserRecord.id == user_id))
+            return result.scalar_one_or_none()
+
+    async def get_by_email(self, email: str) -> UserRecord | None:
+        async with self._session_factory() as session:
+            result = await session.execute(select(UserRecord).where(UserRecord.email == email))
+            return result.scalar_one_or_none()
+
+    async def insert(self, record: UserRecord) -> None:
+        async with self._session_factory() as session:
+            session.add(record)
+            await session.commit()
+
+    async def get_all_active(self) -> list[UserRecord]:
+        async with self._session_factory() as session:
+            result = await session.execute(select(UserRecord).where(UserRecord.is_active.is_(True)))
+            return list(result.scalars().all())
+
+
+class FundMembershipRepository:
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+        self._session_factory = session_factory
+
+    async def get_by_user_and_fund(self, user_id: str, fund_id: str) -> FundMembershipRecord | None:
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(FundMembershipRecord).where(
+                    FundMembershipRecord.user_id == user_id,
+                    FundMembershipRecord.fund_id == fund_id,
+                )
+            )
+            return result.scalar_one_or_none()
+
+    async def get_by_user(self, user_id: str) -> list[FundMembershipRecord]:
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(FundMembershipRecord).where(FundMembershipRecord.user_id == user_id)
+            )
+            return list(result.scalars().all())
+
+    async def insert(self, record: FundMembershipRecord) -> None:
+        async with self._session_factory() as session:
+            session.add(record)
+            await session.commit()
+
+
+class APIKeyRepository:
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+        self._session_factory = session_factory
+
+    async def get_by_hash(self, key_hash: str) -> APIKeyRecord | None:
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(APIKeyRecord).where(
+                    APIKeyRecord.key_hash == key_hash,
+                    APIKeyRecord.is_active.is_(True),
+                )
+            )
+            record = result.scalar_one_or_none()
+            if record and record.expires_at and record.expires_at < datetime.now(UTC):
+                return None
+            return record
+
+    async def insert(self, record: APIKeyRecord) -> None:
+        async with self._session_factory() as session:
+            session.add(record)
             await session.commit()

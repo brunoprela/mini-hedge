@@ -1,11 +1,25 @@
-"""Seed data for platform — default fund and portfolios."""
+"""Seed data for platform — default fund, portfolios, user, API key, and FGA tuples."""
 
-from app.modules.platform.models import FundRecord, PortfolioRecord
+from openfga_sdk.client.models import ClientTuple
+
+from app.modules.platform.models import (
+    APIKeyRecord,
+    FundMembershipRecord,
+    FundRecord,
+    PortfolioRecord,
+    UserRecord,
+)
+from app.shared.auth import hash_api_key
 
 # Fixed UUIDs for reproducible local development
 DEFAULT_FUND_ID = "10000000-0000-0000-0000-000000000001"
 PORTFOLIO_EQUITY_LS_ID = "20000000-0000-0000-0000-000000000001"
 PORTFOLIO_GLOBAL_MACRO_ID = "20000000-0000-0000-0000-000000000002"
+DEFAULT_USER_ID = "30000000-0000-0000-0000-000000000001"
+DEFAULT_API_KEY_ID = "40000000-0000-0000-0000-000000000001"
+
+# Well-known dev API key — printed on startup, used for local testing
+DEV_API_KEY = "mh_dev_00000000000000000000000000000001"
 
 
 def build_seed_fund() -> FundRecord:
@@ -33,5 +47,61 @@ def build_seed_portfolios() -> list[PortfolioRecord]:
             slug="global-macro",
             name="Global Macro",
             strategy="global_macro",
+        ),
+    ]
+
+
+def build_seed_user() -> UserRecord:
+    return UserRecord(
+        id=DEFAULT_USER_ID,
+        email="admin@minihedge.dev",
+        name="Dev Admin",
+        is_active=True,
+        mfa_verified=True,
+    )
+
+
+def build_seed_membership() -> FundMembershipRecord:
+    return FundMembershipRecord(
+        user_id=DEFAULT_USER_ID,
+        fund_id=DEFAULT_FUND_ID,
+        role="admin",
+    )
+
+
+def build_seed_api_key() -> APIKeyRecord:
+    return APIKeyRecord(
+        id=DEFAULT_API_KEY_ID,
+        key_hash=hash_api_key(DEV_API_KEY),
+        name="Dev API Key",
+        actor_type="apikey",
+        fund_id=DEFAULT_FUND_ID,
+        roles=["admin"],
+    )
+
+
+def build_seed_fga_tuples() -> list[ClientTuple]:
+    """Build OpenFGA relationship tuples matching the seed data.
+
+    The admin user is a fund admin, which inherits full access to all portfolios.
+    Each portfolio gets a parent pointer to its fund.
+    """
+    return [
+        # Admin user is fund admin
+        ClientTuple(
+            user=f"user:{DEFAULT_USER_ID}",
+            relation="admin",
+            object=f"fund:{DEFAULT_FUND_ID}",
+        ),
+        # Portfolio -> fund parent pointers
+        ClientTuple(
+            user=f"fund:{DEFAULT_FUND_ID}",
+            relation="fund",
+            object=f"portfolio:{PORTFOLIO_EQUITY_LS_ID}",
+        ),
+        ClientTuple(
+            user=f"fund:{DEFAULT_FUND_ID}",
+            relation="fund",
+            object=f"portfolio:{PORTFOLIO_GLOBAL_MACRO_ID}",
         ),
     ]

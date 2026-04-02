@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.1",
+  "type_definitions": [
+    {
+      "type": "user"
+    },
+    {
+      "type": "fund",
+      "relations": {
+        "member": { "this": {} },
+        "admin": { "this": {} }
+      },
+      "metadata": {
+        "relations": {
+          "member": { "directly_related_user_types": [{ "type": "user" }] },
+          "admin": { "directly_related_user_types": [{ "type": "user" }] }
+        }
+      }
+    },
+    {
+      "type": "portfolio",
+      "relations": {
+        "fund": { "this": {} },
+        "viewer": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "admin" } } }
+            ]
+          }
+        },
+        "trader": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "admin" } } }
+            ]
+          }
+        },
+        "manager": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "admin" } } }
+            ]
+          }
+        },
+        "can_view": {
+          "union": {
+            "child": [
+              { "computed_userset": { "relation": "viewer" } },
+              { "computed_userset": { "relation": "trader" } },
+              { "computed_userset": { "relation": "manager" } }
+            ]
+          }
+        },
+        "can_trade": {
+          "union": {
+            "child": [
+              { "computed_userset": { "relation": "trader" } },
+              { "computed_userset": { "relation": "manager" } }
+            ]
+          }
+        },
+        "can_manage": {
+          "computed_userset": { "relation": "manager" }
+        }
+      },
+      "metadata": {
+        "relations": {
+          "fund": { "directly_related_user_types": [{ "type": "fund" }] },
+          "viewer": { "directly_related_user_types": [{ "type": "user" }] },
+          "trader": { "directly_related_user_types": [{ "type": "user" }] },
+          "manager": { "directly_related_user_types": [{ "type": "user" }] },
+          "can_view": { "directly_related_user_types": [] },
+          "can_trade": { "directly_related_user_types": [] },
+          "can_manage": { "directly_related_user_types": [] }
+        }
+      }
+    }
+  ]
+}
