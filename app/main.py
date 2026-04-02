@@ -13,7 +13,7 @@ from uuid import uuid4
 import structlog
 from alembic import command as alembic_command
 from alembic.config import Config as AlembicConfig
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, Request, Response
 from pydantic import BaseModel
 from sqlalchemy import text
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -83,10 +83,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if request.url.path in PUBLIC_PATHS:
             return await call_next(request)
 
-        # Allow /auth/token without auth (it issues tokens).
         # /auth/agent-token requires auth via its own dependency.
-        if request.url.path == "/auth/token":
-            return await call_next(request)
 
         auth_service: AuthService | None = getattr(request.app.state, "auth_service", None)
         if auth_service is None:
@@ -109,10 +106,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
     async def _resolve_context(self, request: Request, auth: AuthService):  # type: ignore[no-untyped-def]
         auth_header = request.headers.get("authorization", "")
+        fund_slug = request.headers.get("x-fund-slug")
 
         if auth_header.startswith("Bearer "):
             token = auth_header[7:]
-            return await auth.authenticate_jwt(token)
+            return await auth.authenticate_jwt(token, fund_slug=fund_slug)
 
         if auth_header.startswith("ApiKey "):
             raw_key = auth_header[7:]
@@ -210,6 +208,9 @@ async def _setup_platform(
         jwt_secret=settings.jwt_secret,  # type: ignore[attr-defined]
         jwt_algorithm=settings.jwt_algorithm,  # type: ignore[attr-defined]
         jwt_expiry_minutes=settings.jwt_expiry_minutes,  # type: ignore[attr-defined]
+        keycloak_url=settings.keycloak_url,  # type: ignore[attr-defined]
+        keycloak_realm=settings.keycloak_realm,  # type: ignore[attr-defined]
+        keycloak_client_id=settings.keycloak_client_id,  # type: ignore[attr-defined]
     )
     fastapi_app.state.auth_service = auth_service
     return auth_service
@@ -379,12 +380,12 @@ app.include_router(positions_router, prefix="/api/v1")
 # ---------------------------------------------------------------------------
 
 
-class TokenRequest(BaseModel):
-    email: str
-    fund_slug: str = "fund-alpha"
+class AgentTokenRequest(BaseModel):
+    agent_name: str
+    roles: list[str] = ["viewer"]
 
 
-class TokenResponse(BaseModel):
+class AgentTokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     actor_type: str
@@ -392,37 +393,27 @@ class TokenResponse(BaseModel):
     roles: list[str]
 
 
-class AgentTokenRequest(BaseModel):
-    agent_name: str
-    roles: list[str] = ["viewer"]
+class FundInfo(BaseModel):
+    fund_slug: str
+    fund_name: str
+    role: str
 
 
-@app.post("/auth/token", response_model=TokenResponse)
-async def create_token(request: TokenRequest) -> TokenResponse:
-    """Issue a JWT for a registered user.
-
-    In production this would be behind an IdP — here we validate
-    the user exists and issue a token directly.
-    """
+@app.get("/api/v1/me/funds", response_model=list[FundInfo])
+async def list_my_funds(
+    ctx: RequestContext = require_permission(Permission.FUNDS_READ),
+) -> list[FundInfo]:
+    """Return all funds the authenticated user has access to."""
     auth: AuthService = app.state.auth_service
-    try:
-        token, fund_slug, roles = await auth.issue_user_token(request.email, request.fund_slug)
-    except ValueError as e:
-        raise HTTPException(status_code=401, detail=str(e)) from e
-
-    return TokenResponse(
-        access_token=token,
-        actor_type="user",
-        fund_slug=fund_slug,
-        roles=roles,
-    )
+    funds = await auth.get_user_funds(ctx.actor_id)
+    return [FundInfo(**f) for f in funds]
 
 
-@app.post("/auth/agent-token", response_model=TokenResponse)
+@app.post("/auth/agent-token", response_model=AgentTokenResponse)
 async def create_agent_token(
     request: AgentTokenRequest,
     ctx: RequestContext = require_permission(Permission.FUNDS_MANAGE),
-) -> TokenResponse:
+) -> AgentTokenResponse:
     """Issue a JWT for an LLM agent.
 
     Requires an authenticated user with ``funds:manage`` permission.
@@ -439,7 +430,7 @@ async def create_agent_token(
         delegated_by=ctx.actor_id,
     )
 
-    return TokenResponse(
+    return AgentTokenResponse(
         access_token=token,
         actor_type="agent",
         fund_slug=ctx.fund_slug,

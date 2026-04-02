@@ -59,16 +59,17 @@ class UserRecord(Base):
     __tablename__ = "users"
     __table_args__ = (
         Index("ix_platform_users_email", "email", unique=True),
+        Index("ix_platform_users_keycloak_sub", "keycloak_sub", unique=True),
         {"schema": "platform"},
     )
 
     id: Mapped[str] = mapped_column(
         PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
     )
+    keycloak_sub: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    mfa_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

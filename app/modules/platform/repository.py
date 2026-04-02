@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.modules.platform.models import (
@@ -91,6 +91,59 @@ class UserRepository:
             session.add(record)
             await session.commit()
 
+    async def get_by_keycloak_sub(self, keycloak_sub: str) -> UserRecord | None:
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(UserRecord).where(UserRecord.keycloak_sub == keycloak_sub)
+            )
+            return result.scalar_one_or_none()
+
+    async def upsert_from_keycloak(self, *, keycloak_sub: str, email: str, name: str) -> UserRecord:
+        """JIT sync: create or update a user from Keycloak claims."""
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(UserRecord).where(UserRecord.keycloak_sub == keycloak_sub)
+            )
+            user = result.scalar_one_or_none()
+
+            if user is not None:
+                if user.email != email or user.name != name:
+                    await session.execute(
+                        update(UserRecord)
+                        .where(UserRecord.id == user.id)
+                        .values(email=email, name=name)
+                    )
+                    await session.commit()
+                    user.email = email
+                    user.name = name
+                return user
+
+            # Check if a user with this email already exists (seed data)
+            result = await session.execute(select(UserRecord).where(UserRecord.email == email))
+            user = result.scalar_one_or_none()
+            if user is not None:
+                await session.execute(
+                    update(UserRecord)
+                    .where(UserRecord.id == user.id)
+                    .values(keycloak_sub=keycloak_sub, name=name)
+                )
+                await session.commit()
+                user.keycloak_sub = keycloak_sub
+                user.name = name
+                return user
+
+            # Brand new user
+            user = UserRecord(
+                keycloak_sub=keycloak_sub,
+                email=email,
+                name=name,
+                is_active=True,
+            )
+            session.add(user)
+            await session.commit()
+            await session.refresh(user)
+            return user
+
     async def get_all_active(self) -> list[UserRecord]:
         async with self._session_factory() as session:
             result = await session.execute(select(UserRecord).where(UserRecord.is_active.is_(True)))
@@ -117,6 +170,24 @@ class FundMembershipRepository:
                 select(FundMembershipRecord).where(FundMembershipRecord.user_id == user_id)
             )
             return list(result.scalars().all())
+
+    async def get_funds_for_user(
+        self, user_id: str
+    ) -> list[tuple[FundRecord, FundMembershipRecord]]:
+        """Return all (fund, membership) pairs for a user."""
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(FundRecord, FundMembershipRecord)
+                .join(
+                    FundMembershipRecord,
+                    FundRecord.id == FundMembershipRecord.fund_id,
+                )
+                .where(
+                    FundMembershipRecord.user_id == user_id,
+                    FundRecord.status == "active",
+                )
+            )
+            return list(result.tuples().all())
 
     async def insert(self, record: FundMembershipRecord) -> None:
         async with self._session_factory() as session:

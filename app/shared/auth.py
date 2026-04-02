@@ -15,6 +15,7 @@ from uuid import uuid4
 
 import jwt
 from fastapi import Depends, HTTPException, Request
+from jwt import PyJWKClient
 from pydantic import BaseModel, ConfigDict
 
 from app.shared.request_context import ActorType, RequestContext, get_request_context
@@ -156,7 +157,7 @@ def decode_token(
     secret: str,
     algorithm: str = "HS256",
 ) -> TokenClaims:
-    """Decode and validate a JWT. Raises jwt.PyJWTError on failure."""
+    """Decode and validate an app-issued JWT. Raises jwt.PyJWTError on failure."""
     payload = jwt.decode(token, secret, algorithms=[algorithm])
     return TokenClaims(
         sub=payload["sub"],
@@ -167,6 +168,69 @@ def decode_token(
         iat=datetime.fromtimestamp(payload["iat"], tz=UTC),
         jti=payload["jti"],
         delegated_by=payload.get("delegated_by"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Keycloak JWKS token validation
+# ---------------------------------------------------------------------------
+
+
+class KeycloakClaims(BaseModel):
+    """Decoded Keycloak JWT payload."""
+
+    model_config = ConfigDict(frozen=True)
+
+    sub: str  # Keycloak user ID (UUID)
+    email: str
+    name: str = ""
+    email_verified: bool = False
+
+
+_jwk_client: PyJWKClient | None = None
+
+
+def get_jwk_client(keycloak_url: str, realm: str) -> PyJWKClient:
+    """Get or create a cached PyJWKClient for the Keycloak realm."""
+    global _jwk_client
+    if _jwk_client is None:
+        jwks_url = f"{keycloak_url}/realms/{realm}/protocol/openid-connect/certs"
+        _jwk_client = PyJWKClient(jwks_url, cache_keys=True)
+    return _jwk_client
+
+
+def decode_keycloak_token(
+    token: str,
+    *,
+    keycloak_url: str,
+    realm: str,
+    client_id: str,
+) -> KeycloakClaims:
+    """Decode and validate a Keycloak-issued JWT using JWKS.
+
+    Raises jwt.PyJWTError on failure (expired, bad signature, wrong audience).
+    """
+    jwk_client = get_jwk_client(keycloak_url, realm)
+    signing_key = jwk_client.get_signing_key_from_jwt(token)
+    issuer = f"{keycloak_url}/realms/{realm}"
+
+    payload = jwt.decode(
+        token,
+        signing_key.key,
+        algorithms=["RS256"],
+        audience=["account", client_id],
+        issuer=issuer,
+    )
+
+    given = payload.get("given_name", "")
+    family = payload.get("family_name", "")
+    name = f"{given} {family}".strip() or payload.get("preferred_username", "")
+
+    return KeycloakClaims(
+        sub=payload["sub"],
+        email=payload.get("email", ""),
+        name=name,
+        email_verified=payload.get("email_verified", False),
     )
 
 

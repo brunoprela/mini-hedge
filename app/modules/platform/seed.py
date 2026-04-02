@@ -57,7 +57,6 @@ def build_seed_user() -> UserRecord:
         email="admin@minihedge.dev",
         name="Dev Admin",
         is_active=True,
-        mfa_verified=True,
     )
 
 

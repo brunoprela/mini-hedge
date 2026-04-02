@@ -50,6 +50,33 @@ services:
       timeout: 3s
       retries: 5
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.2
+    profiles: ["core"]
+    command: start-dev --import-realm --health-enabled=true
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: "jdbc:postgresql://postgres:5432/minihedge"
+      KC_DB_SCHEMA: keycloak
+      KC_DB_USERNAME: minihedge
+      KC_DB_PASSWORD: minihedge
+      KC_HTTP_PORT: "8180"
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8180:8180"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+      start_period: 30s
+
   redis:
     image: redis:7-alpine
     profiles: ["core"]
@@ -76,6 +103,9 @@ services:
       FGA_API_URL: "http://openfga:8080"
       FGA_STORE_NAME: "minihedge"
       FGA_ENABLED: "true"
+      KEYCLOAK_URL: "http://keycloak:8180"
+      KEYCLOAK_REALM: "minihedge"
+      KEYCLOAK_CLIENT_ID: "mini-hedge-ui"
       APP_ENV: "local"
       LOG_LEVEL: "DEBUG"
       SIMULATOR_ENABLED: "true"
@@ -89,6 +119,8 @@ services:
       postgres:
         condition: service_healthy
       openfga:
+        condition: service_healthy
+      keycloak:
         condition: service_healthy
       redis:
         condition: service_healthy

@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     fga_store_name: str = "minihedge"
     fga_enabled: bool = True
 
+    keycloak_url: str = "http://localhost:8180"
+    keycloak_realm: str = "minihedge"
+    keycloak_client_id: str = "mini-hedge-ui"
+
     @model_validator(mode="after")
     def _reject_dev_secret_in_production(self) -> "Settings":
         if self.app_env not in ("local", "test") and self.jwt_secret == _DEV_JWT_SECRET:
