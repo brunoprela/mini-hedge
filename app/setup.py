@@ -260,6 +260,94 @@ def setup_positions(
     event_bus.subscribe(shared_topic("prices.normalized"), mtm_handler.handle_price_update)
 
 
+async def setup_exposure(
+    fastapi_app: FastAPI,
+    session_factory: TenantSessionFactory,
+) -> None:
+    """Wire exposure module: repo, service."""
+    from app.modules.exposure.repository import ExposureRepository
+    from app.modules.exposure.service import ExposureService
+
+    exposure_repo = ExposureRepository(session_factory)
+    position_service = fastapi_app.state.position_service
+    sm_service = fastapi_app.state.security_master_service
+    exposure_service = ExposureService(
+        exposure_repo=exposure_repo,
+        position_service=position_service,
+        security_master_service=sm_service,
+    )
+    fastapi_app.state.exposure_service = exposure_service
+
+
+async def setup_compliance(
+    fastapi_app: FastAPI,
+    session_factory: TenantSessionFactory,
+    fund_repo: FundRepository,
+) -> None:
+    """Wire compliance module: repos, pre-trade gate, service, seeding."""
+    from app.modules.compliance.pre_trade import PreTradeGate
+    from app.modules.compliance.repository import (
+        RuleRepository,
+        ViolationRepository,
+    )
+    from app.modules.compliance.seed import build_seed_compliance_rules
+    from app.modules.compliance.service import ComplianceService
+
+    rule_repo = RuleRepository(session_factory)
+    violation_repo = ViolationRepository(session_factory)
+    position_service = fastapi_app.state.position_service
+
+    pre_trade_gate = PreTradeGate(
+        rule_repo=rule_repo,
+        position_service=position_service,
+    )
+
+    compliance_service = ComplianceService(
+        rule_repo=rule_repo,
+        violation_repo=violation_repo,
+        pre_trade_gate=pre_trade_gate,
+    )
+    fastapi_app.state.compliance_service = compliance_service
+
+    # Seed default compliance rules for each fund
+    active_funds = await fund_repo.get_all_active()
+    for fund in active_funds:
+        existing = await rule_repo.get_active_by_fund(fund.slug)
+        if not existing:
+            rules = build_seed_compliance_rules(fund.slug)
+            for rule in rules:
+                await rule_repo.insert(rule)
+            logger.info(
+                "compliance_rules_seeded",
+                fund_slug=fund.slug,
+                count=len(rules),
+            )
+
+
+async def setup_orders(
+    fastapi_app: FastAPI,
+    session_factory: TenantSessionFactory,
+    event_bus: EventBus,
+) -> None:
+    """Wire orders module: repo, compliance gateway, mock broker, service."""
+    from app.modules.orders.compliance_gateway import ComplianceGateway
+    from app.modules.orders.mock_broker import MockBrokerAdapter
+    from app.modules.orders.repository import OrderRepository
+    from app.modules.orders.service import OrderService
+
+    order_repo = OrderRepository(session_factory)
+    compliance_service = fastapi_app.state.compliance_service
+    compliance_gateway = ComplianceGateway(compliance_service._pre_trade_gate)
+    mock_broker = MockBrokerAdapter()
+    order_service = OrderService(
+        order_repo=order_repo,
+        compliance_gateway=compliance_gateway,
+        broker=mock_broker,
+        event_bus=event_bus,
+    )
+    fastapi_app.state.order_service = order_service
+
+
 # ---------------------------------------------------------------------------
 # Event handlers
 # ---------------------------------------------------------------------------

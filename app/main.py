@@ -29,8 +29,11 @@ from app.modules.realtime.routes import router as realtime_router
 from app.modules.security_master.routes import router as security_master_router
 from app.setup import (
     _run_migrations,
+    setup_compliance,
+    setup_exposure,
     setup_fga,
     setup_market_data,
+    setup_orders,
     setup_platform,
     setup_positions,
     setup_security_master,
@@ -104,6 +107,11 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     setup_market_data(fastapi_app, session_factory, event_bus)
     sm_service: SecurityMasterService = fastapi_app.state.security_master_service
     setup_positions(fastapi_app, session_factory, event_bus, fund_repo, sm_service)
+
+    # Phase 2 modules — depend on positions + security_master being wired
+    await setup_exposure(fastapi_app, session_factory)
+    await setup_compliance(fastapi_app, session_factory, fund_repo)
+    await setup_orders(fastapi_app, session_factory, event_bus)
 
     # Audit log consumer — persists trade events for compliance trail
     audit_repo = AuditLogRepository(session_factory)
@@ -196,6 +204,15 @@ app.include_router(security_master_router, prefix="/api/v1")
 app.include_router(market_data_router, prefix="/api/v1")
 app.include_router(positions_router, prefix="/api/v1")
 app.include_router(realtime_router, prefix="/api/v1")
+
+# Phase 2 routers — lazy import to avoid circular deps at module level
+from app.modules.compliance.routes import router as compliance_router  # noqa: E402
+from app.modules.exposure.routes import router as exposure_router  # noqa: E402
+from app.modules.orders.routes import router as orders_router  # noqa: E402
+
+app.include_router(exposure_router, prefix="/api/v1")
+app.include_router(compliance_router, prefix="/api/v1")
+app.include_router(orders_router, prefix="/api/v1")
 
 
 @app.get("/health")

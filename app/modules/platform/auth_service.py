@@ -53,7 +53,7 @@ _FUND_USER_ROLES = [
     "portfolio_manager",
     "analyst",
     "risk_manager",
-    "compliance",
+    "compliance_officer",
     "viewer",
 ]
 _PLATFORM_ROLES = ["ops_admin", "ops_viewer"]

@@ -62,7 +62,7 @@ class Role(StrEnum):
     PORTFOLIO_MANAGER = "portfolio_manager"
     ANALYST = "analyst"
     RISK_MANAGER = "risk_manager"
-    COMPLIANCE = "compliance"
+    COMPLIANCE_OFFICER = "compliance_officer"
     VIEWER = "viewer"
 
 
@@ -75,6 +75,18 @@ class Permission(StrEnum):
     TRADES_EXECUTE = "trades:execute"
     FUNDS_READ = "funds:read"
     FUNDS_MANAGE = "funds:manage"
+
+    # Phase 2: Orders
+    ORDERS_READ = "orders:read"
+    ORDERS_CREATE = "orders:create"
+    ORDERS_CANCEL = "orders:cancel"
+
+    # Phase 2: Compliance
+    COMPLIANCE_READ = "compliance:read"
+    COMPLIANCE_WRITE = "compliance:write"
+
+    # Phase 2: Exposure
+    EXPOSURE_READ = "exposure:read"
 
     # Platform-level permissions (for operators)
     PLATFORM_USERS_READ = "platform:users.read"
@@ -120,7 +132,24 @@ PLATFORM_ROLE_PERMISSIONS: dict[PlatformRole, frozenset[Permission]] = {
 
 
 ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
-    Role.ADMIN: frozenset(Permission),
+    Role.ADMIN: frozenset(
+        {
+            Permission.INSTRUMENTS_READ,
+            Permission.INSTRUMENTS_WRITE,
+            Permission.PRICES_READ,
+            Permission.POSITIONS_READ,
+            Permission.POSITIONS_WRITE,
+            Permission.TRADES_EXECUTE,
+            Permission.FUNDS_READ,
+            Permission.FUNDS_MANAGE,
+            Permission.ORDERS_READ,
+            Permission.ORDERS_CREATE,
+            Permission.ORDERS_CANCEL,
+            Permission.COMPLIANCE_READ,
+            Permission.COMPLIANCE_WRITE,
+            Permission.EXPOSURE_READ,
+        }
+    ),
     Role.PORTFOLIO_MANAGER: frozenset(
         {
             Permission.INSTRUMENTS_READ,
@@ -129,6 +158,11 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.POSITIONS_WRITE,
             Permission.TRADES_EXECUTE,
             Permission.FUNDS_READ,
+            Permission.ORDERS_READ,
+            Permission.ORDERS_CREATE,
+            Permission.ORDERS_CANCEL,
+            Permission.COMPLIANCE_READ,
+            Permission.EXPOSURE_READ,
         }
     ),
     Role.ANALYST: frozenset(
@@ -137,6 +171,8 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.PRICES_READ,
             Permission.POSITIONS_READ,
             Permission.FUNDS_READ,
+            Permission.ORDERS_READ,
+            Permission.EXPOSURE_READ,
         }
     ),
     Role.RISK_MANAGER: frozenset(
@@ -145,14 +181,21 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.PRICES_READ,
             Permission.POSITIONS_READ,
             Permission.FUNDS_READ,
+            Permission.ORDERS_READ,
+            Permission.COMPLIANCE_READ,
+            Permission.EXPOSURE_READ,
         }
     ),
-    Role.COMPLIANCE: frozenset(
+    Role.COMPLIANCE_OFFICER: frozenset(
         {
             Permission.INSTRUMENTS_READ,
             Permission.PRICES_READ,
             Permission.POSITIONS_READ,
             Permission.FUNDS_READ,
+            Permission.ORDERS_READ,
+            Permission.COMPLIANCE_READ,
+            Permission.COMPLIANCE_WRITE,
+            Permission.EXPOSURE_READ,
         }
     ),
     Role.VIEWER: frozenset(
@@ -161,6 +204,7 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.PRICES_READ,
             Permission.POSITIONS_READ,
             Permission.FUNDS_READ,
+            Permission.ORDERS_READ,
         }
     ),
 }
@@ -168,6 +212,7 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
 
 # FGA permission relation names — these are directly assignable on fund objects
 # and also computed from roles via the FGA model.
+# This list must match the can_* relations in fga_model.json.
 FGA_FUND_PERMISSIONS = [
     "can_read_instruments",
     "can_write_instruments",
@@ -177,6 +222,12 @@ FGA_FUND_PERMISSIONS = [
     "can_execute_trades",
     "can_read_fund",
     "can_manage_fund",
+    "can_read_orders",
+    "can_create_orders",
+    "can_cancel_orders",
+    "can_read_compliance",
+    "can_manage_compliance",
+    "can_read_exposure",
 ]
 
 # Map FGA permission relation name → Permission enum value
@@ -189,6 +240,12 @@ FGA_PERMISSION_MAP: dict[str, str] = {
     "can_execute_trades": Permission.TRADES_EXECUTE,
     "can_read_fund": Permission.FUNDS_READ,
     "can_manage_fund": Permission.FUNDS_MANAGE,
+    "can_read_orders": Permission.ORDERS_READ,
+    "can_create_orders": Permission.ORDERS_CREATE,
+    "can_cancel_orders": Permission.ORDERS_CANCEL,
+    "can_read_compliance": Permission.COMPLIANCE_READ,
+    "can_manage_compliance": Permission.COMPLIANCE_WRITE,
+    "can_read_exposure": Permission.EXPOSURE_READ,
 }
 
 # Reverse map: Permission enum value → FGA relation name

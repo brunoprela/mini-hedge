@@ -29,10 +29,12 @@ class TestTopicNaming:
 
     def test_fund_topics_for_slug(self) -> None:
         topics = fund_topics_for_slug("alpha")
-        assert len(topics) == 3
         assert "fund-alpha.positions.changed" in topics
         assert "fund-alpha.pnl.updated" in topics
         assert "fund-alpha.trades.executed" in topics
+        assert "fund-alpha.exposures.updated" in topics
+        assert "fund-alpha.compliance.violations" in topics
+        assert "fund-alpha.orders.created" in topics
 
     def test_shared_topics(self) -> None:
         topics = shared_topics()

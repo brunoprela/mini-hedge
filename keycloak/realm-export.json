@@ -17,7 +17,7 @@
       { "name": "portfolio_manager", "description": "Trade and manage positions" },
       { "name": "analyst", "description": "Read-only market and position data" },
       { "name": "risk_manager", "description": "Risk monitoring and configuration" },
-      { "name": "compliance", "description": "Compliance monitoring" },
+      { "name": "compliance_officer", "description": "Compliance monitoring and rule management" },
       { "name": "viewer", "description": "Read-only access" }
     ]
   },

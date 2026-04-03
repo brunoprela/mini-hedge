@@ -67,6 +67,12 @@ def fund_topics_for_slug(fund_slug: str) -> list[str]:
         fund_topic(fund_slug, "positions.changed"),
         fund_topic(fund_slug, "pnl.updated"),
         fund_topic(fund_slug, "trades.executed"),
+        fund_topic(fund_slug, "exposures.updated"),
+        fund_topic(fund_slug, "compliance.violations"),
+        fund_topic(fund_slug, "orders.created"),
+        fund_topic(fund_slug, "orders.filled"),
+        fund_topic(fund_slug, "trades.approved"),
+        fund_topic(fund_slug, "trades.rejected"),
     ]
 
 

@@ -361,12 +361,12 @@ def build_seed_fga_tuples() -> list[ClientTuple]:
             )
         )
 
-    # Compliance — compliance on all funds
+    # Compliance officer — compliance_officer on all funds
     for fund_id in [FUND_ALPHA_ID, FUND_BETA_ID, FUND_GAMMA_ID]:
         tuples.append(
             ClientTuple(
                 user=f"user:{USER_COMPLIANCE_ID}",
-                relation="compliance",
+                relation="compliance_officer",
                 object=f"fund:{fund_id}",
             )
         )

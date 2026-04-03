@@ -27,7 +27,7 @@ _FUND_USER_ROLES = [
     "portfolio_manager",
     "analyst",
     "risk_manager",
-    "compliance",
+    "compliance_officer",
     "viewer",
 ]
 _FUND_USER_PERMISSIONS = [
@@ -39,6 +39,12 @@ _FUND_USER_PERMISSIONS = [
     "can_execute_trades",
     "can_read_fund",
     "can_manage_fund",
+    "can_read_orders",
+    "can_create_orders",
+    "can_cancel_orders",
+    "can_read_compliance",
+    "can_manage_compliance",
+    "can_read_exposure",
 ]
 _FUND_OPERATOR_RELATIONS = ["ops_full", "ops_read"]
 

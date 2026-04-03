@@ -28,7 +28,7 @@ Fund = register_resource_type(
                 "portfolio_manager",
                 "analyst",
                 "risk_manager",
-                "compliance",
+                "compliance_officer",
                 "viewer",
                 "ops_full",
                 "ops_read",
@@ -43,6 +43,13 @@ Fund = register_resource_type(
                 "can_execute_trades",
                 "can_read_fund",
                 "can_manage_fund",
+                # Phase 2: Orders, Compliance, Exposure
+                "can_read_orders",
+                "can_create_orders",
+                "can_cancel_orders",
+                "can_read_compliance",
+                "can_manage_compliance",
+                "can_read_exposure",
             }
         ),
     )

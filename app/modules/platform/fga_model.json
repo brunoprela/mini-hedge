@@ -27,10 +27,33 @@
         "portfolio_manager": { "this": {} },
         "analyst": { "this": {} },
         "risk_manager": { "this": {} },
-        "compliance": { "this": {} },
+        "compliance_officer": { "this": {} },
         "viewer": { "this": {} },
         "ops_full": { "this": {} },
         "ops_read": { "this": {} },
+
+        "can_read": {
+          "union": {
+            "child": [
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "portfolio_manager" } },
+              { "computed_userset": { "relation": "analyst" } },
+              { "computed_userset": { "relation": "risk_manager" } },
+              { "computed_userset": { "relation": "compliance_officer" } },
+              { "computed_userset": { "relation": "viewer" } },
+              { "computed_userset": { "relation": "ops_full" } },
+              { "computed_userset": { "relation": "ops_read" } }
+            ]
+          }
+        },
+        "can_admin": {
+          "union": {
+            "child": [
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "ops_full" } }
+            ]
+          }
+        },
 
         "can_read_instruments": {
           "union": {
@@ -40,7 +63,7 @@
               { "computed_userset": { "relation": "portfolio_manager" } },
               { "computed_userset": { "relation": "analyst" } },
               { "computed_userset": { "relation": "risk_manager" } },
-              { "computed_userset": { "relation": "compliance" } },
+              { "computed_userset": { "relation": "compliance_officer" } },
               { "computed_userset": { "relation": "viewer" } }
             ]
           }
@@ -61,7 +84,7 @@
               { "computed_userset": { "relation": "portfolio_manager" } },
               { "computed_userset": { "relation": "analyst" } },
               { "computed_userset": { "relation": "risk_manager" } },
-              { "computed_userset": { "relation": "compliance" } },
+              { "computed_userset": { "relation": "compliance_officer" } },
               { "computed_userset": { "relation": "viewer" } }
             ]
           }
@@ -74,7 +97,7 @@
               { "computed_userset": { "relation": "portfolio_manager" } },
               { "computed_userset": { "relation": "analyst" } },
               { "computed_userset": { "relation": "risk_manager" } },
-              { "computed_userset": { "relation": "compliance" } },
+              { "computed_userset": { "relation": "compliance_officer" } },
               { "computed_userset": { "relation": "viewer" } }
             ]
           }
@@ -105,7 +128,7 @@
               { "computed_userset": { "relation": "portfolio_manager" } },
               { "computed_userset": { "relation": "analyst" } },
               { "computed_userset": { "relation": "risk_manager" } },
-              { "computed_userset": { "relation": "compliance" } },
+              { "computed_userset": { "relation": "compliance_officer" } },
               { "computed_userset": { "relation": "viewer" } }
             ]
           }
@@ -119,25 +142,69 @@
           }
         },
 
-        "can_admin": {
+        "can_read_orders": {
           "union": {
             "child": [
-              { "computed_userset": { "relation": "admin" } },
-              { "computed_userset": { "relation": "ops_full" } }
-            ]
-          }
-        },
-        "can_read": {
-          "union": {
-            "child": [
+              { "this": {} },
               { "computed_userset": { "relation": "admin" } },
               { "computed_userset": { "relation": "portfolio_manager" } },
               { "computed_userset": { "relation": "analyst" } },
               { "computed_userset": { "relation": "risk_manager" } },
-              { "computed_userset": { "relation": "compliance" } },
-              { "computed_userset": { "relation": "viewer" } },
-              { "computed_userset": { "relation": "ops_full" } },
-              { "computed_userset": { "relation": "ops_read" } }
+              { "computed_userset": { "relation": "compliance_officer" } },
+              { "computed_userset": { "relation": "viewer" } }
+            ]
+          }
+        },
+        "can_create_orders": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "portfolio_manager" } }
+            ]
+          }
+        },
+        "can_cancel_orders": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "portfolio_manager" } }
+            ]
+          }
+        },
+
+        "can_read_compliance": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "portfolio_manager" } },
+              { "computed_userset": { "relation": "risk_manager" } },
+              { "computed_userset": { "relation": "compliance_officer" } },
+              { "computed_userset": { "relation": "ops_full" } }
+            ]
+          }
+        },
+        "can_manage_compliance": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "compliance_officer" } }
+            ]
+          }
+        },
+
+        "can_read_exposure": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "portfolio_manager" } },
+              { "computed_userset": { "relation": "analyst" } },
+              { "computed_userset": { "relation": "risk_manager" } },
+              { "computed_userset": { "relation": "compliance_officer" } }
             ]
           }
         }
@@ -148,10 +215,12 @@
           "portfolio_manager": { "directly_related_user_types": [{ "type": "user" }] },
           "analyst": { "directly_related_user_types": [{ "type": "user" }] },
           "risk_manager": { "directly_related_user_types": [{ "type": "user" }] },
-          "compliance": { "directly_related_user_types": [{ "type": "user" }] },
+          "compliance_officer": { "directly_related_user_types": [{ "type": "user" }] },
           "viewer": { "directly_related_user_types": [{ "type": "user" }] },
           "ops_full": { "directly_related_user_types": [{ "type": "operator" }] },
           "ops_read": { "directly_related_user_types": [{ "type": "operator" }] },
+          "can_read": { "directly_related_user_types": [] },
+          "can_admin": { "directly_related_user_types": [] },
           "can_read_instruments": { "directly_related_user_types": [{ "type": "user" }] },
           "can_write_instruments": { "directly_related_user_types": [{ "type": "user" }] },
           "can_read_prices": { "directly_related_user_types": [{ "type": "user" }] },
@@ -160,8 +229,12 @@
           "can_execute_trades": { "directly_related_user_types": [{ "type": "user" }] },
           "can_read_fund": { "directly_related_user_types": [{ "type": "user" }] },
           "can_manage_fund": { "directly_related_user_types": [{ "type": "user" }] },
-          "can_admin": { "directly_related_user_types": [] },
-          "can_read": { "directly_related_user_types": [] }
+          "can_read_orders": { "directly_related_user_types": [{ "type": "user" }] },
+          "can_create_orders": { "directly_related_user_types": [{ "type": "user" }] },
+          "can_cancel_orders": { "directly_related_user_types": [{ "type": "user" }] },
+          "can_read_compliance": { "directly_related_user_types": [{ "type": "user" }] },
+          "can_manage_compliance": { "directly_related_user_types": [{ "type": "user" }] },
+          "can_read_exposure": { "directly_related_user_types": [{ "type": "user" }] }
         }
       }
     },
@@ -178,7 +251,7 @@
               { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "viewer" } } },
               { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "analyst" } } },
               { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "risk_manager" } } },
-              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "compliance" } } },
+              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "compliance_officer" } } },
               { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "ops_full" } } },
               { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "ops_read" } } }
             ]
@@ -189,8 +262,7 @@
             "child": [
               { "this": {} },
               { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "admin" } } },
-              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "portfolio_manager" } } },
-              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "ops_full" } } }
+              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "portfolio_manager" } } }
             ]
           }
         },
@@ -213,12 +285,7 @@
           }
         },
         "can_trade": {
-          "union": {
-            "child": [
-              { "computed_userset": { "relation": "trader" } },
-              { "computed_userset": { "relation": "manager" } }
-            ]
-          }
+          "computed_userset": { "relation": "trader" }
         },
         "can_manage": {
           "computed_userset": { "relation": "manager" }

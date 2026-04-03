@@ -3,7 +3,7 @@ export const Role = {
   PORTFOLIO_MANAGER: "portfolio_manager",
   ANALYST: "analyst",
   RISK_MANAGER: "risk_manager",
-  COMPLIANCE: "compliance",
+  COMPLIANCE_OFFICER: "compliance_officer",
   VIEWER: "viewer",
 } as const;
 
@@ -18,6 +18,12 @@ export const Permission = {
   TRADES_EXECUTE: "trades:execute",
   FUNDS_READ: "funds:read",
   FUNDS_MANAGE: "funds:manage",
+  ORDERS_READ: "orders:read",
+  ORDERS_CREATE: "orders:create",
+  ORDERS_CANCEL: "orders:cancel",
+  COMPLIANCE_READ: "compliance:read",
+  COMPLIANCE_WRITE: "compliance:write",
+  EXPOSURE_READ: "exposure:read",
 } as const;
 
 export type Permission = (typeof Permission)[keyof typeof Permission];
@@ -33,30 +39,45 @@ export const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     Permission.POSITIONS_WRITE,
     Permission.TRADES_EXECUTE,
     Permission.FUNDS_READ,
+    Permission.ORDERS_READ,
+    Permission.ORDERS_CREATE,
+    Permission.ORDERS_CANCEL,
+    Permission.COMPLIANCE_READ,
+    Permission.EXPOSURE_READ,
   ]),
   [Role.ANALYST]: new Set([
     Permission.INSTRUMENTS_READ,
     Permission.PRICES_READ,
     Permission.POSITIONS_READ,
     Permission.FUNDS_READ,
+    Permission.ORDERS_READ,
+    Permission.EXPOSURE_READ,
   ]),
   [Role.RISK_MANAGER]: new Set([
     Permission.INSTRUMENTS_READ,
     Permission.PRICES_READ,
     Permission.POSITIONS_READ,
     Permission.FUNDS_READ,
+    Permission.ORDERS_READ,
+    Permission.COMPLIANCE_READ,
+    Permission.EXPOSURE_READ,
   ]),
-  [Role.COMPLIANCE]: new Set([
+  [Role.COMPLIANCE_OFFICER]: new Set([
     Permission.INSTRUMENTS_READ,
     Permission.PRICES_READ,
     Permission.POSITIONS_READ,
     Permission.FUNDS_READ,
+    Permission.ORDERS_READ,
+    Permission.COMPLIANCE_READ,
+    Permission.COMPLIANCE_WRITE,
+    Permission.EXPOSURE_READ,
   ]),
   [Role.VIEWER]: new Set([
     Permission.INSTRUMENTS_READ,
     Permission.PRICES_READ,
     Permission.POSITIONS_READ,
     Permission.FUNDS_READ,
+    Permission.ORDERS_READ,
   ]),
 };
 

@@ -89,7 +89,7 @@ _USER_ROLES = frozenset(
         "portfolio_manager",
         "analyst",
         "risk_manager",
-        "compliance",
+        "compliance_officer",
         "viewer",
     }
 )
@@ -103,6 +103,12 @@ _USER_PERMISSIONS = frozenset(
         "can_execute_trades",
         "can_read_fund",
         "can_manage_fund",
+        "can_read_orders",
+        "can_create_orders",
+        "can_cancel_orders",
+        "can_read_compliance",
+        "can_manage_compliance",
+        "can_read_exposure",
     }
 )
 _USER_RELATIONS = _USER_ROLES | _USER_PERMISSIONS

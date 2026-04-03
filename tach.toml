@@ -35,5 +35,17 @@ path = "app.exception_handlers"
 depends_on = ["app.shared"]
 
 [[modules]]
+path = "app.modules.exposure"
+depends_on = ["app.shared"]
+
+[[modules]]
+path = "app.modules.compliance"
+depends_on = ["app.shared"]
+
+[[modules]]
+path = "app.modules.orders"
+depends_on = ["app.shared", "app.modules.compliance"]
+
+[[modules]]
 path = "app.setup"
-depends_on = ["app.shared", "app.modules.platform", "app.modules.security_master", "app.modules.market_data", "app.modules.positions"]
+depends_on = ["app.shared", "app.modules.platform", "app.modules.security_master", "app.modules.market_data", "app.modules.positions", "app.modules.exposure", "app.modules.compliance", "app.modules.orders"]

@@ -55,18 +55,26 @@ async def create_fund_schema(engine: AsyncEngine, fund_slug: str) -> None:
     logger.info("fund_migrations_applied", fund_slug=fund_slug, schema=schema)
 
 
-def _run_fund_migrations_sync(fund_slug: str) -> None:
-    """Run positions module Alembic migrations targeting a fund schema.
+# Modules that store data in per-fund schemas.
+_FUND_SCOPED_MODULES = ["positions", "exposure", "compliance", "orders"]
 
-    Passes ``-x target_schema=fund_{slug}`` so the positions env.py
-    applies ``schema_translate_map`` during migration execution.
+
+def _run_fund_migrations_sync(fund_slug: str) -> None:
+    """Run per-fund-schema Alembic migrations for all fund-scoped modules.
+
+    Each module's env.py uses ``schema_translate_map`` to remap the
+    default ``positions`` schema to ``fund_{slug}``.
     """
     schema = fund_schema_name(fund_slug)
-    cfg = AlembicConfig("alembic.ini", ini_section="positions")
-    cfg.set_section_option("positions", "script_location", "app/modules/positions/migrations")
-    # Pass target schema via Alembic's -x mechanism
-    cfg.attributes["target_schema"] = schema
-    alembic_command.upgrade(cfg, "head")
+    for module in _FUND_SCOPED_MODULES:
+        cfg = AlembicConfig("alembic.ini", ini_section=module)
+        cfg.set_section_option(
+            module,
+            "script_location",
+            f"app/modules/{module}/migrations",
+        )
+        cfg.attributes["target_schema"] = schema
+        alembic_command.upgrade(cfg, "head")
 
 
 def create_fund_kafka_topics(

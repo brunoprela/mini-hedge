@@ -190,6 +190,7 @@ class ParamSource(StrEnum):
     PATH = "path"
     BODY = "body"
     QUERY = "query"
+    CONTEXT = "context"
 
 
 def _get_fga(request: Request) -> FGAClient | None:
@@ -201,8 +202,9 @@ async def _extract_resource_id(
     request: Request,
     param_name: str,
     source: ParamSource,
+    ctx: RequestContext | None = None,
 ) -> str:
-    """Pull the resource ID from the request path, body, or query."""
+    """Pull the resource ID from the request path, body, query, or context."""
     if source == ParamSource.PATH:
         value = request.path_params.get(param_name)
     elif source == ParamSource.BODY:
@@ -210,6 +212,10 @@ async def _extract_resource_id(
         value = body.get(param_name)
     elif source == ParamSource.QUERY:
         value = request.query_params.get(param_name)
+    elif source == ParamSource.CONTEXT:
+        if ctx is None:
+            raise HTTPException(status_code=500, detail="Context not available for FGA check")
+        value = getattr(ctx, param_name, None)
     else:
         raise ValueError(f"Unknown source: {source}")
 
@@ -257,7 +263,7 @@ def require_access(  # type: ignore[no-untyped-def]
         if fga is None:
             # FGA not enabled — skip object-level check (RBAC still enforced)
             return
-        resource_id = await _extract_resource_id(request, param_name, source)
+        resource_id = await _extract_resource_id(request, param_name, source, ctx)
         # Use the correct FGA subject type based on actor type
         from app.shared.request_context import ActorType  # noqa: F811
 
