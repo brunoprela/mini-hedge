@@ -110,7 +110,7 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
 
     # Phase 2 modules — depend on positions + security_master being wired
     await setup_exposure(fastapi_app, session_factory)
-    await setup_compliance(fastapi_app, session_factory, fund_repo)
+    await setup_compliance(fastapi_app, session_factory, fund_repo, event_bus)
     await setup_orders(fastapi_app, session_factory, event_bus)
 
     # Audit log consumer — persists trade events for compliance trail

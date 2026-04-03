@@ -3,7 +3,14 @@ import { Permission } from "./permissions";
 export interface NavItem {
   label: string;
   href: string;
-  icon: "LayoutDashboard" | "Briefcase" | "Search" | "TrendingUp" | "ShieldCheck";
+  icon:
+    | "LayoutDashboard"
+    | "Briefcase"
+    | "Search"
+    | "TrendingUp"
+    | "ShieldCheck"
+    | "ClipboardList"
+    | "BarChart3";
   permission?: Permission;
 }
 
@@ -16,6 +23,24 @@ export const NAV_ITEMS: NavItem[] = [
     permission: Permission.POSITIONS_READ,
   },
   {
+    label: "Orders",
+    href: "/orders",
+    icon: "ClipboardList",
+    permission: Permission.ORDERS_READ,
+  },
+  {
+    label: "Exposure",
+    href: "/exposure",
+    icon: "BarChart3",
+    permission: Permission.EXPOSURE_READ,
+  },
+  {
+    label: "Compliance",
+    href: "/compliance",
+    icon: "ShieldCheck",
+    permission: Permission.COMPLIANCE_READ,
+  },
+  {
     label: "Instruments",
     href: "/instruments",
     icon: "Search",
@@ -26,11 +51,5 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/market-data",
     icon: "TrendingUp",
     permission: Permission.PRICES_READ,
-  },
-  {
-    label: "Compliance",
-    href: "/compliance",
-    icon: "ShieldCheck",
-    permission: Permission.COMPLIANCE_READ,
   },
 ];

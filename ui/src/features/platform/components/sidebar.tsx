@@ -1,6 +1,14 @@
 "use client";
 
-import { Briefcase, LayoutDashboard, Search, ShieldCheck, TrendingUp } from "lucide-react";
+import {
+  BarChart3,
+  Briefcase,
+  ClipboardList,
+  LayoutDashboard,
+  Search,
+  ShieldCheck,
+  TrendingUp,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
@@ -14,6 +22,8 @@ const ICONS = {
   Search,
   TrendingUp,
   ShieldCheck,
+  ClipboardList,
+  BarChart3,
 } as const;
 
 export function Sidebar() {

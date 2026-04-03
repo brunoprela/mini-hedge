@@ -46,9 +46,7 @@ def upgrade() -> None:
     op.create_index(
         "ix_exp_snapshot_portfolio", "exposure_snapshots", ["portfolio_id"], schema=SCHEMA
     )
-    op.create_index(
-        "ix_exp_snapshot_time", "exposure_snapshots", ["snapshot_at"], schema=SCHEMA
-    )
+    op.create_index("ix_exp_snapshot_time", "exposure_snapshots", ["snapshot_at"], schema=SCHEMA)
 
 
 def downgrade() -> None:

@@ -161,9 +161,7 @@ class PreTradeGate:
             metadata_cache[iid] = await self._lookup_instrument_metadata(iid)
 
         for pos in current_positions:
-            asset_class, sector, country = metadata_cache.get(
-                pos.instrument_id, ("", "", "")
-            )
+            asset_class, sector, country = metadata_cache.get(pos.instrument_id, ("", "", ""))
             info = PositionInfo(
                 instrument_id=pos.instrument_id,
                 quantity=pos.quantity,

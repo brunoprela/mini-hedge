@@ -77,9 +77,7 @@ def upgrade() -> None:
     op.create_index(
         "ix_comp_viol_portfolio", "compliance_violations", ["portfolio_id"], schema=SCHEMA
     )
-    op.create_index(
-        "ix_comp_viol_rule", "compliance_violations", ["rule_id"], schema=SCHEMA
-    )
+    op.create_index("ix_comp_viol_rule", "compliance_violations", ["rule_id"], schema=SCHEMA)
 
     # Trade decisions (audit trail)
     op.create_table(

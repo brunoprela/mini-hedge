@@ -44,7 +44,7 @@ from app.modules.positions.trade_handler import TradeHandler
 from app.modules.security_master.repository import InstrumentRepository
 from app.modules.security_master.seed import build_seed_records
 from app.modules.security_master.service import SecurityMasterService
-from app.shared.schema_registry import shared_topic
+from app.shared.schema_registry import fund_topic, shared_topic
 
 logger = structlog.get_logger()
 
@@ -283,8 +283,10 @@ async def setup_compliance(
     fastapi_app: FastAPI,
     session_factory: TenantSessionFactory,
     fund_repo: FundRepository,
+    event_bus: EventBus,
 ) -> None:
-    """Wire compliance module: repos, pre-trade gate, service, seeding."""
+    """Wire compliance module: repos, pre-trade gate, post-trade monitor, service, seeding."""
+    from app.modules.compliance.post_trade import PostTradeMonitor
     from app.modules.compliance.pre_trade import PreTradeGate
     from app.modules.compliance.repository import (
         RuleRepository,
@@ -313,8 +315,19 @@ async def setup_compliance(
     )
     fastapi_app.state.compliance_service = compliance_service
 
-    # Seed default compliance rules for each fund (needs fund-scoped sessions)
+    # Post-trade monitor: subscribe to positions.changed for each fund
+    post_trade_monitor = PostTradeMonitor(
+        session_factory=session_factory,
+        position_service=position_service,
+        security_master=security_master,
+    )
     active_funds = await fund_repo.get_all_active()
+    for fund in active_funds:
+        topic = fund_topic(fund.slug, "positions.changed")
+        event_bus.subscribe(topic, post_trade_monitor.handle_position_changed)
+    logger.info("post_trade_monitor_subscribed", fund_count=len(active_funds))
+
+    # Seed default compliance rules for each fund (needs fund-scoped sessions)
     for fund in active_funds:
         fund_rule_repo = RuleRepository(session_factory, fund_slug=fund.slug)
         existing = await fund_rule_repo.get_active_by_fund(fund.slug)

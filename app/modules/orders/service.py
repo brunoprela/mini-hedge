@@ -161,9 +161,7 @@ class OrderService:
         )
         return self._to_summary(order)
 
-    async def cancel_order(
-        self, order_id: UUID, actor_id: str = "system"
-    ) -> OrderSummary:
+    async def cancel_order(self, order_id: UUID, actor_id: str = "system") -> OrderSummary:
         """Cancel an order if transition is valid."""
         order = await self._repo.get_by_id(order_id)
         if order is None:
