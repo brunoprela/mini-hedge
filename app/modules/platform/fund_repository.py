@@ -1,6 +1,6 @@
 """Data access for fund records."""
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
 from app.modules.platform.models import FundRecord, FundStatus
 from app.shared.database import TenantSessionFactory
@@ -31,6 +31,16 @@ class FundRepository:
         async with self._session_factory() as session:
             result = await session.execute(select(FundRecord))
             return list(result.scalars().all())
+
+    async def get_all_paginated(
+        self, *, limit: int = 100, offset: int = 0
+    ) -> tuple[list[FundRecord], int]:
+        async with self._session_factory() as session:
+            total = (await session.execute(select(func.count(FundRecord.id)))).scalar_one()
+            result = await session.execute(
+                select(FundRecord).order_by(FundRecord.name).offset(offset).limit(limit)
+            )
+            return list(result.scalars().all()), total
 
     async def insert(self, record: FundRecord) -> None:
         async with self._session_factory() as session:

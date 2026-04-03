@@ -94,24 +94,28 @@ class PlatformRole(StrEnum):
 
 
 PLATFORM_ROLE_PERMISSIONS: dict[PlatformRole, frozenset[Permission]] = {
-    PlatformRole.OPS_ADMIN: frozenset({
-        Permission.PLATFORM_USERS_READ,
-        Permission.PLATFORM_USERS_WRITE,
-        Permission.PLATFORM_FUNDS_READ,
-        Permission.PLATFORM_FUNDS_WRITE,
-        Permission.PLATFORM_OPERATORS_READ,
-        Permission.PLATFORM_OPERATORS_WRITE,
-        Permission.PLATFORM_AUDIT_READ,
-        Permission.PLATFORM_ACCESS_READ,
-        Permission.PLATFORM_ACCESS_WRITE,
-    }),
-    PlatformRole.OPS_VIEWER: frozenset({
-        Permission.PLATFORM_USERS_READ,
-        Permission.PLATFORM_FUNDS_READ,
-        Permission.PLATFORM_OPERATORS_READ,
-        Permission.PLATFORM_AUDIT_READ,
-        Permission.PLATFORM_ACCESS_READ,
-    }),
+    PlatformRole.OPS_ADMIN: frozenset(
+        {
+            Permission.PLATFORM_USERS_READ,
+            Permission.PLATFORM_USERS_WRITE,
+            Permission.PLATFORM_FUNDS_READ,
+            Permission.PLATFORM_FUNDS_WRITE,
+            Permission.PLATFORM_OPERATORS_READ,
+            Permission.PLATFORM_OPERATORS_WRITE,
+            Permission.PLATFORM_AUDIT_READ,
+            Permission.PLATFORM_ACCESS_READ,
+            Permission.PLATFORM_ACCESS_WRITE,
+        }
+    ),
+    PlatformRole.OPS_VIEWER: frozenset(
+        {
+            Permission.PLATFORM_USERS_READ,
+            Permission.PLATFORM_FUNDS_READ,
+            Permission.PLATFORM_OPERATORS_READ,
+            Permission.PLATFORM_AUDIT_READ,
+            Permission.PLATFORM_ACCESS_READ,
+        }
+    ),
 }
 
 

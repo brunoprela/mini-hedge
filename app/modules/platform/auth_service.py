@@ -49,8 +49,12 @@ logger = structlog.get_logger()
 
 # FGA relation names for fund user roles
 _FUND_USER_ROLES = [
-    "admin", "portfolio_manager", "analyst",
-    "risk_manager", "compliance", "viewer",
+    "admin",
+    "portfolio_manager",
+    "analyst",
+    "risk_manager",
+    "compliance",
+    "viewer",
 ]
 _PLATFORM_ROLES = ["ops_admin", "ops_viewer"]
 
@@ -94,13 +98,11 @@ class AuthService:
         self._keycloak_client_id = keycloak_client_id
         self._keycloak_ops_realm = keycloak_ops_realm
         self._keycloak_ops_client_id = keycloak_ops_client_id
-        self._fga_cache: TTLCache[
-            tuple[str, str], tuple[list[str], frozenset[str]]
-        ] = TTLCache(maxsize=_FGA_CACHE_MAX, ttl=_FGA_CACHE_TTL)
+        self._fga_cache: TTLCache[tuple[str, str], tuple[list[str], frozenset[str]]] = TTLCache(
+            maxsize=_FGA_CACHE_MAX, ttl=_FGA_CACHE_TTL
+        )
 
-    async def authenticate_jwt(
-        self, token: str, *, fund_slug: str | None = None
-    ) -> RequestContext:
+    async def authenticate_jwt(self, token: str, *, fund_slug: str | None = None) -> RequestContext:
         """Validate a JWT and return a RequestContext, or None if invalid.
 
         Detects Keycloak-issued tokens (RS256 with ``iss`` claim) vs
@@ -182,9 +184,7 @@ class AuthService:
 
     # ----- Keycloak fund user authentication -----
 
-    async def _authenticate_keycloak(
-        self, token: str, *, fund_slug: str | None
-    ) -> RequestContext:
+    async def _authenticate_keycloak(self, token: str, *, fund_slug: str | None) -> RequestContext:
         """Validate a Keycloak RS256 JWT for a fund user, resolve roles from FGA."""
         if not self._keycloak_url:
             logger.warning("keycloak_not_configured")
@@ -218,7 +218,8 @@ class AuthService:
             if self._fga is None:
                 logger.warning("fga_not_available_for_fund_discovery")
                 raise AuthenticationError(
-                    "Authorization service unavailable", code="FGA_UNAVAILABLE",
+                    "Authorization service unavailable",
+                    code="FGA_UNAVAILABLE",
                 )
             fund_ids = await self._fga.list_objects(
                 user=f"user:{user.id}", relation="can_read", type="fund"

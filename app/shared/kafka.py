@@ -235,6 +235,14 @@ class KafkaEventBus:
                 event_id=event.event_id,
             )
 
+    def health_check(self) -> bool:
+        """Check if the Kafka producer is healthy."""
+        try:
+            self._producer.flush(timeout=2.0)
+            return True
+        except Exception:
+            return False
+
     async def stop(self) -> None:
         """Stop all consumer tasks and flush the producer."""
         self._running = False

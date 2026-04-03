@@ -114,7 +114,9 @@ class TestCreateUserRequest:
 class TestCreateOperatorRequest:
     def test_valid_operator(self) -> None:
         req = CreateOperatorRequest(
-            email="ops@example.com", name="Ops Admin", platform_role="ops_admin",
+            email="ops@example.com",
+            name="Ops Admin",
+            platform_role="ops_admin",
         )
         assert req.platform_role == "ops_admin"
 
@@ -125,5 +127,7 @@ class TestCreateOperatorRequest:
     def test_invalid_role_rejected(self) -> None:
         with pytest.raises(PydanticValidationError):
             CreateOperatorRequest(
-                email="ops@example.com", name="Bad", platform_role="superadmin",
+                email="ops@example.com",
+                name="Bad",
+                platform_role="superadmin",
             )

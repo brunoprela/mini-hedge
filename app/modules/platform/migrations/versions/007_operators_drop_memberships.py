@@ -94,8 +94,6 @@ def downgrade() -> None:
     )
 
     # Drop operators
-    op.drop_index(
-        "ix_platform_operators_keycloak_sub", table_name="operators", schema="platform"
-    )
+    op.drop_index("ix_platform_operators_keycloak_sub", table_name="operators", schema="platform")
     op.drop_index("ix_platform_operators_email", table_name="operators", schema="platform")
     op.drop_table("operators", schema="platform")

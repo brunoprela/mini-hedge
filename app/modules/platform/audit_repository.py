@@ -86,9 +86,7 @@ class AuditLogRepository:
             total = (await session.execute(count_stmt)).scalar_one()
 
             # Page
-            stmt = select(AuditLogRecord).order_by(
-                AuditLogRecord.created_at.desc()
-            )
+            stmt = select(AuditLogRecord).order_by(AuditLogRecord.created_at.desc())
             for cond in conditions:
                 stmt = stmt.where(cond)
             stmt = stmt.offset(offset).limit(limit)

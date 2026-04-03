@@ -43,13 +43,14 @@ async def create_fund_schema(engine: AsyncEngine, fund_slug: str) -> None:
     Alembic's version table prevent duplicate work.
     """
     schema = fund_schema_name(fund_slug)
-
-    # 1. Create the schema
+    lock_id = hash(fund_slug) & 0x7FFFFFFF
     async with engine.begin() as conn:
-        await conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema}"))
+        await conn.execute(text(f"SELECT pg_advisory_lock({lock_id})"))
+        try:
+            await conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema}"))
+        finally:
+            await conn.execute(text(f"SELECT pg_advisory_unlock({lock_id})"))
     logger.info("fund_schema_ensured", fund_slug=fund_slug, schema=schema)
-
-    # 2. Run positions Alembic migrations against this schema
     await asyncio.to_thread(_run_fund_migrations_sync, fund_slug)
     logger.info("fund_migrations_applied", fund_slug=fund_slug, schema=schema)
 

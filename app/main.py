@@ -6,382 +6,41 @@ import asyncio
 import contextlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import structlog
-from alembic import command as alembic_command
-from alembic.config import Config as AlembicConfig
-from fastapi import FastAPI, Request, Response
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI
 from sqlalchemy import text
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 if TYPE_CHECKING:
-    from app.shared.database import TenantSessionFactory
-    from app.shared.events import BaseEvent, EventBus
-    from app.shared.types import AssetClass
+    from app.modules.security_master.service import SecurityMasterService
+    from app.shared.events import EventBus
 
 from app.config import get_settings
-from app.modules.market_data.interface import PriceSnapshot
-from app.modules.market_data.repository import PriceRepository
+from app.exception_handlers import register_exception_handlers
+from app.middleware.auth import AuthMiddleware
 from app.modules.market_data.routes import router as market_data_router
-from app.modules.market_data.service import MarketDataService
 from app.modules.market_data.simulator import MarketDataSimulator
 from app.modules.platform.admin_routes import router as admin_router
-from app.modules.platform.admin_service import AdminService
 from app.modules.platform.audit_repository import AuditLogRepository
-from app.modules.platform.auth_service import AuthService
-from app.modules.platform.operator_repository import OperatorRepository
-from app.modules.platform.repository import (
-    APIKeyRepository,
-    FundRepository,
-    PortfolioRepository,
-    UserRepository,
-)
 from app.modules.platform.routes import router as platform_router
-from app.modules.platform.seed import (
-    DEV_API_KEY,
-    build_seed_api_keys,
-    build_seed_funds,
-    build_seed_portfolios,
-    build_seed_users,
-)
-from app.modules.positions.event_store import EventStoreRepository
-from app.modules.positions.mtm_handler import MarkToMarketHandler
-from app.modules.positions.position_projector import PositionProjector
-from app.modules.positions.position_repository import CurrentPositionRepository
 from app.modules.positions.routes import router as positions_router
-from app.modules.positions.service import PositionService
-from app.modules.positions.trade_handler import TradeHandler
 from app.modules.realtime.routes import router as realtime_router
-from app.modules.security_master.repository import InstrumentRepository
 from app.modules.security_master.routes import router as security_master_router
-from app.modules.security_master.seed import build_seed_records
-from app.modules.security_master.service import SecurityMasterService
+from app.setup import (
+    _run_migrations,
+    setup_fga,
+    setup_market_data,
+    setup_platform,
+    setup_positions,
+    setup_security_master,
+)
 from app.shared.database import build_engine
 from app.shared.fund_schema import ensure_all_fund_schemas
 from app.shared.logging import setup_logging
-from app.shared.request_context import set_request_context
-from app.shared.schema_registry import fund_topic, fund_topics_for_slug, shared_topic, shared_topics
+from app.shared.schema_registry import fund_topic, fund_topics_for_slug, shared_topics
 
 logger = structlog.get_logger()
-
-# Bounded contexts whose Alembic migrations run on startup.
-# Positions are NOT here — each fund gets its own schema, created
-# by ensure_all_fund_schemas() after platform seeding discovers active funds.
-MIGRATION_CONTEXTS = ["platform", "security_master", "market_data"]
-
-# Paths that skip authentication
-PUBLIC_PATHS = {"/health", "/docs", "/openapi.json", "/redoc", "/api/v1/stream/events"}
-
-
-# ---------------------------------------------------------------------------
-# Auth middleware
-# ---------------------------------------------------------------------------
-
-
-class AuthMiddleware(BaseHTTPMiddleware):
-    """Extracts identity from Authorization header and sets RequestContext.
-
-    Looks up ``auth_service`` from ``request.app.state`` so it can be
-    registered at module level (before the lifespan runs).
-    """
-
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        # Skip auth for public endpoints
-        if request.url.path in PUBLIC_PATHS:
-            return await call_next(request)
-
-        # /auth/agent-token requires auth via its own dependency.
-
-        auth_service: AuthService | None = getattr(request.app.state, "auth_service", None)
-        if auth_service is None:
-            return Response(
-                content='{"detail":"Auth service unavailable"}',
-                status_code=503,
-                media_type="application/json",
-            )
-
-        from app.shared.errors import AuthenticationError, AuthorizationError
-
-        try:
-            ctx = await self._resolve_context(request, auth_service)
-        except AuthenticationError as exc:
-            return JSONResponse(
-                status_code=401,
-                content={"detail": exc.message, "code": exc.code},
-            )
-        except AuthorizationError as exc:
-            return JSONResponse(
-                status_code=403,
-                content={"detail": exc.message, "code": exc.code},
-            )
-        except Exception:
-            logger.exception("auth_middleware_error", path=request.url.path)
-            return JSONResponse(
-                status_code=500,
-                content={"detail": "Internal server error"},
-            )
-
-        if ctx is None:
-            return JSONResponse(
-                status_code=401,
-                content={"detail": "Authentication required", "code": "MISSING_CREDENTIALS"},
-            )
-
-        set_request_context(ctx)
-        return await call_next(request)
-
-    async def _resolve_context(self, request: Request, auth: AuthService):  # type: ignore[no-untyped-def]
-        auth_header = request.headers.get("authorization", "")
-        fund_slug = request.headers.get("x-fund-slug")
-
-        if auth_header.startswith("Bearer "):
-            token = auth_header[7:]
-            return await auth.authenticate_jwt(token, fund_slug=fund_slug)
-
-        if auth_header.startswith("ApiKey "):
-            raw_key = auth_header[7:]
-            return await auth.authenticate_api_key(raw_key)
-
-        # Also check X-API-Key header
-        api_key = request.headers.get("x-api-key")
-        if api_key:
-            return await auth.authenticate_api_key(api_key)
-
-        return None
-
-
-# ---------------------------------------------------------------------------
-# Migrations and seeding
-# ---------------------------------------------------------------------------
-
-
-def _run_migrations_sync() -> None:
-    for ctx in MIGRATION_CONTEXTS:
-        cfg = AlembicConfig("alembic.ini", ini_section=ctx)
-        cfg.set_section_option(ctx, "script_location", f"app/modules/{ctx}/migrations")
-        alembic_command.upgrade(cfg, "head")
-        logger.info("migrations_applied", context=ctx)
-
-
-async def _run_migrations() -> None:
-    await asyncio.to_thread(_run_migrations_sync)
-
-
-async def _seed_instruments(repo: InstrumentRepository) -> None:
-    existing = await repo.get_all_active()
-    if not existing:
-        instruments, extensions = build_seed_records()
-        await repo.insert_batch(instruments, extensions)
-        logger.info("instruments_seeded", count=len(instruments), extensions=len(extensions))
-
-
-async def _seed_platform(
-    fund_repo: FundRepository,
-    portfolio_repo: PortfolioRepository,
-    user_repo: UserRepository,
-    operator_repo: OperatorRepository,
-    api_key_repo: APIKeyRepository,
-) -> None:
-    """Seed funds, portfolios, users, operators, and API keys."""
-    existing_funds = await fund_repo.get_all_active()
-    if not existing_funds:
-        funds = build_seed_funds()
-        for fund in funds:
-            await fund_repo.insert(fund)
-        portfolios = build_seed_portfolios()
-        await portfolio_repo.insert_batch(portfolios)
-        logger.info(
-            "platform_seeded",
-            funds=len(funds),
-            portfolios=len(portfolios),
-        )
-
-    existing_users = await user_repo.get_all_active()
-    if not existing_users:
-        users = build_seed_users()
-        for user in users:
-            await user_repo.insert(user)
-        api_keys = build_seed_api_keys()
-        for api_key in api_keys:
-            await api_key_repo.insert(api_key)
-        logger.info(
-            "auth_seeded",
-            users=len(users),
-            api_key=DEV_API_KEY,
-        )
-
-    # Seed operators
-    from app.modules.platform.seed import build_seed_operators
-
-    existing_operators = await operator_repo.get_all_active()
-    if not existing_operators:
-        operators = build_seed_operators()
-        for op in operators:
-            await operator_repo.insert(op)
-        logger.info("operators_seeded", count=len(operators))
-
-
-# ---------------------------------------------------------------------------
-# Per-module setup helpers (called from lifespan)
-# ---------------------------------------------------------------------------
-
-
-async def _setup_platform(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-    settings: object,
-    fga_client: object | None = None,
-    engine: object | None = None,
-    event_bus: object | None = None,
-) -> tuple[AuthService, FundRepository]:
-    """Wire platform module: repos, seeding, auth service."""
-    fund_repo = FundRepository(session_factory)
-    portfolio_repo = PortfolioRepository(session_factory)
-    user_repo = UserRepository(session_factory)
-    operator_repo = OperatorRepository(session_factory)
-    api_key_repo = APIKeyRepository(session_factory)
-
-    await _seed_platform(fund_repo, portfolio_repo, user_repo, operator_repo, api_key_repo)
-
-    auth_service = AuthService(
-        user_repo=user_repo,
-        fund_repo=fund_repo,
-        operator_repo=operator_repo,
-        api_key_repo=api_key_repo,
-        fga_client=fga_client,  # type: ignore[arg-type]
-        jwt_secret=settings.jwt_secret,  # type: ignore[attr-defined]
-        jwt_algorithm=settings.jwt_algorithm,  # type: ignore[attr-defined]
-        jwt_expiry_minutes=settings.jwt_expiry_minutes,  # type: ignore[attr-defined]
-        keycloak_url=settings.keycloak_url,  # type: ignore[attr-defined]
-        keycloak_browser_url=settings.keycloak_browser_url,  # type: ignore[attr-defined]
-        keycloak_realm=settings.keycloak_realm,  # type: ignore[attr-defined]
-        keycloak_client_id=settings.keycloak_client_id,  # type: ignore[attr-defined]
-        keycloak_ops_realm=settings.keycloak_ops_realm,  # type: ignore[attr-defined]
-        keycloak_ops_client_id=settings.keycloak_ops_client_id,  # type: ignore[attr-defined]
-    )
-    fastapi_app.state.auth_service = auth_service
-    fastapi_app.state.portfolio_repo = portfolio_repo
-    fastapi_app.state.operator_repo = operator_repo
-
-    audit_repo = AuditLogRepository(session_factory)
-    fastapi_app.state.audit_repo = audit_repo
-
-    # Admin service (only if FGA is available)
-    if fga_client is not None:
-        admin_service = AdminService(
-            user_repo=user_repo,
-            operator_repo=operator_repo,
-            fund_repo=fund_repo,
-            fga_client=fga_client,  # type: ignore[arg-type]
-            audit_repo=audit_repo,
-            engine=engine,  # type: ignore[arg-type]
-            event_bus=event_bus,  # type: ignore[arg-type]
-            auth_service=auth_service,
-        )
-        fastapi_app.state.admin_service = admin_service
-
-    return auth_service, fund_repo
-
-
-async def _setup_fga(fastapi_app: FastAPI, settings: object) -> object | None:
-    """Initialize OpenFGA if enabled. Returns the FGA client or None."""
-    if not settings.fga_enabled:  # type: ignore[attr-defined]
-        return None
-
-    import app.shared.fga_resources  # noqa: F401 — triggers resource type registration
-    from app.modules.platform.seed import build_seed_fga_tuples
-    from app.shared.fga import initialize_fga
-
-    fga_client = await initialize_fga(
-        api_url=settings.fga_api_url,  # type: ignore[attr-defined]
-        store_name=settings.fga_store_name,  # type: ignore[attr-defined]
-    )
-    fastapi_app.state.fga = fga_client
-    tuples = build_seed_fga_tuples()
-    await fga_client.write_tuples(tuples)
-    logger.info("fga_tuples_seeded", count=len(tuples))
-    return fga_client
-
-
-async def _setup_security_master(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-) -> None:
-    """Wire security master module: repo, service, seeding."""
-    instrument_repo = InstrumentRepository(session_factory)
-    fastapi_app.state.security_master_service = SecurityMasterService(instrument_repo)
-    await _seed_instruments(instrument_repo)
-
-
-def _setup_market_data(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-    event_bus: EventBus,
-) -> MarketDataService:
-    """Wire market data module: repo, service, price event handler."""
-    price_repo = PriceRepository(session_factory)
-    market_data_service = MarketDataService(price_repo)
-    fastapi_app.state.market_data_service = market_data_service
-
-    event_bus.subscribe(shared_topic("prices.normalized"), _make_price_handler(market_data_service))
-    return market_data_service
-
-
-def _setup_positions(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-    event_bus: EventBus,
-    fund_repo: FundRepository,
-    security_master_service: SecurityMasterService,
-) -> None:
-    """Wire positions module: repos, projector, handlers, service, MTM subscription."""
-    event_store_repo = EventStoreRepository(session_factory)
-    position_repo = CurrentPositionRepository(session_factory)
-    projector = PositionProjector(position_repo)
-    trade_handler = TradeHandler(session_factory, event_store_repo, projector, event_bus)
-    fastapi_app.state.position_service = PositionService(position_repo, trade_handler)
-
-    async def get_fund_slugs() -> list[str]:
-        funds = await fund_repo.get_all_active()
-        return [f.slug for f in funds]
-
-    async def get_asset_class(instrument_id: str) -> AssetClass | None:
-        try:
-            instrument = await security_master_service.get_by_ticker(instrument_id)
-        except Exception:
-            return None
-        return instrument.asset_class
-
-    mtm_handler = MarkToMarketHandler(session_factory, event_bus, get_fund_slugs, get_asset_class)
-    event_bus.subscribe(shared_topic("prices.normalized"), mtm_handler.handle_price_update)
-
-
-# ---------------------------------------------------------------------------
-# Event handlers (extracted from lifespan)
-# ---------------------------------------------------------------------------
-
-
-def _make_price_handler(market_data_service: MarketDataService):  # type: ignore[no-untyped-def]
-    """Create a price event handler bound to the given service."""
-
-    async def on_price_event(event: BaseEvent) -> None:
-        raw_volume = event.data.get("volume")
-        snapshot = PriceSnapshot(
-            instrument_id=event.data["instrument_id"],
-            bid=Decimal(event.data["bid"]),
-            ask=Decimal(event.data["ask"]),
-            mid=Decimal(event.data["mid"]),
-            volume=Decimal(raw_volume) if raw_volume is not None else None,
-            timestamp=event.timestamp,
-            source=event.data["source"],
-        )
-        market_data_service.update_latest(snapshot)
-        await market_data_service.store_price(snapshot)
-
-    return on_price_event
 
 
 # ---------------------------------------------------------------------------
@@ -419,12 +78,16 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
 
     # --- Module setup ---
     # FGA must init before platform (AuthService depends on FGAClient)
-    fga_client = await _setup_fga(fastapi_app, settings)
-    auth_service, fund_repo = await _setup_platform(
-        fastapi_app, session_factory, settings,
-        fga_client=fga_client, engine=engine, event_bus=kafka_bus,
+    fga_client = await setup_fga(fastapi_app, settings)
+    auth_service, fund_repo = await setup_platform(
+        fastapi_app,
+        session_factory,
+        settings,
+        fga_client=fga_client,
+        engine=engine,
+        event_bus=kafka_bus,
     )
-    await _setup_security_master(fastapi_app, session_factory)
+    await setup_security_master(fastapi_app, session_factory)
 
     # Create per-fund schemas and run positions migrations for each
     active_funds = await fund_repo.get_all_active()
@@ -438,9 +101,9 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     dlq_topics = [f"{t}.dlq" for t in all_topics]
     kafka_bus.ensure_topics(all_topics + dlq_topics)
 
-    _setup_market_data(fastapi_app, session_factory, event_bus)
+    setup_market_data(fastapi_app, session_factory, event_bus)
     sm_service: SecurityMasterService = fastapi_app.state.security_master_service
-    _setup_positions(fastapi_app, session_factory, event_bus, fund_repo, sm_service)
+    setup_positions(fastapi_app, session_factory, event_bus, fund_repo, sm_service)
 
     # Audit log consumer — persists trade events for compliance trail
     audit_repo = AuditLogRepository(session_factory)
@@ -520,54 +183,11 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Fund-Slug", "X-API-Key"],
 )
 
-
-@app.exception_handler(Exception)
-async def _unhandled_exception_handler(request: Request, exc: Exception) -> Response:
-    logger.exception("unhandled_exception", path=request.url.path, error=str(exc))
-    return Response(
-        content='{"detail":"Internal server error"}',
-        status_code=500,
-        media_type="application/json",
-    )
-
-
-from app.shared.errors import (  # noqa: E402
-    AuthenticationError,
-    AuthorizationError,
-    DomainError,
-    NotFoundError,
-    ValidationError,
-)
-
-
-@app.exception_handler(NotFoundError)
-async def _not_found_handler(request: Request, exc: NotFoundError) -> JSONResponse:
-    return JSONResponse(status_code=404, content={"detail": exc.message, "code": exc.code})
-
-
-@app.exception_handler(ValidationError)
-async def _validation_handler(request: Request, exc: ValidationError) -> JSONResponse:
-    return JSONResponse(status_code=422, content={"detail": exc.message, "code": exc.code})
-
-
-@app.exception_handler(AuthenticationError)
-async def _authn_handler(request: Request, exc: AuthenticationError) -> JSONResponse:
-    return JSONResponse(status_code=401, content={"detail": exc.message, "code": exc.code})
-
-
-@app.exception_handler(AuthorizationError)
-async def _authz_handler(request: Request, exc: AuthorizationError) -> JSONResponse:
-    return JSONResponse(status_code=403, content={"detail": exc.message, "code": exc.code})
-
-
-@app.exception_handler(DomainError)
-async def _domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
-    return JSONResponse(status_code=400, content={"detail": exc.message, "code": exc.code})
-
+register_exception_handlers(app)
 
 # Register routers
 app.include_router(platform_router, prefix="/api/v1")
@@ -601,11 +221,10 @@ async def health_check() -> dict[str, object]:
             components["redis"] = f"unhealthy: {e}"
 
     # Kafka
-    try:
-        app.state.kafka_bus._producer.flush(timeout=2.0)
+    if app.state.kafka_bus.health_check():
         components["kafka"] = "healthy"
-    except Exception as e:
-        components["kafka"] = f"unhealthy: {e}"
+    else:
+        components["kafka"] = "unhealthy: flush failed"
 
     all_healthy = all(v == "healthy" for v in components.values())
     return {

@@ -83,15 +83,28 @@ class FundAccessGrant(BaseModel):
 
 _SLUG_RE = re.compile(r"^[a-z][a-z0-9-]{1,48}[a-z0-9]$")
 
-_USER_ROLES = frozenset({
-    "admin", "portfolio_manager", "analyst",
-    "risk_manager", "compliance", "viewer",
-})
-_USER_PERMISSIONS = frozenset({
-    "can_read_instruments", "can_write_instruments",
-    "can_read_prices", "can_read_positions", "can_write_positions",
-    "can_execute_trades", "can_read_fund", "can_manage_fund",
-})
+_USER_ROLES = frozenset(
+    {
+        "admin",
+        "portfolio_manager",
+        "analyst",
+        "risk_manager",
+        "compliance",
+        "viewer",
+    }
+)
+_USER_PERMISSIONS = frozenset(
+    {
+        "can_read_instruments",
+        "can_write_instruments",
+        "can_read_prices",
+        "can_read_positions",
+        "can_write_positions",
+        "can_execute_trades",
+        "can_read_fund",
+        "can_manage_fund",
+    }
+)
 _USER_RELATIONS = _USER_ROLES | _USER_PERMISSIONS
 _OPERATOR_RELATIONS = frozenset({"ops_full", "ops_read"})
 _VALID_RELATIONS = _USER_RELATIONS | _OPERATOR_RELATIONS
@@ -200,6 +213,30 @@ class AuditPage(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     items: list[AuditEntry]
+    total: int
+    limit: int
+    offset: int
+
+
+class UserPage(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    items: list[UserInfo]
+    total: int
+    limit: int
+    offset: int
+
+
+class OperatorPage(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    items: list[OperatorInfo]
+    total: int
+    limit: int
+    offset: int
+
+
+class FundPage(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    items: list[FundDetail]
     total: int
     limit: int
     offset: int

@@ -95,7 +95,8 @@ class TradeHandler:
                 async with self._session_factory() as session:
                     # Idempotency check — reject duplicate if key already exists
                     if idempotency_key and await self._event_store.has_idempotency_key(
-                        idempotency_key, session=session,
+                        idempotency_key,
+                        session=session,
                     ):
                         logger.info(
                             "trade_idempotent_duplicate",

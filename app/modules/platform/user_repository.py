@@ -1,6 +1,6 @@
 """Data access for user records."""
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
 from app.modules.platform.models import UserRecord
 from app.shared.database import TenantSessionFactory
@@ -87,6 +87,16 @@ class UserRepository:
         async with self._session_factory() as session:
             result = await session.execute(select(UserRecord))
             return list(result.scalars().all())
+
+    async def get_all_paginated(
+        self, *, limit: int = 100, offset: int = 0
+    ) -> tuple[list[UserRecord], int]:
+        async with self._session_factory() as session:
+            total = (await session.execute(select(func.count(UserRecord.id)))).scalar_one()
+            result = await session.execute(
+                select(UserRecord).order_by(UserRecord.name).offset(offset).limit(limit)
+            )
+            return list(result.scalars().all()), total
 
     async def update(self, user_id: str, **fields: object) -> UserRecord | None:
         async with self._session_factory() as session:

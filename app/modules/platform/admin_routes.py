@@ -13,11 +13,14 @@ from app.modules.platform.interface import (
     CreateUserRequest,
     FundAccessGrant,
     FundDetail,
+    FundPage,
     OperatorInfo,
+    OperatorPage,
     UpdateFundRequest,
     UpdateOperatorRequest,
     UpdateUserRequest,
     UserInfo,
+    UserPage,
 )
 from app.shared.auth import Permission, require_platform_permission
 from app.shared.request_context import RequestContext
@@ -29,12 +32,14 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 # ---------------------------------------------------------------------------
 
 
-@router.get("/users", response_model=list[UserInfo])
+@router.get("/users", response_model=UserPage)
 async def list_users(
+    limit: int = 100,
+    offset: int = 0,
     ctx: RequestContext = require_platform_permission(Permission.PLATFORM_USERS_READ),
     svc: AdminService = Depends(get_admin_service),
-) -> list[UserInfo]:
-    return await svc.list_users()
+) -> UserPage:
+    return await svc.list_users(limit=limit, offset=offset)
 
 
 @router.post("/users", response_model=UserInfo, status_code=201)
@@ -71,27 +76,27 @@ async def update_user(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/operators", response_model=list[OperatorInfo])
+@router.get("/operators", response_model=OperatorPage)
 async def list_operators(
-    ctx: RequestContext = require_platform_permission(
-        Permission.PLATFORM_OPERATORS_READ
-    ),
+    limit: int = 100,
+    offset: int = 0,
+    ctx: RequestContext = require_platform_permission(Permission.PLATFORM_OPERATORS_READ),
     svc: AdminService = Depends(get_admin_service),
-) -> list[OperatorInfo]:
-    return await svc.list_operators()
+) -> OperatorPage:
+    return await svc.list_operators(limit=limit, offset=offset)
 
 
 @router.post("/operators", response_model=OperatorInfo, status_code=201)
 async def create_operator(
     body: CreateOperatorRequest,
-    ctx: RequestContext = require_platform_permission(
-        Permission.PLATFORM_OPERATORS_WRITE
-    ),
+    ctx: RequestContext = require_platform_permission(Permission.PLATFORM_OPERATORS_WRITE),
     svc: AdminService = Depends(get_admin_service),
 ) -> OperatorInfo:
     return await svc.create_operator(
-        email=body.email, name=body.name,
-        platform_role=body.platform_role, actor=ctx,
+        email=body.email,
+        name=body.name,
+        platform_role=body.platform_role,
+        actor=ctx,
     )
 
 
@@ -99,14 +104,14 @@ async def create_operator(
 async def update_operator(
     operator_id: str,
     body: UpdateOperatorRequest,
-    ctx: RequestContext = require_platform_permission(
-        Permission.PLATFORM_OPERATORS_WRITE
-    ),
+    ctx: RequestContext = require_platform_permission(Permission.PLATFORM_OPERATORS_WRITE),
     svc: AdminService = Depends(get_admin_service),
 ) -> OperatorInfo:
     return await svc.update_operator(
-        operator_id, actor=ctx,
-        name=body.name, is_active=body.is_active,
+        operator_id,
+        actor=ctx,
+        name=body.name,
+        is_active=body.is_active,
         platform_role=body.platform_role,
     )
 
@@ -116,12 +121,14 @@ async def update_operator(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/funds", response_model=list[FundDetail])
+@router.get("/funds", response_model=FundPage)
 async def list_funds(
+    limit: int = 100,
+    offset: int = 0,
     ctx: RequestContext = require_platform_permission(Permission.PLATFORM_FUNDS_READ),
     svc: AdminService = Depends(get_admin_service),
-) -> list[FundDetail]:
-    return await svc.list_funds()
+) -> FundPage:
+    return await svc.list_funds(limit=limit, offset=offset)
 
 
 @router.post("/funds", response_model=FundDetail, status_code=201)
@@ -131,8 +138,10 @@ async def create_fund(
     svc: AdminService = Depends(get_admin_service),
 ) -> FundDetail:
     return await svc.create_fund(
-        slug=body.slug, name=body.name,
-        base_currency=body.base_currency, actor=ctx,
+        slug=body.slug,
+        name=body.name,
+        base_currency=body.base_currency,
+        actor=ctx,
     )
 
 
@@ -165,14 +174,15 @@ async def list_fund_access(
 async def grant_access(
     fund_id: str,
     body: AccessGrantRequest,
-    ctx: RequestContext = require_platform_permission(
-        Permission.PLATFORM_ACCESS_WRITE
-    ),
+    ctx: RequestContext = require_platform_permission(Permission.PLATFORM_ACCESS_WRITE),
     svc: AdminService = Depends(get_admin_service),
 ) -> None:
     await svc.grant_access(
-        fund_id, user_type=body.user_type,
-        user_id=body.user_id, relation=body.relation, actor=ctx,
+        fund_id,
+        user_type=body.user_type,
+        user_id=body.user_id,
+        relation=body.relation,
+        actor=ctx,
     )
 
 
@@ -180,14 +190,15 @@ async def grant_access(
 async def revoke_access(
     fund_id: str,
     body: AccessRevokeRequest,
-    ctx: RequestContext = require_platform_permission(
-        Permission.PLATFORM_ACCESS_WRITE
-    ),
+    ctx: RequestContext = require_platform_permission(Permission.PLATFORM_ACCESS_WRITE),
     svc: AdminService = Depends(get_admin_service),
 ) -> None:
     await svc.revoke_access(
-        fund_id, user_type=body.user_type,
-        user_id=body.user_id, relation=body.relation, actor=ctx,
+        fund_id,
+        user_type=body.user_type,
+        user_id=body.user_id,
+        relation=body.relation,
+        actor=ctx,
     )
 
 
@@ -206,6 +217,8 @@ async def list_audit(
     svc: AdminService = Depends(get_admin_service),
 ) -> AuditPage:
     return await svc.list_audit(
-        fund_slug=fund_slug, event_type=event_type,
-        limit=limit, offset=offset,
+        fund_slug=fund_slug,
+        event_type=event_type,
+        limit=limit,
+        offset=offset,
     )

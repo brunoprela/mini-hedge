@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://minihedge:minihedge@localhost:5433/minihedge"
     database_pool_size: int = 10
     database_max_overflow: int = 5
+    database_pool_timeout: int = 30
 
     app_env: str = "local"
     log_level: str = "DEBUG"

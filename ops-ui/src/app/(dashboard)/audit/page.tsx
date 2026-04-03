@@ -1,28 +1,18 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { FileText } from "lucide-react";
 import { useState } from "react";
+import { EmptyState } from "@/shared/components/empty-state";
+import { ErrorState } from "@/shared/components/error-state";
+import { TableSkeleton } from "@/shared/components/loading-skeleton";
+import { Pagination } from "@/shared/components/pagination";
+import { PayloadCell } from "@/shared/components/payload-cell";
+import { StatusBadge } from "@/shared/components/status-badge";
 import { apiFetch } from "@/shared/lib/api";
-
-interface AuditEntry {
-  id: string;
-  event_id: string;
-  event_type: string;
-  actor_id: string | null;
-  actor_type: string | null;
-  fund_slug: string | null;
-  payload: Record<string, unknown>;
-  created_at: string;
-}
-
-interface AuditPage {
-  items: AuditEntry[];
-  total: number;
-  limit: number;
-  offset: number;
-}
-
-const PAGE_SIZE = 50;
+import { eventCategory } from "@/shared/lib/audit-utils";
+import { PAGE_SIZE } from "@/shared/lib/constants";
+import type { AuditEntry, Page } from "@/shared/types";
 
 export default function AuditPage() {
   const [fundSlug, setFundSlug] = useState("");
@@ -35,12 +25,10 @@ export default function AuditPage() {
   params.set("limit", String(PAGE_SIZE));
   params.set("offset", String(page * PAGE_SIZE));
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["admin", "audit", fundSlug, eventType, page],
-    queryFn: () => apiFetch<AuditPage>(`admin/audit?${params.toString()}`),
+    queryFn: () => apiFetch<Page<AuditEntry>>(`admin/audit?${params.toString()}`),
   });
-
-  const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
 
   return (
     <div>
@@ -68,9 +56,15 @@ export default function AuditPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>
+        <TableSkeleton rows={8} columns={5} />
+      ) : isError ? (
+        <ErrorState message={error.message} onRetry={refetch} />
       ) : data?.items.length === 0 ? (
-        <p className="text-sm text-[var(--muted-foreground)]">No audit entries found.</p>
+        <EmptyState
+          icon={FileText}
+          title="No audit entries"
+          description="No audit log entries match your filters."
+        />
       ) : (
         <>
           <table className="w-full text-sm">
@@ -85,51 +79,46 @@ export default function AuditPage() {
             </thead>
             <tbody>
               {data?.items.map((entry) => (
-                <tr key={entry.id} className="border-b border-[var(--border)]">
+                <tr key={entry.id} className="border-b border-[var(--border)] align-top">
                   <td className="py-2 text-[var(--muted-foreground)] whitespace-nowrap">
                     {new Date(entry.created_at).toLocaleString()}
                   </td>
                   <td className="py-2">
-                    <span className="inline-block rounded bg-[var(--muted)] px-2 py-0.5 text-xs font-mono">
-                      {entry.event_type}
-                    </span>
+                    <StatusBadge
+                      label={entry.event_type}
+                      variant={eventCategory(entry.event_type)}
+                    />
                   </td>
                   <td className="py-2 text-xs text-[var(--muted-foreground)]">
-                    {entry.actor_type}:{entry.actor_id?.slice(0, 8)}
+                    {entry.actor_type ? (
+                      <span>
+                        <span className="font-medium">{entry.actor_type}</span>
+                        {entry.actor_id && (
+                          <span className="ml-1 font-mono">{entry.actor_id.slice(0, 8)}</span>
+                        )}
+                      </span>
+                    ) : (
+                      "-"
+                    )}
                   </td>
-                  <td className="py-2">{entry.fund_slug ?? "-"}</td>
-                  <td className="py-2 text-xs text-[var(--muted-foreground)] max-w-xs truncate">
-                    {JSON.stringify(entry.payload)}
+                  <td className="py-2">
+                    {entry.fund_slug ? (
+                      <span className="inline-block rounded bg-[var(--muted)] px-2 py-0.5 text-xs font-mono">
+                        {entry.fund_slug}
+                      </span>
+                    ) : (
+                      <span className="text-[var(--muted-foreground)]">-</span>
+                    )}
+                  </td>
+                  <td className="py-2">
+                    <PayloadCell payload={entry.payload} />
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 text-sm">
-              <span className="text-[var(--muted-foreground)]">
-                {data?.total} entries &middot; page {page + 1} of {totalPages}
-              </span>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  disabled={page === 0}
-                  className="rounded border border-[var(--border)] px-3 py-1 disabled:opacity-40"
-                >
-                  Previous
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                  disabled={page >= totalPages - 1}
-                  className="rounded border border-[var(--border)] px-3 py-1 disabled:opacity-40"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
+          {data && (
+            <Pagination total={data.total} limit={PAGE_SIZE} page={page} onPageChange={setPage} />
           )}
         </>
       )}

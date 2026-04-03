@@ -50,12 +50,8 @@ class EventStoreRepository:
         session: AsyncSession,
     ) -> bool:
         """Check if an event with the given idempotency key already exists."""
-        stmt = (
-            select(func.count(PositionEventRecord.id))
-            .where(
-                PositionEventRecord.metadata_["idempotency_key"].astext
-                == idempotency_key,
-            )
+        stmt = select(func.count(PositionEventRecord.id)).where(
+            PositionEventRecord.metadata_["idempotency_key"].astext == idempotency_key,
         )
         result = await session.execute(stmt)
         return result.scalar_one() > 0

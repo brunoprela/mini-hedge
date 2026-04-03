@@ -29,7 +29,7 @@ def _sse_error(message: str, *, status_code: int) -> StreamingResponse:
     """Return a single-event SSE response containing an error."""
     payload = json.dumps({"error": message})
     return StreamingResponse(
-        iter([f'data: {payload}\n\n']),
+        iter([f"data: {payload}\n\n"]),
         status_code=status_code,
         media_type="text/event-stream",
     )

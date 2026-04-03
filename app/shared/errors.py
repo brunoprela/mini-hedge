@@ -33,7 +33,9 @@ class AuthenticationError(DomainError):
     """Caller could not be identified (invalid/missing credentials)."""
 
     def __init__(
-        self, message: str = "Authentication required", code: str = "AUTH_REQUIRED",
+        self,
+        message: str = "Authentication required",
+        code: str = "AUTH_REQUIRED",
     ) -> None:
         super().__init__(message=message, code=code)
 

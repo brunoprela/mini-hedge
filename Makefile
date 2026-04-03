@@ -91,15 +91,18 @@ lint:
 	uv run ruff check app/ tests/
 	uv run ruff format --check app/ tests/
 	cd ui && pnpm lint
+	cd ops-ui && pnpm lint
 
 format:
 	uv run ruff check --fix app/ tests/
 	uv run ruff format app/ tests/
 	cd ui && pnpm lint:fix
+	cd ops-ui && pnpm lint:fix
 
 typecheck:
 	uv run mypy app/
 	cd ui && pnpm tsc --noEmit
+	cd ops-ui && pnpm tsc --noEmit
 
 tach-check:
 	uv run tach check

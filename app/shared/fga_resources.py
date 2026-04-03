@@ -22,15 +22,29 @@ Portfolio = register_resource_type(
 Fund = register_resource_type(
     ResourceType(
         name="fund",
-        relations=frozenset({
-            "admin", "portfolio_manager", "analyst", "risk_manager",
-            "compliance", "viewer", "ops_full", "ops_read",
-            "can_admin", "can_read",
-            # Per-user permission relations (directly assignable + computed from roles)
-            "can_read_instruments", "can_write_instruments",
-            "can_read_prices", "can_read_positions", "can_write_positions",
-            "can_execute_trades", "can_read_fund", "can_manage_fund",
-        }),
+        relations=frozenset(
+            {
+                "admin",
+                "portfolio_manager",
+                "analyst",
+                "risk_manager",
+                "compliance",
+                "viewer",
+                "ops_full",
+                "ops_read",
+                "can_admin",
+                "can_read",
+                # Per-user permission relations (directly assignable + computed from roles)
+                "can_read_instruments",
+                "can_write_instruments",
+                "can_read_prices",
+                "can_read_positions",
+                "can_write_positions",
+                "can_execute_trades",
+                "can_read_fund",
+                "can_manage_fund",
+            }
+        ),
     )
 )
 

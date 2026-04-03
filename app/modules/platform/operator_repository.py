@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
 from app.modules.platform.models import OperatorRecord
 
@@ -104,13 +104,21 @@ class OperatorRepository:
             result = await session.execute(select(OperatorRecord))
             return list(result.scalars().all())
 
+    async def get_all_paginated(
+        self, *, limit: int = 100, offset: int = 0
+    ) -> tuple[list[OperatorRecord], int]:
+        async with self._session_factory() as session:
+            total = (await session.execute(select(func.count(OperatorRecord.id)))).scalar_one()
+            result = await session.execute(
+                select(OperatorRecord).order_by(OperatorRecord.name).offset(offset).limit(limit)
+            )
+            return list(result.scalars().all()), total
+
     async def update(self, operator_id: str, **fields: object) -> OperatorRecord | None:
         async with self._session_factory() as session:
             if fields:
                 await session.execute(
-                    update(OperatorRecord)
-                    .where(OperatorRecord.id == operator_id)
-                    .values(**fields)
+                    update(OperatorRecord).where(OperatorRecord.id == operator_id).values(**fields)
                 )
                 await session.commit()
             result = await session.execute(

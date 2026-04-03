@@ -25,3 +25,15 @@ depends_on = ["app.shared"]
 [[modules]]
 path = "app.modules.realtime"
 depends_on = ["app.shared"]
+
+[[modules]]
+path = "app.middleware"
+depends_on = ["app.shared"]
+
+[[modules]]
+path = "app.exception_handlers"
+depends_on = ["app.shared"]
+
+[[modules]]
+path = "app.setup"
+depends_on = ["app.shared", "app.modules.platform", "app.modules.security_master", "app.modules.market_data", "app.modules.positions"]
