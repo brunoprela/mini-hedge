@@ -72,7 +72,9 @@ class EventStoreRepository:
                 aggregate_id=aggregate_id,
                 sequence_number=next_seq,
                 event_type=event_type,
+                event_version=1,
                 event_data=event_data,
+                metadata_={},
             )
             s.add(event)
 

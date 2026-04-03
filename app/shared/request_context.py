@@ -54,12 +54,27 @@ _current_context: ContextVar[RequestContext] = ContextVar("request_context")
 DEFAULT_FUND_SLUG = "alpha"
 
 # System context used during startup (migrations, seeding) — not a request
+# All permissions — mirrors ROLE_PERMISSIONS[Role.ADMIN] without importing
+# auth.py (which imports this module).
+_ALL_PERMISSIONS = frozenset(
+    {
+        "instruments:read",
+        "instruments:write",
+        "prices:read",
+        "positions:read",
+        "positions:write",
+        "trades:execute",
+        "funds:read",
+        "funds:manage",
+    }
+)
+
 SYSTEM_CONTEXT = RequestContext(
     actor_id="system",
     actor_type=ActorType.SYSTEM,
     fund_slug=DEFAULT_FUND_SLUG,
     roles=frozenset({"admin"}),
-    permissions=frozenset(),
+    permissions=_ALL_PERMISSIONS,
 )
 
 

@@ -309,11 +309,13 @@ def _make_price_handler(market_data_service: MarketDataService):  # type: ignore
     """Create a price event handler bound to the given service."""
 
     async def on_price_event(event: BaseEvent) -> None:
+        raw_volume = event.data.get("volume")
         snapshot = PriceSnapshot(
             instrument_id=event.data["instrument_id"],
             bid=Decimal(event.data["bid"]),
             ask=Decimal(event.data["ask"]),
             mid=Decimal(event.data["mid"]),
+            volume=Decimal(raw_volume) if raw_volume is not None else None,
             timestamp=event.timestamp,
             source=event.data["source"],
         )

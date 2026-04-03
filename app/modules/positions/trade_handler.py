@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 import structlog
+from sqlalchemy.exc import IntegrityError
 
 from app.modules.positions.aggregate import PositionAggregate
 from app.modules.positions.event_store import EventStoreRepository
@@ -80,27 +81,49 @@ class TradeHandler:
             ),
         )
 
-        # Single transaction: load events, append new event, project read model
-        async with self._session_factory() as session:
-            # Load current state from event store
-            stored_events = await self._event_store.get_by_aggregate(aggregate_id, session=session)
-            position = PositionAggregate.from_events(portfolio_id, instrument_id, stored_events)
+        # Single transaction: load events, append new event, project read model.
+        # Retry on sequence_number conflict (concurrent write to same aggregate).
+        max_retries = 3
+        for attempt in range(1, max_retries + 1):
+            try:
+                async with self._session_factory() as session:
+                    # Load current state from event store
+                    stored_events = await self._event_store.get_by_aggregate(
+                        aggregate_id, session=session
+                    )
+                    position = PositionAggregate.from_events(
+                        portfolio_id, instrument_id, stored_events
+                    )
 
-            # Apply to aggregate (pure logic, no I/O)
-            downstream_events = position.apply(trade_event)
+                    # Apply to aggregate (pure logic, no I/O)
+                    downstream_events = position.apply(trade_event)
 
-            # Persist event to event store
-            await self._event_store.append(
-                aggregate_id=aggregate_id,
-                event_type=trade_event.event_type,
-                event_data=EventStoreRepository.serialize(trade_event),
-                session=session,
-            )
+                    # Persist event to event store
+                    await self._event_store.append(
+                        aggregate_id=aggregate_id,
+                        event_type=trade_event.event_type,
+                        event_data=EventStoreRepository.serialize(trade_event),
+                        session=session,
+                    )
 
-            # Project read model in same transaction
-            await self._projector.project(position, session=session, currency=currency)
+                    # Project read model in same transaction
+                    await self._projector.project(position, session=session, currency=currency)
 
-            await session.commit()
+                    await session.commit()
+                break  # success
+            except IntegrityError:
+                if attempt == max_retries:
+                    logger.error(
+                        "trade_conflict_exhausted",
+                        aggregate_id=aggregate_id,
+                        attempts=max_retries,
+                    )
+                    raise
+                logger.warning(
+                    "trade_conflict_retry",
+                    aggregate_id=aggregate_id,
+                    attempt=attempt,
+                )
 
         # Publish downstream events to fund-scoped topics
         await self._publish_downstream(ctx, downstream_events)
@@ -125,6 +148,8 @@ class TradeHandler:
                     base_topic = "positions.changed"
                 case PnLRealized() | PnLMarkToMarket():
                     base_topic = "pnl.updated"
+                case _:
+                    raise ValueError(f"Unknown downstream event type: {type(de).__name__}")
 
             topic = fund_topic(ctx.fund_slug, base_topic) if ctx.fund_slug else base_topic
             data = asdict(de.data)

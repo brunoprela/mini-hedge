@@ -77,7 +77,10 @@ def shared_topics() -> list[str]:
     ]
 
 
-# Maps topic → Avro parsed schema for the *payload* (data field).
+# Maps event_type → Avro parsed schema for the *payload* (data field).
+# Keyed by event_type (not topic) because a single topic can carry multiple
+# event types with different payload schemas (e.g. pnl.updated carries both
+# pnl.realized and pnl.mark_to_market events).
 _PAYLOAD_SCHEMAS: dict[str, dict[str, Any]] = {}
 
 # Envelope schema (wraps every event on Kafka).
@@ -93,27 +96,28 @@ def _load_avsc(path: Path) -> dict[str, Any]:
 def load_schemas() -> None:
     """Load all Avro schemas from disk into module-level caches.
 
-    Called once at startup. Maps event topics to their payload schemas.
+    Called once at startup. Maps event types to their payload schemas.
     """
     global _ENVELOPE_SCHEMA  # noqa: PLW0603
 
     _ENVELOPE_SCHEMA = _load_avsc(_SCHEMA_DIR / "envelope-v1.avsc")
     fastavro.parse_schema(_ENVELOPE_SCHEMA)
 
-    # Topic → schema file mapping
-    topic_schemas = {
-        "prices.normalized": "prices/normalized-v1.avsc",
-        "positions.changed": "positions/changed-v1.avsc",
-        "pnl.updated": "positions/pnl-realized-v1.avsc",
+    # event_type → schema file mapping
+    event_schemas = {
+        "price.updated": "prices/normalized-v1.avsc",
+        "position.changed": "positions/changed-v1.avsc",
+        "pnl.realized": "positions/pnl-realized-v1.avsc",
         "pnl.mark_to_market": "positions/pnl-mtm-v1.avsc",
-        "trades.executed": "trades/executed-v1.avsc",
+        "trade.buy": "trades/executed-v1.avsc",
+        "trade.sell": "trades/executed-v1.avsc",
     }
-    for topic, schema_file in topic_schemas.items():
+    for event_type, schema_file in event_schemas.items():
         schema = _load_avsc(_SCHEMA_DIR / schema_file)
         fastavro.parse_schema(schema)
-        _PAYLOAD_SCHEMAS[topic] = schema
+        _PAYLOAD_SCHEMAS[event_type] = schema
 
-    logger.info("avro_schemas_loaded", topics=list(_PAYLOAD_SCHEMAS.keys()))
+    logger.info("avro_schemas_loaded", event_types=list(_PAYLOAD_SCHEMAS.keys()))
 
 
 def _avro_encode(schema: dict[str, Any], record: dict[str, Any]) -> bytes:
@@ -136,13 +140,13 @@ def serialize_event(
 ) -> bytes:
     """Serialize an event envelope + payload to Avro binary.
 
-    The payload is first encoded with its topic-specific schema, then
+    The payload is first encoded with its event-type-specific schema, then
     embedded as ``bytes`` in the envelope's ``data`` field.
     """
-    base = base_topic_name(topic)
-    payload_schema = _PAYLOAD_SCHEMAS.get(base)
+    event_type = envelope.get("event_type", "")
+    payload_schema = _PAYLOAD_SCHEMAS.get(event_type)
     if payload_schema is None:
-        raise ValueError(f"No Avro schema registered for topic: {topic} (base: {base})")
+        raise ValueError(f"No Avro schema registered for event_type: {event_type} (topic: {topic})")
 
     if _ENVELOPE_SCHEMA is None:
         raise RuntimeError("Schemas not loaded — call load_schemas() at startup")
@@ -162,17 +166,18 @@ def deserialize_event(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Deserialize Avro binary back to (envelope, payload) dicts.
 
-    Returns the envelope metadata and the decoded domain payload separately.
+    Decodes the envelope first to extract ``event_type``, then uses the
+    event-type-specific schema to decode the payload.
     """
     if _ENVELOPE_SCHEMA is None:
         raise RuntimeError("Schemas not loaded — call load_schemas() at startup")
 
     envelope = _avro_decode(_ENVELOPE_SCHEMA, raw)
 
-    base = base_topic_name(topic)
-    payload_schema = _PAYLOAD_SCHEMAS.get(base)
+    event_type = envelope.get("event_type", "")
+    payload_schema = _PAYLOAD_SCHEMAS.get(event_type)
     if payload_schema is None:
-        raise ValueError(f"No Avro schema registered for topic: {topic} (base: {base})")
+        raise ValueError(f"No Avro schema registered for event_type: {event_type} (topic: {topic})")
 
     payload = _avro_decode(payload_schema, envelope["data"])
     envelope["data"] = payload

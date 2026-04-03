@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from decimal import ROUND_HALF_UP, Decimal
 
 import numpy as np
 import structlog
@@ -115,9 +116,10 @@ class MarketDataSimulator:
             price = prices[cfg.ticker]
             spread = price * cfg.spread_bps / 10_000
             half_spread = spread / 2
-            mid = round(price, 4)
-            bid = round(price - half_spread, 4)
-            ask = round(price + half_spread, 4)
+            _q = Decimal("0.0001")
+            mid = Decimal(str(price)).quantize(_q, rounding=ROUND_HALF_UP)
+            bid = Decimal(str(price - half_spread)).quantize(_q, rounding=ROUND_HALF_UP)
+            ask = Decimal(str(price + half_spread)).quantize(_q, rounding=ROUND_HALF_UP)
 
             # Synthetic volume: random lot size scaled by price level
             volume = int(np.random.exponential(scale=10_000 / max(price, 1)))

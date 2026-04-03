@@ -116,5 +116,8 @@ class MarkToMarketHandler:
                     BaseEvent(
                         event_type=mtm_event.event_type,
                         data=serialized_data,
+                        actor_id="system",
+                        actor_type="system",
+                        fund_slug=fund_slug,
                     ),
                 )

@@ -33,4 +33,6 @@ async def get_price_history(
     ctx: RequestContext = require_permission(Permission.PRICES_READ),
     service: MarketDataService = Depends(get_market_data_service),
 ) -> list[PriceSnapshot]:
+    if start >= end:
+        raise HTTPException(status_code=400, detail="start must be before end")
     return await service.get_price_history(instrument_id.upper(), start, end)

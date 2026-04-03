@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
-from uuid import UUID, uuid4
+from uuid import UUID, uuid5
 
 from app.modules.positions.interface import (
     DownstreamEvent,
@@ -69,7 +69,7 @@ class PositionAggregate:
 
         self.lots.append(
             LotState(
-                lot_id=uuid4(),
+                lot_id=uuid5(trade_id, "lot"),
                 quantity=qty,
                 original_quantity=qty,
                 price=price,
@@ -90,7 +90,7 @@ class PositionAggregate:
         remaining = qty
         realized = Decimal(0)
 
-        for lot in sorted(self.lots, key=lambda x: x.acquired_at):
+        for lot in sorted(self.lots, key=lambda x: (x.acquired_at, x.lot_id)):
             if remaining <= 0 or lot.quantity <= 0:
                 break
             sold_from_lot = min(remaining, lot.quantity)
@@ -105,7 +105,7 @@ class PositionAggregate:
         if remaining > 0:
             self.lots.append(
                 LotState(
-                    lot_id=uuid4(),
+                    lot_id=uuid5(trade_id, "short"),
                     quantity=-remaining,
                     original_quantity=-remaining,
                     price=price,
@@ -156,5 +156,14 @@ class PositionAggregate:
     ) -> PositionAggregate:
         aggregate = cls(portfolio_id=portfolio_id, instrument_id=instrument_id)
         for event in events:
+            if (
+                event.data.portfolio_id != portfolio_id
+                or event.data.instrument_id != instrument_id
+            ):
+                raise ValueError(
+                    f"Event {event.event_type} belongs to "
+                    f"{event.data.portfolio_id}:{event.data.instrument_id}, "
+                    f"expected {portfolio_id}:{instrument_id}"
+                )
             aggregate.apply(event)
         return aggregate
