@@ -10,10 +10,13 @@ from uuid import UUID
 
 import pytest
 
-from app.modules.positions.handlers import MarkToMarketHandler, TradeHandler
+from app.modules.positions.event_store import EventStoreRepository
 from app.modules.positions.interface import TradeSide
-from app.modules.positions.repository import CurrentPositionRepository, EventStoreRepository
+from app.modules.positions.mtm_handler import MarkToMarketHandler
+from app.modules.positions.position_projector import PositionProjector
+from app.modules.positions.position_repository import CurrentPositionRepository
 from app.modules.positions.service import PositionService
+from app.modules.positions.trade_handler import TradeHandler
 from app.shared.database import TenantSessionFactory
 from app.shared.events import InProcessEventBus
 from app.shared.request_context import RequestContext, set_request_context
@@ -28,7 +31,8 @@ def _build_service(
     event_bus = InProcessEventBus()
     event_store = EventStoreRepository(session_factory)
     position_repo = CurrentPositionRepository(session_factory)
-    trade_handler = TradeHandler(session_factory, event_store, position_repo, event_bus)
+    projector = PositionProjector(position_repo)
+    trade_handler = TradeHandler(session_factory, event_store, projector, event_bus)
     return PositionService(position_repo, trade_handler)
 
 
@@ -217,7 +221,8 @@ class TestMarkToMarketCrossFund:
         event_bus = InProcessEventBus()
         event_store = EventStoreRepository(session_factory)
         position_repo = CurrentPositionRepository(session_factory)
-        trade_handler = TradeHandler(session_factory, event_store, position_repo, event_bus)
+        projector = PositionProjector(position_repo)
+        trade_handler = TradeHandler(session_factory, event_store, projector, event_bus)
         service = PositionService(position_repo, trade_handler)
 
         # Alpha buys GS
@@ -328,7 +333,7 @@ class TestEventStoreIsolation:
         aggregate_id = f"{alpha_portfolio}:TSLA"
         alpha_events = await event_store.get_by_aggregate(aggregate_id)
         assert len(alpha_events) >= 1
-        assert alpha_events[0]["event_type"] in ("trade.buy", "trade.sell")
+        assert alpha_events[0].event_type in ("trade.buy", "trade.sell")
 
         # Beta's event store — same aggregate_id pattern but different schema
         set_request_context(beta_context)

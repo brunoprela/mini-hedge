@@ -20,7 +20,7 @@ class TestBuy:
         assert len(agg.lots) == 1
         assert agg.lots[0].quantity == Decimal("100")
         assert len(downstream) == 1
-        assert downstream[0]["event_type"] == PositionEventType.POSITION_CHANGED
+        assert downstream[0].event_type == PositionEventType.POSITION_CHANGED
 
     def test_multiple_buys_average_cost(self) -> None:
         agg = PositionAggregate(portfolio_id=DEFAULT_PORTFOLIO_ID, instrument_id="AAPL")

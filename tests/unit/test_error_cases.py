@@ -1,11 +1,18 @@
 """Unit tests for error cases and edge conditions."""
 
+from datetime import UTC, datetime
 from decimal import Decimal
+from uuid import uuid4
 
 import pytest
 
 from app.modules.positions.aggregate import PositionAggregate
-from app.modules.positions.interface import TradeSide
+from app.modules.positions.interface import (
+    PositionEventType,
+    TradeEvent,
+    TradeEventData,
+    TradeSide,
+)
 from app.shared.events import BaseEvent, InProcessEventBus
 from app.shared.request_context import RequestContext
 from tests.factories import DEFAULT_PORTFOLIO_ID, make_trade_event
@@ -14,9 +21,21 @@ from tests.factories import DEFAULT_PORTFOLIO_ID, make_trade_event
 class TestAggregateEdgeCases:
     def test_unknown_event_type_ignored(self) -> None:
         agg = PositionAggregate(portfolio_id=DEFAULT_PORTFOLIO_ID, instrument_id="AAPL")
-        downstream = agg.apply(
-            {"event_type": "unknown.type", "timestamp": "2026-01-01T00:00:00+00:00", "data": {}}
+        # Create a trade event with a non-trade event type to test the default case
+        event = TradeEvent(
+            event_type=PositionEventType.POSITION_CHANGED,  # not a trade type
+            timestamp=datetime.now(UTC),
+            data=TradeEventData(
+                portfolio_id=DEFAULT_PORTFOLIO_ID,
+                instrument_id="AAPL",
+                side=TradeSide.BUY,
+                quantity=Decimal("100"),
+                price=Decimal("150.00"),
+                trade_id=uuid4(),
+                currency="USD",
+            ),
         )
+        downstream = agg.apply(event)
         assert downstream == []
         assert agg.quantity == Decimal("0")
         assert agg.version == 0

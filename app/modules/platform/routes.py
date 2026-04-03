@@ -2,22 +2,16 @@
 
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.modules.platform.auth_service import AuthService
+from app.modules.platform.dependencies import get_auth_service
 from app.modules.platform.interface import FundInfo
-from app.modules.platform.service import AuthService
 from app.shared.auth import Permission, get_actor_context, require_permission, resolve_permissions
 from app.shared.request_context import ActorType, RequestContext
 
 router = APIRouter(tags=["platform"])
-
-
-def _get_auth_service(request: Request) -> AuthService:
-    service: AuthService | None = getattr(request.app.state, "auth_service", None)
-    if service is None:
-        raise HTTPException(status_code=503, detail="AuthService not initialized")
-    return service
 
 
 # ---------------------------------------------------------------------------
@@ -46,7 +40,7 @@ class AgentTokenResponse(BaseModel):
 @router.get("/me/funds", response_model=list[FundInfo])
 async def list_my_funds(
     ctx: RequestContext = Depends(get_actor_context),
-    auth: AuthService = Depends(_get_auth_service),
+    auth: AuthService = Depends(get_auth_service),
 ) -> list[FundInfo]:
     """Return all funds the authenticated user has access to.
 
@@ -60,7 +54,7 @@ async def list_my_funds(
 async def create_agent_token(
     body: AgentTokenRequest,
     ctx: RequestContext = require_permission(Permission.FUNDS_MANAGE),
-    auth: AuthService = Depends(_get_auth_service),
+    auth: AuthService = Depends(get_auth_service),
 ) -> AgentTokenResponse:
     """Issue a JWT for an LLM agent.
 

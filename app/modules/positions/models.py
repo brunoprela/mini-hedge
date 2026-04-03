@@ -5,8 +5,10 @@ from decimal import Decimal
 
 from sqlalchemy import (
     BigInteger,
+    CheckConstraint,
     DateTime,
     Index,
+    Integer,
     Numeric,
     String,
     UniqueConstraint,
@@ -31,6 +33,7 @@ class PositionEventRecord(Base):
         UniqueConstraint("aggregate_id", "sequence_number"),
         Index("ix_pos_events_aggregate", "aggregate_id", "sequence_number"),
         Index("ix_pos_events_type", "event_type"),
+        Index("ix_pos_events_created", "created_at"),
         {"schema": "positions"},
     )
 
@@ -40,6 +43,7 @@ class PositionEventRecord(Base):
     aggregate_id: Mapped[str] = mapped_column(String(128), nullable=False)
     sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
     event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    event_version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
     event_data: Mapped[dict] = mapped_column(JSONB, nullable=False)  # type: ignore[type-arg]
     metadata_: Mapped[dict] = mapped_column(  # type: ignore[type-arg]
         "metadata", JSONB, nullable=False, default=dict
@@ -81,3 +85,26 @@ class CurrentPositionRecord(Base):
     last_updated: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+# --- Read Model: Position Lots (cost basis tracking) ---
+
+
+class LotRecord(Base):
+    __tablename__ = "lots"
+    __table_args__ = (
+        CheckConstraint("quantity != 0", name="valid_lot"),
+        Index("ix_pos_lots_position", "portfolio_id", "instrument_id"),
+        {"schema": "positions"},
+    )
+
+    id: Mapped[str] = mapped_column(
+        PG_UUID(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    portfolio_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)
+    instrument_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
+    original_quantity: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
+    price: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
+    acquired_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    trade_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)

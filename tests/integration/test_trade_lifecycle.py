@@ -4,10 +4,13 @@ from decimal import Decimal
 
 import pytest
 
-from app.modules.positions.handlers import MarkToMarketHandler, TradeHandler
+from app.modules.positions.event_store import EventStoreRepository
 from app.modules.positions.interface import TradeSide
-from app.modules.positions.repository import CurrentPositionRepository, EventStoreRepository
+from app.modules.positions.mtm_handler import MarkToMarketHandler
+from app.modules.positions.position_projector import PositionProjector
+from app.modules.positions.position_repository import CurrentPositionRepository
 from app.modules.positions.service import PositionService
+from app.modules.positions.trade_handler import TradeHandler
 from app.shared.database import TenantSessionFactory
 from app.shared.events import BaseEvent, InProcessEventBus
 from app.shared.request_context import RequestContext
@@ -28,7 +31,8 @@ class TestTradeLifecycle:
         event_bus = InProcessEventBus()
         event_store = EventStoreRepository(session_factory)
         position_repo = CurrentPositionRepository(session_factory)
-        trade_handler = TradeHandler(session_factory, event_store, position_repo, event_bus)
+        projector = PositionProjector(position_repo)
+        trade_handler = TradeHandler(session_factory, event_store, projector, event_bus)
         service = PositionService(position_repo, trade_handler)
 
         # Step 1: Buy 100 NFLX @ $200 (unique ticker for this test)
@@ -84,8 +88,8 @@ class TestTradeLifecycle:
         # Step 4: Verify event store has 2 events (buy + sell)
         events = await event_store.get_by_aggregate(f"{DEFAULT_PORTFOLIO_ID}:NFLX")
         assert len(events) == 2
-        assert events[0]["event_type"] == "trade.buy"
-        assert events[1]["event_type"] == "trade.sell"
+        assert events[0].event_type == "trade.buy"
+        assert events[1].event_type == "trade.sell"
 
     @pytest.mark.asyncio
     async def test_short_sell_lifecycle(
@@ -97,7 +101,8 @@ class TestTradeLifecycle:
         event_bus = InProcessEventBus()
         event_store = EventStoreRepository(session_factory)
         position_repo = CurrentPositionRepository(session_factory)
-        trade_handler = TradeHandler(session_factory, event_store, position_repo, event_bus)
+        projector = PositionProjector(position_repo)
+        trade_handler = TradeHandler(session_factory, event_store, projector, event_bus)
         service = PositionService(position_repo, trade_handler)
 
         # Short 50 CRM @ $500 (unique ticker for this test)

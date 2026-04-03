@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "PnLMarkToMarket",
+  "namespace": "com.minihedge.positions",
+  "doc": "Emitted when mark-to-market revaluation changes unrealized P&L beyond the noise threshold.",
+  "fields": [
+    {"name": "portfolio_id", "type": "string"},
+    {"name": "instrument_id", "type": "string"},
+    {"name": "market_price", "type": "string", "doc": "Decimal as string"},
+    {"name": "market_value", "type": "string"},
+    {"name": "unrealized_pnl", "type": "string"},
+    {"name": "pnl_change", "type": "string"}
+  ]
+}

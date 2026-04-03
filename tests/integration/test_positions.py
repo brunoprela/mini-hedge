@@ -4,10 +4,12 @@ from decimal import Decimal
 
 import pytest
 
-from app.modules.positions.handlers import TradeHandler
+from app.modules.positions.event_store import EventStoreRepository
 from app.modules.positions.interface import TradeSide
-from app.modules.positions.repository import CurrentPositionRepository, EventStoreRepository
+from app.modules.positions.position_projector import PositionProjector
+from app.modules.positions.position_repository import CurrentPositionRepository
 from app.modules.positions.service import PositionService
+from app.modules.positions.trade_handler import TradeHandler
 from app.shared.database import TenantSessionFactory
 from app.shared.events import InProcessEventBus
 from app.shared.request_context import RequestContext
@@ -25,7 +27,8 @@ class TestPositionKeeping:
         event_bus = InProcessEventBus()
         event_store = EventStoreRepository(session_factory)
         position_repo = CurrentPositionRepository(session_factory)
-        trade_handler = TradeHandler(session_factory, event_store, position_repo, event_bus)
+        projector = PositionProjector(position_repo)
+        trade_handler = TradeHandler(session_factory, event_store, projector, event_bus)
         service = PositionService(position_repo, trade_handler)
 
         trade = make_trade(instrument_id="AMZN", quantity=Decimal("100"), price=Decimal("150.00"))
@@ -44,7 +47,8 @@ class TestPositionKeeping:
         event_bus = InProcessEventBus()
         event_store = EventStoreRepository(session_factory)
         position_repo = CurrentPositionRepository(session_factory)
-        trade_handler = TradeHandler(session_factory, event_store, position_repo, event_bus)
+        projector = PositionProjector(position_repo)
+        trade_handler = TradeHandler(session_factory, event_store, projector, event_bus)
         service = PositionService(position_repo, trade_handler)
 
         # Buy
@@ -80,7 +84,8 @@ class TestPositionKeeping:
         event_bus = InProcessEventBus()
         event_store = EventStoreRepository(session_factory)
         position_repo = CurrentPositionRepository(session_factory)
-        trade_handler = TradeHandler(session_factory, event_store, position_repo, event_bus)
+        projector = PositionProjector(position_repo)
+        trade_handler = TradeHandler(session_factory, event_store, projector, event_bus)
         service = PositionService(position_repo, trade_handler)
 
         # Buy two different instruments

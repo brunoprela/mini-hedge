@@ -7,7 +7,15 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from app.modules.positions.interface import PositionEventType
+from app.modules.positions.interface import (
+    DownstreamEvent,
+    PnLRealized,
+    PnLRealizedData,
+    PositionChanged,
+    PositionChangedData,
+    PositionEventType,
+    TradeEvent,
+)
 
 
 @dataclass
@@ -41,9 +49,9 @@ class PositionAggregate:
             return Decimal(0)
         return self.cost_basis / abs(self.quantity)
 
-    def apply(self, event: dict) -> list[dict]:
+    def apply(self, event: TradeEvent) -> list[DownstreamEvent]:
         """Apply an event and return any downstream events to emit."""
-        match event["event_type"]:
+        match event.event_type:
             case PositionEventType.TRADE_BUY:
                 return self._apply_buy(event)
             case PositionEventType.TRADE_SELL:
@@ -51,10 +59,10 @@ class PositionAggregate:
             case _:
                 return []
 
-    def _apply_buy(self, event: dict) -> list[dict]:
-        qty = Decimal(str(event["data"]["quantity"]))
-        price = Decimal(str(event["data"]["price"]))
-        trade_id = UUID(event["data"]["trade_id"])
+    def _apply_buy(self, event: TradeEvent) -> list[DownstreamEvent]:
+        qty = event.data.quantity
+        price = event.data.price
+        trade_id = event.data.trade_id
 
         self.quantity += qty
         self.cost_basis += qty * price
@@ -65,7 +73,7 @@ class PositionAggregate:
                 quantity=qty,
                 original_quantity=qty,
                 price=price,
-                acquired_at=datetime.fromisoformat(event["timestamp"]),
+                acquired_at=event.timestamp,
                 trade_id=trade_id,
             )
         )
@@ -73,10 +81,10 @@ class PositionAggregate:
         self.version += 1
         return [self._position_changed_event()]
 
-    def _apply_sell(self, event: dict) -> list[dict]:
-        qty = Decimal(str(event["data"]["quantity"]))
-        price = Decimal(str(event["data"]["price"]))
-        trade_id = UUID(event["data"]["trade_id"])
+    def _apply_sell(self, event: TradeEvent) -> list[DownstreamEvent]:
+        qty = event.data.quantity
+        price = event.data.price
+        trade_id = event.data.trade_id
 
         # FIFO lot matching
         remaining = qty
@@ -101,7 +109,7 @@ class PositionAggregate:
                     quantity=-remaining,
                     original_quantity=-remaining,
                     price=price,
-                    acquired_at=datetime.fromisoformat(event["timestamp"]),
+                    acquired_at=event.timestamp,
                     trade_id=trade_id,
                 )
             )
@@ -116,35 +124,35 @@ class PositionAggregate:
             self._pnl_realized_event(realized, price),
         ]
 
-    def _position_changed_event(self) -> dict:
-        return {
-            "event_type": PositionEventType.POSITION_CHANGED,
-            "data": {
-                "portfolio_id": str(self.portfolio_id),
-                "instrument_id": self.instrument_id,
-                "quantity": str(self.quantity),
-                "avg_cost": str(self.avg_cost),
-                "cost_basis": str(self.cost_basis),
-            },
-        }
+    def _position_changed_event(self) -> PositionChanged:
+        return PositionChanged(
+            event_type=PositionEventType.POSITION_CHANGED,
+            data=PositionChangedData(
+                portfolio_id=self.portfolio_id,
+                instrument_id=self.instrument_id,
+                quantity=self.quantity,
+                avg_cost=self.avg_cost,
+                cost_basis=self.cost_basis,
+            ),
+        )
 
-    def _pnl_realized_event(self, amount: Decimal, price: Decimal) -> dict:
-        return {
-            "event_type": PositionEventType.PNL_REALIZED,
-            "data": {
-                "portfolio_id": str(self.portfolio_id),
-                "instrument_id": self.instrument_id,
-                "realized_pnl": str(amount),
-                "price": str(price),
-            },
-        }
+    def _pnl_realized_event(self, amount: Decimal, price: Decimal) -> PnLRealized:
+        return PnLRealized(
+            event_type=PositionEventType.PNL_REALIZED,
+            data=PnLRealizedData(
+                portfolio_id=self.portfolio_id,
+                instrument_id=self.instrument_id,
+                realized_pnl=amount,
+                price=price,
+            ),
+        )
 
     @classmethod
     def from_events(
         cls,
         portfolio_id: UUID,
         instrument_id: str,
-        events: list[dict],
+        events: list[TradeEvent],
     ) -> PositionAggregate:
         aggregate = cls(portfolio_id=portfolio_id, instrument_id=instrument_id)
         for event in events:

@@ -10,7 +10,13 @@ from app.modules.platform.seed import (
     PORTFOLIO_BETA_STAT_ARB_ID,
     PORTFOLIO_GAMMA_EVENT_DRIVEN_ID,
 )
-from app.modules.positions.interface import PositionEventType, TradeRequest, TradeSide
+from app.modules.positions.interface import (
+    PositionEventType,
+    TradeEvent,
+    TradeEventData,
+    TradeRequest,
+    TradeSide,
+)
 from app.modules.security_master.interface import Instrument
 from app.shared.types import AssetClass
 
@@ -93,22 +99,22 @@ def make_trade_event(
     side: TradeSide = TradeSide.BUY,
     quantity: str = "100",
     price: str = "150.00",
-    trade_id: str | None = None,
-    timestamp: str | None = None,
-) -> dict:
+    trade_id: UUID | None = None,
+    timestamp: datetime | None = None,
+) -> TradeEvent:
     event_type = (
         PositionEventType.TRADE_BUY if side == TradeSide.BUY else PositionEventType.TRADE_SELL
     )
-    return {
-        "event_type": event_type,
-        "timestamp": timestamp or datetime.now(UTC).isoformat(),
-        "data": {
-            "portfolio_id": str(portfolio_id),
-            "instrument_id": instrument_id,
-            "side": side,
-            "quantity": quantity,
-            "price": price,
-            "trade_id": trade_id or str(uuid4()),
-            "currency": "USD",
-        },
-    }
+    return TradeEvent(
+        event_type=event_type,
+        timestamp=timestamp or datetime.now(UTC),
+        data=TradeEventData(
+            portfolio_id=portfolio_id,
+            instrument_id=instrument_id,
+            side=side,
+            quantity=Decimal(quantity),
+            price=Decimal(price),
+            trade_id=trade_id or uuid4(),
+            currency="USD",
+        ),
+    )

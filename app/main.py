@@ -26,6 +26,7 @@ from app.modules.market_data.repository import PriceRepository
 from app.modules.market_data.routes import router as market_data_router
 from app.modules.market_data.service import MarketDataService
 from app.modules.market_data.simulator import MarketDataSimulator
+from app.modules.platform.auth_service import AuthService
 from app.modules.platform.repository import (
     APIKeyRepository,
     FundMembershipRepository,
@@ -42,11 +43,13 @@ from app.modules.platform.seed import (
     build_seed_portfolios,
     build_seed_users,
 )
-from app.modules.platform.service import AuthService
-from app.modules.positions.handlers import MarkToMarketHandler, TradeHandler
-from app.modules.positions.repository import CurrentPositionRepository, EventStoreRepository
+from app.modules.positions.event_store import EventStoreRepository
+from app.modules.positions.mtm_handler import MarkToMarketHandler
+from app.modules.positions.position_projector import PositionProjector
+from app.modules.positions.position_repository import CurrentPositionRepository
 from app.modules.positions.routes import router as positions_router
 from app.modules.positions.service import PositionService
+from app.modules.positions.trade_handler import TradeHandler
 from app.modules.security_master.repository import InstrumentRepository
 from app.modules.security_master.routes import router as security_master_router
 from app.modules.security_master.seed import build_seed_records
@@ -278,10 +281,11 @@ def _setup_positions(
     fund_repo: FundRepository,
     security_master_service: SecurityMasterService,
 ) -> None:
-    """Wire positions module: repos, handlers, service, MTM subscription."""
+    """Wire positions module: repos, projector, handlers, service, MTM subscription."""
     event_store_repo = EventStoreRepository(session_factory)
     position_repo = CurrentPositionRepository(session_factory)
-    trade_handler = TradeHandler(session_factory, event_store_repo, position_repo, event_bus)
+    projector = PositionProjector(position_repo)
+    trade_handler = TradeHandler(session_factory, event_store_repo, projector, event_bus)
     fastapi_app.state.position_service = PositionService(position_repo, trade_handler)
 
     async def get_fund_slugs() -> list[str]:

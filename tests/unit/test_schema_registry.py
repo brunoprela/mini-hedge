@@ -31,7 +31,7 @@ class TestTopicNaming:
         topics = fund_topics_for_slug("alpha")
         assert len(topics) == 3
         assert "fund-alpha.positions.changed" in topics
-        assert "fund-alpha.pnl.realized" in topics
+        assert "fund-alpha.pnl.updated" in topics
         assert "fund-alpha.trades.executed" in topics
 
     def test_shared_topics(self) -> None:
@@ -134,7 +134,7 @@ class TestAvroSerialization:
             "price": "460.00",
         }
 
-        topic = "fund-beta.pnl.realized"
+        topic = "fund-beta.pnl.updated"
         raw = serialize_event(topic, envelope, payload)
         decoded_env, decoded_payload = deserialize_event(topic, raw)
         assert decoded_payload["realized_pnl"] == "1500.00"

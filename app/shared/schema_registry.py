@@ -65,7 +65,7 @@ def fund_topics_for_slug(fund_slug: str) -> list[str]:
     """Return all fund-scoped Kafka topics for a given fund slug."""
     return [
         fund_topic(fund_slug, "positions.changed"),
-        fund_topic(fund_slug, "pnl.realized"),
+        fund_topic(fund_slug, "pnl.updated"),
         fund_topic(fund_slug, "trades.executed"),
     ]
 
@@ -104,7 +104,8 @@ def load_schemas() -> None:
     topic_schemas = {
         "prices.normalized": "prices/normalized-v1.avsc",
         "positions.changed": "positions/changed-v1.avsc",
-        "pnl.realized": "positions/pnl-realized-v1.avsc",
+        "pnl.updated": "positions/pnl-realized-v1.avsc",
+        "pnl.mark_to_market": "positions/pnl-mtm-v1.avsc",
         "trades.executed": "trades/executed-v1.avsc",
     }
     for topic, schema_file in topic_schemas.items():

@@ -1,12 +1,25 @@
-"""Position keeping business logic — implements PositionReader protocol."""
+"""Position keeping query service — reads from the position read model."""
 
 from uuid import UUID
 
-from app.modules.positions.handlers import TradeHandler
-from app.modules.positions.interface import Position, TradeRequest
-from app.modules.positions.models import CurrentPositionRecord
-from app.modules.positions.repository import CurrentPositionRepository
+from app.modules.positions.interface import Position, PositionLot, TradeRequest
+from app.modules.positions.models import CurrentPositionRecord, LotRecord
+from app.modules.positions.position_repository import CurrentPositionRepository
+from app.modules.positions.trade_handler import TradeHandler
 from app.shared.request_context import RequestContext
+
+
+def _to_lot(record: LotRecord) -> PositionLot:
+    return PositionLot(
+        id=UUID(record.id),
+        portfolio_id=UUID(record.portfolio_id),
+        instrument_id=record.instrument_id,
+        quantity=record.quantity,
+        original_quantity=record.original_quantity,
+        price=record.price,
+        acquired_at=record.acquired_at,
+        trade_id=UUID(record.trade_id),
+    )
 
 
 def _to_position(record: CurrentPositionRecord) -> Position:
@@ -51,6 +64,14 @@ class PositionService:
     ) -> list[Position]:
         records = await self._position_repo.get_by_portfolio(portfolio_id)
         return [_to_position(r) for r in records]
+
+    async def get_lots(
+        self,
+        portfolio_id: UUID,
+        instrument_id: str,
+    ) -> list[PositionLot]:
+        records = await self._position_repo.get_lots(portfolio_id, instrument_id)
+        return [_to_lot(r) for r in records]
 
     async def execute_trade(self, request: TradeRequest, ctx: RequestContext) -> Position:
         """Process a trade and return the updated position."""

@@ -1,4 +1,4 @@
-"""Data access for the positions schema — event store + read model."""
+"""Read model data access for current positions."""
 
 from __future__ import annotations
 
@@ -6,93 +6,18 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from app.modules.positions.models import CurrentPositionRecord, PositionEventRecord
+from app.modules.positions.models import CurrentPositionRecord, LotRecord
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.shared.database import TenantSessionFactory
-
-
-class StoredEvent(TypedDict):
-    event_type: str
-    timestamp: str
-    data: dict[str, Any]
-
-
-class EventStoreRepository:
-    def __init__(self, session_factory: TenantSessionFactory) -> None:
-        self._session_factory = session_factory
-
-    async def get_by_aggregate(
-        self, aggregate_id: str, *, session: AsyncSession | None = None
-    ) -> list[StoredEvent]:
-        async def _query(s: AsyncSession) -> list[StoredEvent]:
-            stmt = (
-                select(PositionEventRecord)
-                .where(PositionEventRecord.aggregate_id == aggregate_id)
-                .order_by(PositionEventRecord.sequence_number)
-            )
-            result = await s.execute(stmt)
-            return [
-                {
-                    "event_type": e.event_type,
-                    "timestamp": e.created_at.isoformat(),
-                    "data": e.event_data,
-                }
-                for e in result.scalars().all()
-            ]
-
-        if session is not None:
-            return await _query(session)
-        async with self._session_factory() as s:
-            return await _query(s)
-
-    async def append(
-        self,
-        aggregate_id: str,
-        event_type: str,
-        event_data: dict,
-        *,
-        session: AsyncSession | None = None,
-    ) -> None:
-        """Append an event with an atomically generated sequence number.
-
-        The sequence number is derived from MAX() + 1 within the same
-        transaction. The UNIQUE(aggregate_id, sequence_number) constraint
-        ensures correctness under concurrency — a conflicting insert will
-        raise IntegrityError, causing the transaction to roll back.
-        If an external session is provided, the caller is responsible for
-        committing the transaction.
-        """
-
-        async def _append(s: AsyncSession) -> None:
-            stmt = select(func.coalesce(func.max(PositionEventRecord.sequence_number), 0)).where(
-                PositionEventRecord.aggregate_id == aggregate_id
-            )
-            result = await s.execute(stmt)
-            next_seq = result.scalar_one() + 1
-
-            event = PositionEventRecord(
-                aggregate_id=aggregate_id,
-                sequence_number=next_seq,
-                event_type=event_type,
-                event_data=event_data,
-            )
-            s.add(event)
-
-        if session is not None:
-            await _append(session)
-        else:
-            async with self._session_factory() as s:
-                await _append(s)
-                await s.commit()
 
 
 class CurrentPositionRepository:
@@ -214,6 +139,23 @@ class CurrentPositionRepository:
         async with self._session() as session:
             stmt = select(CurrentPositionRecord).where(
                 CurrentPositionRecord.instrument_id == instrument_id
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
+
+    async def get_lots(
+        self,
+        portfolio_id: UUID,
+        instrument_id: str,
+    ) -> list[LotRecord]:
+        async with self._session() as session:
+            stmt = (
+                select(LotRecord)
+                .where(
+                    LotRecord.portfolio_id == str(portfolio_id),
+                    LotRecord.instrument_id == instrument_id,
+                )
+                .order_by(LotRecord.acquired_at)
             )
             result = await session.execute(stmt)
             return list(result.scalars().all())
