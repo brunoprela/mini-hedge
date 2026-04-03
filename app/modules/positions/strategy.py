@@ -32,10 +32,15 @@ class PositionStrategy(Protocol):
 
 
 class EquityPositionStrategy:
-    """Equities and ETFs: value = quantity × price."""
+    """Equities and ETFs: value = quantity × price.
+
+    For short positions (negative quantity), market_value is the absolute
+    exposure and unrealized P&L is cost_basis - |market_value| (profit
+    when price drops below entry).
+    """
 
     def market_value(self, quantity: Decimal, market_price: Decimal, **kwargs: Any) -> Decimal:
-        return quantity * market_price
+        return abs(quantity) * market_price
 
     def unrealized_pnl(
         self,
@@ -44,7 +49,10 @@ class EquityPositionStrategy:
         market_price: Decimal,
         **kwargs: Any,
     ) -> Decimal:
-        return quantity * market_price - cost_basis
+        mv = abs(quantity) * market_price
+        if quantity < 0:
+            return cost_basis - mv  # Short: profit when price drops
+        return mv - cost_basis
 
 
 # Registry: maps asset class to strategy implementation.

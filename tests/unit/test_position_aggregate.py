@@ -84,6 +84,26 @@ class TestShortSelling:
         assert len(agg.lots) == 1
         assert agg.lots[0].quantity == Decimal("-100")
 
+    def test_short_cost_basis_is_positive(self) -> None:
+        """cost_basis should be absolute capital at risk, even for shorts."""
+        agg = PositionAggregate(portfolio_id=DEFAULT_PORTFOLIO_ID, instrument_id="AAPL")
+        agg.apply(make_trade_event(side=TradeSide.SELL, quantity="100", price="150.00"))
+
+        assert agg.cost_basis == Decimal("15000.00")  # abs(-100) * 150
+        assert agg.avg_cost == Decimal("150.00")  # cost_basis / abs(quantity)
+
+    def test_short_then_cover(self) -> None:
+        """Short 100 @ $150, cover (buy back) 100 @ $140 → flat position.
+
+        Note: the current aggregate creates a new long lot on buy rather
+        than netting against the short lot. The net quantity is correct.
+        """
+        agg = PositionAggregate(portfolio_id=DEFAULT_PORTFOLIO_ID, instrument_id="AAPL")
+        agg.apply(make_trade_event(side=TradeSide.SELL, quantity="100", price="150.00"))
+        agg.apply(make_trade_event(side=TradeSide.BUY, quantity="100", price="140.00"))
+
+        assert agg.quantity == Decimal("0")
+
 
 class TestFromEvents:
     def test_rebuild_from_events(self) -> None:

@@ -56,6 +56,7 @@ class CurrentPositionRecord(Base):
     __tablename__ = "current_positions"
     __table_args__ = (
         Index("ix_pos_current_portfolio", "portfolio_id"),
+        Index("ix_pos_current_instrument", "instrument_id"),
         {"schema": "positions"},
     )
 

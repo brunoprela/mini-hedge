@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 from collections import defaultdict
+from datetime import datetime
 from functools import partial
 from typing import TYPE_CHECKING
 
@@ -109,7 +110,7 @@ class KafkaEventBus:
                     "bootstrap.servers": self._bootstrap_servers,
                     "group.id": f"{self._consumer_group}-{topic}",
                     "auto.offset.reset": "latest",
-                    "enable.auto.commit": True,
+                    "enable.auto.commit": False,
                 }
             )
             consumer.subscribe([topic])
@@ -161,7 +162,7 @@ class KafkaEventBus:
                     event_id=envelope["event_id"],
                     event_type=envelope["event_type"],
                     event_version=envelope.get("event_version", 1),
-                    timestamp=envelope["timestamp"],
+                    timestamp=datetime.fromisoformat(envelope["timestamp"]),
                     data=payload,
                     actor_id=envelope.get("actor_id"),
                     actor_type=envelope.get("actor_type"),
@@ -171,16 +172,27 @@ class KafkaEventBus:
                 logger.exception("event_deserialization_failed", topic=topic)
                 continue
 
+            all_ok = True
             for handler in handlers:
                 try:
                     await handler(event)
                 except Exception:
+                    all_ok = False
                     logger.exception(
                         "kafka_handler_failed",
                         topic=topic,
                         handler=getattr(handler, "__qualname__", str(handler)),
                         event_id=event.event_id,
                     )
+
+            if all_ok:
+                await loop.run_in_executor(None, consumer.commit)
+            else:
+                logger.warning(
+                    "kafka_commit_skipped",
+                    topic=topic,
+                    event_id=event.event_id,
+                )
 
     async def stop(self) -> None:
         """Stop all consumer tasks and flush the producer."""

@@ -60,6 +60,7 @@ class InProcessEventBus:
         if not handlers:
             return
         results = await asyncio.gather(*(h(event) for h in handlers), return_exceptions=True)
+        errors: list[Exception] = []
         for handler, result in zip(handlers, results, strict=True):
             if isinstance(result, Exception):
                 logger.error(
@@ -69,6 +70,9 @@ class InProcessEventBus:
                     event_id=event.event_id,
                     error=str(result),
                 )
+                errors.append(result)
+        if errors:
+            raise ExceptionGroup("event handler failures", errors)
 
     def subscribe(self, topic: str, handler: EventHandler) -> None:
         self._handlers[topic].append(handler)

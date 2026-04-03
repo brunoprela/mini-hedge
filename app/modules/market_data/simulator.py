@@ -119,6 +119,9 @@ class MarketDataSimulator:
             bid = round(price - half_spread, 4)
             ask = round(price + half_spread, 4)
 
+            # Synthetic volume: random lot size scaled by price level
+            volume = int(np.random.exponential(scale=10_000 / max(price, 1)))
+
             event = BaseEvent(
                 event_type="price.updated",
                 data={
@@ -126,6 +129,7 @@ class MarketDataSimulator:
                     "bid": str(bid),
                     "ask": str(ask),
                     "mid": str(mid),
+                    "volume": str(volume),
                     "timestamp": now.isoformat(),
                     "source": "simulator",
                 },

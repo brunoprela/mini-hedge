@@ -35,10 +35,11 @@ async def list_instruments(
 async def search_instruments(
     q: str = Query(min_length=1),
     limit: int = Query(default=20, le=100),
+    offset: int = Query(default=0, ge=0),
     ctx: RequestContext = require_permission(Permission.INSTRUMENTS_READ),
     service: SecurityMasterService = Depends(_get_service),
 ) -> list[Instrument]:
-    return await service.search(q, limit)
+    return await service.search(q, limit, offset=offset)
 
 
 @router.get("/{instrument_id}", response_model=Instrument)

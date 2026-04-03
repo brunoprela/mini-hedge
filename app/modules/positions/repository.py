@@ -1,31 +1,45 @@
 """Data access for the positions schema — event store + read model."""
 
+from __future__ import annotations
+
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING, Any, TypedDict
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.positions.models import CurrentPositionRecord, PositionEventRecord
-from app.shared.database import TenantSessionFactory
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.shared.database import TenantSessionFactory
+
+
+class StoredEvent(TypedDict):
+    event_type: str
+    timestamp: str
+    data: dict[str, Any]
 
 
 class EventStoreRepository:
     def __init__(self, session_factory: TenantSessionFactory) -> None:
         self._session_factory = session_factory
 
-    async def get_by_aggregate(self, aggregate_id: str) -> list[dict]:
-        async with self._session_factory() as session:
+    async def get_by_aggregate(
+        self, aggregate_id: str, *, session: AsyncSession | None = None
+    ) -> list[StoredEvent]:
+        async def _query(s: AsyncSession) -> list[StoredEvent]:
             stmt = (
                 select(PositionEventRecord)
                 .where(PositionEventRecord.aggregate_id == aggregate_id)
                 .order_by(PositionEventRecord.sequence_number)
             )
-            result = await session.execute(stmt)
+            result = await s.execute(stmt)
             return [
                 {
                     "event_type": e.event_type,
@@ -35,30 +49,50 @@ class EventStoreRepository:
                 for e in result.scalars().all()
             ]
 
-    async def get_next_sequence(self, aggregate_id: str) -> int:
-        async with self._session_factory() as session:
-            stmt = select(func.coalesce(func.max(PositionEventRecord.sequence_number), 0)).where(
-                PositionEventRecord.aggregate_id == aggregate_id
-            )
-            result = await session.execute(stmt)
-            return result.scalar_one() + 1
+        if session is not None:
+            return await _query(session)
+        async with self._session_factory() as s:
+            return await _query(s)
 
     async def append(
         self,
         aggregate_id: str,
         event_type: str,
         event_data: dict,
-        sequence_number: int,
+        *,
+        session: AsyncSession | None = None,
     ) -> None:
-        async with self._session_factory() as session:
+        """Append an event with an atomically generated sequence number.
+
+        The sequence number is derived from MAX() + 1 within the same
+        transaction. The UNIQUE(aggregate_id, sequence_number) constraint
+        ensures correctness under concurrency — a conflicting insert will
+        raise IntegrityError, causing the transaction to roll back.
+        If an external session is provided, the caller is responsible for
+        committing the transaction.
+        """
+
+        async def _append(s: AsyncSession) -> None:
+            stmt = select(func.coalesce(func.max(PositionEventRecord.sequence_number), 0)).where(
+                PositionEventRecord.aggregate_id == aggregate_id
+            )
+            result = await s.execute(stmt)
+            next_seq = result.scalar_one() + 1
+
             event = PositionEventRecord(
                 aggregate_id=aggregate_id,
-                sequence_number=sequence_number,
+                sequence_number=next_seq,
                 event_type=event_type,
                 event_data=event_data,
             )
-            session.add(event)
-            await session.commit()
+            s.add(event)
+
+        if session is not None:
+            await _append(session)
+        else:
+            async with self._session_factory() as s:
+                await _append(s)
+                await s.commit()
 
 
 class CurrentPositionRepository:
@@ -116,41 +150,47 @@ class CurrentPositionRepository:
         cost_basis: Decimal,
         realized_pnl: Decimal,
         currency: str,
+        *,
+        session: AsyncSession | None = None,
     ) -> None:
-        async with self._session() as session:
+        async def _upsert(s: AsyncSession) -> None:
             now = datetime.now(UTC)
-            stmt = (
-                pg_insert(CurrentPositionRecord)
-                .values(
-                    portfolio_id=str(portfolio_id),
-                    instrument_id=instrument_id,
-                    quantity=quantity,
-                    avg_cost=avg_cost,
-                    cost_basis=cost_basis,
-                    realized_pnl=realized_pnl,
-                    market_price=Decimal(0),
-                    market_value=Decimal(0),
-                    unrealized_pnl=Decimal(0),
-                    currency=currency,
-                    last_updated=now,
-                )
-                .on_conflict_do_update(
-                    index_elements=["portfolio_id", "instrument_id"],
-                    set_={
-                        "quantity": quantity,
-                        "avg_cost": avg_cost,
-                        "cost_basis": cost_basis,
-                        "realized_pnl": realized_pnl,
-                        "last_updated": now,
-                    },
-                )
+            ins = pg_insert(CurrentPositionRecord).values(
+                portfolio_id=str(portfolio_id),
+                instrument_id=instrument_id,
+                quantity=quantity,
+                avg_cost=avg_cost,
+                cost_basis=cost_basis,
+                realized_pnl=realized_pnl,
+                market_price=Decimal(0),
+                market_value=Decimal(0),
+                unrealized_pnl=Decimal(0),
+                currency=currency,
+                last_updated=now,
             )
-            await session.execute(stmt)
-            await session.commit()
+            # On conflict: update trade-derived fields, preserve MTM fields
+            stmt = ins.on_conflict_do_update(
+                index_elements=["portfolio_id", "instrument_id"],
+                set_={
+                    "quantity": quantity,
+                    "avg_cost": avg_cost,
+                    "cost_basis": cost_basis,
+                    "realized_pnl": realized_pnl,
+                    "last_updated": now,
+                },
+            )
+            await s.execute(stmt)
+
+        if session is not None:
+            await _upsert(session)
+        else:
+            async with self._session() as s:
+                await _upsert(s)
+                await s.commit()
 
     async def update_market_value(
         self,
-        portfolio_id: str,
+        portfolio_id: UUID,
         instrument_id: str,
         market_price: Decimal,
         market_value: Decimal,
@@ -158,7 +198,7 @@ class CurrentPositionRepository:
     ) -> None:
         async with self._session() as session:
             stmt = select(CurrentPositionRecord).where(
-                CurrentPositionRecord.portfolio_id == portfolio_id,
+                CurrentPositionRecord.portfolio_id == str(portfolio_id),
                 CurrentPositionRecord.instrument_id == instrument_id,
             )
             result = await session.execute(stmt)

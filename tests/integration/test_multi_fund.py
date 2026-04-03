@@ -17,6 +17,7 @@ from app.modules.positions.service import PositionService
 from app.shared.database import TenantSessionFactory
 from app.shared.events import InProcessEventBus
 from app.shared.request_context import RequestContext, set_request_context
+from app.shared.types import AssetClass
 from tests.factories import make_trade
 
 
@@ -27,7 +28,7 @@ def _build_service(
     event_bus = InProcessEventBus()
     event_store = EventStoreRepository(session_factory)
     position_repo = CurrentPositionRepository(session_factory)
-    trade_handler = TradeHandler(event_store, position_repo, event_bus)
+    trade_handler = TradeHandler(session_factory, event_store, position_repo, event_bus)
     return PositionService(position_repo, trade_handler)
 
 
@@ -216,7 +217,7 @@ class TestMarkToMarketCrossFund:
         event_bus = InProcessEventBus()
         event_store = EventStoreRepository(session_factory)
         position_repo = CurrentPositionRepository(session_factory)
-        trade_handler = TradeHandler(event_store, position_repo, event_bus)
+        trade_handler = TradeHandler(session_factory, event_store, position_repo, event_bus)
         service = PositionService(position_repo, trade_handler)
 
         # Alpha buys GS
@@ -245,11 +246,16 @@ class TestMarkToMarketCrossFund:
             beta_context,
         )
 
-        # MTM handler with known fund slugs
+        # MTM handler with known fund slugs and asset class resolver
         async def get_fund_slugs() -> list[str]:
             return ["alpha", "beta"]
 
-        mtm_handler = MarkToMarketHandler(session_factory, event_bus, get_fund_slugs)
+        async def get_asset_class(instrument_id: str) -> AssetClass | None:
+            return AssetClass.EQUITY
+
+        mtm_handler = MarkToMarketHandler(
+            session_factory, event_bus, get_fund_slugs, get_asset_class
+        )
 
         # Simulate price update to GS @ $460
         from app.shared.events import BaseEvent

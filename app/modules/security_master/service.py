@@ -53,6 +53,6 @@ class SecurityMasterService:
         records = await self._repo.get_all_active(asset_class)
         return [_to_instrument(r) for r in records]
 
-    async def search(self, query: str, limit: int = 20) -> list[Instrument]:
-        records = await self._repo.search(query, limit)
+    async def search(self, query: str, limit: int = 20, *, offset: int = 0) -> list[Instrument]:
+        records = await self._repo.search(query, limit, offset=offset)
         return [_to_instrument(r) for r in records]

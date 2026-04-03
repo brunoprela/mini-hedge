@@ -25,7 +25,7 @@ class TestPositionKeeping:
         event_bus = InProcessEventBus()
         event_store = EventStoreRepository(session_factory)
         position_repo = CurrentPositionRepository(session_factory)
-        trade_handler = TradeHandler(event_store, position_repo, event_bus)
+        trade_handler = TradeHandler(session_factory, event_store, position_repo, event_bus)
         service = PositionService(position_repo, trade_handler)
 
         trade = make_trade(instrument_id="AMZN", quantity=Decimal("100"), price=Decimal("150.00"))
@@ -44,7 +44,7 @@ class TestPositionKeeping:
         event_bus = InProcessEventBus()
         event_store = EventStoreRepository(session_factory)
         position_repo = CurrentPositionRepository(session_factory)
-        trade_handler = TradeHandler(event_store, position_repo, event_bus)
+        trade_handler = TradeHandler(session_factory, event_store, position_repo, event_bus)
         service = PositionService(position_repo, trade_handler)
 
         # Buy
@@ -66,7 +66,10 @@ class TestPositionKeeping:
         position = await service.execute_trade(sell, request_context)
 
         assert position.quantity == Decimal("0")
-        # Realized P&L: 50 * (420 - 400) = 1000
+        # Realized P&L: 50 * (420 - 400) = 1000 — stored in read model
+        record = await position_repo.get_position(buy.portfolio_id, "JNJ")
+        assert record is not None
+        assert record.realized_pnl == Decimal("1000")
 
     @pytest.mark.asyncio
     async def test_portfolio_positions(
@@ -77,7 +80,7 @@ class TestPositionKeeping:
         event_bus = InProcessEventBus()
         event_store = EventStoreRepository(session_factory)
         position_repo = CurrentPositionRepository(session_factory)
-        trade_handler = TradeHandler(event_store, position_repo, event_bus)
+        trade_handler = TradeHandler(session_factory, event_store, position_repo, event_bus)
         service = PositionService(position_repo, trade_handler)
 
         # Buy two different instruments

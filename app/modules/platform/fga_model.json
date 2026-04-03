@@ -29,7 +29,9 @@
           "union": {
             "child": [
               { "this": {} },
-              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "admin" } } }
+              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "admin" } } },
+              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "portfolio_manager" } } },
+              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "viewer" } } }
             ]
           }
         },
@@ -37,7 +39,8 @@
           "union": {
             "child": [
               { "this": {} },
-              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "admin" } } }
+              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "admin" } } },
+              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "portfolio_manager" } } }
             ]
           }
         },

@@ -39,7 +39,7 @@ class PositionAggregate:
     def avg_cost(self) -> Decimal:
         if self.quantity == 0:
             return Decimal(0)
-        return self.cost_basis / self.quantity
+        return self.cost_basis / abs(self.quantity)
 
     def apply(self, event: dict) -> list[dict]:
         """Apply an event and return any downstream events to emit."""
@@ -107,7 +107,7 @@ class PositionAggregate:
             )
 
         self.quantity -= qty
-        self.cost_basis = sum(lot.quantity * lot.price for lot in self.lots)
+        self.cost_basis = sum(abs(lot.quantity) * lot.price for lot in self.lots)
         self.realized_pnl += realized
 
         self.version += 1

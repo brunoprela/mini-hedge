@@ -15,7 +15,7 @@ from contextvars import ContextVar
 from enum import StrEnum
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ActorType(StrEnum):
@@ -33,6 +33,14 @@ class RequestContext(BaseModel):
     actor_id: str
     actor_type: ActorType
     fund_slug: str
+
+    @field_validator("fund_slug")
+    @classmethod
+    def _fund_slug_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("fund_slug must not be empty")
+        return v
+
     fund_id: str | None = None  # UUID of the fund, resolved during auth
     roles: frozenset[str] = frozenset()
     permissions: frozenset[str] = frozenset()

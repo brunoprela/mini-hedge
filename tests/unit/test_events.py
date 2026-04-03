@@ -46,7 +46,11 @@ class TestInProcessEventBus:
 
     @pytest.mark.asyncio
     async def test_failing_handler_does_not_break_others(self) -> None:
-        """Error isolation: one handler raising should not prevent others."""
+        """Error isolation: one handler raising should not prevent others.
+
+        All handlers run to completion (gather), then failures are surfaced
+        as an ExceptionGroup so callers know something went wrong.
+        """
         bus = InProcessEventBus()
         received: list[BaseEvent] = []
 
@@ -58,6 +62,12 @@ class TestInProcessEventBus:
 
         bus.subscribe("test.topic", bad_handler)
         bus.subscribe("test.topic", good_handler)
-        await bus.publish("test.topic", BaseEvent(event_type="test", data={}))
 
+        with pytest.raises(ExceptionGroup) as exc_info:
+            await bus.publish("test.topic", BaseEvent(event_type="test", data={}))
+
+        # Good handler still ran despite the bad one
         assert len(received) == 1
+        # The error is surfaced, not swallowed
+        assert len(exc_info.value.exceptions) == 1
+        assert isinstance(exc_info.value.exceptions[0], RuntimeError)

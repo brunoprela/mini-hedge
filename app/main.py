@@ -18,6 +18,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 
 if TYPE_CHECKING:
     from app.shared.database import TenantSessionFactory
+    from app.shared.types import AssetClass
 
 from app.config import get_settings
 from app.modules.market_data.interface import PriceSnapshot
@@ -147,8 +148,7 @@ async def _seed_instruments(repo: InstrumentRepository) -> None:
     existing = await repo.get_all_active()
     if not existing:
         instruments, extensions = build_seed_records()
-        await repo.insert_batch(instruments)
-        await repo.insert_batch_extensions(extensions)
+        await repo.insert_batch(instruments, extensions)
         logger.info("instruments_seeded", count=len(instruments), extensions=len(extensions))
 
 
@@ -276,18 +276,23 @@ def _setup_positions(
     session_factory: TenantSessionFactory,
     event_bus: EventBus,
     fund_repo: FundRepository,
+    security_master_service: SecurityMasterService,
 ) -> None:
     """Wire positions module: repos, handlers, service, MTM subscription."""
     event_store_repo = EventStoreRepository(session_factory)
     position_repo = CurrentPositionRepository(session_factory)
-    trade_handler = TradeHandler(event_store_repo, position_repo, event_bus)
+    trade_handler = TradeHandler(session_factory, event_store_repo, position_repo, event_bus)
     fastapi_app.state.position_service = PositionService(position_repo, trade_handler)
 
     async def get_fund_slugs() -> list[str]:
         funds = await fund_repo.get_all_active()
         return [f.slug for f in funds]
 
-    mtm_handler = MarkToMarketHandler(session_factory, event_bus, get_fund_slugs)
+    async def get_asset_class(instrument_id: str) -> AssetClass | None:
+        instrument = await security_master_service.get_by_id(instrument_id)
+        return instrument.asset_class if instrument is not None else None
+
+    mtm_handler = MarkToMarketHandler(session_factory, event_bus, get_fund_slugs, get_asset_class)
     event_bus.subscribe(shared_topic("prices.normalized"), mtm_handler.handle_price_update)
 
 
@@ -370,7 +375,8 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
         kafka_bus.ensure_topics(all_topics)
 
     _setup_market_data(fastapi_app, session_factory, event_bus)
-    _setup_positions(fastapi_app, session_factory, event_bus, fund_repo)
+    sm_service: SecurityMasterService = fastapi_app.state.security_master_service
+    _setup_positions(fastapi_app, session_factory, event_bus, fund_repo, sm_service)
 
     # Start Kafka consumers (after all subscriptions are registered)
     if kafka_bus is not None:

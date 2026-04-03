@@ -37,7 +37,9 @@ class InstrumentRepository:
             result = await session.execute(stmt)
             return list(result.scalars().all())
 
-    async def search(self, query: str, limit: int = 20) -> list[InstrumentRecord]:
+    async def search(
+        self, query: str, limit: int = 20, *, offset: int = 0
+    ) -> list[InstrumentRecord]:
         async with self._session_factory() as session:
             pattern = f"%{query}%"
             stmt = (
@@ -45,18 +47,33 @@ class InstrumentRepository:
                 .where(
                     InstrumentRecord.name.ilike(pattern) | InstrumentRecord.ticker.ilike(pattern)
                 )
-                .limit(limit)
                 .order_by(InstrumentRecord.ticker)
+                .offset(offset)
+                .limit(limit)
             )
             result = await session.execute(stmt)
             return list(result.scalars().all())
 
-    async def insert_batch(self, records: list[InstrumentRecord]) -> None:
+    async def insert_batch(
+        self,
+        instruments: list[InstrumentRecord],
+        extensions: list[EquityExtensionRecord] | None = None,
+    ) -> None:
+        """Insert instruments and optional extensions in a single transaction.
+
+        Uses merge semantics so re-seeding doesn't raise on conflict.
+        """
         async with self._session_factory() as session:
-            session.add_all(records)
+            for record in instruments:
+                await session.merge(record)
+            if extensions:
+                for ext in extensions:
+                    await session.merge(ext)
             await session.commit()
 
     async def insert_batch_extensions(self, records: list[EquityExtensionRecord]) -> None:
+        """Insert extensions only. Prefer insert_batch() with extensions param."""
         async with self._session_factory() as session:
-            session.add_all(records)
+            for record in records:
+                await session.merge(record)
             await session.commit()
