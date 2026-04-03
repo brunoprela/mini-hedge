@@ -67,6 +67,7 @@ services:
       - "8180:8180"
     volumes:
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      - ./keycloak/ops-realm-export.json:/opt/keycloak/data/import/ops-realm-export.json:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -150,6 +151,8 @@ services:
       KEYCLOAK_BROWSER_URL: "http://localhost:8180"
       KEYCLOAK_REALM: "minihedge"
       KEYCLOAK_CLIENT_ID: "mini-hedge-ui"
+      KEYCLOAK_OPS_REALM: "minihedge-ops"
+      KEYCLOAK_OPS_CLIENT_ID: "mini-hedge-ops-ui"
       APP_ENV: "local"
       LOG_LEVEL: "DEBUG"
       SIMULATOR_ENABLED: "true"
@@ -196,6 +199,29 @@ services:
     volumes:
       - ./ui/src:/app/src
       - ./ui/public:/app/public
+    depends_on:
+      keycloak:
+        condition: service_healthy
+
+  ops-ui:
+    build:
+      context: ./ops-ui
+      dockerfile: Dockerfile.dev
+    profiles: ["core"]
+    command: pnpm dev --hostname 0.0.0.0
+    ports:
+      - "3100:3100"
+    environment:
+      NEXTAUTH_URL: "http://localhost:3100"
+      NEXTAUTH_SECRET: "minihedge-ops-dev-secret-change-in-production"
+      AUTH_KEYCLOAK_ID: "mini-hedge-ops-ui"
+      AUTH_KEYCLOAK_ISSUER: "http://keycloak:8180/realms/minihedge-ops"
+      API_URL: "http://app:8000"
+      NEXT_PUBLIC_KEYCLOAK_ISSUER: "http://localhost:8180/realms/minihedge-ops"
+      NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: "mini-hedge-ops-ui"
+    volumes:
+      - ./ops-ui/src:/app/src
+      - ./ops-ui/public:/app/public
     depends_on:
       keycloak:
         condition: service_healthy

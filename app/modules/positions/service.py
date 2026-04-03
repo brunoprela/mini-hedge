@@ -97,10 +97,13 @@ class PositionService:
             quantity=request.quantity,
             price=request.price,
             currency=request.currency,
+            idempotency_key=request.idempotency_key,
         )
 
-        # Return updated position
+        # Return updated position (or existing position for idempotent duplicates)
         position = await self.get_position(request.portfolio_id, request.instrument_id.upper())
         if position is None:
-            raise LookupError(f"Position read-back failed after trade for {request.instrument_id}")
+            raise LookupError(
+                f"Position read-back failed after trade for {request.instrument_id}"
+            )
         return position

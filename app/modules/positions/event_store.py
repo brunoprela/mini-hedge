@@ -43,6 +43,23 @@ class EventStoreRepository:
         async with self._session_factory() as s:
             return await _query(s)
 
+    async def has_idempotency_key(
+        self,
+        idempotency_key: str,
+        *,
+        session: AsyncSession,
+    ) -> bool:
+        """Check if an event with the given idempotency key already exists."""
+        stmt = (
+            select(func.count(PositionEventRecord.id))
+            .where(
+                PositionEventRecord.metadata_["idempotency_key"].astext
+                == idempotency_key,
+            )
+        )
+        result = await session.execute(stmt)
+        return result.scalar_one() > 0
+
     async def append(
         self,
         aggregate_id: str,
@@ -50,6 +67,7 @@ class EventStoreRepository:
         event_data: dict,
         *,
         session: AsyncSession | None = None,
+        metadata: dict | None = None,
     ) -> None:
         """Append an event with an atomically generated sequence number.
 
@@ -74,7 +92,7 @@ class EventStoreRepository:
                 event_type=event_type,
                 event_version=1,
                 event_data=event_data,
-                metadata_={},
+                metadata_=metadata or {},
             )
             s.add(event)
 

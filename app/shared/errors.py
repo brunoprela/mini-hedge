@@ -27,3 +27,19 @@ class ValidationError(DomainError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message=message, code="VALIDATION_ERROR")
+
+
+class AuthenticationError(DomainError):
+    """Caller could not be identified (invalid/missing credentials)."""
+
+    def __init__(
+        self, message: str = "Authentication required", code: str = "AUTH_REQUIRED",
+    ) -> None:
+        super().__init__(message=message, code=code)
+
+
+class AuthorizationError(DomainError):
+    """Caller is identified but lacks access."""
+
+    def __init__(self, message: str = "Access denied", code: str = "ACCESS_DENIED") -> None:
+        super().__init__(message=message, code=code)

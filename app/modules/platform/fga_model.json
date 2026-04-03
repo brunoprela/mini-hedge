@@ -5,19 +5,67 @@
       "type": "user"
     },
     {
-      "type": "fund",
+      "type": "operator"
+    },
+    {
+      "type": "platform",
       "relations": {
-        "member": { "this": {} },
-        "admin": { "this": {} },
-        "portfolio_manager": { "this": {} },
-        "viewer": { "this": {} }
+        "ops_admin": { "this": {} },
+        "ops_viewer": { "this": {} }
       },
       "metadata": {
         "relations": {
-          "member": { "directly_related_user_types": [{ "type": "user" }] },
+          "ops_admin": { "directly_related_user_types": [{ "type": "operator" }] },
+          "ops_viewer": { "directly_related_user_types": [{ "type": "operator" }] }
+        }
+      }
+    },
+    {
+      "type": "fund",
+      "relations": {
+        "admin": { "this": {} },
+        "portfolio_manager": { "this": {} },
+        "analyst": { "this": {} },
+        "risk_manager": { "this": {} },
+        "compliance": { "this": {} },
+        "viewer": { "this": {} },
+        "ops_full": { "this": {} },
+        "ops_read": { "this": {} },
+        "can_admin": {
+          "union": {
+            "child": [
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "ops_full" } }
+            ]
+          }
+        },
+        "can_read": {
+          "union": {
+            "child": [
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "portfolio_manager" } },
+              { "computed_userset": { "relation": "analyst" } },
+              { "computed_userset": { "relation": "risk_manager" } },
+              { "computed_userset": { "relation": "compliance" } },
+              { "computed_userset": { "relation": "viewer" } },
+              { "computed_userset": { "relation": "ops_full" } },
+              { "computed_userset": { "relation": "ops_read" } }
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "relations": {
           "admin": { "directly_related_user_types": [{ "type": "user" }] },
           "portfolio_manager": { "directly_related_user_types": [{ "type": "user" }] },
-          "viewer": { "directly_related_user_types": [{ "type": "user" }] }
+          "analyst": { "directly_related_user_types": [{ "type": "user" }] },
+          "risk_manager": { "directly_related_user_types": [{ "type": "user" }] },
+          "compliance": { "directly_related_user_types": [{ "type": "user" }] },
+          "viewer": { "directly_related_user_types": [{ "type": "user" }] },
+          "ops_full": { "directly_related_user_types": [{ "type": "operator" }] },
+          "ops_read": { "directly_related_user_types": [{ "type": "operator" }] },
+          "can_admin": { "directly_related_user_types": [] },
+          "can_read": { "directly_related_user_types": [] }
         }
       }
     },
@@ -31,7 +79,12 @@
               { "this": {} },
               { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "admin" } } },
               { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "portfolio_manager" } } },
-              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "viewer" } } }
+              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "viewer" } } },
+              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "analyst" } } },
+              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "risk_manager" } } },
+              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "compliance" } } },
+              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "ops_full" } } },
+              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "ops_read" } } }
             ]
           }
         },
@@ -40,7 +93,8 @@
             "child": [
               { "this": {} },
               { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "admin" } } },
-              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "portfolio_manager" } } }
+              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "portfolio_manager" } } },
+              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "ops_full" } } }
             ]
           }
         },
@@ -48,7 +102,8 @@
           "union": {
             "child": [
               { "this": {} },
-              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "admin" } } }
+              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "admin" } } },
+              { "tuple_to_userset": { "tupleset": { "relation": "fund" }, "computedUserset": { "relation": "ops_full" } } }
             ]
           }
         },

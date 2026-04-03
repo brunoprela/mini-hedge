@@ -64,21 +64,23 @@ class TestAggregateEdgeCases:
 
 
 class TestRequestContextValidation:
-    def test_empty_fund_slug_rejected(self) -> None:
-        with pytest.raises(ValueError, match="fund_slug must not be empty"):
-            RequestContext(
-                actor_id="test",
-                actor_type="user",
-                fund_slug="",
-            )
+    def test_fund_slug_optional(self) -> None:
+        """fund_slug is optional — operators may not have a fund context."""
+        ctx = RequestContext(
+            actor_id="test",
+            actor_type="operator",
+        )
+        assert ctx.fund_slug is None
+        assert ctx.is_platform_operator is True
 
-    def test_whitespace_fund_slug_rejected(self) -> None:
-        with pytest.raises(ValueError, match="fund_slug must not be empty"):
-            RequestContext(
-                actor_id="test",
-                actor_type="user",
-                fund_slug="   ",
-            )
+    def test_fund_slug_accepted(self) -> None:
+        ctx = RequestContext(
+            actor_id="test",
+            actor_type="user",
+            fund_slug="alpha",
+        )
+        assert ctx.fund_slug == "alpha"
+        assert ctx.is_platform_operator is False
 
 
 class TestEventBusErrorPropagation:

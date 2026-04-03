@@ -5,8 +5,9 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.modules.platform.audit_repository import AuditLogRepository
 from app.modules.platform.auth_service import AuthService
-from app.modules.platform.dependencies import get_auth_service, get_portfolio_repo
+from app.modules.platform.dependencies import get_audit_repo, get_auth_service, get_portfolio_repo
 from app.modules.platform.interface import FundInfo, PortfolioInfo
 from app.modules.platform.portfolio_repository import PortfolioRepository
 from app.shared.auth import Permission, get_actor_context, require_permission, resolve_permissions
@@ -56,6 +57,7 @@ async def create_agent_token(
     body: AgentTokenRequest,
     ctx: RequestContext = require_permission(Permission.FUNDS_MANAGE),
     auth: AuthService = Depends(get_auth_service),
+    audit: AuditLogRepository = Depends(get_audit_repo),
 ) -> AgentTokenResponse:
     """Issue a JWT for an LLM agent.
 
@@ -81,6 +83,18 @@ async def create_agent_token(
         fund_id=ctx.fund_id,
         roles=body.roles,
         delegated_by=ctx.actor_id,
+    )
+
+    await audit.insert_admin_event(
+        event_type="auth.agent_token.created",
+        actor_id=ctx.actor_id,
+        actor_type=ctx.actor_type.value,
+        fund_slug=ctx.fund_slug,
+        payload={
+            "agent_id": agent_id,
+            "agent_name": body.agent_name,
+            "roles": body.roles,
+        },
     )
 
     return AgentTokenResponse(

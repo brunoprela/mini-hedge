@@ -58,6 +58,7 @@ class TradeHandler:
         quantity: Decimal,
         price: Decimal,
         currency: str = "USD",
+        idempotency_key: str | None = None,
     ) -> None:
         aggregate_id = f"{portfolio_id}:{instrument_id}"
 
@@ -81,12 +82,27 @@ class TradeHandler:
             ),
         )
 
+        # Build metadata for the event store (includes idempotency key if present)
+        event_metadata: dict[str, str] = {}
+        if idempotency_key:
+            event_metadata["idempotency_key"] = idempotency_key
+
         # Single transaction: load events, append new event, project read model.
         # Retry on sequence_number conflict (concurrent write to same aggregate).
         max_retries = 3
         for attempt in range(1, max_retries + 1):
             try:
                 async with self._session_factory() as session:
+                    # Idempotency check — reject duplicate if key already exists
+                    if idempotency_key and await self._event_store.has_idempotency_key(
+                        idempotency_key, session=session,
+                    ):
+                        logger.info(
+                            "trade_idempotent_duplicate",
+                            idempotency_key=idempotency_key,
+                        )
+                        return
+
                     # Load current state from event store
                     stored_events = await self._event_store.get_by_aggregate(
                         aggregate_id, session=session
@@ -104,6 +120,7 @@ class TradeHandler:
                         event_type=trade_event.event_type,
                         event_data=EventStoreRepository.serialize(trade_event),
                         session=session,
+                        metadata=event_metadata,
                     )
 
                     # Project read model in same transaction

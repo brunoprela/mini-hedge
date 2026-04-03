@@ -186,6 +186,7 @@ class TradeRequest(BaseModel):
     quantity: Decimal
     price: Decimal
     currency: str = "USD"
+    idempotency_key: str | None = None
 
 
 # ---------------------------------------------------------------------------

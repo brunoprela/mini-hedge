@@ -22,7 +22,7 @@ from app.modules.platform.seed import (
     PORTFOLIO_GAMMA_EVENT_DRIVEN_ID,
     build_seed_api_keys,
     build_seed_funds,
-    build_seed_memberships,
+    build_seed_operators,
     build_seed_portfolios,
     build_seed_users,
 )
@@ -53,7 +53,7 @@ def postgres_url() -> str:
             cfg.set_section_option(ctx, "sqlalchemy.url", url)
             alembic_command.upgrade(cfg, "head")
 
-        # 2. Seed platform data (funds, portfolios, users, memberships, API keys)
+        # 2. Seed platform data (funds, portfolios, users, operators, API keys)
         engine = create_engine(sync_url)
         _seed_platform_sync(engine)
 
@@ -123,15 +123,16 @@ def _seed_platform_sync(engine) -> None:  # type: ignore[no-untyped-def]
                 )
             )
 
-        # Memberships
-        for m in build_seed_memberships():
+        # Operators
+        for op in build_seed_operators():
             session.execute(
-                PlatformBase.metadata.tables["platform.fund_memberships"]
+                PlatformBase.metadata.tables["platform.operators"]
                 .insert()
                 .values(
-                    user_id=m.user_id,
-                    fund_id=m.fund_id,
-                    role=m.role,
+                    id=op.id,
+                    email=op.email,
+                    name=op.name,
+                    is_active=op.is_active,
                 )
             )
 

@@ -30,7 +30,9 @@ from app.shared.request_context import ActorType, RequestContext, get_request_co
 # Re-export JWT symbols so existing `from app.shared.auth import ...` still works.
 __all__ = [
     "KeycloakClaims",
+    "PLATFORM_ROLE_PERMISSIONS",
     "Permission",
+    "PlatformRole",
     "Role",
     "ROLE_PERMISSIONS",
     "TokenClaims",
@@ -41,6 +43,7 @@ __all__ = [
     "get_actor_context",
     "hash_api_key",
     "require_permission",
+    "require_platform_permission",
     "resolve_permissions",
 ]
 
@@ -69,6 +72,44 @@ class Permission(StrEnum):
     TRADES_EXECUTE = "trades:execute"
     FUNDS_READ = "funds:read"
     FUNDS_MANAGE = "funds:manage"
+
+    # Platform-level permissions (for operators)
+    PLATFORM_USERS_READ = "platform:users.read"
+    PLATFORM_USERS_WRITE = "platform:users.write"
+    PLATFORM_FUNDS_READ = "platform:funds.read"
+    PLATFORM_FUNDS_WRITE = "platform:funds.write"
+    PLATFORM_OPERATORS_READ = "platform:operators.read"
+    PLATFORM_OPERATORS_WRITE = "platform:operators.write"
+    PLATFORM_AUDIT_READ = "platform:audit.read"
+    PLATFORM_ACCESS_READ = "platform:access.read"
+    PLATFORM_ACCESS_WRITE = "platform:access.write"
+
+
+class PlatformRole(StrEnum):
+    OPS_ADMIN = "ops_admin"
+    OPS_VIEWER = "ops_viewer"
+
+
+PLATFORM_ROLE_PERMISSIONS: dict[PlatformRole, frozenset[Permission]] = {
+    PlatformRole.OPS_ADMIN: frozenset({
+        Permission.PLATFORM_USERS_READ,
+        Permission.PLATFORM_USERS_WRITE,
+        Permission.PLATFORM_FUNDS_READ,
+        Permission.PLATFORM_FUNDS_WRITE,
+        Permission.PLATFORM_OPERATORS_READ,
+        Permission.PLATFORM_OPERATORS_WRITE,
+        Permission.PLATFORM_AUDIT_READ,
+        Permission.PLATFORM_ACCESS_READ,
+        Permission.PLATFORM_ACCESS_WRITE,
+    }),
+    PlatformRole.OPS_VIEWER: frozenset({
+        Permission.PLATFORM_USERS_READ,
+        Permission.PLATFORM_FUNDS_READ,
+        Permission.PLATFORM_OPERATORS_READ,
+        Permission.PLATFORM_AUDIT_READ,
+        Permission.PLATFORM_ACCESS_READ,
+    }),
+}
 
 
 ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
@@ -157,6 +198,25 @@ def require_permission(*perms: Permission):  # type: ignore[no-untyped-def]
     async def _check(
         ctx: RequestContext = Depends(get_actor_context),
     ) -> RequestContext:
+        missing = {p.value for p in perms} - set(ctx.permissions)
+        if missing:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Missing permissions: {', '.join(sorted(missing))}",
+            )
+        return ctx
+
+    return Depends(_check)
+
+
+def require_platform_permission(*perms: Permission):  # type: ignore[no-untyped-def]
+    """FastAPI dependency — checks the caller is a platform operator with required perms."""
+
+    async def _check(
+        ctx: RequestContext = Depends(get_actor_context),
+    ) -> RequestContext:
+        if not ctx.is_platform_operator:
+            raise HTTPException(status_code=403, detail="Platform operator access required")
         missing = {p.value for p in perms} - set(ctx.permissions)
         if missing:
             raise HTTPException(

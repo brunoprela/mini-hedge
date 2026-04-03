@@ -15,6 +15,7 @@ import structlog
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import StreamingResponse
 
+from app.shared.errors import AuthenticationError, AuthorizationError
 from app.shared.redis_bridge import PRICES_CHANNEL, fund_channel
 
 logger = structlog.get_logger()
@@ -24,15 +25,24 @@ router = APIRouter(tags=["realtime"])
 _HEARTBEAT_INTERVAL = 30  # seconds
 
 
+def _sse_error(message: str, *, status_code: int) -> StreamingResponse:
+    """Return a single-event SSE response containing an error."""
+    payload = json.dumps({"error": message})
+    return StreamingResponse(
+        iter([f'data: {payload}\n\n']),
+        status_code=status_code,
+        media_type="text/event-stream",
+    )
+
+
 async def _event_stream(
     request: Request,
-    fund_slug: str,
+    channels: list[str],
 ) -> AsyncGenerator[str, None]:
     """Subscribe to Redis pub/sub and yield SSE-formatted events."""
     redis = request.app.state.redis
     pubsub = redis.pubsub()
 
-    channels = [PRICES_CHANNEL, fund_channel(fund_slug)]
     await pubsub.subscribe(*channels)
     logger.info("sse_subscribed", channels=channels)
 
@@ -78,30 +88,27 @@ async def stream_events(
     """
     auth_service = getattr(request.app.state, "auth_service", None)
     if auth_service is None:
-        return StreamingResponse(
-            iter(['data: {"error": "Auth service unavailable"}\n\n']),
-            status_code=503,
-            media_type="text/event-stream",
-        )
+        return _sse_error("Auth service unavailable", status_code=503)
 
-    ctx = await auth_service.authenticate_jwt(token, fund_slug=fund_slug)
-    if ctx is None:
-        return StreamingResponse(
-            iter(['data: {"error": "Authentication failed"}\n\n']),
-            status_code=401,
-            media_type="text/event-stream",
-        )
+    try:
+        ctx = await auth_service.authenticate_jwt(token, fund_slug=fund_slug)
+    except AuthenticationError as exc:
+        return _sse_error(exc.message, status_code=401)
+    except AuthorizationError as exc:
+        return _sse_error(exc.message, status_code=403)
 
     redis = getattr(request.app.state, "redis", None)
     if redis is None:
-        return StreamingResponse(
-            iter(['data: {"error": "Real-time streaming not available"}\n\n']),
-            status_code=503,
-            media_type="text/event-stream",
-        )
+        return _sse_error("Real-time streaming not available", status_code=503)
+
+    # Build channel list — always include global prices; add fund channel
+    # only if the caller has a fund context (operators may not).
+    channels = [PRICES_CHANNEL]
+    if ctx.fund_slug:
+        channels.append(fund_channel(ctx.fund_slug))
 
     return StreamingResponse(
-        _event_stream(request, ctx.fund_slug),
+        _event_stream(request, channels),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

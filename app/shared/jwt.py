@@ -28,7 +28,7 @@ class TokenClaims(BaseModel):
 
     sub: str  # actor ID
     actor_type: ActorType
-    fund_slug: str
+    fund_slug: str | None = None
     fund_id: str | None = None  # UUID of the fund
     roles: list[str]
     exp: datetime
@@ -41,7 +41,7 @@ def encode_token(
     *,
     actor_id: str,
     actor_type: ActorType,
-    fund_slug: str,
+    fund_slug: str | None = None,
     fund_id: str | None = None,
     roles: list[str],
     secret: str,
@@ -51,15 +51,16 @@ def encode_token(
 ) -> str:
     """Create a signed JWT."""
     now = datetime.now(UTC)
-    payload = {
+    payload: dict[str, object] = {
         "sub": actor_id,
         "actor_type": actor_type.value,
-        "fund_slug": fund_slug,
         "roles": roles,
         "iat": now,
         "exp": now + timedelta(minutes=expiry_minutes),
         "jti": str(uuid4()),
     }
+    if fund_slug:
+        payload["fund_slug"] = fund_slug
     if fund_id:
         payload["fund_id"] = fund_id
     if delegated_by:
@@ -104,16 +105,15 @@ class KeycloakClaims(BaseModel):
     email_verified: bool = False
 
 
-_jwk_client: PyJWKClient | None = None
+_jwk_clients: dict[str, PyJWKClient] = {}
 
 
 def get_jwk_client(keycloak_url: str, realm: str) -> PyJWKClient:
     """Get or create a cached PyJWKClient for the Keycloak realm."""
-    global _jwk_client
-    if _jwk_client is None:
-        jwks_url = f"{keycloak_url}/realms/{realm}/protocol/openid-connect/certs"
-        _jwk_client = PyJWKClient(jwks_url, cache_keys=True)
-    return _jwk_client
+    jwks_url = f"{keycloak_url}/realms/{realm}/protocol/openid-connect/certs"
+    if jwks_url not in _jwk_clients:
+        _jwk_clients[jwks_url] = PyJWKClient(jwks_url, cache_keys=True)
+    return _jwk_clients[jwks_url]
 
 
 def decode_keycloak_token(
@@ -130,12 +130,12 @@ def decode_keycloak_token(
     On key-not-found, refreshes the JWKS cache once and retries.
     """
     jwk_client = get_jwk_client(keycloak_url, realm)
+    jwks_url = f"{keycloak_url}/realms/{realm}/protocol/openid-connect/certs"
     try:
         signing_key = jwk_client.get_signing_key_from_jwt(token)
     except PyJWTError:
         # Key mismatch — Keycloak may have rotated keys. Force cache refresh.
-        global _jwk_client
-        _jwk_client = None
+        _jwk_clients.pop(jwks_url, None)
         jwk_client = get_jwk_client(keycloak_url, realm)
         signing_key = jwk_client.get_signing_key_from_jwt(token)
     issuer_base = keycloak_browser_url or keycloak_url

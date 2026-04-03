@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import StrEnum
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, func, text
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -87,23 +87,29 @@ class UserRecord(Base):
     )
 
 
-class FundMembershipRecord(Base):
-    __tablename__ = "fund_memberships"
-    __table_args__ = {"schema": "platform"}
+class OperatorRecord(Base):
+    __tablename__ = "operators"
+    __table_args__ = (
+        Index("ix_platform_operators_email", "email", unique=True),
+        Index("ix_platform_operators_keycloak_sub", "keycloak_sub", unique=True),
+        {"schema": "platform"},
+    )
 
-    user_id: Mapped[str] = mapped_column(
-        PG_UUID(as_uuid=False),
-        ForeignKey("platform.users.id"),
-        primary_key=True,
+    id: Mapped[str] = mapped_column(
+        PG_UUID(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
     )
-    fund_id: Mapped[str] = mapped_column(
-        PG_UUID(as_uuid=False),
-        ForeignKey("platform.funds.id"),
-        primary_key=True,
-    )
-    role: Mapped[str] = mapped_column(String(32), nullable=False)
+    keycloak_sub: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
+    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
     )
 
 
@@ -135,4 +141,27 @@ class APIKeyRecord(Base):
         PG_UUID(as_uuid=False),
         ForeignKey("platform.users.id"),
         nullable=True,
+    )
+
+
+class AuditLogRecord(Base):
+    __tablename__ = "audit_log"
+    __table_args__ = (
+        Index("ix_platform_audit_log_event_type", "event_type"),
+        Index("ix_platform_audit_log_fund_slug", "fund_slug"),
+        Index("ix_platform_audit_log_created_at", "created_at"),
+        {"schema": "platform"},
+    )
+
+    id: Mapped[str] = mapped_column(
+        PG_UUID(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    event_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    event_type: Mapped[str] = mapped_column(String(128), nullable=False)
+    actor_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    actor_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    fund_slug: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )

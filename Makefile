@@ -1,4 +1,4 @@
-.PHONY: up down logs restart install run-local run-ui migrate lint format typecheck tach-check test test-unit test-integration check db-reset kafka-reset redis-reset reset status
+.PHONY: up down logs restart install run-local run-ui run-ops-ui migrate lint format typecheck tach-check test test-unit test-integration check db-reset kafka-reset redis-reset reset status
 
 # --- Infrastructure ---
 
@@ -63,12 +63,16 @@ reset: down
 install:
 	uv sync
 	cd ui && pnpm install
+	cd ops-ui && pnpm install
 
 run-local:
 	uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 run-ui:
 	cd ui && pnpm dev
+
+run-ops-ui:
+	cd ops-ui && pnpm dev
 
 migrate:
 	@for ctx in platform security_master market_data; do \

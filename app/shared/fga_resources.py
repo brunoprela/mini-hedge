@@ -22,6 +22,17 @@ Portfolio = register_resource_type(
 Fund = register_resource_type(
     ResourceType(
         name="fund",
-        relations=frozenset({"member", "admin", "portfolio_manager", "viewer"}),
+        relations=frozenset({
+            "admin", "portfolio_manager", "analyst", "risk_manager",
+            "compliance", "viewer", "ops_full", "ops_read",
+            "can_admin", "can_read",
+        }),
+    )
+)
+
+Platform = register_resource_type(
+    ResourceType(
+        name="platform",
+        relations=frozenset({"ops_admin", "ops_viewer"}),
     )
 )

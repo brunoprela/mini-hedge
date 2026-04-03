@@ -2,16 +2,19 @@
 
 Models a prime brokerage hosting three independent funds, each with
 dedicated portfolio managers, strategies, and API keys.  Shared admin
-staff (compliance, risk) have cross-fund memberships.
+staff (compliance, risk) have cross-fund memberships via FGA tuples.
+
+Authorization lives entirely in OpenFGA — there is no fund_memberships table.
+Platform operators are seeded with their own identity records + FGA tuples.
 """
 
 from openfga_sdk.client.models import ClientTuple
 
 from app.modules.platform.models import (
     APIKeyRecord,
-    FundMembershipRecord,
     FundRecord,
     FundStatus,
+    OperatorRecord,
     PortfolioRecord,
     UserRecord,
 )
@@ -47,6 +50,10 @@ USER_BETA_PM_ID = "30000000-0000-0000-0000-000000000003"
 USER_GAMMA_PM_ID = "30000000-0000-0000-0000-000000000004"
 USER_RISK_MANAGER_ID = "30000000-0000-0000-0000-000000000005"
 USER_COMPLIANCE_ID = "30000000-0000-0000-0000-000000000006"
+
+# Operators (platform team)
+OPERATOR_ADMIN_ID = "50000000-0000-0000-0000-000000000001"
+OPERATOR_VIEWER_ID = "50000000-0000-0000-0000-000000000002"
 
 # API Keys
 API_KEY_ALPHA_ID = "40000000-0000-0000-0000-000000000001"
@@ -96,11 +103,6 @@ def build_seed_funds() -> list[FundRecord]:
             base_currency="USD",
         ),
     ]
-
-
-# Keep single-fund builder for backwards compatibility
-def build_seed_fund() -> FundRecord:
-    return build_seed_funds()[0]
 
 
 # ---------------------------------------------------------------------------
@@ -213,57 +215,27 @@ def build_seed_users() -> list[UserRecord]:
     ]
 
 
-# Keep single-user builder for backwards compatibility
-def build_seed_user() -> UserRecord:
-    return build_seed_users()[0]
-
-
 # ---------------------------------------------------------------------------
-# Fund memberships
+# Operators (platform team)
 # ---------------------------------------------------------------------------
 
 
-def build_seed_memberships() -> list[FundMembershipRecord]:
-    """Role assignments — PMs own their fund, risk/compliance span all funds."""
+def build_seed_operators() -> list[OperatorRecord]:
+    """Platform operators — ops admin and read-only viewer."""
     return [
-        # Admin — full access to Alpha (dev convenience)
-        FundMembershipRecord(user_id=USER_ADMIN_ID, fund_id=FUND_ALPHA_ID, role=Role.ADMIN),
-        # Portfolio managers — each owns their fund
-        FundMembershipRecord(
-            user_id=USER_ALPHA_PM_ID, fund_id=FUND_ALPHA_ID, role=Role.PORTFOLIO_MANAGER
+        OperatorRecord(
+            id=OPERATOR_ADMIN_ID,
+            email="ops-admin@minihedge.dev",
+            name="Ops Admin",
+            is_active=True,
         ),
-        FundMembershipRecord(
-            user_id=USER_BETA_PM_ID, fund_id=FUND_BETA_ID, role=Role.PORTFOLIO_MANAGER
-        ),
-        FundMembershipRecord(
-            user_id=USER_GAMMA_PM_ID, fund_id=FUND_GAMMA_ID, role=Role.PORTFOLIO_MANAGER
-        ),
-        # Risk manager — read access across all funds
-        FundMembershipRecord(
-            user_id=USER_RISK_MANAGER_ID, fund_id=FUND_ALPHA_ID, role=Role.RISK_MANAGER
-        ),
-        FundMembershipRecord(
-            user_id=USER_RISK_MANAGER_ID, fund_id=FUND_BETA_ID, role=Role.RISK_MANAGER
-        ),
-        FundMembershipRecord(
-            user_id=USER_RISK_MANAGER_ID, fund_id=FUND_GAMMA_ID, role=Role.RISK_MANAGER
-        ),
-        # Compliance — read access across all funds
-        FundMembershipRecord(
-            user_id=USER_COMPLIANCE_ID, fund_id=FUND_ALPHA_ID, role=Role.COMPLIANCE
-        ),
-        FundMembershipRecord(
-            user_id=USER_COMPLIANCE_ID, fund_id=FUND_BETA_ID, role=Role.COMPLIANCE
-        ),
-        FundMembershipRecord(
-            user_id=USER_COMPLIANCE_ID, fund_id=FUND_GAMMA_ID, role=Role.COMPLIANCE
+        OperatorRecord(
+            id=OPERATOR_VIEWER_ID,
+            email="ops-viewer@minihedge.dev",
+            name="Ops Viewer",
+            is_active=True,
         ),
     ]
-
-
-# Keep single-membership builder for backwards compatibility
-def build_seed_membership() -> FundMembershipRecord:
-    return build_seed_memberships()[0]
 
 
 # ---------------------------------------------------------------------------
@@ -301,24 +273,62 @@ def build_seed_api_keys() -> list[APIKeyRecord]:
     ]
 
 
-# Keep single-key builder for backwards compatibility
-def build_seed_api_key() -> APIKeyRecord:
-    return build_seed_api_keys()[0]
-
-
 # ---------------------------------------------------------------------------
 # OpenFGA relationship tuples
 # ---------------------------------------------------------------------------
 
 
 def build_seed_fga_tuples() -> list[ClientTuple]:
-    """OpenFGA relationship tuples matching the full multi-fund seed data.
+    """OpenFGA relationship tuples — single source of truth for all authorization.
 
-    Hierarchy: user → (role) → fund → (parent) → portfolio
+    Covers:
+    - Platform operator roles (operator → platform:global)
+    - Operator fund access (operator → ops_full/ops_read → fund)
+    - Fund user roles (user → role → fund)
+    - Portfolio → fund parent pointers
     """
     tuples: list[ClientTuple] = []
 
-    # Fund admin
+    # --- Platform operator roles ---
+    tuples.append(
+        ClientTuple(
+            user=f"operator:{OPERATOR_ADMIN_ID}",
+            relation="ops_admin",
+            object="platform:global",
+        )
+    )
+    tuples.append(
+        ClientTuple(
+            user=f"operator:{OPERATOR_VIEWER_ID}",
+            relation="ops_viewer",
+            object="platform:global",
+        )
+    )
+
+    # --- Operator fund access ---
+    # ops_admin gets ops_full on all funds
+    for fund_id in [FUND_ALPHA_ID, FUND_BETA_ID, FUND_GAMMA_ID]:
+        tuples.append(
+            ClientTuple(
+                user=f"operator:{OPERATOR_ADMIN_ID}",
+                relation="ops_full",
+                object=f"fund:{fund_id}",
+            )
+        )
+
+    # ops_viewer gets ops_read on all funds
+    for fund_id in [FUND_ALPHA_ID, FUND_BETA_ID, FUND_GAMMA_ID]:
+        tuples.append(
+            ClientTuple(
+                user=f"operator:{OPERATOR_VIEWER_ID}",
+                relation="ops_read",
+                object=f"fund:{fund_id}",
+            )
+        )
+
+    # --- Fund user roles (replaces fund_memberships table) ---
+
+    # Admin — full access to Alpha
     tuples.append(
         ClientTuple(
             user=f"user:{USER_ADMIN_ID}",
@@ -341,27 +351,27 @@ def build_seed_fga_tuples() -> list[ClientTuple]:
             )
         )
 
-    # Risk manager — viewer on all funds
+    # Risk manager — risk_manager on all funds
     for fund_id in [FUND_ALPHA_ID, FUND_BETA_ID, FUND_GAMMA_ID]:
         tuples.append(
             ClientTuple(
                 user=f"user:{USER_RISK_MANAGER_ID}",
-                relation="viewer",
+                relation="risk_manager",
                 object=f"fund:{fund_id}",
             )
         )
 
-    # Compliance — viewer on all funds
+    # Compliance — compliance on all funds
     for fund_id in [FUND_ALPHA_ID, FUND_BETA_ID, FUND_GAMMA_ID]:
         tuples.append(
             ClientTuple(
                 user=f"user:{USER_COMPLIANCE_ID}",
-                relation="viewer",
+                relation="compliance",
                 object=f"fund:{fund_id}",
             )
         )
 
-    # Portfolio → fund parent pointers
+    # --- Portfolio → fund parent pointers ---
     portfolio_fund_map = {
         PORTFOLIO_ALPHA_EQUITY_LS_ID: FUND_ALPHA_ID,
         PORTFOLIO_ALPHA_GLOBAL_MACRO_ID: FUND_ALPHA_ID,

@@ -82,3 +82,18 @@ class UserRepository:
         async with self._session_factory() as session:
             result = await session.execute(select(UserRecord).where(UserRecord.is_active.is_(True)))
             return list(result.scalars().all())
+
+    async def get_all(self) -> list[UserRecord]:
+        async with self._session_factory() as session:
+            result = await session.execute(select(UserRecord))
+            return list(result.scalars().all())
+
+    async def update(self, user_id: str, **fields: object) -> UserRecord | None:
+        async with self._session_factory() as session:
+            if fields:
+                await session.execute(
+                    update(UserRecord).where(UserRecord.id == user_id).values(**fields)
+                )
+                await session.commit()
+            result = await session.execute(select(UserRecord).where(UserRecord.id == user_id))
+            return result.scalar_one_or_none()

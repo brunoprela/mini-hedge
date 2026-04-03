@@ -39,6 +39,14 @@ class Settings(BaseSettings):
     keycloak_realm: str = "minihedge"
     keycloak_client_id: str = "mini-hedge-ui"
 
+    keycloak_ops_realm: str = "minihedge-ops"
+    keycloak_ops_client_id: str = "mini-hedge-ops-ui"
+
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:3100",
+    ]
+
     @model_validator(mode="after")
     def _reject_dev_secret_in_production(self) -> "Settings":
         if self.app_env not in ("local", "test") and self.jwt_secret == _DEV_JWT_SECRET:

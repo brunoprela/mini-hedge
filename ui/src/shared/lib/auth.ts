@@ -75,6 +75,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       jwks_endpoint: `${serverOidc}/certs`,
     },
   ],
+  cookies: {
+    sessionToken: {
+      name: "authjs.ui-session-token",
+      options: { httpOnly: true, sameSite: "lax", path: "/", secure: false },
+    },
+  },
   session: { strategy: "jwt" },
   callbacks: {
     async jwt({ token, account }) {

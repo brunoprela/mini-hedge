@@ -13,6 +13,7 @@ import structlog
 from alembic import command as alembic_command
 from alembic.config import Config as AlembicConfig
 from fastapi import FastAPI, Request, Response
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
@@ -27,10 +28,13 @@ from app.modules.market_data.repository import PriceRepository
 from app.modules.market_data.routes import router as market_data_router
 from app.modules.market_data.service import MarketDataService
 from app.modules.market_data.simulator import MarketDataSimulator
+from app.modules.platform.admin_routes import router as admin_router
+from app.modules.platform.admin_service import AdminService
+from app.modules.platform.audit_repository import AuditLogRepository
 from app.modules.platform.auth_service import AuthService
+from app.modules.platform.operator_repository import OperatorRepository
 from app.modules.platform.repository import (
     APIKeyRepository,
-    FundMembershipRepository,
     FundRepository,
     PortfolioRepository,
     UserRepository,
@@ -40,7 +44,6 @@ from app.modules.platform.seed import (
     DEV_API_KEY,
     build_seed_api_keys,
     build_seed_funds,
-    build_seed_memberships,
     build_seed_portfolios,
     build_seed_users,
 )
@@ -60,7 +63,7 @@ from app.shared.database import build_engine
 from app.shared.fund_schema import ensure_all_fund_schemas
 from app.shared.logging import setup_logging
 from app.shared.request_context import set_request_context
-from app.shared.schema_registry import fund_topics_for_slug, shared_topic, shared_topics
+from app.shared.schema_registry import fund_topic, fund_topics_for_slug, shared_topic, shared_topics
 
 logger = structlog.get_logger()
 
@@ -100,12 +103,31 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 media_type="application/json",
             )
 
-        ctx = await self._resolve_context(request, auth_service)
-        if ctx is None:
-            return Response(
-                content='{"detail":"Authentication required"}',
+        from app.shared.errors import AuthenticationError, AuthorizationError
+
+        try:
+            ctx = await self._resolve_context(request, auth_service)
+        except AuthenticationError as exc:
+            return JSONResponse(
                 status_code=401,
-                media_type="application/json",
+                content={"detail": exc.message, "code": exc.code},
+            )
+        except AuthorizationError as exc:
+            return JSONResponse(
+                status_code=403,
+                content={"detail": exc.message, "code": exc.code},
+            )
+        except Exception:
+            logger.exception("auth_middleware_error", path=request.url.path)
+            return JSONResponse(
+                status_code=500,
+                content={"detail": "Internal server error"},
+            )
+
+        if ctx is None:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Authentication required", "code": "MISSING_CREDENTIALS"},
             )
 
         set_request_context(ctx)
@@ -160,10 +182,10 @@ async def _seed_platform(
     fund_repo: FundRepository,
     portfolio_repo: PortfolioRepository,
     user_repo: UserRepository,
-    membership_repo: FundMembershipRepository,
+    operator_repo: OperatorRepository,
     api_key_repo: APIKeyRepository,
 ) -> None:
-    """Seed funds, portfolios, users, memberships, and API keys."""
+    """Seed funds, portfolios, users, operators, and API keys."""
     existing_funds = await fund_repo.get_all_active()
     if not existing_funds:
         funds = build_seed_funds()
@@ -182,9 +204,6 @@ async def _seed_platform(
         users = build_seed_users()
         for user in users:
             await user_repo.insert(user)
-        memberships = build_seed_memberships()
-        for membership in memberships:
-            await membership_repo.insert(membership)
         api_keys = build_seed_api_keys()
         for api_key in api_keys:
             await api_key_repo.insert(api_key)
@@ -193,6 +212,16 @@ async def _seed_platform(
             users=len(users),
             api_key=DEV_API_KEY,
         )
+
+    # Seed operators
+    from app.modules.platform.seed import build_seed_operators
+
+    existing_operators = await operator_repo.get_all_active()
+    if not existing_operators:
+        operators = build_seed_operators()
+        for op in operators:
+            await operator_repo.insert(op)
+        logger.info("operators_seeded", count=len(operators))
 
 
 # ---------------------------------------------------------------------------
@@ -204,21 +233,25 @@ async def _setup_platform(
     fastapi_app: FastAPI,
     session_factory: TenantSessionFactory,
     settings: object,
+    fga_client: object | None = None,
+    engine: object | None = None,
+    event_bus: object | None = None,
 ) -> tuple[AuthService, FundRepository]:
-    """Wire platform module: repos, seeding, FGA, auth service."""
+    """Wire platform module: repos, seeding, auth service."""
     fund_repo = FundRepository(session_factory)
     portfolio_repo = PortfolioRepository(session_factory)
     user_repo = UserRepository(session_factory)
-    membership_repo = FundMembershipRepository(session_factory)
+    operator_repo = OperatorRepository(session_factory)
     api_key_repo = APIKeyRepository(session_factory)
 
-    await _seed_platform(fund_repo, portfolio_repo, user_repo, membership_repo, api_key_repo)
+    await _seed_platform(fund_repo, portfolio_repo, user_repo, operator_repo, api_key_repo)
 
     auth_service = AuthService(
         user_repo=user_repo,
         fund_repo=fund_repo,
-        membership_repo=membership_repo,
+        operator_repo=operator_repo,
         api_key_repo=api_key_repo,
+        fga_client=fga_client,  # type: ignore[arg-type]
         jwt_secret=settings.jwt_secret,  # type: ignore[attr-defined]
         jwt_algorithm=settings.jwt_algorithm,  # type: ignore[attr-defined]
         jwt_expiry_minutes=settings.jwt_expiry_minutes,  # type: ignore[attr-defined]
@@ -226,9 +259,30 @@ async def _setup_platform(
         keycloak_browser_url=settings.keycloak_browser_url,  # type: ignore[attr-defined]
         keycloak_realm=settings.keycloak_realm,  # type: ignore[attr-defined]
         keycloak_client_id=settings.keycloak_client_id,  # type: ignore[attr-defined]
+        keycloak_ops_realm=settings.keycloak_ops_realm,  # type: ignore[attr-defined]
+        keycloak_ops_client_id=settings.keycloak_ops_client_id,  # type: ignore[attr-defined]
     )
     fastapi_app.state.auth_service = auth_service
     fastapi_app.state.portfolio_repo = portfolio_repo
+    fastapi_app.state.operator_repo = operator_repo
+
+    audit_repo = AuditLogRepository(session_factory)
+    fastapi_app.state.audit_repo = audit_repo
+
+    # Admin service (only if FGA is available)
+    if fga_client is not None:
+        admin_service = AdminService(
+            user_repo=user_repo,
+            operator_repo=operator_repo,
+            fund_repo=fund_repo,
+            fga_client=fga_client,  # type: ignore[arg-type]
+            audit_repo=audit_repo,
+            engine=engine,  # type: ignore[arg-type]
+            event_bus=event_bus,  # type: ignore[arg-type]
+            auth_service=auth_service,
+        )
+        fastapi_app.state.admin_service = admin_service
+
     return auth_service, fund_repo
 
 
@@ -364,8 +418,12 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     event_bus: EventBus = kafka_bus
 
     # --- Module setup ---
-    auth_service, fund_repo = await _setup_platform(fastapi_app, session_factory, settings)
+    # FGA must init before platform (AuthService depends on FGAClient)
     fga_client = await _setup_fga(fastapi_app, settings)
+    auth_service, fund_repo = await _setup_platform(
+        fastapi_app, session_factory, settings,
+        fga_client=fga_client, engine=engine, event_bus=kafka_bus,
+    )
     await _setup_security_master(fastapi_app, session_factory)
 
     # Create per-fund schemas and run positions migrations for each
@@ -383,6 +441,14 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     _setup_market_data(fastapi_app, session_factory, event_bus)
     sm_service: SecurityMasterService = fastapi_app.state.security_master_service
     _setup_positions(fastapi_app, session_factory, event_bus, fund_repo, sm_service)
+
+    # Audit log consumer — persists trade events for compliance trail
+    audit_repo = AuditLogRepository(session_factory)
+    for slug in fund_slugs:
+        event_bus.subscribe(
+            fund_topic(slug, "trades.executed"),
+            audit_repo.insert,
+        )
 
     # Redis — bridge event bus to pub/sub for SSE streaming
     redis_client = None
@@ -445,6 +511,19 @@ app = FastAPI(
 # Auth middleware — registered at module level; looks up auth_service from app.state
 app.add_middleware(AuthMiddleware)
 
+# CORS — added after AuthMiddleware so it executes first (Starlette LIFO order),
+# allowing preflight OPTIONS to succeed before auth runs.
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+
+_settings = get_settings()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 @app.exception_handler(Exception)
 async def _unhandled_exception_handler(request: Request, exc: Exception) -> Response:
@@ -456,8 +535,43 @@ async def _unhandled_exception_handler(request: Request, exc: Exception) -> Resp
     )
 
 
+from app.shared.errors import (  # noqa: E402
+    AuthenticationError,
+    AuthorizationError,
+    DomainError,
+    NotFoundError,
+    ValidationError,
+)
+
+
+@app.exception_handler(NotFoundError)
+async def _not_found_handler(request: Request, exc: NotFoundError) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": exc.message, "code": exc.code})
+
+
+@app.exception_handler(ValidationError)
+async def _validation_handler(request: Request, exc: ValidationError) -> JSONResponse:
+    return JSONResponse(status_code=422, content={"detail": exc.message, "code": exc.code})
+
+
+@app.exception_handler(AuthenticationError)
+async def _authn_handler(request: Request, exc: AuthenticationError) -> JSONResponse:
+    return JSONResponse(status_code=401, content={"detail": exc.message, "code": exc.code})
+
+
+@app.exception_handler(AuthorizationError)
+async def _authz_handler(request: Request, exc: AuthorizationError) -> JSONResponse:
+    return JSONResponse(status_code=403, content={"detail": exc.message, "code": exc.code})
+
+
+@app.exception_handler(DomainError)
+async def _domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
+    return JSONResponse(status_code=400, content={"detail": exc.message, "code": exc.code})
+
+
 # Register routers
 app.include_router(platform_router, prefix="/api/v1")
+app.include_router(admin_router, prefix="/api/v1")
 app.include_router(security_master_router, prefix="/api/v1")
 app.include_router(market_data_router, prefix="/api/v1")
 app.include_router(positions_router, prefix="/api/v1")

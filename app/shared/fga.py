@@ -27,6 +27,8 @@ from openfga_sdk import (
 )
 from openfga_sdk.client.models import (
     ClientCheckRequest,
+    ClientListObjectsRequest,
+    ClientListRelationsRequest,
     ClientTuple,
     ClientWriteRequest,
     ClientWriteRequestOnDuplicateWrites,
@@ -146,6 +148,51 @@ class FGAClient:
                 ),
             },
         )
+
+    async def delete_tuples(self, tuples: list[ClientTuple]) -> None:
+        """Delete relationship tuples."""
+        await self._client.write(
+            body=ClientWriteRequest(deletes=tuples),
+        )
+
+    async def list_objects(self, *, user: str, relation: str, type: str) -> list[str]:
+        """List object IDs where *user* has *relation* on objects of *type*."""
+        response = await self._client.list_objects(
+            body=ClientListObjectsRequest(user=user, relation=relation, type=type),
+        )
+        # Response objects are formatted as "type:id" — strip the prefix.
+        prefix = f"{type}:"
+        return [
+            obj[len(prefix) :] if obj.startswith(prefix) else obj
+            for obj in (response.objects or [])
+        ]
+
+    async def list_relations(
+        self, *, user: str, object: str, relations: list[str]
+    ) -> list[str]:
+        """Return which of *relations* the *user* has on *object*."""
+        return await self._client.list_relations(
+            body=ClientListRelationsRequest(
+                user=user, object=object, relations=relations
+            ),
+        )
+
+    async def read_tuples(
+        self, *, object: str
+    ) -> list[tuple[str, str, str]]:
+        """Read all relationship tuples on *object*.
+
+        Returns a list of ``(user, relation, object)`` triples.
+        """
+        from openfga_sdk import ReadRequestTupleKey
+
+        response = await self._client.read(
+            body=ReadRequestTupleKey(object=object),
+        )
+        return [
+            (t.key.user, t.key.relation, t.key.object)
+            for t in (response.tuples or [])
+        ]
 
     async def close(self) -> None:
         """Close the underlying HTTP client."""
@@ -336,8 +383,12 @@ def require_access(  # type: ignore[no-untyped-def]
             # FGA not enabled — skip object-level check (RBAC still enforced)
             return
         resource_id = await _extract_resource_id(request, param_name, source)
+        # Use the correct FGA subject type based on actor type
+        from app.shared.request_context import ActorType  # noqa: F811
+
+        fga_prefix = "operator" if ctx.actor_type == ActorType.OPERATOR else "user"
         allowed = await fga.check(
-            user=f"user:{ctx.actor_id}",
+            user=f"{fga_prefix}:{ctx.actor_id}",
             relation=resource_relation.relation,
             object=f"{rt.name}:{resource_id}",
         )

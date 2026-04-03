@@ -15,13 +15,14 @@ from contextvars import ContextVar
 from enum import StrEnum
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ActorType(StrEnum):
     USER = "user"
     API_KEY = "apikey"
     AGENT = "agent"
+    OPERATOR = "operator"
     SYSTEM = "system"
 
 
@@ -32,20 +33,17 @@ class RequestContext(BaseModel):
 
     actor_id: str
     actor_type: ActorType
-    fund_slug: str
-
-    @field_validator("fund_slug")
-    @classmethod
-    def _fund_slug_not_empty(cls, v: str) -> str:
-        if not v.strip():
-            raise ValueError("fund_slug must not be empty")
-        return v
-
+    fund_slug: str | None = None  # None for platform-level operator requests
     fund_id: str | None = None  # UUID of the fund, resolved during auth
     roles: frozenset[str] = frozenset()
     permissions: frozenset[str] = frozenset()
+    platform_role: str | None = None  # ops_admin / ops_viewer for operators
     request_id: str = Field(default_factory=lambda: str(uuid4()))
     delegated_by: str | None = None
+
+    @property
+    def is_platform_operator(self) -> bool:
+        return self.actor_type == ActorType.OPERATOR
 
 
 _current_context: ContextVar[RequestContext] = ContextVar("request_context")
