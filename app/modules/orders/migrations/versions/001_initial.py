@@ -33,7 +33,12 @@ def upgrade() -> None:
         sa.Column("side", sa.String(8), nullable=False),
         sa.Column("order_type", sa.String(16), nullable=False),
         sa.Column("quantity", sa.Numeric(18, 8), nullable=False),
-        sa.Column("filled_quantity", sa.Numeric(18, 8), nullable=False, server_default=sa.text("0")),
+        sa.Column(
+            "filled_quantity",
+            sa.Numeric(18, 8),
+            nullable=False,
+            server_default=sa.text("0"),
+        ),
         sa.Column("limit_price", sa.Numeric(18, 8), nullable=True),
         sa.Column("avg_fill_price", sa.Numeric(18, 8), nullable=True),
         sa.Column("state", sa.String(32), nullable=False),
