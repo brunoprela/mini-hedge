@@ -1,3 +1,13 @@
+export interface RuleDefinition {
+  id: string;
+  name: string;
+  rule_type: string;
+  severity: string;
+  parameters: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface Violation {
   id: string;
   portfolio_id: string;

@@ -78,6 +78,7 @@ async def create_rule(
         rule_type=body.rule_type,
         severity=body.severity,
         parameters=body.parameters,
+        actor_id=ctx.actor_id,
     )
 
 
@@ -95,7 +96,7 @@ async def update_rule(
             detail="No fields to update",
         )
     try:
-        return await service.update_rule(rule_id, **fields)
+        return await service.update_rule(rule_id, actor_id=ctx.actor_id, **fields)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

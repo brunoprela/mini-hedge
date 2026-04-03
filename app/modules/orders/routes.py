@@ -69,7 +69,7 @@ async def cancel_order(
     service: OrderService = Depends(get_order_service),
 ) -> OrderSummary:
     try:
-        return await service.cancel_order(order_id)
+        return await service.cancel_order(order_id, actor_id=ctx.actor_id)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except InvalidTransitionError as exc:

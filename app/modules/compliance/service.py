@@ -21,6 +21,7 @@ if TYPE_CHECKING:
         RuleRepository,
         ViolationRepository,
     )
+    from app.modules.platform.audit_repository import AuditLogRepository
 
 
 def _to_rule(record: ComplianceRuleRecord) -> RuleDefinition:
@@ -64,10 +65,17 @@ class ComplianceService:
         rule_repo: RuleRepository,
         violation_repo: ViolationRepository,
         pre_trade_gate: PreTradeGate,
+        audit_repo: AuditLogRepository | None = None,
     ) -> None:
         self._rule_repo = rule_repo
         self._violation_repo = violation_repo
         self._pre_trade_gate = pre_trade_gate
+        self._audit = audit_repo
+
+    @property
+    def pre_trade_gate(self) -> PreTradeGate:
+        """Public accessor for the pre-trade compliance gate."""
+        return self._pre_trade_gate
 
     # ---- Rules -------------------------------------------------------
 
@@ -82,6 +90,7 @@ class ComplianceService:
         rule_type: RuleType,
         severity: Severity,
         parameters: dict[str, object],
+        actor_id: str = "system",
     ) -> RuleDefinition:
         record = ComplianceRuleRecord(
             fund_slug=fund_slug,
@@ -92,11 +101,19 @@ class ComplianceService:
             is_active=True,
         )
         saved = await self._rule_repo.insert(record)
-        return _to_rule(saved)
+        rule = _to_rule(saved)
+        await self._audit_event(
+            "compliance.rule.created",
+            actor_id=actor_id,
+            fund_slug=fund_slug,
+            payload={"rule_id": str(rule.id), "name": name, "rule_type": rule_type.value},
+        )
+        return rule
 
     async def update_rule(
         self,
         rule_id: UUID,
+        actor_id: str = "system",
         **fields: object,
     ) -> RuleDefinition:
         # Normalise enum values if present
@@ -108,7 +125,14 @@ class ComplianceService:
         record = await self._rule_repo.update(rule_id, **fields)
         if record is None:
             raise LookupError(f"Compliance rule {rule_id} not found")
-        return _to_rule(record)
+        rule = _to_rule(record)
+        await self._audit_event(
+            "compliance.rule.updated",
+            actor_id=actor_id,
+            fund_slug=record.fund_slug,
+            payload={"rule_id": str(rule_id), "changes": {k: str(v) for k, v in fields.items()}},
+        )
+        return rule
 
     # ---- Pre-trade check --------------------------------------------
 
@@ -133,4 +157,33 @@ class ComplianceService:
         record = await self._violation_repo.resolve(violation_id, resolved_by)
         if record is None:
             raise LookupError(f"Violation {violation_id} not found")
-        return _to_violation(record)
+        violation = _to_violation(record)
+        await self._audit_event(
+            "compliance.violation.resolved",
+            actor_id=resolved_by,
+            fund_slug=None,
+            payload={
+                "violation_id": str(violation_id),
+                "rule_name": violation.rule_name,
+                "severity": violation.severity,
+            },
+        )
+        return violation
+
+    async def _audit_event(
+        self,
+        event_type: str,
+        *,
+        actor_id: str,
+        fund_slug: str | None,
+        payload: dict[str, object],
+    ) -> None:
+        if self._audit is None:
+            return
+        await self._audit.insert_admin_event(
+            event_type=event_type,
+            actor_id=actor_id,
+            actor_type="user",
+            fund_slug=fund_slug,
+            payload=payload,
+        )

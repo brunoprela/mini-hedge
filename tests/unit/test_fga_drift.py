@@ -12,11 +12,7 @@ import pytest
 from app.shared.auth import FGA_PERMISSION_MAP, ROLE_PERMISSIONS, Role
 
 FGA_MODEL_PATH = (
-    Path(__file__).resolve().parents[2]
-    / "app"
-    / "modules"
-    / "platform"
-    / "fga_model.json"
+    Path(__file__).resolve().parents[2] / "app" / "modules" / "platform" / "fga_model.json"
 )
 
 # Roles that exist in the FGA model's fund type (user-assignable only, not operator)
@@ -76,20 +72,14 @@ class TestFGADrift:
     def test_all_fga_permissions_mapped(self) -> None:
         """Every can_* relation on fund (except internal ones) must be in FGA_PERMISSION_MAP."""
         model = json.loads(FGA_MODEL_PATH.read_text())
-        fund_type = next(
-            td for td in model["type_definitions"] if td["type"] == "fund"
-        )
+        fund_type = next(td for td in model["type_definitions"] if td["type"] == "fund")
         internal = ("can_read", "can_admin")
         can_relations = {
-            r
-            for r in fund_type["relations"]
-            if r.startswith("can_") and r not in internal
+            r for r in fund_type["relations"] if r.startswith("can_") and r not in internal
         }
         mapped = set(FGA_PERMISSION_MAP.keys())
         unmapped = can_relations - mapped
-        assert not unmapped, (
-            f"FGA can_* relations not in FGA_PERMISSION_MAP: {sorted(unmapped)}"
-        )
+        assert not unmapped, f"FGA can_* relations not in FGA_PERMISSION_MAP: {sorted(unmapped)}"
 
     @pytest.mark.parametrize("role", list(Role))
     def test_role_permissions_match_fga(self, role: Role) -> None:
@@ -98,11 +88,7 @@ class TestFGADrift:
         fga_perms = _build_role_to_fga_permissions()
         fga_set = fga_perms.get(role.value, set())
         fga_values = set(FGA_PERMISSION_MAP.values())
-        py_set = {
-            p.value
-            for p in ROLE_PERMISSIONS.get(role, frozenset())
-            if p.value in fga_values
-        }
+        py_set = {p.value for p in ROLE_PERMISSIONS.get(role, frozenset()) if p.value in fga_values}
 
         # Filter py_set to only fund-level permissions (exclude platform:* permissions)
         fund_fga_values = set(FGA_PERMISSION_MAP.values())

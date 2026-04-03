@@ -6,9 +6,7 @@ from app.modules.exposure.service import ExposureService
 
 
 def get_exposure_service(request: Request) -> ExposureService:
-    service: ExposureService | None = getattr(
-        request.app.state, "exposure_service", None
-    )
+    service: ExposureService | None = getattr(request.app.state, "exposure_service", None)
     if service is None:
         raise HTTPException(
             status_code=503,

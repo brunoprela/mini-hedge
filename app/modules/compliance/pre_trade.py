@@ -23,17 +23,9 @@ from app.modules.compliance.interface import (
 if TYPE_CHECKING:
     from app.modules.compliance.repository import RuleRepository
     from app.modules.positions.interface import Position
+    from app.modules.security_master.service import SecurityMasterService
 
 logger = logging.getLogger(__name__)
-
-
-def _build_position_info(pos: Position) -> PositionInfo:
-    """Convert a Position value object to engine PositionInfo."""
-    return PositionInfo(
-        instrument_id=pos.instrument_id,
-        quantity=pos.quantity,
-        market_value=pos.market_value,
-    )
 
 
 class PreTradeGate:
@@ -45,9 +37,11 @@ class PreTradeGate:
         self,
         rule_repo: RuleRepository,
         position_service: object,
+        security_master: SecurityMasterService | None = None,
     ) -> None:
         self._rule_repo = rule_repo
         self._position_service = position_service
+        self._sm = security_master
 
     async def check_trade(
         self,
@@ -104,7 +98,7 @@ class PreTradeGate:
         )
 
         # 3. Build hypothetical post-trade state
-        state = self._build_hypothetical_state(request, current_positions)
+        state = await self._build_hypothetical_state(request, current_positions)
 
         # 4. Evaluate all rules
         results: list[EvaluationResult] = []
@@ -129,7 +123,27 @@ class PreTradeGate:
             blocked_by=blocked_by,
         )
 
-    def _build_hypothetical_state(
+    async def _lookup_instrument_metadata(
+        self,
+        instrument_id: str,
+    ) -> tuple[str, str, str]:
+        """Look up asset_class, sector, country for an instrument.
+
+        Returns defaults if security master is unavailable.
+        """
+        if self._sm is None:
+            return ("", "", "")
+        try:
+            inst = await self._sm.get_by_ticker(instrument_id)
+            return (
+                str(inst.asset_class) if inst.asset_class else "",
+                inst.sector or "",
+                inst.country or "",
+            )
+        except Exception:
+            return ("", "", "")
+
+    async def _build_hypothetical_state(
         self,
         request: TradeCheckRequest,
         current_positions: list[Position],
@@ -138,14 +152,33 @@ class PreTradeGate:
         positions: dict[str, PositionInfo] = {}
         total_value = Decimal(0)
 
+        # Look up metadata for all instruments (current + traded)
+        instrument_ids = {pos.instrument_id for pos in current_positions}
+        instrument_ids.add(request.instrument_id.upper())
+
+        metadata_cache: dict[str, tuple[str, str, str]] = {}
+        for iid in instrument_ids:
+            metadata_cache[iid] = await self._lookup_instrument_metadata(iid)
+
         for pos in current_positions:
-            info = _build_position_info(pos)
+            asset_class, sector, country = metadata_cache.get(
+                pos.instrument_id, ("", "", "")
+            )
+            info = PositionInfo(
+                instrument_id=pos.instrument_id,
+                quantity=pos.quantity,
+                market_value=pos.market_value,
+                asset_class=asset_class,
+                sector=sector,
+                country=country,
+            )
             positions[pos.instrument_id] = info
             total_value += abs(pos.market_value)
 
         # Apply the proposed trade
         trade_value = request.quantity * request.price
         instrument = request.instrument_id.upper()
+        asset_class, sector, country = metadata_cache.get(instrument, ("", "", ""))
 
         if instrument in positions:
             existing = positions[instrument]
@@ -169,6 +202,9 @@ class PreTradeGate:
                 instrument_id=instrument,
                 quantity=sign * request.quantity,
                 market_value=sign * trade_value,
+                asset_class=asset_class,
+                sector=sector,
+                country=country,
             )
 
         # Recalculate NAV

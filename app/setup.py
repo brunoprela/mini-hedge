@@ -296,27 +296,32 @@ async def setup_compliance(
     rule_repo = RuleRepository(session_factory)
     violation_repo = ViolationRepository(session_factory)
     position_service = fastapi_app.state.position_service
+    security_master = fastapi_app.state.security_master_service
 
     pre_trade_gate = PreTradeGate(
         rule_repo=rule_repo,
         position_service=position_service,
+        security_master=security_master,
     )
 
+    audit_repo = fastapi_app.state.audit_repo
     compliance_service = ComplianceService(
         rule_repo=rule_repo,
         violation_repo=violation_repo,
         pre_trade_gate=pre_trade_gate,
+        audit_repo=audit_repo,
     )
     fastapi_app.state.compliance_service = compliance_service
 
-    # Seed default compliance rules for each fund
+    # Seed default compliance rules for each fund (needs fund-scoped sessions)
     active_funds = await fund_repo.get_all_active()
     for fund in active_funds:
-        existing = await rule_repo.get_active_by_fund(fund.slug)
+        fund_rule_repo = RuleRepository(session_factory, fund_slug=fund.slug)
+        existing = await fund_rule_repo.get_active_by_fund(fund.slug)
         if not existing:
             rules = build_seed_compliance_rules(fund.slug)
             for rule in rules:
-                await rule_repo.insert(rule)
+                await fund_rule_repo.insert(rule)
             logger.info(
                 "compliance_rules_seeded",
                 fund_slug=fund.slug,
@@ -337,13 +342,15 @@ async def setup_orders(
 
     order_repo = OrderRepository(session_factory)
     compliance_service = fastapi_app.state.compliance_service
-    compliance_gateway = ComplianceGateway(compliance_service._pre_trade_gate)
+    compliance_gateway = ComplianceGateway(compliance_service.pre_trade_gate)
     mock_broker = MockBrokerAdapter()
+    audit_repo = fastapi_app.state.audit_repo
     order_service = OrderService(
         order_repo=order_repo,
         compliance_gateway=compliance_gateway,
-        broker=mock_broker,
+        mock_broker=mock_broker,
         event_bus=event_bus,
+        audit_repo=audit_repo,
     )
     fastapi_app.state.order_service = order_service
 

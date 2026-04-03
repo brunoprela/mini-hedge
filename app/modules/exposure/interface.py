@@ -107,9 +107,7 @@ class ExposureSnapshot(BaseModel):
 class ExposureReader(Protocol):
     """Public read interface for other modules."""
 
-    async def get_current(
-        self, portfolio_id: UUID
-    ) -> PortfolioExposure | None: ...
+    async def get_current(self, portfolio_id: UUID) -> PortfolioExposure | None: ...
 
     async def get_history(
         self,

@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from app.modules.orders.compliance_gateway import ComplianceGateway
     from app.modules.orders.mock_broker import MockBrokerAdapter
     from app.modules.orders.repository import OrderRepository
+    from app.modules.platform.audit_repository import AuditLogRepository
     from app.shared.events import EventBus
 
 logger = structlog.get_logger()
@@ -39,11 +40,13 @@ class OrderService:
         compliance_gateway: ComplianceGateway,
         mock_broker: MockBrokerAdapter,
         event_bus: EventBus,
+        audit_repo: AuditLogRepository | None = None,
     ) -> None:
         self._repo = order_repo
         self._compliance = compliance_gateway
         self._broker = mock_broker
         self._event_bus = event_bus
+        self._audit = audit_repo
 
     async def create_order(
         self,
@@ -108,6 +111,13 @@ class OrderService:
                 order_id=order.id,
                 reason=reason,
             )
+            await self._audit_event(
+                "order.rejected",
+                actor_id=actor_id,
+                fund_slug=fund_slug,
+                order=order,
+                extra={"rejection_reason": reason, "compliance_results": compliance_data},
+            )
             return self._to_summary(order)
 
         # 4b. Approved
@@ -138,9 +148,22 @@ class OrderService:
             fill_price=str(fill_price),
             fill_qty=str(fill_qty),
         )
+        await self._audit_event(
+            "order.filled",
+            actor_id=actor_id,
+            fund_slug=fund_slug,
+            order=order,
+            extra={
+                "fill_price": str(fill_price),
+                "fill_quantity": str(fill_qty),
+                "compliance_results": compliance_data,
+            },
+        )
         return self._to_summary(order)
 
-    async def cancel_order(self, order_id: UUID) -> OrderSummary:
+    async def cancel_order(
+        self, order_id: UUID, actor_id: str = "system"
+    ) -> OrderSummary:
         """Cancel an order if transition is valid."""
         order = await self._repo.get_by_id(order_id)
         if order is None:
@@ -148,6 +171,12 @@ class OrderService:
 
         apply_transition(OrderState(order.state), OrderState.CANCELLED)
         order = await self._repo.update_state(order_id, OrderState.CANCELLED.value)
+        await self._audit_event(
+            "order.cancelled",
+            actor_id=actor_id,
+            fund_slug=order.fund_slug,
+            order=order,
+        )
         return self._to_summary(order)
 
     async def get_order(self, order_id: UUID) -> OrderSummary:
@@ -208,12 +237,20 @@ class OrderService:
         else:
             target_state = OrderState.PARTIALLY_FILLED
 
+        # Compute VWAP across all fills
+        if order.filled_quantity > 0 and order.avg_fill_price is not None:
+            avg_price = (
+                order.avg_fill_price * order.filled_quantity + fill_price * fill_quantity
+            ) / new_filled
+        else:
+            avg_price = fill_price
+
         apply_transition(OrderState(order.state), target_state)
         order = await self._repo.update_state(
             UUID(order.id),
             target_state.value,
             filled_quantity=new_filled,
-            avg_fill_price=fill_price,
+            avg_fill_price=avg_price,
         )
 
         # Publish trade event so positions module picks it up
@@ -234,6 +271,35 @@ class OrderService:
         await self._event_bus.publish(fund_topic(fund_slug, "trades.executed"), event)
 
         return order
+
+    async def _audit_event(
+        self,
+        event_type: str,
+        *,
+        actor_id: str,
+        fund_slug: str,
+        order: OrderRecord,
+        extra: dict[str, object] | None = None,
+    ) -> None:
+        if self._audit is None:
+            return
+        payload: dict[str, object] = {
+            "order_id": order.id,
+            "portfolio_id": order.portfolio_id,
+            "instrument_id": order.instrument_id,
+            "side": order.side,
+            "quantity": str(order.quantity),
+            "state": order.state,
+        }
+        if extra:
+            payload.update(extra)
+        await self._audit.insert_admin_event(
+            event_type=event_type,
+            actor_id=actor_id,
+            actor_type="user",
+            fund_slug=fund_slug,
+            payload=payload,
+        )
 
     @staticmethod
     def _to_summary(record: OrderRecord) -> OrderSummary:

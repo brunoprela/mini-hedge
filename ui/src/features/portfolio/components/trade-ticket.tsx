@@ -5,8 +5,9 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { instrumentSearchQueryOptions } from "@/features/instruments/api";
 import { latestPriceQueryOptions } from "@/features/market-data/api";
+import { createOrder } from "@/features/orders/api";
+import type { OrderSummary } from "@/features/orders/types";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
-import { executeTrade } from "../api";
 
 interface TradeTicketProps {
   portfolioId: string;
@@ -23,6 +24,7 @@ export function TradeTicket({ portfolioId, onClose }: TradeTicketProps) {
   const [quantity, setQuantity] = useState("");
   const [price, setPrice] = useState("");
   const [showSearch, setShowSearch] = useState(false);
+  const [rejectionDetail, setRejectionDetail] = useState<OrderSummary | null>(null);
 
   const { data: searchResults } = useQuery(instrumentSearchQueryOptions(fundSlug, search));
 
@@ -33,18 +35,28 @@ export function TradeTicket({ portfolioId, onClose }: TradeTicketProps) {
 
   const mutation = useMutation({
     mutationFn: () =>
-      executeTrade(fundSlug, {
+      createOrder(fundSlug, {
         portfolio_id: portfolioId,
         instrument_id: instrumentId,
         side,
-        quantity: Number(quantity),
-        price: Number(price),
+        order_type: "market",
+        quantity,
+        limit_price: price,
+        time_in_force: "day",
       }),
-    onSuccess: () => {
+    onSuccess: (order) => {
       queryClient.invalidateQueries({ queryKey: ["positions"] });
       queryClient.invalidateQueries({ queryKey: ["portfolio-summary"] });
-      toast.success(`${side.toUpperCase()} ${quantity} ${instrumentId} @ ${price}`);
-      onClose();
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["exposure"] });
+
+      if (order.state === "rejected") {
+        setRejectionDetail(order);
+        toast.error("Order rejected by compliance");
+      } else {
+        toast.success(`${side.toUpperCase()} ${quantity} ${instrumentId} — ${order.state}`);
+        onClose();
+      }
     },
     onError: (err: Error) => {
       toast.error(err.message);
@@ -57,7 +69,6 @@ export function TradeTicket({ portfolioId, onClose }: TradeTicketProps) {
     setShowSearch(false);
   }
 
-  // Auto-fill price from latest mid when instrument changes
   const handleUseMarketPrice = () => {
     if (latestPrice) {
       setPrice(latestPrice.mid);
@@ -71,7 +82,7 @@ export function TradeTicket({ portfolioId, onClose }: TradeTicketProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="w-full max-w-md rounded-lg border border-[var(--border)] bg-[var(--background)] p-6 shadow-lg">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">New Trade</h2>
+          <h2 className="text-lg font-semibold">New Order</h2>
           <button
             type="button"
             onClick={onClose}
@@ -80,6 +91,35 @@ export function TradeTicket({ portfolioId, onClose }: TradeTicketProps) {
             &times;
           </button>
         </div>
+
+        {/* Rejection detail */}
+        {rejectionDetail && (
+          <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+            <p className="font-medium">Compliance Rejected</p>
+            {rejectionDetail.rejection_reason && (
+              <p className="mt-1 text-xs">{rejectionDetail.rejection_reason}</p>
+            )}
+            {rejectionDetail.compliance_results && (
+              <ul className="mt-2 space-y-1 text-xs">
+                {(rejectionDetail.compliance_results as Record<string, unknown>[]).map((r, i) => (
+                  <li
+                    key={`result-${r.rule_id ?? i}`}
+                    className={r.passed ? "text-green-700" : "text-red-700"}
+                  >
+                    {r.passed ? "\u2713" : "\u2717"} {String(r.rule_name)}: {String(r.message)}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button
+              type="button"
+              onClick={() => setRejectionDetail(null)}
+              className="mt-2 text-xs underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Side toggle */}
         <div className="mb-4 flex gap-2">
@@ -229,7 +269,7 @@ export function TradeTicket({ portfolioId, onClose }: TradeTicketProps) {
             }`}
           >
             {mutation.isPending
-              ? "Executing..."
+              ? "Submitting..."
               : `${side === "buy" ? "Buy" : "Sell"} ${instrumentId || "..."}`}
           </button>
         </div>

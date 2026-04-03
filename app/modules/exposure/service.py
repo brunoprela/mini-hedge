@@ -43,13 +43,9 @@ class ExposureService:
         self._positions = position_service
         self._sm = security_master_service
 
-    async def get_current(
-        self, portfolio_id: UUID
-    ) -> PortfolioExposure:
+    async def get_current(self, portfolio_id: UUID) -> PortfolioExposure:
         """Calculate current exposure from live positions."""
-        positions = await self._positions.get_by_portfolio(
-            portfolio_id
-        )
+        positions = await self._positions.get_by_portfolio(portfolio_id)
         position_values = []
         for pos in positions:
             if pos.quantity == ZERO:
@@ -59,9 +55,7 @@ class ExposureService:
             sector = None
             country = None
             try:
-                instrument = await self._sm.get_by_ticker(
-                    pos.instrument_id
-                )
+                instrument = await self._sm.get_by_ticker(pos.instrument_id)
                 asset_class = instrument.asset_class
                 sector = getattr(instrument, "sector", None)
                 country = getattr(instrument, "country", None)
@@ -86,16 +80,15 @@ class ExposureService:
         portfolio_id: UUID,
         start: datetime,
         end: datetime,
+        fund_slug: str = "",
     ) -> list[ExposureSnapshot]:
         """Return persisted exposure snapshots for a time range."""
-        records = await self._repo.get_history(
-            portfolio_id, start, end
-        )
+        records = await self._repo.get_history(portfolio_id, start, end)
         return [
             ExposureSnapshot(
                 id=r.id,
                 portfolio_id=r.portfolio_id,
-                fund_slug="",
+                fund_slug=fund_slug,
                 gross_exposure=r.gross_exposure,
                 net_exposure=r.net_exposure,
                 long_exposure=r.long_exposure,
@@ -107,9 +100,7 @@ class ExposureService:
             for r in records
         ]
 
-    async def take_snapshot(
-        self, portfolio_id: UUID
-    ) -> None:
+    async def take_snapshot(self, portfolio_id: UUID) -> None:
         """Calculate and persist an exposure snapshot."""
         exposure = await self.get_current(portfolio_id)
         # Serialize breakdowns to JSON-compatible dict

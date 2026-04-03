@@ -20,15 +20,11 @@ class TestOrderStateMachine:
         assert result == OrderState.CANCELLED
 
     def test_pending_to_approved(self) -> None:
-        result = apply_transition(
-            OrderState.PENDING_COMPLIANCE, OrderState.APPROVED
-        )
+        result = apply_transition(OrderState.PENDING_COMPLIANCE, OrderState.APPROVED)
         assert result == OrderState.APPROVED
 
     def test_pending_to_rejected(self) -> None:
-        result = apply_transition(
-            OrderState.PENDING_COMPLIANCE, OrderState.REJECTED
-        )
+        result = apply_transition(OrderState.PENDING_COMPLIANCE, OrderState.REJECTED)
         assert result == OrderState.REJECTED
 
     def test_approved_to_sent(self) -> None:
@@ -44,9 +40,7 @@ class TestOrderStateMachine:
         assert result == OrderState.PARTIALLY_FILLED
 
     def test_partial_to_filled(self) -> None:
-        result = apply_transition(
-            OrderState.PARTIALLY_FILLED, OrderState.FILLED
-        )
+        result = apply_transition(OrderState.PARTIALLY_FILLED, OrderState.FILLED)
         assert result == OrderState.FILLED
 
     def test_terminal_states_have_no_transitions(self) -> None:

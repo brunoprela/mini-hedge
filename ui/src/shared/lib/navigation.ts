@@ -3,7 +3,7 @@ import { Permission } from "./permissions";
 export interface NavItem {
   label: string;
   href: string;
-  icon: "LayoutDashboard" | "Briefcase" | "Search" | "TrendingUp";
+  icon: "LayoutDashboard" | "Briefcase" | "Search" | "TrendingUp" | "ShieldCheck";
   permission?: Permission;
 }
 
@@ -26,5 +26,11 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/market-data",
     icon: "TrendingUp",
     permission: Permission.PRICES_READ,
+  },
+  {
+    label: "Compliance",
+    href: "/compliance",
+    icon: "ShieldCheck",
+    permission: Permission.COMPLIANCE_READ,
   },
 ];

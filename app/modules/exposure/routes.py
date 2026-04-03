@@ -19,17 +19,11 @@ from app.shared.request_context import RequestContext
 router = APIRouter(prefix="/exposure", tags=["exposure"])
 
 
-@router.get(
-    "/{portfolio_id}", response_model=PortfolioExposure
-)
+@router.get("/{portfolio_id}", response_model=PortfolioExposure)
 async def get_portfolio_exposure(
     portfolio_id: UUID,
-    ctx: RequestContext = require_permission(
-        Permission.EXPOSURE_READ
-    ),
-    _access: None = require_access(
-        Portfolio.relation("can_view")
-    ),
+    ctx: RequestContext = require_permission(Permission.EXPOSURE_READ),
+    _access: None = require_access(Portfolio.relation("can_view")),
     service: ExposureService = Depends(get_exposure_service),
 ) -> PortfolioExposure:
     return await service.get_current(portfolio_id)
@@ -43,12 +37,8 @@ async def get_exposure_history(
     portfolio_id: UUID,
     start: datetime = Query(...),
     end: datetime = Query(...),
-    ctx: RequestContext = require_permission(
-        Permission.EXPOSURE_READ
-    ),
-    _access: None = require_access(
-        Portfolio.relation("can_view")
-    ),
+    ctx: RequestContext = require_permission(Permission.EXPOSURE_READ),
+    _access: None = require_access(Portfolio.relation("can_view")),
     service: ExposureService = Depends(get_exposure_service),
 ) -> list[ExposureSnapshot]:
-    return await service.get_history(portfolio_id, start, end)
+    return await service.get_history(portfolio_id, start, end, fund_slug=ctx.fund_slug)

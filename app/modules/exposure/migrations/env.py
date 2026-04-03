@@ -24,9 +24,9 @@ target_metadata = Base.metadata
 
 def _get_target_schema() -> str:
     """Resolve the target schema: explicit override or default."""
-    return getattr(
-        config.attributes, "target_schema", None
-    ) or config.attributes.get("target_schema", DEFAULT_SCHEMA)
+    return getattr(config.attributes, "target_schema", None) or config.attributes.get(
+        "target_schema", DEFAULT_SCHEMA
+    )
 
 
 def _get_url() -> str:
@@ -34,9 +34,7 @@ def _get_url() -> str:
 
     Converts async URLs (asyncpg) to sync (psycopg2) for Alembic.
     """
-    url = config.get_section_option(
-        config.config_ini_section, "sqlalchemy.url"
-    )
+    url = config.get_section_option(config.config_ini_section, "sqlalchemy.url")
     if url:
         return url.replace("+asyncpg", "")
     from app.config import get_settings
@@ -84,13 +82,9 @@ def run_migrations_online() -> None:
             "Exposure migrations must target a per-fund schema. "
             "Set target_schema via Alembic config attributes."
         )
-    engine = create_engine(
-        _get_url(), poolclass=pool.NullPool
-    )
+    engine = create_engine(_get_url(), poolclass=pool.NullPool)
     with engine.connect() as connection:
-        connection.execute(
-            text(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-        )
+        connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema}"))
         connection.commit()
         do_run_migrations(connection, schema)
     engine.dispose()

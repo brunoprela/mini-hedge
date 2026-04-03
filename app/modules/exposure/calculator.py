@@ -58,9 +58,7 @@ def calculate_exposure(
     )
 
 
-def _get_dimension_key(
-    dim: ExposureDimension, pv: PositionValue
-) -> str:
+def _get_dimension_key(dim: ExposureDimension, pv: PositionValue) -> str:
     """Extract the grouping key for a dimension from a position."""
     if dim == ExposureDimension.INSTRUMENT:
         return pv.instrument_id
@@ -101,9 +99,7 @@ def _breakdown_by_dimension(
         short_val = shorts.get(key, ZERO)
         gross_val = long_val + abs(short_val)
         net_val = long_val + short_val
-        weight = (
-            (gross_val / gross_total * 100) if gross_total else ZERO
-        )
+        weight = (gross_val / gross_total * 100) if gross_total else ZERO
         result.append(
             ExposureBreakdown(
                 dimension=dim,

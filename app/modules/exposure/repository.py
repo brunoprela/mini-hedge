@@ -15,31 +15,20 @@ if TYPE_CHECKING:
 
 
 class ExposureRepository:
-    def __init__(
-        self, session_factory: TenantSessionFactory
-    ) -> None:
+    def __init__(self, session_factory: TenantSessionFactory) -> None:
         self._sf = session_factory
 
-    async def save_snapshot(
-        self, record: ExposureSnapshotRecord
-    ) -> None:
+    async def save_snapshot(self, record: ExposureSnapshotRecord) -> None:
         async with self._sf() as session:
             session.add(record)
             await session.commit()
 
-    async def get_latest(
-        self, portfolio_id: UUID
-    ) -> ExposureSnapshotRecord | None:
+    async def get_latest(self, portfolio_id: UUID) -> ExposureSnapshotRecord | None:
         async with self._sf() as session:
             result = await session.execute(
                 select(ExposureSnapshotRecord)
-                .where(
-                    ExposureSnapshotRecord.portfolio_id
-                    == str(portfolio_id)
-                )
-                .order_by(
-                    ExposureSnapshotRecord.snapshot_at.desc()
-                )
+                .where(ExposureSnapshotRecord.portfolio_id == str(portfolio_id))
+                .order_by(ExposureSnapshotRecord.snapshot_at.desc())
                 .limit(1)
             )
             return result.scalar_one_or_none()
@@ -54,13 +43,10 @@ class ExposureRepository:
             result = await session.execute(
                 select(ExposureSnapshotRecord)
                 .where(
-                    ExposureSnapshotRecord.portfolio_id
-                    == str(portfolio_id),
+                    ExposureSnapshotRecord.portfolio_id == str(portfolio_id),
                     ExposureSnapshotRecord.snapshot_at >= start,
                     ExposureSnapshotRecord.snapshot_at <= end,
                 )
-                .order_by(
-                    ExposureSnapshotRecord.snapshot_at.asc()
-                )
+                .order_by(ExposureSnapshotRecord.snapshot_at.asc())
             )
             return list(result.scalars().all())

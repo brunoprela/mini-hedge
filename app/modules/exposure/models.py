@@ -35,27 +35,13 @@ class ExposureSnapshotRecord(Base):
         primary_key=True,
         server_default=text("gen_random_uuid()"),
     )
-    portfolio_id: Mapped[str] = mapped_column(
-        PG_UUID(as_uuid=False), nullable=False
-    )
-    gross_exposure: Mapped[Decimal] = mapped_column(
-        Numeric(18, 4), nullable=False
-    )
-    net_exposure: Mapped[Decimal] = mapped_column(
-        Numeric(18, 4), nullable=False
-    )
-    long_exposure: Mapped[Decimal] = mapped_column(
-        Numeric(18, 4), nullable=False
-    )
-    short_exposure: Mapped[Decimal] = mapped_column(
-        Numeric(18, 4), nullable=False
-    )
-    long_count: Mapped[int] = mapped_column(
-        Integer, nullable=False
-    )
-    short_count: Mapped[int] = mapped_column(
-        Integer, nullable=False
-    )
+    portfolio_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)
+    gross_exposure: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
+    net_exposure: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
+    long_exposure: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
+    short_exposure: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
+    long_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    short_count: Mapped[int] = mapped_column(Integer, nullable=False)
     breakdowns: Mapped[dict] = mapped_column(  # type: ignore[type-arg]
         JSONB, nullable=False, default=dict
     )
