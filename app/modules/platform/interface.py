@@ -77,15 +77,22 @@ class FundAccessGrant(BaseModel):
     user_type: str  # "user" or "operator"
     user_id: str
     relation: str
+    relation_type: str = "role"  # "role" or "permission"
     display_name: str | None = None
 
 
 _SLUG_RE = re.compile(r"^[a-z][a-z0-9-]{1,48}[a-z0-9]$")
 
-_USER_RELATIONS = frozenset({
+_USER_ROLES = frozenset({
     "admin", "portfolio_manager", "analyst",
     "risk_manager", "compliance", "viewer",
 })
+_USER_PERMISSIONS = frozenset({
+    "can_read_instruments", "can_write_instruments",
+    "can_read_prices", "can_read_positions", "can_write_positions",
+    "can_execute_trades", "can_read_fund", "can_manage_fund",
+})
+_USER_RELATIONS = _USER_ROLES | _USER_PERMISSIONS
 _OPERATOR_RELATIONS = frozenset({"ops_full", "ops_read"})
 _VALID_RELATIONS = _USER_RELATIONS | _OPERATOR_RELATIONS
 

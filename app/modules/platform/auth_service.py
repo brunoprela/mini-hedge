@@ -24,6 +24,8 @@ from jwt import PyJWTError
 from app.modules.platform.interface import FundInfo
 from app.modules.platform.models import FundStatus
 from app.shared.auth import (
+    FGA_FUND_PERMISSIONS,
+    FGA_PERMISSION_MAP,
     PLATFORM_ROLE_PERMISSIONS,
     PlatformRole,
     TokenClaims,
@@ -52,7 +54,7 @@ _FUND_USER_ROLES = [
 ]
 _PLATFORM_ROLES = ["ops_admin", "ops_viewer"]
 
-# Cache key: (actor_id, fund_id) → list[str] (roles)
+# Cache key: (actor_id, fund_id) → (roles, permissions)
 _FGA_CACHE_MAX = 256
 _FGA_CACHE_TTL = 30  # seconds
 
@@ -92,9 +94,9 @@ class AuthService:
         self._keycloak_client_id = keycloak_client_id
         self._keycloak_ops_realm = keycloak_ops_realm
         self._keycloak_ops_client_id = keycloak_ops_client_id
-        self._fga_cache: TTLCache[tuple[str, str], list[str]] = TTLCache(
-            maxsize=_FGA_CACHE_MAX, ttl=_FGA_CACHE_TTL
-        )
+        self._fga_cache: TTLCache[
+            tuple[str, str], tuple[list[str], frozenset[str]]
+        ] = TTLCache(maxsize=_FGA_CACHE_MAX, ttl=_FGA_CACHE_TTL)
 
     async def authenticate_jwt(
         self, token: str, *, fund_slug: str | None = None
@@ -242,39 +244,54 @@ class AuthService:
                 raise AuthorizationError("Fund inactive", code="FUND_INACTIVE")
             fund_id = fund.id
 
-        # Resolve roles from FGA (with cache)
-        roles = await self._resolve_fund_roles(user.id, fund_id)
-        if not roles:
+        # Resolve roles + permissions from FGA (with cache)
+        roles, permissions = await self._resolve_fund_access(user.id, fund_id)
+        if not roles and not permissions:
             logger.warning("keycloak_user_no_fund_role", user_id=user.id, fund_slug=fund_slug)
             raise AuthorizationError("No fund access", code="NO_FUND_ACCESS")
 
-        role_set = frozenset(roles)
         return RequestContext(
             actor_id=user.id,
             actor_type=ActorType.USER,
             fund_slug=fund_slug,
             fund_id=fund_id,
-            roles=role_set,
-            permissions=resolve_permissions(role_set),
+            roles=frozenset(roles),
+            permissions=permissions,
         )
 
-    async def _resolve_fund_roles(self, user_id: str, fund_id: str) -> list[str]:
-        """Resolve fund user roles from FGA, with TTL cache."""
+    async def _resolve_fund_access(
+        self, user_id: str, fund_id: str
+    ) -> tuple[list[str], frozenset[str]]:
+        """Resolve fund user roles and permissions from FGA, with TTL cache.
+
+        Queries FGA for both role relations (admin, analyst, ...) and
+        permission relations (can_read_instruments, can_execute_trades, ...).
+        FGA computes the union: permissions granted by role + direct grants.
+        """
         cache_key = (user_id, fund_id)
         cached = self._fga_cache.get(cache_key)
         if cached is not None:
             return cached
 
         if self._fga is None:
-            return []
+            return [], frozenset()
 
-        roles = await self._fga.list_relations(
+        # Single FGA call resolves both roles and effective permissions
+        all_relations = await self._fga.list_relations(
             user=f"user:{user_id}",
             object=f"fund:{fund_id}",
-            relations=_FUND_USER_ROLES,
+            relations=_FUND_USER_ROLES + FGA_FUND_PERMISSIONS,
         )
-        self._fga_cache[cache_key] = roles
-        return roles
+
+        roles_set = set(_FUND_USER_ROLES)
+        roles = [r for r in all_relations if r in roles_set]
+        permissions = frozenset(
+            FGA_PERMISSION_MAP[r] for r in all_relations if r in FGA_PERMISSION_MAP
+        )
+
+        result = (roles, permissions)
+        self._fga_cache[cache_key] = result
+        return result
 
     # ----- Keycloak operator authentication -----
 
@@ -359,7 +376,7 @@ class AuthService:
             fund = await self._fund_repo.get_by_id(fund_id)
             if fund is None or fund.status != FundStatus.ACTIVE:
                 continue
-            roles = await self._resolve_fund_roles(user_id, fund_id)
+            roles, _perms = await self._resolve_fund_access(user_id, fund_id)
             role = roles[0] if roles else "viewer"
             result.append(FundInfo(fund_slug=fund.slug, fund_name=fund.name, role=role))
 
@@ -378,7 +395,7 @@ class AuthService:
         if fund is None:
             raise ValueError(f"Fund not found: {fund_slug}")
 
-        roles = await self._resolve_fund_roles(user.id, fund.id)
+        roles, _perms = await self._resolve_fund_access(user.id, fund.id)
         if not roles:
             raise ValueError(f"User has no access to fund {fund_slug}")
 

@@ -29,7 +29,10 @@ from app.shared.request_context import ActorType, RequestContext, get_request_co
 
 # Re-export JWT symbols so existing `from app.shared.auth import ...` still works.
 __all__ = [
+    "FGA_FUND_PERMISSIONS",
+    "FGA_PERMISSION_MAP",
     "KeycloakClaims",
+    "PERMISSION_TO_FGA",
     "PLATFORM_ROLE_PERMISSIONS",
     "Permission",
     "PlatformRole",
@@ -159,8 +162,43 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
 }
 
 
+# FGA permission relation names — these are directly assignable on fund objects
+# and also computed from roles via the FGA model.
+FGA_FUND_PERMISSIONS = [
+    "can_read_instruments",
+    "can_write_instruments",
+    "can_read_prices",
+    "can_read_positions",
+    "can_write_positions",
+    "can_execute_trades",
+    "can_read_fund",
+    "can_manage_fund",
+]
+
+# Map FGA permission relation name → Permission enum value
+FGA_PERMISSION_MAP: dict[str, str] = {
+    "can_read_instruments": Permission.INSTRUMENTS_READ,
+    "can_write_instruments": Permission.INSTRUMENTS_WRITE,
+    "can_read_prices": Permission.PRICES_READ,
+    "can_read_positions": Permission.POSITIONS_READ,
+    "can_write_positions": Permission.POSITIONS_WRITE,
+    "can_execute_trades": Permission.TRADES_EXECUTE,
+    "can_read_fund": Permission.FUNDS_READ,
+    "can_manage_fund": Permission.FUNDS_MANAGE,
+}
+
+# Reverse map: Permission enum value → FGA relation name
+PERMISSION_TO_FGA: dict[str, str] = {v: k for k, v in FGA_PERMISSION_MAP.items()}
+
+
 def resolve_permissions(roles: frozenset[str]) -> frozenset[str]:
-    """Expand a set of role names into the union of their permissions."""
+    """Expand a set of role names into the union of their permissions.
+
+    Used for API key and agent token auth where permissions are derived
+    from roles stored in the token/record (not from FGA).
+    For Keycloak-authenticated users, permissions are resolved directly
+    from FGA via list_relations on can_* relations.
+    """
     perms: set[str] = set()
     for role_name in roles:
         try:

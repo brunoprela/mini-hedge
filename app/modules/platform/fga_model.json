@@ -31,6 +31,94 @@
         "viewer": { "this": {} },
         "ops_full": { "this": {} },
         "ops_read": { "this": {} },
+
+        "can_read_instruments": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "portfolio_manager" } },
+              { "computed_userset": { "relation": "analyst" } },
+              { "computed_userset": { "relation": "risk_manager" } },
+              { "computed_userset": { "relation": "compliance" } },
+              { "computed_userset": { "relation": "viewer" } }
+            ]
+          }
+        },
+        "can_write_instruments": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "computed_userset": { "relation": "admin" } }
+            ]
+          }
+        },
+        "can_read_prices": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "portfolio_manager" } },
+              { "computed_userset": { "relation": "analyst" } },
+              { "computed_userset": { "relation": "risk_manager" } },
+              { "computed_userset": { "relation": "compliance" } },
+              { "computed_userset": { "relation": "viewer" } }
+            ]
+          }
+        },
+        "can_read_positions": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "portfolio_manager" } },
+              { "computed_userset": { "relation": "analyst" } },
+              { "computed_userset": { "relation": "risk_manager" } },
+              { "computed_userset": { "relation": "compliance" } },
+              { "computed_userset": { "relation": "viewer" } }
+            ]
+          }
+        },
+        "can_write_positions": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "portfolio_manager" } }
+            ]
+          }
+        },
+        "can_execute_trades": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "portfolio_manager" } }
+            ]
+          }
+        },
+        "can_read_fund": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "portfolio_manager" } },
+              { "computed_userset": { "relation": "analyst" } },
+              { "computed_userset": { "relation": "risk_manager" } },
+              { "computed_userset": { "relation": "compliance" } },
+              { "computed_userset": { "relation": "viewer" } }
+            ]
+          }
+        },
+        "can_manage_fund": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "computed_userset": { "relation": "admin" } }
+            ]
+          }
+        },
+
         "can_admin": {
           "union": {
             "child": [
@@ -64,6 +152,14 @@
           "viewer": { "directly_related_user_types": [{ "type": "user" }] },
           "ops_full": { "directly_related_user_types": [{ "type": "operator" }] },
           "ops_read": { "directly_related_user_types": [{ "type": "operator" }] },
+          "can_read_instruments": { "directly_related_user_types": [{ "type": "user" }] },
+          "can_write_instruments": { "directly_related_user_types": [{ "type": "user" }] },
+          "can_read_prices": { "directly_related_user_types": [{ "type": "user" }] },
+          "can_read_positions": { "directly_related_user_types": [{ "type": "user" }] },
+          "can_write_positions": { "directly_related_user_types": [{ "type": "user" }] },
+          "can_execute_trades": { "directly_related_user_types": [{ "type": "user" }] },
+          "can_read_fund": { "directly_related_user_types": [{ "type": "user" }] },
+          "can_manage_fund": { "directly_related_user_types": [{ "type": "user" }] },
           "can_admin": { "directly_related_user_types": [] },
           "can_read": { "directly_related_user_types": [] }
         }

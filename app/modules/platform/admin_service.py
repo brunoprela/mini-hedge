@@ -42,9 +42,14 @@ if TYPE_CHECKING:
 logger = structlog.get_logger()
 
 # FGA relation names for reading fund access
-_FUND_USER_RELATIONS = [
+_FUND_USER_ROLES = [
     "admin", "portfolio_manager", "analyst",
     "risk_manager", "compliance", "viewer",
+]
+_FUND_USER_PERMISSIONS = [
+    "can_read_instruments", "can_write_instruments",
+    "can_read_prices", "can_read_positions", "can_write_positions",
+    "can_execute_trades", "can_read_fund", "can_manage_fund",
 ]
 _FUND_OPERATOR_RELATIONS = ["ops_full", "ops_read"]
 _PLATFORM_ROLES = ["ops_admin", "ops_viewer"]
@@ -322,6 +327,7 @@ class AdminService:
             if record:
                 names[f"operator:{oid}"] = record.name
 
+        permission_set = set(_FUND_USER_PERMISSIONS)
         grants: list[FundAccessGrant] = []
         for fga_user, relation, _obj in tuples:
             if ":" not in fga_user:
@@ -333,6 +339,7 @@ class AdminService:
                 user_type=user_type,
                 user_id=subject_id,
                 relation=relation,
+                relation_type="permission" if relation in permission_set else "role",
                 display_name=names.get(fga_user),
             ))
 
