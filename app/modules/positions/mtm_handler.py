@@ -106,6 +106,7 @@ class MarkToMarketHandler:
                         market_value=new_market_value,
                         unrealized_pnl=new_unrealized,
                         pnl_change=pnl_change,
+                        currency=pos.currency,
                     ),
                 )
                 topic = fund_topic(fund_slug, "pnl.updated")

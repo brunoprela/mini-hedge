@@ -11,6 +11,6 @@ export function positionsQueryOptions(fundSlug: string, portfolioId: string) {
       clientFetch<Position[]>(`/portfolios/${portfolioId}/positions`, {
         fundSlug,
       }),
-    refetchInterval: 5_000,
+    refetchInterval: 30_000,
   });
 }

@@ -9,6 +9,7 @@
     {"name": "market_price", "type": "string", "doc": "Decimal as string"},
     {"name": "market_value", "type": "string"},
     {"name": "unrealized_pnl", "type": "string"},
-    {"name": "pnl_change", "type": "string"}
+    {"name": "pnl_change", "type": "string"},
+    {"name": "currency", "type": "string", "default": "USD"}
   ]
 }

@@ -68,6 +68,7 @@ class PositionChangedData:
     quantity: Decimal
     avg_cost: Decimal
     cost_basis: Decimal
+    currency: str
 
 
 @dataclass(frozen=True)
@@ -86,6 +87,7 @@ class PnLRealizedData:
     instrument_id: str
     realized_pnl: Decimal
     price: Decimal
+    currency: str
 
 
 @dataclass(frozen=True)
@@ -106,6 +108,7 @@ class PnLMarkToMarketData:
     market_value: Decimal
     unrealized_pnl: Decimal
     pnl_change: Decimal
+    currency: str
 
 
 @dataclass(frozen=True)
@@ -161,6 +164,17 @@ class PnLSummary(BaseModel):
     unrealized_pnl: Decimal
     total_pnl: Decimal
     currency: str
+
+
+class PortfolioSummary(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    portfolio_id: UUID
+    total_market_value: Decimal
+    total_cost_basis: Decimal
+    total_realized_pnl: Decimal
+    total_unrealized_pnl: Decimal
+    position_count: int
 
 
 class TradeRequest(BaseModel):

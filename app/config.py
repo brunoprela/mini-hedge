@@ -29,7 +29,9 @@ class Settings(BaseSettings):
 
     kafka_bootstrap_servers: str = "localhost:9092"
     kafka_schema_registry_url: str = "http://localhost:8081"
-    kafka_enabled: bool = False
+
+    redis_url: str = "redis://localhost:6379/0"
+    redis_enabled: bool = False
 
     keycloak_url: str = "http://localhost:8180"
     # Browser-facing URL for issuer validation; defaults to keycloak_url

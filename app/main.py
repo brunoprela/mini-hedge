@@ -18,6 +18,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 
 if TYPE_CHECKING:
     from app.shared.database import TenantSessionFactory
+    from app.shared.events import BaseEvent, EventBus
     from app.shared.types import AssetClass
 
 from app.config import get_settings
@@ -50,12 +51,12 @@ from app.modules.positions.position_repository import CurrentPositionRepository
 from app.modules.positions.routes import router as positions_router
 from app.modules.positions.service import PositionService
 from app.modules.positions.trade_handler import TradeHandler
+from app.modules.realtime.routes import router as realtime_router
 from app.modules.security_master.repository import InstrumentRepository
 from app.modules.security_master.routes import router as security_master_router
 from app.modules.security_master.seed import build_seed_records
 from app.modules.security_master.service import SecurityMasterService
 from app.shared.database import build_engine
-from app.shared.events import BaseEvent, EventBus, InProcessEventBus
 from app.shared.fund_schema import ensure_all_fund_schemas
 from app.shared.logging import setup_logging
 from app.shared.request_context import set_request_context
@@ -69,7 +70,7 @@ logger = structlog.get_logger()
 MIGRATION_CONTEXTS = ["platform", "security_master", "market_data"]
 
 # Paths that skip authentication
-PUBLIC_PATHS = {"/health", "/docs", "/openapi.json", "/redoc"}
+PUBLIC_PATHS = {"/health", "/docs", "/openapi.json", "/redoc", "/api/v1/stream/events"}
 
 
 # ---------------------------------------------------------------------------
@@ -345,23 +346,18 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     # a root stderr handler that we reuse with structlog's formatter.
     setup_logging(settings.log_level)
 
-    # Event bus — Kafka when enabled, in-process otherwise
-    kafka_bus = None
-    event_bus: EventBus
-    if settings.kafka_enabled:
-        from app.shared.kafka import KafkaEventBus
-        from app.shared.schema_registry import load_schemas, register_schemas
+    # Event bus — always Kafka
+    from app.shared.kafka import KafkaEventBus
+    from app.shared.schema_registry import load_schemas, register_schemas
 
-        load_schemas()
-        register_schemas(settings.kafka_schema_registry_url)
+    load_schemas()
+    register_schemas(settings.kafka_schema_registry_url)
 
-        kafka_bus = KafkaEventBus(
-            settings.kafka_bootstrap_servers,
-            consumer_group="minihedge",
-        )
-        event_bus = kafka_bus
-    else:
-        event_bus = InProcessEventBus()
+    kafka_bus = KafkaEventBus(
+        settings.kafka_bootstrap_servers,
+        consumer_group="minihedge",
+    )
+    event_bus: EventBus = kafka_bus
 
     # --- Module setup ---
     auth_service, fund_repo = await _setup_platform(fastapi_app, session_factory, settings)
@@ -373,20 +369,30 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     fund_slugs = [f.slug for f in active_funds]
     await ensure_all_fund_schemas(engine, fund_slugs)
 
-    # Create Kafka topics — shared + per-fund
-    if kafka_bus is not None:
-        all_topics = shared_topics()
-        for slug in fund_slugs:
-            all_topics.extend(fund_topics_for_slug(slug))
-        kafka_bus.ensure_topics(all_topics)
+    # Create Kafka topics — shared + per-fund + DLQ
+    all_topics = shared_topics()
+    for slug in fund_slugs:
+        all_topics.extend(fund_topics_for_slug(slug))
+    dlq_topics = [f"{t}.dlq" for t in all_topics]
+    kafka_bus.ensure_topics(all_topics + dlq_topics)
 
     _setup_market_data(fastapi_app, session_factory, event_bus)
     sm_service: SecurityMasterService = fastapi_app.state.security_master_service
     _setup_positions(fastapi_app, session_factory, event_bus, fund_repo, sm_service)
 
+    # Redis — bridge event bus to pub/sub for SSE streaming
+    redis_client = None
+    if settings.redis_enabled:
+        from app.shared.redis import create_redis_client
+        from app.shared.redis_bridge import RedisBridge
+
+        redis_client = await create_redis_client(settings.redis_url)
+        fastapi_app.state.redis = redis_client
+        bridge = RedisBridge(redis_client)
+        bridge.wire(event_bus, fund_slugs)
+
     # Start Kafka consumers (after all subscriptions are registered)
-    if kafka_bus is not None:
-        await kafka_bus.start()
+    await kafka_bus.start()
 
     # --- Simulator ---
     simulator_task: asyncio.Task | None = None  # type: ignore[type-arg]
@@ -400,6 +406,7 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
 
     # Store references for health check
     fastapi_app.state.engine = engine
+    fastapi_app.state.kafka_bus = kafka_bus
 
     logger.info("app_started", env=settings.app_env, simulator=settings.simulator_enabled)
 
@@ -413,8 +420,10 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
         with contextlib.suppress(asyncio.CancelledError):
             await simulator_task
 
-    if kafka_bus is not None:
-        await kafka_bus.stop()
+    await kafka_bus.stop()
+
+    if redis_client is not None:
+        await redis_client.aclose()
 
     if fga_client is not None:
         await fga_client.close()
@@ -448,14 +457,40 @@ app.include_router(platform_router, prefix="/api/v1")
 app.include_router(security_master_router, prefix="/api/v1")
 app.include_router(market_data_router, prefix="/api/v1")
 app.include_router(positions_router, prefix="/api/v1")
+app.include_router(realtime_router, prefix="/api/v1")
 
 
 @app.get("/health")
-async def health_check() -> dict[str, str]:
-    """Readiness probe — checks PostgreSQL connectivity."""
+async def health_check() -> dict[str, object]:
+    """Readiness probe — checks PostgreSQL, Redis, and Kafka connectivity."""
+    components: dict[str, str] = {}
+
+    # PostgreSQL
     try:
         async with app.state.engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
-        return {"status": "healthy"}
+        components["postgres"] = "healthy"
     except Exception as e:
-        return {"status": "unhealthy", "detail": str(e)}
+        components["postgres"] = f"unhealthy: {e}"
+
+    # Redis (if enabled)
+    redis = getattr(app.state, "redis", None)
+    if redis is not None:
+        try:
+            await redis.ping()
+            components["redis"] = "healthy"
+        except Exception as e:
+            components["redis"] = f"unhealthy: {e}"
+
+    # Kafka
+    try:
+        app.state.kafka_bus._producer.flush(timeout=2.0)
+        components["kafka"] = "healthy"
+    except Exception as e:
+        components["kafka"] = f"unhealthy: {e}"
+
+    all_healthy = all(v == "healthy" for v in components.values())
+    return {
+        "status": "healthy" if all_healthy else "degraded",
+        "components": components,
+    }

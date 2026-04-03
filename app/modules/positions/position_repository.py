@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.modules.positions.models import CurrentPositionRecord, LotRecord
@@ -142,6 +142,29 @@ class CurrentPositionRepository:
             )
             result = await session.execute(stmt)
             return list(result.scalars().all())
+
+    async def get_portfolio_summary(
+        self,
+        portfolio_id: UUID,
+    ) -> dict[str, object] | None:
+        """Aggregate market value, cost basis, realized and unrealized P&L for a portfolio."""
+        async with self._session() as session:
+            stmt = select(
+                func.coalesce(func.sum(CurrentPositionRecord.market_value), Decimal(0)),
+                func.coalesce(func.sum(CurrentPositionRecord.cost_basis), Decimal(0)),
+                func.coalesce(func.sum(CurrentPositionRecord.realized_pnl), Decimal(0)),
+                func.coalesce(func.sum(CurrentPositionRecord.unrealized_pnl), Decimal(0)),
+                func.count(),
+            ).where(CurrentPositionRecord.portfolio_id == str(portfolio_id))
+            result = await session.execute(stmt)
+            row = result.one()
+            return {
+                "total_market_value": row[0],
+                "total_cost_basis": row[1],
+                "total_realized_pnl": row[2],
+                "total_unrealized_pnl": row[3],
+                "position_count": row[4],
+            }
 
     async def get_lots(
         self,

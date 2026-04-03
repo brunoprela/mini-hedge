@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.modules.positions.dependencies import get_position_service
-from app.modules.positions.interface import Position, PositionLot, TradeRequest
+from app.modules.positions.interface import PortfolioSummary, Position, PositionLot, TradeRequest
 from app.modules.positions.service import PositionService
 from app.shared.auth import Permission, require_permission
 from app.shared.fga import ParamSource, require_access
@@ -57,6 +57,16 @@ async def get_lots(
     service: PositionService = Depends(get_position_service),
 ) -> list[PositionLot]:
     return await service.get_lots(portfolio_id, instrument_id.upper())
+
+
+@router.get("/{portfolio_id}/summary", response_model=PortfolioSummary)
+async def get_portfolio_summary(
+    portfolio_id: UUID,
+    ctx: RequestContext = require_permission(Permission.POSITIONS_READ),
+    _access: None = require_access(Portfolio.relation("can_view")),
+    service: PositionService = Depends(get_position_service),
+) -> PortfolioSummary:
+    return await service.get_portfolio_summary(portfolio_id)
 
 
 @router.post("/trades", response_model=Position, status_code=201)

@@ -270,12 +270,9 @@ class ParamSource(StrEnum):
     QUERY = "query"
 
 
-def _get_fga(request: Request) -> FGAClient:
-    """Extract the FGA client from app state."""
-    fga: FGAClient | None = getattr(request.app.state, "fga", None)
-    if fga is None:
-        raise HTTPException(status_code=503, detail="Authorization service unavailable")
-    return fga
+def _get_fga(request: Request) -> FGAClient | None:
+    """Extract the FGA client from app state, or None if FGA is disabled."""
+    return getattr(request.app.state, "fga", None)
 
 
 async def _extract_resource_id(
@@ -333,8 +330,11 @@ def require_access(  # type: ignore[no-untyped-def]
     async def _check(
         request: Request,
         ctx: RequestContext = Depends(get_actor_context),
-        fga: FGAClient = Depends(_get_fga),
+        fga: FGAClient | None = Depends(_get_fga),
     ) -> None:
+        if fga is None:
+            # FGA not enabled — skip object-level check (RBAC still enforced)
+            return
         resource_id = await _extract_resource_id(request, param_name, source)
         allowed = await fga.check(
             user=f"user:{ctx.actor_id}",

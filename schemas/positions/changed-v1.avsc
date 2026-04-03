@@ -8,6 +8,7 @@
     {"name": "instrument_id", "type": "string"},
     {"name": "quantity", "type": "string", "doc": "Decimal as string"},
     {"name": "avg_cost", "type": "string"},
-    {"name": "cost_basis", "type": "string"}
+    {"name": "cost_basis", "type": "string"},
+    {"name": "currency", "type": "string", "default": "USD"}
   ]
 }

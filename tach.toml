@@ -21,3 +21,7 @@ depends_on = ["app.shared"]
 [[modules]]
 path = "app.modules.positions"
 depends_on = ["app.shared"]
+
+[[modules]]
+path = "app.modules.realtime"
+depends_on = ["app.shared"]

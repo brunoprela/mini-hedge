@@ -179,30 +179,38 @@ class AuthService:
             return None
 
         # Resolve fund membership (with cache)
-        fund_id: str | None = None
         if fund_slug is None:
-            # Default to first fund the user belongs to
+            # Default to first fund the user belongs to (deterministic: oldest membership)
             memberships = await self._membership_repo.get_by_user(user.id)
             if not memberships:
                 logger.warning("keycloak_user_no_memberships", user_id=user.id)
                 return None
+            memberships.sort(key=lambda m: m.created_at)
             membership = memberships[0]
             fund = await self._fund_repo.get_by_id(membership.fund_id)
             if fund is None:
+                return None
+            if fund.status != FundStatus.ACTIVE:
+                logger.warning("keycloak_fund_inactive", fund_slug=fund.slug)
                 return None
             fund_slug = fund.slug
             fund_id = fund.id
             role = membership.role
         else:
+            fund = await self._fund_repo.get_by_slug(fund_slug)
+            if fund is None:
+                logger.warning("keycloak_fund_not_found", fund_slug=fund_slug)
+                return None
+            if fund.status != FundStatus.ACTIVE:
+                logger.warning("keycloak_fund_inactive", fund_slug=fund_slug)
+                return None
+            fund_id = fund.id
+
             cache_key = (user.id, fund_slug)
             cached_role = self._membership_cache.get(cache_key)
             if cached_role is not None:
                 role = cached_role
             else:
-                fund = await self._fund_repo.get_by_slug(fund_slug)
-                if fund is None:
-                    logger.warning("keycloak_fund_not_found", fund_slug=fund_slug)
-                    return None
                 membership = await self._membership_repo.get_by_user_and_fund(user.id, fund.id)
                 if membership is None:
                     logger.warning(
@@ -211,7 +219,6 @@ class AuthService:
                         fund_slug=fund_slug,
                     )
                     return None
-                fund_id = fund.id
                 role = membership.role
                 self._membership_cache[cache_key] = role
 

@@ -8,6 +8,7 @@
     {"name": "bid", "type": "string", "doc": "Decimal as string for precision"},
     {"name": "ask", "type": "string"},
     {"name": "mid", "type": "string"},
+    {"name": "volume", "type": ["null", "string"], "default": null},
     {"name": "timestamp", "type": "string", "doc": "ISO-8601 datetime"},
     {"name": "source", "type": "string"}
   ]

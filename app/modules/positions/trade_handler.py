@@ -125,6 +125,23 @@ class TradeHandler:
                     attempt=attempt,
                 )
 
+        # Publish raw trade event to trades.executed topic
+        trade_data = asdict(trade_event.data)
+        serialized_trade = {k: str(v) for k, v in trade_data.items()}
+        trade_topic = (
+            fund_topic(ctx.fund_slug, "trades.executed") if ctx.fund_slug else "trades.executed"
+        )
+        await self._event_bus.publish(
+            trade_topic,
+            BaseEvent(
+                event_type=trade_event.event_type,
+                data=serialized_trade,
+                actor_id=ctx.actor_id,
+                actor_type=ctx.actor_type.value,
+                fund_slug=ctx.fund_slug,
+            ),
+        )
+
         # Publish downstream events to fund-scoped topics
         await self._publish_downstream(ctx, downstream_events)
 

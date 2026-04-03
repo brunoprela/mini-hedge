@@ -1,8 +1,9 @@
 """Position keeping query service — reads from the position read model."""
 
+from decimal import Decimal
 from uuid import UUID
 
-from app.modules.positions.interface import Position, PositionLot, TradeRequest
+from app.modules.positions.interface import PortfolioSummary, Position, PositionLot, TradeRequest
 from app.modules.positions.models import CurrentPositionRecord, LotRecord
 from app.modules.positions.position_repository import CurrentPositionRepository
 from app.modules.positions.trade_handler import TradeHandler
@@ -72,6 +73,19 @@ class PositionService:
     ) -> list[PositionLot]:
         records = await self._position_repo.get_lots(portfolio_id, instrument_id)
         return [_to_lot(r) for r in records]
+
+    async def get_portfolio_summary(self, portfolio_id: UUID) -> PortfolioSummary:
+        summary = await self._position_repo.get_portfolio_summary(portfolio_id)
+        if summary is None:
+            return PortfolioSummary(
+                portfolio_id=portfolio_id,
+                total_market_value=Decimal(0),
+                total_cost_basis=Decimal(0),
+                total_realized_pnl=Decimal(0),
+                total_unrealized_pnl=Decimal(0),
+                position_count=0,
+            )
+        return PortfolioSummary(portfolio_id=portfolio_id, **summary)
 
     async def execute_trade(self, request: TradeRequest, ctx: RequestContext) -> Position:
         """Process a trade and return the updated position."""

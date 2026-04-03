@@ -40,6 +40,7 @@ class PositionAggregate:
     quantity: Decimal = Decimal(0)
     cost_basis: Decimal = Decimal(0)
     realized_pnl: Decimal = Decimal(0)
+    currency: str = "USD"
     lots: list[LotState] = field(default_factory=list)
     version: int = 0
 
@@ -63,6 +64,7 @@ class PositionAggregate:
         qty = event.data.quantity
         price = event.data.price
         trade_id = event.data.trade_id
+        self.currency = event.data.currency
 
         self.quantity += qty
         self.cost_basis += qty * price
@@ -85,6 +87,7 @@ class PositionAggregate:
         qty = event.data.quantity
         price = event.data.price
         trade_id = event.data.trade_id
+        self.currency = event.data.currency
 
         # FIFO lot matching
         remaining = qty
@@ -133,6 +136,7 @@ class PositionAggregate:
                 quantity=self.quantity,
                 avg_cost=self.avg_cost,
                 cost_basis=self.cost_basis,
+                currency=self.currency,
             ),
         )
 
@@ -144,6 +148,7 @@ class PositionAggregate:
                 instrument_id=self.instrument_id,
                 realized_pnl=amount,
                 price=price,
+                currency=self.currency,
             ),
         )
 

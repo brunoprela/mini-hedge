@@ -57,6 +57,9 @@ class KafkaEventBus:
         self._consumers: list[Consumer] = []
         self._consumer_tasks: list[asyncio.Task[None]] = []
         self._running = False
+        self._dlq_max_retries = 3
+        self._failure_counts: dict[str, int] = {}
+        self._dlq_count = 0
 
     async def publish(self, topic: str, event: BaseEvent) -> None:
         """Serialize and produce an event to a Kafka topic."""
@@ -186,13 +189,51 @@ class KafkaEventBus:
                     )
 
             if all_ok:
+                self._failure_counts.pop(event.event_id, None)
                 await loop.run_in_executor(None, consumer.commit)
             else:
-                logger.warning(
-                    "kafka_commit_skipped",
-                    topic=topic,
-                    event_id=event.event_id,
-                )
+                count = self._failure_counts.get(event.event_id, 0) + 1
+                self._failure_counts[event.event_id] = count
+                if count >= self._dlq_max_retries:
+                    self._publish_to_dlq(topic, event, msg.value())
+                    self._failure_counts.pop(event.event_id, None)
+                    await loop.run_in_executor(None, consumer.commit)
+                else:
+                    logger.warning(
+                        "kafka_commit_skipped",
+                        topic=topic,
+                        event_id=event.event_id,
+                        failure_count=count,
+                    )
+
+    @property
+    def dlq_count(self) -> int:
+        """Number of events sent to dead-letter queues."""
+        return self._dlq_count
+
+    def _publish_to_dlq(self, topic: str, event: BaseEvent, raw_value: bytes) -> None:
+        """Publish a failed event to the dead-letter queue topic."""
+        dlq_topic = f"{topic}.dlq"
+        try:
+            self._producer.produce(
+                topic=dlq_topic,
+                value=raw_value,
+                key=event.event_id.encode(),
+            )
+            self._producer.poll(0)
+            self._dlq_count += 1
+            logger.error(
+                "event_sent_to_dlq",
+                topic=topic,
+                dlq_topic=dlq_topic,
+                event_id=event.event_id,
+            )
+        except Exception:
+            logger.exception(
+                "dlq_publish_failed",
+                topic=topic,
+                event_id=event.event_id,
+            )
 
     async def stop(self) -> None:
         """Stop all consumer tasks and flush the producer."""
