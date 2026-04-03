@@ -1,17 +1,12 @@
 "use client";
 
+import { Briefcase, LayoutDashboard, Search, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  Briefcase,
-  Search,
-  TrendingUp,
-} from "lucide-react";
+import { useFundContext } from "@/shared/hooks/use-fund-context";
+import { usePermission } from "@/shared/hooks/use-permission";
 import { cn } from "@/shared/lib/cn";
 import { NAV_ITEMS, type NavItem } from "@/shared/lib/navigation";
-import { usePermission } from "@/shared/hooks/use-permission";
-import { useFundContext } from "@/shared/hooks/use-fund-context";
 
 const ICONS = {
   LayoutDashboard,
@@ -25,9 +20,7 @@ export function Sidebar() {
   const { fundSlug } = useFundContext();
   const pathname = usePathname();
 
-  const visibleItems = NAV_ITEMS.filter(
-    (item) => !item.permission || can(item.permission)
-  );
+  const visibleItems = NAV_ITEMS.filter((item) => !item.permission || can(item.permission));
 
   return (
     <aside className="flex h-full w-[var(--sidebar-width)] flex-col border-r border-[var(--border)] bg-[var(--muted)]">
@@ -67,7 +60,7 @@ function SidebarLink({
         "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
         active
           ? "bg-[var(--background)] font-medium"
-          : "text-[var(--muted-foreground)] hover:bg-[var(--background)] hover:text-[var(--foreground)]"
+          : "text-[var(--muted-foreground)] hover:bg-[var(--background)] hover:text-[var(--foreground)]",
       )}
     >
       <Icon className="h-4 w-4" />

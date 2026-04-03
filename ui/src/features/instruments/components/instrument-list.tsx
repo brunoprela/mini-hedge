@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useInstruments, useInstrumentSearch } from "../hooks/use-instruments";
+import { useInstrumentSearch, useInstruments } from "../hooks/use-instruments";
 
 export function InstrumentList() {
   const [search, setSearch] = useState("");
@@ -38,13 +38,8 @@ export function InstrumentList() {
             </thead>
             <tbody>
               {instruments?.map((inst) => (
-                <tr
-                  key={inst.id}
-                  className="border-b border-[var(--border)] last:border-0"
-                >
-                  <td className="px-4 py-2 font-mono font-medium">
-                    {inst.ticker}
-                  </td>
+                <tr key={inst.id} className="border-b border-[var(--border)] last:border-0">
+                  <td className="px-4 py-2 font-mono font-medium">{inst.ticker}</td>
                   <td className="px-4 py-2">{inst.name}</td>
                   <td className="px-4 py-2">{inst.asset_class}</td>
                   <td className="px-4 py-2">{inst.exchange}</td>

@@ -161,10 +161,7 @@ class PositionAggregate:
     ) -> PositionAggregate:
         aggregate = cls(portfolio_id=portfolio_id, instrument_id=instrument_id)
         for event in events:
-            if (
-                event.data.portfolio_id != portfolio_id
-                or event.data.instrument_id != instrument_id
-            ):
+            if event.data.portfolio_id != portfolio_id or event.data.instrument_id != instrument_id:
                 raise ValueError(
                     f"Event {event.event_type} belongs to "
                     f"{event.data.portfolio_id}:{event.data.instrument_id}, "

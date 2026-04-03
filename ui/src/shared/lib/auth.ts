@@ -16,16 +16,22 @@ declare module "next-auth/jwt" {
   }
 }
 
-const clientId = process.env.AUTH_KEYCLOAK_ID!;
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing required environment variable: ${name}`);
+  return value;
+}
+
+const clientId = requireEnv("AUTH_KEYCLOAK_ID");
 // Browser-facing issuer — used for issuer validation (must match `iss` in callback)
-const browserIssuer = process.env.NEXT_PUBLIC_KEYCLOAK_ISSUER!;
+const browserIssuer = requireEnv("NEXT_PUBLIC_KEYCLOAK_ISSUER");
 // Server-side Keycloak URL for token exchange, JWKS, userinfo (Docker network)
-const serverIssuer = process.env.AUTH_KEYCLOAK_ISSUER!;
+const serverIssuer = requireEnv("AUTH_KEYCLOAK_ISSUER");
 const serverOidc = `${serverIssuer}/protocol/openid-connect`;
 const browserOidc = `${browserIssuer}/protocol/openid-connect`;
 
 async function refreshAccessToken(
-  token: import("next-auth/jwt").JWT
+  token: import("next-auth/jwt").JWT,
 ): Promise<import("next-auth/jwt").JWT> {
   const response = await fetch(`${serverOidc}/token`, {
     method: "POST",
@@ -75,9 +81,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (account) {
         return {
           ...token,
-          accessToken: account.access_token!,
-          refreshToken: account.refresh_token!,
-          expiresAt: account.expires_at!,
+          accessToken: account.access_token ?? "",
+          refreshToken: account.refresh_token ?? "",
+          expiresAt: account.expires_at ?? 0,
         };
       }
 

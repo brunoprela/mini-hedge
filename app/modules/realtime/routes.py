@@ -41,23 +41,22 @@ async def _event_stream(
             if await request.is_disconnected():
                 break
 
-            message = await asyncio.wait_for(
-                pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0),
-                timeout=_HEARTBEAT_INTERVAL,
-            )
+            try:
+                message = await asyncio.wait_for(
+                    pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0),
+                    timeout=_HEARTBEAT_INTERVAL,
+                )
+            except TimeoutError:
+                # No message within heartbeat interval — send keepalive and continue
+                yield ": heartbeat\n\n"
+                continue
 
             if message is not None and message["type"] == "message":
                 data = message["data"]
                 payload = json.loads(data) if isinstance(data, str) else data
                 event_type = payload.get("event_type", "message")
                 yield f"event: {event_type}\ndata: {json.dumps(payload)}\n\n"
-            else:
-                # Heartbeat to keep connection alive
-                yield ": heartbeat\n\n"
 
-    except TimeoutError:
-        # Heartbeat on timeout
-        yield ": heartbeat\n\n"
     except asyncio.CancelledError:
         pass
     finally:
@@ -80,7 +79,7 @@ async def stream_events(
     auth_service = getattr(request.app.state, "auth_service", None)
     if auth_service is None:
         return StreamingResponse(
-            iter(["data: {\"error\": \"Auth service unavailable\"}\n\n"]),
+            iter(['data: {"error": "Auth service unavailable"}\n\n']),
             status_code=503,
             media_type="text/event-stream",
         )
@@ -88,7 +87,7 @@ async def stream_events(
     ctx = await auth_service.authenticate_jwt(token, fund_slug=fund_slug)
     if ctx is None:
         return StreamingResponse(
-            iter(["data: {\"error\": \"Authentication failed\"}\n\n"]),
+            iter(['data: {"error": "Authentication failed"}\n\n']),
             status_code=401,
             media_type="text/event-stream",
         )
@@ -96,7 +95,7 @@ async def stream_events(
     redis = getattr(request.app.state, "redis", None)
     if redis is None:
         return StreamingResponse(
-            iter(["data: {\"error\": \"Real-time streaming not available\"}\n\n"]),
+            iter(['data: {"error": "Real-time streaming not available"}\n\n']),
             status_code=503,
             media_type="text/event-stream",
         )

@@ -1,5 +1,5 @@
+import type { NextRequest } from "next/server";
 import { auth } from "@/shared/lib/auth";
-import { NextRequest } from "next/server";
 
 const API_URL = process.env.API_URL ?? "http://localhost:8000";
 
@@ -32,13 +32,10 @@ export async function GET(req: NextRequest) {
   });
 
   if (!upstream.ok || !upstream.body) {
-    return new Response(
-      JSON.stringify({ detail: "Upstream stream unavailable" }),
-      {
-        status: upstream.status,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
+    return new Response(JSON.stringify({ detail: "Upstream stream unavailable" }), {
+      status: upstream.status,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   return new Response(upstream.body, {

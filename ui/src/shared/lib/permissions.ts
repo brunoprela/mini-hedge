@@ -73,14 +73,14 @@ export function resolvePermissions(roles: readonly string[]): Set<Permission> {
 
 export function hasPermission(
   userPermissions: ReadonlySet<Permission>,
-  required: Permission
+  required: Permission,
 ): boolean {
   return userPermissions.has(required);
 }
 
 export function hasAllPermissions(
   userPermissions: ReadonlySet<Permission>,
-  required: readonly Permission[]
+  required: readonly Permission[],
 ): boolean {
   return required.every((p) => userPermissions.has(p));
 }

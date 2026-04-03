@@ -1,8 +1,8 @@
 "use client";
 
-import type { Permission } from "@/shared/lib/permissions";
-import { usePermission } from "@/shared/hooks/use-permission";
 import type { ReactNode } from "react";
+import { usePermission } from "@/shared/hooks/use-permission";
+import type { Permission } from "@/shared/lib/permissions";
 
 interface CanProps {
   permission: Permission | Permission[];
@@ -11,17 +11,11 @@ interface CanProps {
   children: ReactNode;
 }
 
-export function Can({
-  permission,
-  mode = "all",
-  fallback = null,
-  children,
-}: CanProps) {
+export function Can({ permission, mode = "all", fallback = null, children }: CanProps) {
   const { can, canAll } = usePermission();
 
   const perms = Array.isArray(permission) ? permission : [permission];
-  const allowed =
-    mode === "all" ? canAll(perms) : perms.some((p) => can(p));
+  const allowed = mode === "all" ? canAll(perms) : perms.some((p) => can(p));
 
-  return allowed ? <>{children}</> : <>{fallback}</>;
+  return allowed ? children : fallback;
 }

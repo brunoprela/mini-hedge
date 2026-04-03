@@ -1,16 +1,13 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/shared/lib/auth";
-import { serverFetch } from "@/shared/lib/api";
 import type { FundInfo } from "@/features/platform/types";
+import { serverFetch } from "@/shared/lib/api";
+import { auth } from "@/shared/lib/auth";
 
 export default async function RootPage() {
   const session = await auth();
   if (!session?.accessToken) redirect("/login");
 
-  const funds = await serverFetch<FundInfo[]>(
-    "/api/v1/me/funds",
-    session.accessToken
-  );
+  const funds = await serverFetch<FundInfo[]>("/api/v1/me/funds", session.accessToken);
 
   if (funds.length === 0) {
     redirect("/unauthorized");

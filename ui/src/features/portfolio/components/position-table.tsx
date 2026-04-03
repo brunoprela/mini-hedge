@@ -1,74 +1,105 @@
 "use client";
 
+import { useState } from "react";
+import { Can } from "@/shared/components/can";
 import {
+  formatPnL,
   formatPrice,
   formatQuantity,
-  formatPnL,
-  pnlColorClass,
   formatTimestamp,
+  pnlColorClass,
 } from "@/shared/lib/formatters";
+import { Permission } from "@/shared/lib/permissions";
 import { usePositions } from "../hooks/use-positions";
+import { LotDrawer } from "./lot-drawer";
+import { TradeTicket } from "./trade-ticket";
 
 export function PositionTable({ portfolioId }: { portfolioId: string }) {
   const { data: positions, isLoading } = usePositions(portfolioId);
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [showTradeTicket, setShowTradeTicket] = useState(false);
 
   if (isLoading) {
     return <p className="text-sm text-[var(--muted-foreground)]">Loading positions...</p>;
   }
 
-  if (!positions || positions.length === 0) {
-    return (
-      <p className="text-sm text-[var(--muted-foreground)]">
-        No positions in this portfolio. Execute a trade to get started.
-      </p>
-    );
-  }
-
   return (
-    <div className="overflow-x-auto rounded-lg border border-[var(--border)]">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-[var(--border)] bg-[var(--muted)]">
-            <th className="px-4 py-2 text-left font-medium">Instrument</th>
-            <th className="px-4 py-2 text-right font-medium">Qty</th>
-            <th className="px-4 py-2 text-right font-medium">Avg Cost</th>
-            <th className="px-4 py-2 text-right font-medium">Mkt Price</th>
-            <th className="px-4 py-2 text-right font-medium">Mkt Value</th>
-            <th className="px-4 py-2 text-right font-medium">Unrealized P&L</th>
-            <th className="px-4 py-2 text-right font-medium">Updated</th>
-          </tr>
-        </thead>
-        <tbody>
-          {positions.map((pos) => (
-            <tr
-              key={pos.instrument_id}
-              className="border-b border-[var(--border)] last:border-0"
-            >
-              <td className="px-4 py-2 font-mono font-medium">
-                {pos.instrument_id}
-              </td>
-              <td className="px-4 py-2 text-right">
-                {formatQuantity(pos.quantity)}
-              </td>
-              <td className="px-4 py-2 text-right">
-                {formatPrice(pos.avg_cost)}
-              </td>
-              <td className="px-4 py-2 text-right">
-                {formatPrice(pos.market_price)}
-              </td>
-              <td className="px-4 py-2 text-right">
-                {formatPnL(pos.market_value)}
-              </td>
-              <td className={`px-4 py-2 text-right font-medium ${pnlColorClass(pos.unrealized_pnl)}`}>
-                {formatPnL(pos.unrealized_pnl)}
-              </td>
-              <td className="px-4 py-2 text-right text-[var(--muted-foreground)]">
-                {formatTimestamp(pos.last_updated)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <>
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-sm text-[var(--muted-foreground)]">
+          {positions?.length ?? 0} position{positions?.length !== 1 ? "s" : ""}
+        </p>
+        <Can permission={Permission.TRADES_EXECUTE}>
+          <button
+            type="button"
+            onClick={() => setShowTradeTicket(true)}
+            className="rounded-md bg-[var(--foreground)] px-4 py-2 text-sm font-medium text-[var(--background)] transition-colors hover:opacity-90"
+          >
+            New Trade
+          </button>
+        </Can>
+      </div>
+
+      {!positions || positions.length === 0 ? (
+        <p className="text-sm text-[var(--muted-foreground)]">
+          No positions in this portfolio. Execute a trade to get started.
+        </p>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-[var(--border)]">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[var(--border)] bg-[var(--muted)]">
+                <th className="px-4 py-2 text-left font-medium">Instrument</th>
+                <th className="px-4 py-2 text-right font-medium">Qty</th>
+                <th className="px-4 py-2 text-right font-medium">Avg Cost</th>
+                <th className="px-4 py-2 text-right font-medium">Mkt Price</th>
+                <th className="px-4 py-2 text-right font-medium">Mkt Value</th>
+                <th className="px-4 py-2 text-right font-medium">Unrealized P&L</th>
+                <th className="px-4 py-2 text-right font-medium">Updated</th>
+              </tr>
+            </thead>
+            <tbody>
+              {positions.map((pos) => (
+                <>
+                  <tr
+                    key={pos.instrument_id}
+                    onClick={() =>
+                      setExpandedRow(expandedRow === pos.instrument_id ? null : pos.instrument_id)
+                    }
+                    className="cursor-pointer border-b border-[var(--border)] last:border-0 hover:bg-[var(--muted)]/50"
+                  >
+                    <td className="px-4 py-2 font-mono font-medium">
+                      {pos.instrument_id}
+                      <span className="ml-1 text-xs text-[var(--muted-foreground)]">
+                        {expandedRow === pos.instrument_id ? "▼" : "▶"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-right">{formatQuantity(pos.quantity)}</td>
+                    <td className="px-4 py-2 text-right">{formatPrice(pos.avg_cost)}</td>
+                    <td className="px-4 py-2 text-right">{formatPrice(pos.market_price)}</td>
+                    <td className="px-4 py-2 text-right">{formatPnL(pos.market_value)}</td>
+                    <td
+                      className={`px-4 py-2 text-right font-medium ${pnlColorClass(pos.unrealized_pnl)}`}
+                    >
+                      {formatPnL(pos.unrealized_pnl)}
+                    </td>
+                    <td className="px-4 py-2 text-right text-[var(--muted-foreground)]">
+                      {formatTimestamp(pos.last_updated)}
+                    </td>
+                  </tr>
+                  {expandedRow === pos.instrument_id && (
+                    <LotDrawer portfolioId={portfolioId} instrumentId={pos.instrument_id} />
+                  )}
+                </>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {showTradeTicket && (
+        <TradeTicket portfolioId={portfolioId} onClose={() => setShowTradeTicket(false)} />
+      )}
+    </>
   );
 }

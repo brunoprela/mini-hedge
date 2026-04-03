@@ -3,6 +3,7 @@
 from fastapi import HTTPException, Request
 
 from app.modules.platform.auth_service import AuthService
+from app.modules.platform.portfolio_repository import PortfolioRepository
 
 
 def get_auth_service(request: Request) -> AuthService:
@@ -10,3 +11,10 @@ def get_auth_service(request: Request) -> AuthService:
     if service is None:
         raise HTTPException(status_code=503, detail="AuthService not initialized")
     return service
+
+
+def get_portfolio_repo(request: Request) -> PortfolioRepository:
+    repo: PortfolioRepository | None = getattr(request.app.state, "portfolio_repo", None)
+    if repo is None:
+        raise HTTPException(status_code=503, detail="PortfolioRepository not initialized")
+    return repo

@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
-import { instrumentsQueryOptions, instrumentSearchQueryOptions } from "../api";
+import { instrumentSearchQueryOptions, instrumentsQueryOptions } from "../api";
 
 export function useInstruments() {
   const { fundSlug } = useFundContext();

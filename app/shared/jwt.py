@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import jwt
-from jwt import PyJWKClient
+from jwt import PyJWKClient, PyJWTError
 from pydantic import BaseModel, ConfigDict
 
 from app.shared.request_context import ActorType
@@ -127,9 +127,17 @@ def decode_keycloak_token(
     """Decode and validate a Keycloak-issued JWT using JWKS.
 
     Raises jwt.PyJWTError on failure (expired, bad signature, wrong audience).
+    On key-not-found, refreshes the JWKS cache once and retries.
     """
     jwk_client = get_jwk_client(keycloak_url, realm)
-    signing_key = jwk_client.get_signing_key_from_jwt(token)
+    try:
+        signing_key = jwk_client.get_signing_key_from_jwt(token)
+    except PyJWTError:
+        # Key mismatch — Keycloak may have rotated keys. Force cache refresh.
+        global _jwk_client
+        _jwk_client = None
+        jwk_client = get_jwk_client(keycloak_url, realm)
+        signing_key = jwk_client.get_signing_key_from_jwt(token)
     issuer_base = keycloak_browser_url or keycloak_url
     issuer = f"{issuer_base}/realms/{realm}"
 

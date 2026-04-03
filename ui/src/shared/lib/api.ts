@@ -4,7 +4,7 @@ const API_URL = process.env.API_URL ?? "http://localhost:8000";
 export async function serverFetch<T>(
   path: string,
   accessToken: string,
-  options?: { fundSlug?: string; method?: string; body?: unknown }
+  options?: { fundSlug?: string; method?: string; body?: unknown },
 ): Promise<T> {
   const headers: Record<string, string> = {
     Authorization: `Bearer ${accessToken}`,
@@ -32,7 +32,7 @@ export async function serverFetch<T>(
 /** Client-side fetch — calls BFF proxy (same-origin) */
 export async function clientFetch<T>(
   path: string,
-  options?: { fundSlug?: string; method?: string; body?: unknown }
+  options?: { fundSlug?: string; method?: string; body?: unknown },
 ): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",

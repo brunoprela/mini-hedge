@@ -6,8 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.modules.platform.auth_service import AuthService
-from app.modules.platform.dependencies import get_auth_service
-from app.modules.platform.interface import FundInfo
+from app.modules.platform.dependencies import get_auth_service, get_portfolio_repo
+from app.modules.platform.interface import FundInfo, PortfolioInfo
+from app.modules.platform.portfolio_repository import PortfolioRepository
 from app.shared.auth import Permission, get_actor_context, require_permission, resolve_permissions
 from app.shared.request_context import ActorType, RequestContext
 
@@ -88,3 +89,24 @@ async def create_agent_token(
         fund_slug=ctx.fund_slug,
         roles=body.roles,
     )
+
+
+@router.get("/portfolios", response_model=list[PortfolioInfo])
+async def list_portfolios(
+    ctx: RequestContext = require_permission(Permission.POSITIONS_READ),
+    repo: PortfolioRepository = Depends(get_portfolio_repo),
+) -> list[PortfolioInfo]:
+    """Return all active portfolios for the authenticated user's fund."""
+    if not ctx.fund_id:
+        return []
+    records = await repo.get_by_fund(ctx.fund_id)
+    return [
+        PortfolioInfo(
+            id=r.id,
+            slug=r.slug,
+            name=r.name,
+            strategy=r.strategy,
+            fund_id=r.fund_id,
+        )
+        for r in records
+    ]

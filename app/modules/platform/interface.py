@@ -23,6 +23,18 @@ class FundInfo(BaseModel):
     role: str
 
 
+class PortfolioInfo(BaseModel):
+    """Portfolio summary for listing."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    slug: str
+    name: str
+    strategy: str | None
+    fund_id: str
+
+
 class AuthReader(Protocol):
     """Authentication interface exposed to other modules."""
 

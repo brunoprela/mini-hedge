@@ -2,9 +2,9 @@
 
 import { useMemo } from "react";
 import {
-  type Permission,
   hasAllPermissions,
   hasPermission,
+  type Permission,
   resolvePermissions,
 } from "@/shared/lib/permissions";
 import { useFundContext } from "./use-fund-context";
@@ -12,10 +12,7 @@ import { useFundContext } from "./use-fund-context";
 export function usePermission() {
   const { role } = useFundContext();
 
-  const permissions = useMemo(
-    () => resolvePermissions(role ? [role] : []),
-    [role]
-  );
+  const permissions = useMemo(() => resolvePermissions(role ? [role] : []), [role]);
 
   return {
     permissions,

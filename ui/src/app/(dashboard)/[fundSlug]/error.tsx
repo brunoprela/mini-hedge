@@ -23,6 +23,7 @@ export default function DashboardError({
           {error.message || "An unexpected error occurred."}
         </p>
         <button
+          type="button"
           onClick={reset}
           className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
         >

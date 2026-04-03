@@ -1,12 +1,9 @@
+import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "@/shared/lib/auth";
-import { NextRequest, NextResponse } from "next/server";
 
 const API_URL = process.env.API_URL ?? "http://localhost:8000";
 
-async function proxyRequest(
-  req: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
-) {
+async function proxyRequest(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   const session = await auth();
   if (!session?.accessToken) {
     return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
@@ -41,17 +38,14 @@ async function proxyRequest(
   const response = await fetch(url.toString(), {
     method: req.method,
     headers,
-    body: req.method !== "GET" && req.method !== "HEAD"
-      ? await req.text()
-      : undefined,
+    body: req.method !== "GET" && req.method !== "HEAD" ? await req.text() : undefined,
   });
 
   const data = await response.text();
   return new NextResponse(data, {
     status: response.status,
     headers: {
-      "Content-Type":
-        response.headers.get("content-type") ?? "application/json",
+      "Content-Type": response.headers.get("content-type") ?? "application/json",
     },
   });
 }

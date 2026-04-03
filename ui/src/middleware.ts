@@ -1,5 +1,5 @@
-import { auth } from "@/shared/lib/auth";
 import { NextResponse } from "next/server";
+import { auth } from "@/shared/lib/auth";
 
 const PUBLIC_PATHS = new Set(["/login", "/unauthorized"]);
 

@@ -228,6 +228,7 @@ async def _setup_platform(
         keycloak_client_id=settings.keycloak_client_id,  # type: ignore[attr-defined]
     )
     fastapi_app.state.auth_service = auth_service
+    fastapi_app.state.portfolio_repo = portfolio_repo
     return auth_service, fund_repo
 
 
@@ -294,8 +295,11 @@ def _setup_positions(
         return [f.slug for f in funds]
 
     async def get_asset_class(instrument_id: str) -> AssetClass | None:
-        instrument = await security_master_service.get_by_id(instrument_id)
-        return instrument.asset_class if instrument is not None else None
+        try:
+            instrument = await security_master_service.get_by_ticker(instrument_id)
+        except Exception:
+            return None
+        return instrument.asset_class
 
     mtm_handler = MarkToMarketHandler(session_factory, event_bus, get_fund_slugs, get_asset_class)
     event_bus.subscribe(shared_topic("prices.normalized"), mtm_handler.handle_price_update)

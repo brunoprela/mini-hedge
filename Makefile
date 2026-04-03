@@ -48,9 +48,15 @@ reset: down
 	@echo "Full reset — removing all volumes..."
 	docker compose --profile core down -v
 	docker compose --profile core up -d --build
-	@echo "All services reset. Waiting for healthy state..."
+	@echo "Waiting for Postgres..."
 	@docker compose --profile core exec -T postgres sh -c 'until pg_isready -U minihedge; do sleep 1; done' 2>/dev/null
-	@echo "Ready."
+	@echo "Waiting for app to start..."
+	@until curl -sf http://localhost:8000/health > /dev/null 2>&1; do sleep 2; done
+	@echo "Running migrations..."
+	@$(MAKE) migrate
+	@echo "Seeding data..."
+	@$(MAKE) seed
+	@echo "Ready — all services running with seed data."
 
 # --- Development ---
 
@@ -73,19 +79,23 @@ migrate:
 
 seed:
 	uv run python -m app.seed
+	uv run python -m app.seed_trades
 
 # --- Quality ---
 
 lint:
 	uv run ruff check app/ tests/
 	uv run ruff format --check app/ tests/
+	cd ui && pnpm lint
 
 format:
 	uv run ruff check --fix app/ tests/
 	uv run ruff format app/ tests/
+	cd ui && pnpm lint:fix
 
 typecheck:
 	uv run mypy app/
+	cd ui && pnpm tsc --noEmit
 
 tach-check:
 	uv run tach check

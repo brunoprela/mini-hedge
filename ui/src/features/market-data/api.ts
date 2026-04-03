@@ -4,16 +4,29 @@ import type { PriceSnapshot } from "./types";
 
 export type { PriceSnapshot };
 
-export function latestPriceQueryOptions(
+export function priceHistoryQueryOptions(
   fundSlug: string,
-  instrumentId: string
+  instrumentId: string,
+  start: string,
+  end: string,
 ) {
+  return queryOptions({
+    queryKey: ["prices", "history", fundSlug, instrumentId, start, end],
+    queryFn: () =>
+      clientFetch<PriceSnapshot[]>(`/prices/history/${instrumentId}?start=${start}&end=${end}`, {
+        fundSlug,
+      }),
+    staleTime: 30_000,
+  });
+}
+
+export function latestPriceQueryOptions(fundSlug: string, instrumentId: string) {
   return queryOptions({
     queryKey: ["prices", "latest", fundSlug, instrumentId],
     queryFn: () =>
       clientFetch<PriceSnapshot>(`/prices/latest/${instrumentId}`, {
         fundSlug,
       }),
-    refetchInterval: 30_000,
+    refetchInterval: 5_000,
   });
 }

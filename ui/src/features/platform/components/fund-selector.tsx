@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 
 export function FundSelector() {
@@ -9,9 +9,7 @@ export function FundSelector() {
   const pathname = usePathname();
 
   if (isLoading || funds.length <= 1) {
-    return (
-      <span className="text-sm font-medium">{fundName}</span>
-    );
+    return <span className="text-sm font-medium">{fundName}</span>;
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {

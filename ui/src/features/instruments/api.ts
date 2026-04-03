@@ -7,8 +7,7 @@ export type { Instrument };
 export function instrumentsQueryOptions(fundSlug: string) {
   return queryOptions({
     queryKey: ["instruments", fundSlug],
-    queryFn: () =>
-      clientFetch<Instrument[]>("/instruments", { fundSlug }),
+    queryFn: () => clientFetch<Instrument[]>("/instruments", { fundSlug }),
   });
 }
 

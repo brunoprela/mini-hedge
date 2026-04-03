@@ -1,9 +1,9 @@
 "use client";
 
-import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { clientFetch } from "@/shared/lib/api";
+import { useParams } from "next/navigation";
 import type { FundInfo } from "@/features/platform/types";
+import { clientFetch } from "@/shared/lib/api";
 
 export function useFundContext() {
   const params = useParams<{ fundSlug: string }>();
