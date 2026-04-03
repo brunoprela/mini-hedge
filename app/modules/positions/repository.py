@@ -1,11 +1,14 @@
 """Data access for the positions schema — event store + read model."""
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.positions.models import CurrentPositionRecord, PositionEventRecord
 from app.shared.database import TenantSessionFactory
@@ -46,12 +49,10 @@ class EventStoreRepository:
         event_type: str,
         event_data: dict,
         sequence_number: int,
-        fund_id: str,
     ) -> None:
         async with self._session_factory() as session:
             event = PositionEventRecord(
                 aggregate_id=aggregate_id,
-                fund_id=fund_id,
                 sequence_number=sequence_number,
                 event_type=event_type,
                 event_data=event_data,
@@ -61,15 +62,31 @@ class EventStoreRepository:
 
 
 class CurrentPositionRepository:
-    def __init__(self, session_factory: TenantSessionFactory) -> None:
+    def __init__(
+        self,
+        session_factory: TenantSessionFactory,
+        *,
+        fund_slug: str | None = None,
+    ) -> None:
         self._session_factory = session_factory
+        self._fund_slug = fund_slug
+
+    @asynccontextmanager
+    async def _session(self) -> AsyncIterator[AsyncSession]:
+        """Get a session — uses explicit fund_slug if set, else request context."""
+        if self._fund_slug is not None:
+            async with self._session_factory.for_fund(self._fund_slug) as session:
+                yield session
+        else:
+            async with self._session_factory() as session:
+                yield session
 
     async def get_position(
         self,
         portfolio_id: UUID,
         instrument_id: str,
     ) -> CurrentPositionRecord | None:
-        async with self._session_factory() as session:
+        async with self._session() as session:
             stmt = select(CurrentPositionRecord).where(
                 CurrentPositionRecord.portfolio_id == str(portfolio_id),
                 CurrentPositionRecord.instrument_id == instrument_id,
@@ -81,7 +98,7 @@ class CurrentPositionRepository:
         self,
         portfolio_id: UUID,
     ) -> list[CurrentPositionRecord]:
-        async with self._session_factory() as session:
+        async with self._session() as session:
             stmt = (
                 select(CurrentPositionRecord)
                 .where(CurrentPositionRecord.portfolio_id == str(portfolio_id))
@@ -99,16 +116,14 @@ class CurrentPositionRepository:
         cost_basis: Decimal,
         realized_pnl: Decimal,
         currency: str,
-        fund_id: str,
     ) -> None:
-        async with self._session_factory() as session:
+        async with self._session() as session:
             now = datetime.now(UTC)
             stmt = (
                 pg_insert(CurrentPositionRecord)
                 .values(
                     portfolio_id=str(portfolio_id),
                     instrument_id=instrument_id,
-                    fund_id=fund_id,
                     quantity=quantity,
                     avg_cost=avg_cost,
                     cost_basis=cost_basis,
@@ -141,7 +156,7 @@ class CurrentPositionRepository:
         market_value: Decimal,
         unrealized_pnl: Decimal,
     ) -> None:
-        async with self._session_factory() as session:
+        async with self._session() as session:
             stmt = select(CurrentPositionRecord).where(
                 CurrentPositionRecord.portfolio_id == portfolio_id,
                 CurrentPositionRecord.instrument_id == instrument_id,
@@ -156,7 +171,7 @@ class CurrentPositionRepository:
                 await session.commit()
 
     async def get_by_instrument(self, instrument_id: str) -> list[CurrentPositionRecord]:
-        async with self._session_factory() as session:
+        async with self._session() as session:
             stmt = select(CurrentPositionRecord).where(
                 CurrentPositionRecord.instrument_id == instrument_id
             )

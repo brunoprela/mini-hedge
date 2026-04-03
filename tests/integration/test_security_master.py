@@ -17,8 +17,9 @@ class TestSecurityMaster:
         session_factory: async_sessionmaker[AsyncSession],
     ) -> None:
         repo = InstrumentRepository(session_factory)
-        records = build_seed_records()
-        await repo.insert_batch(records)
+        instruments, extensions = build_seed_records()
+        await repo.insert_batch(instruments)
+        await repo.insert_batch_extensions(extensions)
 
         service = SecurityMasterService(repo)
 

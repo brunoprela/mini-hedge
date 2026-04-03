@@ -1,5 +1,6 @@
 """Event handlers for position keeping — trade processing and mark-to-market."""
 
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
@@ -10,8 +11,10 @@ from app.modules.positions.aggregate import PositionAggregate
 from app.modules.positions.interface import PositionEventType, TradeSide
 from app.modules.positions.repository import CurrentPositionRepository, EventStoreRepository
 from app.modules.positions.strategy import get_position_strategy
+from app.shared.database import TenantSessionFactory
 from app.shared.events import BaseEvent, EventBus
 from app.shared.request_context import RequestContext
+from app.shared.schema_registry import fund_topic
 from app.shared.types import AssetClass
 
 logger = structlog.get_logger()
@@ -76,7 +79,6 @@ class TradeHandler:
             event_type=trade_event["event_type"],
             event_data=trade_event["data"],
             sequence_number=seq,
-            fund_id=ctx.fund_id,
         )
 
         # Update read model
@@ -88,16 +90,16 @@ class TradeHandler:
             cost_basis=position.cost_basis,
             realized_pnl=position.realized_pnl,
             currency=currency,
-            fund_id=ctx.fund_id,
         )
 
-        # Publish downstream events
+        # Publish downstream events to fund-scoped topics
         for de in downstream_events:
-            topic = (
+            base = (
                 "positions.changed"
                 if de["event_type"] == PositionEventType.POSITION_CHANGED
                 else "pnl.realized"
             )
+            topic = fund_topic(ctx.fund_slug, base) if ctx.fund_slug else base
             await self._event_bus.publish(
                 topic,
                 BaseEvent(
@@ -120,30 +122,47 @@ class TradeHandler:
 
 
 class MarkToMarketHandler:
-    """Revalues positions when prices update."""
+    """Revalues positions when prices update.
+
+    Iterates over all active fund schemas to update every fund's positions.
+    """
 
     def __init__(
         self,
-        position_repo: CurrentPositionRepository,
+        session_factory: TenantSessionFactory,
         event_bus: EventBus,
+        get_fund_slugs: Callable[[], Awaitable[list[str]]],
     ) -> None:
-        self._position_repo = position_repo
+        self._session_factory = session_factory
         self._event_bus = event_bus
+        self._get_fund_slugs = get_fund_slugs
 
     async def handle_price_update(self, event: BaseEvent) -> None:
         instrument_id = event.data["instrument_id"]
         new_price = Decimal(event.data["mid"])
-
-        positions = await self._position_repo.get_by_instrument(instrument_id)
-        # Use equity strategy for now; when positions store asset_class,
-        # look up the correct strategy per position.
         strategy = get_position_strategy(AssetClass.EQUITY)
 
-        for pos in positions:
-            new_market_value = strategy.market_value(pos.quantity, new_price)
-            new_unrealized = strategy.unrealized_pnl(pos.quantity, pos.cost_basis, new_price)
+        for slug in await self._get_fund_slugs():
+            await self._update_fund_positions(
+                slug,
+                instrument_id,
+                new_price,
+                strategy,
+            )
 
-            await self._position_repo.update_market_value(
+    async def _update_fund_positions(
+        self,
+        fund_slug: str,
+        instrument_id: str,
+        new_price: Decimal,
+        strategy: object,
+    ) -> None:
+        repo = CurrentPositionRepository(self._session_factory, fund_slug=fund_slug)
+        positions = await repo.get_by_instrument(instrument_id)
+        for pos in positions:
+            new_market_value = strategy.market_value(pos.quantity, new_price)  # type: ignore[union-attr]
+            new_unrealized = strategy.unrealized_pnl(pos.quantity, pos.cost_basis, new_price)  # type: ignore[union-attr]
+            await repo.update_market_value(
                 portfolio_id=pos.portfolio_id,
                 instrument_id=instrument_id,
                 market_price=new_price,

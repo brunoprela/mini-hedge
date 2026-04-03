@@ -4,6 +4,7 @@ import pytest
 
 from app.modules.market_data.simulator import InstrumentConfig, MarketDataSimulator
 from app.shared.events import BaseEvent, InProcessEventBus
+from app.shared.schema_registry import shared_topic
 
 
 class TestSimulator:
@@ -27,7 +28,7 @@ class TestSimulator:
         async def handler(event: BaseEvent) -> None:
             received.append(event)
 
-        bus.subscribe("prices.normalized", handler)
+        bus.subscribe(shared_topic("prices.normalized"), handler)
 
         sim = MarketDataSimulator(
             event_bus=bus,

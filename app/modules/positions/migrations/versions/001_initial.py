@@ -20,7 +20,7 @@ PG_JSONB = sa.dialects.postgresql.JSONB
 
 
 def upgrade() -> None:
-    op.execute("CREATE SCHEMA IF NOT EXISTS positions")
+    # Schema creation is handled by env.py / fund_schema.py — not here.
 
     # Event store (append-only, source of truth)
     op.create_table(
@@ -136,4 +136,3 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_table("current_positions", schema="positions")
     op.drop_table("events", schema="positions")
-    op.execute("DROP SCHEMA IF EXISTS positions")

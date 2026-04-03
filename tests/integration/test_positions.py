@@ -28,7 +28,7 @@ class TestPositionKeeping:
         trade_handler = TradeHandler(event_store, position_repo, event_bus)
         service = PositionService(position_repo, trade_handler)
 
-        trade = make_trade(instrument_id="AAPL", quantity=Decimal("100"), price=Decimal("150.00"))
+        trade = make_trade(instrument_id="AMZN", quantity=Decimal("100"), price=Decimal("150.00"))
         position = await service.execute_trade(trade, request_context)
 
         assert position.quantity == Decimal("100")
@@ -49,7 +49,7 @@ class TestPositionKeeping:
 
         # Buy
         buy = make_trade(
-            instrument_id="MSFT",
+            instrument_id="JNJ",
             side=TradeSide.BUY,
             quantity=Decimal("50"),
             price=Decimal("400.00"),
@@ -58,7 +58,7 @@ class TestPositionKeeping:
 
         # Sell at higher price
         sell = make_trade(
-            instrument_id="MSFT",
+            instrument_id="JNJ",
             side=TradeSide.SELL,
             quantity=Decimal("50"),
             price=Decimal("420.00"),
@@ -82,15 +82,15 @@ class TestPositionKeeping:
 
         # Buy two different instruments
         await service.execute_trade(
-            make_trade(instrument_id="GOOGL", quantity=Decimal("10"), price=Decimal("175.00")),
+            make_trade(instrument_id="XOM", quantity=Decimal("10"), price=Decimal("175.00")),
             request_context,
         )
         await service.execute_trade(
-            make_trade(instrument_id="NVDA", quantity=Decimal("5"), price=Decimal("880.00")),
+            make_trade(instrument_id="BAC", quantity=Decimal("5"), price=Decimal("880.00")),
             request_context,
         )
 
         positions = await service.get_by_portfolio(DEFAULT_PORTFOLIO_ID)
         tickers = {p.instrument_id for p in positions}
-        assert "GOOGL" in tickers
-        assert "NVDA" in tickers
+        assert "XOM" in tickers
+        assert "BAC" in tickers

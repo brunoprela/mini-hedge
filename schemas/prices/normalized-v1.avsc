@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "PriceNormalized",
+  "namespace": "com.minihedge.prices",
+  "doc": "Normalized price tick from market data feed or simulator.",
+  "fields": [
+    {"name": "instrument_id", "type": "string"},
+    {"name": "bid", "type": "string", "doc": "Decimal as string for precision"},
+    {"name": "ask", "type": "string"},
+    {"name": "mid", "type": "string"},
+    {"name": "timestamp", "type": "string", "doc": "ISO-8601 datetime"},
+    {"name": "source", "type": "string"}
+  ]
+}

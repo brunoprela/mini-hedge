@@ -8,12 +8,16 @@
       "type": "fund",
       "relations": {
         "member": { "this": {} },
-        "admin": { "this": {} }
+        "admin": { "this": {} },
+        "portfolio_manager": { "this": {} },
+        "viewer": { "this": {} }
       },
       "metadata": {
         "relations": {
           "member": { "directly_related_user_types": [{ "type": "user" }] },
-          "admin": { "directly_related_user_types": [{ "type": "user" }] }
+          "admin": { "directly_related_user_types": [{ "type": "user" }] },
+          "portfolio_manager": { "directly_related_user_types": [{ "type": "user" }] },
+          "viewer": { "directly_related_user_types": [{ "type": "user" }] }
         }
       }
     },

@@ -1,4 +1,4 @@
-.PHONY: up down install run run-local run-ui migrate seed lint format typecheck tach-check test test-unit test-integration check
+.PHONY: up down install run run-local run-ui migrate seed lint format typecheck tach-check test test-unit test-integration check db-reset
 
 # --- Infrastructure ---
 
@@ -7,6 +7,10 @@ up:
 
 down:
 	docker compose --profile core down
+
+db-reset:
+	docker compose --profile core down -v
+	docker compose --profile core up -d --build
 
 # --- Development ---
 
@@ -24,10 +28,11 @@ run-ui:
 	cd ui && pnpm dev
 
 migrate:
-	@for ctx in platform security_master market_data positions; do \
+	@for ctx in platform security_master market_data; do \
 		echo "Running migrations for $$ctx..."; \
 		uv run alembic -n $$ctx upgrade head; \
 	done
+	@echo "Position schemas are created per-fund on app startup."
 
 seed:
 	uv run python -m app.seed

@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "TradeExecuted",
+  "namespace": "com.minihedge.trades",
+  "doc": "Emitted when a trade is executed against a position.",
+  "fields": [
+    {"name": "portfolio_id", "type": "string"},
+    {"name": "instrument_id", "type": "string"},
+    {"name": "side", "type": {"type": "enum", "name": "TradeSide", "symbols": ["buy", "sell"]}},
+    {"name": "quantity", "type": "string", "doc": "Decimal as string"},
+    {"name": "price", "type": "string"},
+    {"name": "trade_id", "type": "string"},
+    {"name": "currency", "type": "string", "default": "USD"}
+  ]
+}

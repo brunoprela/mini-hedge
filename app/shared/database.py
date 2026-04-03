@@ -1,72 +1,95 @@
-"""Async SQLAlchemy engine and session factory with tenant isolation."""
+"""Async SQLAlchemy engine and session factory with per-fund schema isolation.
+
+Each fund's position data lives in its own PostgreSQL schema (``fund_{slug}``).
+The ``TenantSessionFactory`` transparently rewrites queries against the
+``positions`` schema to the active fund's schema using SQLAlchemy's
+``schema_translate_map``.
+
+Shared data (platform, security_master, market_data) uses fixed schemas
+and is unaffected by the translation.
+"""
 
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from uuid import UUID
 
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
-    async_sessionmaker,
     create_async_engine,
 )
 
 from app.config import get_settings
+from app.shared.fund_schema import fund_schema_name
 from app.shared.request_context import get_request_context
+
+# Schema name used in positions ORM models (__table_args__ schema key).
+# This is the key in schema_translate_map that gets rewritten per-fund.
+_POSITIONS_SCHEMA = "positions"
 
 
 class TenantSessionFactory:
-    """Wraps async_sessionmaker to set app.current_fund_id per transaction.
+    """Creates per-request sessions with schema isolation.
 
-    Reads fund_id from the current RequestContext via contextvars.
-    When no context exists (system/MTM/migrations), sets 'BYPASS' to skip RLS.
+    For authenticated requests the ``positions`` schema is translated to
+    ``fund_{slug}`` via ``schema_translate_map``.  For system operations
+    (no request context) no translation is applied — callers must use
+    :meth:`for_fund` to target a specific fund explicitly.
 
-    SET LOCAL scopes the variable to the current transaction — it auto-clears
-    when the session ends, so pooled connections are never contaminated.
+    ``schema_translate_map`` is set on the engine wrapper, which reuses
+    the same connection pool.  There is no per-request overhead beyond
+    a lightweight Python dict copy.
     """
 
-    def __init__(self, inner: async_sessionmaker[AsyncSession]) -> None:
-        self._inner = inner
+    def __init__(self, engine: AsyncEngine) -> None:
+        self._engine = engine
 
     @asynccontextmanager
     async def __call__(self) -> AsyncIterator[AsyncSession]:
-        async with self._inner() as session:
-            fund_id = self._resolve_fund_id()
-            if fund_id is not None:
-                # SET LOCAL doesn't support bind parameters in PostgreSQL.
-                # Validate as UUID to prevent SQL injection, then interpolate.
-                safe_id = str(UUID(fund_id))
-                await session.execute(
-                    text(f"SET LOCAL app.current_fund_id = '{safe_id}'"),
-                )
-            else:
-                await session.execute(
-                    text("SET LOCAL app.current_fund_id = 'BYPASS'"),
-                )
+        """Session scoped to the current request's fund schema."""
+        fund_slug = self._resolve_fund_slug()
+        engine = self._engine
+        if fund_slug is not None:
+            engine = engine.execution_options(
+                schema_translate_map={_POSITIONS_SCHEMA: fund_schema_name(fund_slug)},
+            )
+        async with AsyncSession(engine, expire_on_commit=False) as session:
+            yield session
+
+    @asynccontextmanager
+    async def for_fund(self, fund_slug: str) -> AsyncIterator[AsyncSession]:
+        """Session targeting a specific fund schema (for system operations).
+
+        Use this from code that runs outside a request context, such as
+        the mark-to-market handler which must iterate over all funds.
+        """
+        engine = self._engine.execution_options(
+            schema_translate_map={_POSITIONS_SCHEMA: fund_schema_name(fund_slug)},
+        )
+        async with AsyncSession(engine, expire_on_commit=False) as session:
+            yield session
+
+    @asynccontextmanager
+    async def unscoped(self) -> AsyncIterator[AsyncSession]:
+        """Session with no schema translation (for platform/shared queries)."""
+        async with AsyncSession(self._engine, expire_on_commit=False) as session:
             yield session
 
     @staticmethod
-    def _resolve_fund_id() -> str | None:
-        """Read fund_id from the current request context, or None for system.
+    def _resolve_fund_slug() -> str | None:
+        """Read fund_slug from the current request context.
 
-        Returns None (→ BYPASS) only when no request context exists at all,
-        which is correct for system processes like MTM and migrations.
-        If a request context exists but fund_id is missing, that's a bug
-        in the auth layer — raise rather than silently bypassing RLS.
+        Returns ``None`` when no request context exists (system operations).
+        Unlike the RLS approach, a missing fund_slug on an existing context
+        is tolerated — it simply means no schema translation (e.g. the
+        ``/me/funds`` endpoint runs before fund selection).
         """
         try:
             ctx = get_request_context()
         except RuntimeError:
-            return None  # No request context → system/MTM → BYPASS
-        if ctx.fund_id is None:
-            raise RuntimeError(
-                f"Request context exists (actor={ctx.actor_id}) but fund_id is None. "
-                "This indicates a bug in the auth layer — RLS cannot be applied."
-            )
-        return ctx.fund_id
+            return None  # No request context → system operation
+        return ctx.fund_slug if ctx.fund_slug else None
 
 
 def build_engine(
@@ -81,5 +104,4 @@ def build_engine(
         pool_pre_ping=True,
         pool_recycle=3600,
     )
-    raw_factory = async_sessionmaker(engine, expire_on_commit=False)
-    return engine, TenantSessionFactory(raw_factory)
+    return engine, TenantSessionFactory(engine)

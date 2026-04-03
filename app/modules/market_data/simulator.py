@@ -14,6 +14,7 @@ import numpy as np
 import structlog
 
 from app.shared.events import BaseEvent, EventBus
+from app.shared.schema_registry import shared_topic
 
 logger = structlog.get_logger()
 
@@ -129,7 +130,7 @@ class MarketDataSimulator:
                     "source": "simulator",
                 },
             )
-            await self.event_bus.publish("prices.normalized", event)
+            await self.event_bus.publish(shared_topic("prices.normalized"), event)
 
     async def run(self) -> None:
         """Main loop — generate and publish prices at configured interval."""

@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "EventEnvelope",
+  "namespace": "com.minihedge",
+  "doc": "Common envelope wrapping all domain events on Kafka.",
+  "fields": [
+    {"name": "event_id", "type": "string"},
+    {"name": "event_type", "type": "string"},
+    {"name": "event_version", "type": "int", "default": 1},
+    {"name": "timestamp", "type": "string", "doc": "ISO-8601 datetime"},
+    {"name": "actor_id", "type": ["null", "string"], "default": null},
+    {"name": "actor_type", "type": ["null", "string"], "default": null},
+    {"name": "fund_slug", "type": ["null", "string"], "default": null},
+    {"name": "data", "type": "bytes", "doc": "Avro-encoded event payload"}
+  ]
+}

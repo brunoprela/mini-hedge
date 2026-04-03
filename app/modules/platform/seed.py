@@ -1,4 +1,9 @@
-"""Seed data for platform — default fund, portfolios, user, API key, and FGA tuples."""
+"""Seed data for platform — realistic multi-fund hedge fund setup.
+
+Models a prime brokerage hosting three independent funds, each with
+dedicated portfolio managers, strategies, and API keys.  Shared admin
+staff (compliance, risk) have cross-fund memberships.
+"""
 
 from openfga_sdk.client.models import ClientTuple
 
@@ -13,96 +18,366 @@ from app.modules.platform.models import (
 from app.shared.auth import Role, hash_api_key
 from app.shared.request_context import ActorType
 
-# Fixed UUIDs for reproducible local development
-DEFAULT_FUND_ID = "10000000-0000-0000-0000-000000000001"
-PORTFOLIO_EQUITY_LS_ID = "20000000-0000-0000-0000-000000000001"
-PORTFOLIO_GLOBAL_MACRO_ID = "20000000-0000-0000-0000-000000000002"
-DEFAULT_USER_ID = "30000000-0000-0000-0000-000000000001"
-DEFAULT_API_KEY_ID = "40000000-0000-0000-0000-000000000001"
+# ---------------------------------------------------------------------------
+# Fixed UUIDs — deterministic for reproducible local development & tests
+# ---------------------------------------------------------------------------
 
-# Well-known dev API key — printed on startup, used for local testing
+# Funds
+FUND_ALPHA_ID = "10000000-0000-0000-0000-000000000001"
+FUND_BETA_ID = "10000000-0000-0000-0000-000000000002"
+FUND_GAMMA_ID = "10000000-0000-0000-0000-000000000003"
+
+# Portfolios — Alpha Capital Partners
+PORTFOLIO_ALPHA_EQUITY_LS_ID = "20000000-0000-0000-0000-000000000001"
+PORTFOLIO_ALPHA_GLOBAL_MACRO_ID = "20000000-0000-0000-0000-000000000002"
+
+# Portfolios — Bridgewater Systematic
+PORTFOLIO_BETA_STAT_ARB_ID = "20000000-0000-0000-0000-000000000010"
+PORTFOLIO_BETA_MOMENTUM_ID = "20000000-0000-0000-0000-000000000011"
+PORTFOLIO_BETA_MARKET_NEUTRAL_ID = "20000000-0000-0000-0000-000000000012"
+
+# Portfolios — Citrine Event-Driven
+PORTFOLIO_GAMMA_EVENT_DRIVEN_ID = "20000000-0000-0000-0000-000000000020"
+PORTFOLIO_GAMMA_DISTRESSED_ID = "20000000-0000-0000-0000-000000000021"
+
+# Users
+USER_ADMIN_ID = "30000000-0000-0000-0000-000000000001"
+USER_ALPHA_PM_ID = "30000000-0000-0000-0000-000000000002"
+USER_BETA_PM_ID = "30000000-0000-0000-0000-000000000003"
+USER_GAMMA_PM_ID = "30000000-0000-0000-0000-000000000004"
+USER_RISK_MANAGER_ID = "30000000-0000-0000-0000-000000000005"
+USER_COMPLIANCE_ID = "30000000-0000-0000-0000-000000000006"
+
+# API Keys
+API_KEY_ALPHA_ID = "40000000-0000-0000-0000-000000000001"
+API_KEY_BETA_ID = "40000000-0000-0000-0000-000000000002"
+API_KEY_GAMMA_ID = "40000000-0000-0000-0000-000000000003"
+
+# Well-known dev API keys — printed on startup, used for local testing
 DEV_API_KEY = "mh_dev_00000000000000000000000000000001"
+DEV_API_KEY_BETA = "mh_dev_00000000000000000000000000000002"
+DEV_API_KEY_GAMMA = "mh_dev_00000000000000000000000000000003"
+
+# Backwards-compatible aliases
+DEFAULT_FUND_ID = FUND_ALPHA_ID
+PORTFOLIO_EQUITY_LS_ID = PORTFOLIO_ALPHA_EQUITY_LS_ID
+PORTFOLIO_GLOBAL_MACRO_ID = PORTFOLIO_ALPHA_GLOBAL_MACRO_ID
+DEFAULT_USER_ID = USER_ADMIN_ID
+DEFAULT_API_KEY_ID = API_KEY_ALPHA_ID
 
 
+# ---------------------------------------------------------------------------
+# Funds
+# ---------------------------------------------------------------------------
+
+
+def build_seed_funds() -> list[FundRecord]:
+    """Three funds representing distinct investment styles."""
+    return [
+        FundRecord(
+            id=FUND_ALPHA_ID,
+            slug="alpha",
+            name="Alpha Capital Partners",
+            status=FundStatus.ACTIVE,
+            base_currency="USD",
+        ),
+        FundRecord(
+            id=FUND_BETA_ID,
+            slug="beta",
+            name="Bridgewater Systematic",
+            status=FundStatus.ACTIVE,
+            base_currency="USD",
+        ),
+        FundRecord(
+            id=FUND_GAMMA_ID,
+            slug="gamma",
+            name="Citrine Event-Driven",
+            status=FundStatus.ACTIVE,
+            base_currency="USD",
+        ),
+    ]
+
+
+# Keep single-fund builder for backwards compatibility
 def build_seed_fund() -> FundRecord:
-    return FundRecord(
-        id=DEFAULT_FUND_ID,
-        slug="fund-alpha",
-        name="Alpha Capital Partners",
-        status=FundStatus.ACTIVE,
-        base_currency="USD",
-    )
+    return build_seed_funds()[0]
+
+
+# ---------------------------------------------------------------------------
+# Portfolios
+# ---------------------------------------------------------------------------
 
 
 def build_seed_portfolios() -> list[PortfolioRecord]:
+    """Portfolios across all three funds, reflecting realistic strategies."""
     return [
+        # Alpha Capital Partners — discretionary equity + macro
         PortfolioRecord(
-            id=PORTFOLIO_EQUITY_LS_ID,
-            fund_id=DEFAULT_FUND_ID,
+            id=PORTFOLIO_ALPHA_EQUITY_LS_ID,
+            fund_id=FUND_ALPHA_ID,
             slug="equity-long-short",
             name="Equity Long/Short",
             strategy="equity_long_short",
         ),
         PortfolioRecord(
-            id=PORTFOLIO_GLOBAL_MACRO_ID,
-            fund_id=DEFAULT_FUND_ID,
+            id=PORTFOLIO_ALPHA_GLOBAL_MACRO_ID,
+            fund_id=FUND_ALPHA_ID,
             slug="global-macro",
             name="Global Macro",
             strategy="global_macro",
         ),
+        # Bridgewater Systematic — quantitative strategies
+        PortfolioRecord(
+            id=PORTFOLIO_BETA_STAT_ARB_ID,
+            fund_id=FUND_BETA_ID,
+            slug="stat-arb",
+            name="Statistical Arbitrage",
+            strategy="stat_arb",
+        ),
+        PortfolioRecord(
+            id=PORTFOLIO_BETA_MOMENTUM_ID,
+            fund_id=FUND_BETA_ID,
+            slug="momentum",
+            name="Cross-Sectional Momentum",
+            strategy="momentum",
+        ),
+        PortfolioRecord(
+            id=PORTFOLIO_BETA_MARKET_NEUTRAL_ID,
+            fund_id=FUND_BETA_ID,
+            slug="market-neutral",
+            name="Market Neutral",
+            strategy="market_neutral",
+        ),
+        # Citrine Event-Driven — event-driven + distressed
+        PortfolioRecord(
+            id=PORTFOLIO_GAMMA_EVENT_DRIVEN_ID,
+            fund_id=FUND_GAMMA_ID,
+            slug="event-driven",
+            name="Event-Driven",
+            strategy="event_driven",
+        ),
+        PortfolioRecord(
+            id=PORTFOLIO_GAMMA_DISTRESSED_ID,
+            fund_id=FUND_GAMMA_ID,
+            slug="distressed-credit",
+            name="Distressed Credit",
+            strategy="distressed",
+        ),
     ]
 
 
+# ---------------------------------------------------------------------------
+# Users
+# ---------------------------------------------------------------------------
+
+
+def build_seed_users() -> list[UserRecord]:
+    """Realistic desk personnel — PMs per fund plus shared compliance/risk."""
+    return [
+        UserRecord(
+            id=USER_ADMIN_ID,
+            email="admin@minihedge.dev",
+            name="Dev Admin",
+            is_active=True,
+        ),
+        UserRecord(
+            id=USER_ALPHA_PM_ID,
+            email="james.chen@alphacap.dev",
+            name="James Chen",
+            is_active=True,
+        ),
+        UserRecord(
+            id=USER_BETA_PM_ID,
+            email="sarah.patel@bridgewater.dev",
+            name="Sarah Patel",
+            is_active=True,
+        ),
+        UserRecord(
+            id=USER_GAMMA_PM_ID,
+            email="michael.ross@citrine.dev",
+            name="Michael Ross",
+            is_active=True,
+        ),
+        UserRecord(
+            id=USER_RISK_MANAGER_ID,
+            email="risk@minihedge.dev",
+            name="Risk Manager",
+            is_active=True,
+        ),
+        UserRecord(
+            id=USER_COMPLIANCE_ID,
+            email="compliance@minihedge.dev",
+            name="Compliance Officer",
+            is_active=True,
+        ),
+    ]
+
+
+# Keep single-user builder for backwards compatibility
 def build_seed_user() -> UserRecord:
-    return UserRecord(
-        id=DEFAULT_USER_ID,
-        email="admin@minihedge.dev",
-        name="Dev Admin",
-        is_active=True,
-    )
+    return build_seed_users()[0]
 
 
+# ---------------------------------------------------------------------------
+# Fund memberships
+# ---------------------------------------------------------------------------
+
+
+def build_seed_memberships() -> list[FundMembershipRecord]:
+    """Role assignments — PMs own their fund, risk/compliance span all funds."""
+    return [
+        # Admin — full access to Alpha (dev convenience)
+        FundMembershipRecord(user_id=USER_ADMIN_ID, fund_id=FUND_ALPHA_ID, role=Role.ADMIN),
+        # Portfolio managers — each owns their fund
+        FundMembershipRecord(
+            user_id=USER_ALPHA_PM_ID, fund_id=FUND_ALPHA_ID, role=Role.PORTFOLIO_MANAGER
+        ),
+        FundMembershipRecord(
+            user_id=USER_BETA_PM_ID, fund_id=FUND_BETA_ID, role=Role.PORTFOLIO_MANAGER
+        ),
+        FundMembershipRecord(
+            user_id=USER_GAMMA_PM_ID, fund_id=FUND_GAMMA_ID, role=Role.PORTFOLIO_MANAGER
+        ),
+        # Risk manager — read access across all funds
+        FundMembershipRecord(
+            user_id=USER_RISK_MANAGER_ID, fund_id=FUND_ALPHA_ID, role=Role.RISK_MANAGER
+        ),
+        FundMembershipRecord(
+            user_id=USER_RISK_MANAGER_ID, fund_id=FUND_BETA_ID, role=Role.RISK_MANAGER
+        ),
+        FundMembershipRecord(
+            user_id=USER_RISK_MANAGER_ID, fund_id=FUND_GAMMA_ID, role=Role.RISK_MANAGER
+        ),
+        # Compliance — read access across all funds
+        FundMembershipRecord(
+            user_id=USER_COMPLIANCE_ID, fund_id=FUND_ALPHA_ID, role=Role.COMPLIANCE
+        ),
+        FundMembershipRecord(
+            user_id=USER_COMPLIANCE_ID, fund_id=FUND_BETA_ID, role=Role.COMPLIANCE
+        ),
+        FundMembershipRecord(
+            user_id=USER_COMPLIANCE_ID, fund_id=FUND_GAMMA_ID, role=Role.COMPLIANCE
+        ),
+    ]
+
+
+# Keep single-membership builder for backwards compatibility
 def build_seed_membership() -> FundMembershipRecord:
-    return FundMembershipRecord(
-        user_id=DEFAULT_USER_ID,
-        fund_id=DEFAULT_FUND_ID,
-        role=Role.ADMIN,
-    )
+    return build_seed_memberships()[0]
 
 
+# ---------------------------------------------------------------------------
+# API keys
+# ---------------------------------------------------------------------------
+
+
+def build_seed_api_keys() -> list[APIKeyRecord]:
+    """Per-fund API keys for programmatic access (e.g., execution algos, OMS)."""
+    return [
+        APIKeyRecord(
+            id=API_KEY_ALPHA_ID,
+            key_hash=hash_api_key(DEV_API_KEY),
+            name="Alpha Dev Key",
+            actor_type=ActorType.API_KEY,
+            fund_id=FUND_ALPHA_ID,
+            roles=[Role.ADMIN],
+        ),
+        APIKeyRecord(
+            id=API_KEY_BETA_ID,
+            key_hash=hash_api_key(DEV_API_KEY_BETA),
+            name="Beta Dev Key",
+            actor_type=ActorType.API_KEY,
+            fund_id=FUND_BETA_ID,
+            roles=[Role.PORTFOLIO_MANAGER],
+        ),
+        APIKeyRecord(
+            id=API_KEY_GAMMA_ID,
+            key_hash=hash_api_key(DEV_API_KEY_GAMMA),
+            name="Gamma Dev Key",
+            actor_type=ActorType.API_KEY,
+            fund_id=FUND_GAMMA_ID,
+            roles=[Role.PORTFOLIO_MANAGER],
+        ),
+    ]
+
+
+# Keep single-key builder for backwards compatibility
 def build_seed_api_key() -> APIKeyRecord:
-    return APIKeyRecord(
-        id=DEFAULT_API_KEY_ID,
-        key_hash=hash_api_key(DEV_API_KEY),
-        name="Dev API Key",
-        actor_type=ActorType.API_KEY,
-        fund_id=DEFAULT_FUND_ID,
-        roles=[Role.ADMIN],
-    )
+    return build_seed_api_keys()[0]
+
+
+# ---------------------------------------------------------------------------
+# OpenFGA relationship tuples
+# ---------------------------------------------------------------------------
 
 
 def build_seed_fga_tuples() -> list[ClientTuple]:
-    """Build OpenFGA relationship tuples matching the seed data.
+    """OpenFGA relationship tuples matching the full multi-fund seed data.
 
-    The admin user is a fund admin, which inherits full access to all portfolios.
-    Each portfolio gets a parent pointer to its fund.
+    Hierarchy: user → (role) → fund → (parent) → portfolio
     """
-    return [
-        # Admin user is fund admin
+    tuples: list[ClientTuple] = []
+
+    # Fund admin
+    tuples.append(
         ClientTuple(
-            user=f"user:{DEFAULT_USER_ID}",
+            user=f"user:{USER_ADMIN_ID}",
             relation="admin",
-            object=f"fund:{DEFAULT_FUND_ID}",
-        ),
-        # Portfolio -> fund parent pointers
-        ClientTuple(
-            user=f"fund:{DEFAULT_FUND_ID}",
-            relation="fund",
-            object=f"portfolio:{PORTFOLIO_EQUITY_LS_ID}",
-        ),
-        ClientTuple(
-            user=f"fund:{DEFAULT_FUND_ID}",
-            relation="fund",
-            object=f"portfolio:{PORTFOLIO_GLOBAL_MACRO_ID}",
-        ),
-    ]
+            object=f"fund:{FUND_ALPHA_ID}",
+        )
+    )
+
+    # PMs per fund
+    for user_id, fund_id in [
+        (USER_ALPHA_PM_ID, FUND_ALPHA_ID),
+        (USER_BETA_PM_ID, FUND_BETA_ID),
+        (USER_GAMMA_PM_ID, FUND_GAMMA_ID),
+    ]:
+        tuples.append(
+            ClientTuple(
+                user=f"user:{user_id}",
+                relation="portfolio_manager",
+                object=f"fund:{fund_id}",
+            )
+        )
+
+    # Risk manager — viewer on all funds
+    for fund_id in [FUND_ALPHA_ID, FUND_BETA_ID, FUND_GAMMA_ID]:
+        tuples.append(
+            ClientTuple(
+                user=f"user:{USER_RISK_MANAGER_ID}",
+                relation="viewer",
+                object=f"fund:{fund_id}",
+            )
+        )
+
+    # Compliance — viewer on all funds
+    for fund_id in [FUND_ALPHA_ID, FUND_BETA_ID, FUND_GAMMA_ID]:
+        tuples.append(
+            ClientTuple(
+                user=f"user:{USER_COMPLIANCE_ID}",
+                relation="viewer",
+                object=f"fund:{fund_id}",
+            )
+        )
+
+    # Portfolio → fund parent pointers
+    portfolio_fund_map = {
+        PORTFOLIO_ALPHA_EQUITY_LS_ID: FUND_ALPHA_ID,
+        PORTFOLIO_ALPHA_GLOBAL_MACRO_ID: FUND_ALPHA_ID,
+        PORTFOLIO_BETA_STAT_ARB_ID: FUND_BETA_ID,
+        PORTFOLIO_BETA_MOMENTUM_ID: FUND_BETA_ID,
+        PORTFOLIO_BETA_MARKET_NEUTRAL_ID: FUND_BETA_ID,
+        PORTFOLIO_GAMMA_EVENT_DRIVEN_ID: FUND_GAMMA_ID,
+        PORTFOLIO_GAMMA_DISTRESSED_ID: FUND_GAMMA_ID,
+    }
+    for portfolio_id, fund_id in portfolio_fund_map.items():
+        tuples.append(
+            ClientTuple(
+                user=f"fund:{fund_id}",
+                relation="fund",
+                object=f"portfolio:{portfolio_id}",
+            )
+        )
+
+    return tuples

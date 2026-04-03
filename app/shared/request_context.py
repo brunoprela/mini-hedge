@@ -43,7 +43,7 @@ class RequestContext(BaseModel):
 _current_context: ContextVar[RequestContext] = ContextVar("request_context")
 
 # Default fund for single-fund Phase 0 deployment
-DEFAULT_FUND_SLUG = "fund-alpha"
+DEFAULT_FUND_SLUG = "alpha"
 
 # System context used during startup (migrations, seeding) — not a request
 SYSTEM_CONTEXT = RequestContext(

@@ -31,7 +31,6 @@ class PositionEventRecord(Base):
         UniqueConstraint("aggregate_id", "sequence_number"),
         Index("ix_pos_events_aggregate", "aggregate_id", "sequence_number"),
         Index("ix_pos_events_type", "event_type"),
-        Index("ix_pos_events_fund", "fund_id"),
         {"schema": "positions"},
     )
 
@@ -39,7 +38,6 @@ class PositionEventRecord(Base):
         PG_UUID(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
     )
     aggregate_id: Mapped[str] = mapped_column(String(128), nullable=False)
-    fund_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)
     sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
     event_type: Mapped[str] = mapped_column(String(64), nullable=False)
     event_data: Mapped[dict] = mapped_column(JSONB, nullable=False)  # type: ignore[type-arg]
@@ -58,13 +56,11 @@ class CurrentPositionRecord(Base):
     __tablename__ = "current_positions"
     __table_args__ = (
         Index("ix_pos_current_portfolio", "portfolio_id"),
-        Index("ix_pos_current_fund", "fund_id"),
         {"schema": "positions"},
     )
 
     portfolio_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), primary_key=True)
     instrument_id: Mapped[str] = mapped_column(String(32), primary_key=True)
-    fund_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)
     quantity: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False, default=Decimal(0))
     avg_cost: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False, default=Decimal(0))
     cost_basis: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False, default=Decimal(0))

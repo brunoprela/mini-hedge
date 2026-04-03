@@ -5,11 +5,19 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 
 from app.modules.market_data.interface import PriceSnapshot
+from app.modules.platform.seed import (
+    PORTFOLIO_ALPHA_EQUITY_LS_ID,
+    PORTFOLIO_BETA_STAT_ARB_ID,
+    PORTFOLIO_GAMMA_EVENT_DRIVEN_ID,
+)
 from app.modules.positions.interface import PositionEventType, TradeRequest, TradeSide
 from app.modules.security_master.interface import Instrument
 from app.shared.types import AssetClass
 
-DEFAULT_PORTFOLIO_ID = UUID("00000000-0000-0000-0000-000000000001")
+# Well-known portfolio IDs matching seed data
+DEFAULT_PORTFOLIO_ID = UUID(PORTFOLIO_ALPHA_EQUITY_LS_ID)
+BETA_PORTFOLIO_ID = UUID(PORTFOLIO_BETA_STAT_ARB_ID)
+GAMMA_PORTFOLIO_ID = UUID(PORTFOLIO_GAMMA_EVENT_DRIVEN_ID)
 
 
 def make_instrument(

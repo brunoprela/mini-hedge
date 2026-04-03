@@ -23,7 +23,7 @@ def _get_url() -> str:
     """
     url = config.get_section_option(config.config_ini_section, "sqlalchemy.url")
     if url:
-        return url
+        return url.replace("+asyncpg", "")
     from app.config import get_settings
 
     raw = get_settings().database_url
@@ -44,9 +44,6 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection) -> None:  # type: ignore[no-untyped-def]
-    # Bypass RLS policies during migrations
-    connection.execute(text("SET app.current_fund_id = 'BYPASS'"))
-    connection.commit()
     context.configure(
         connection=connection,
         target_metadata=target_metadata,

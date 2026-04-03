@@ -22,7 +22,24 @@ depends_on: str | Sequence[str] | None = None
 PG_UUID = sa.dialects.postgresql.UUID
 
 
+def _is_per_fund_schema() -> bool:
+    """Detect if running against a per-fund schema (not the shared 'positions' schema).
+
+    Migrations 002 and 003 are transitional — they only apply to the shared
+    'positions' schema.  Per-fund schemas start fresh from 001.
+    """
+    from alembic import context as alembic_ctx
+
+    schema = getattr(alembic_ctx.config.attributes, "target_schema", None)
+    if schema is None:
+        schema = alembic_ctx.config.attributes.get("target_schema")
+    return schema is not None and schema != "positions"
+
+
 def upgrade() -> None:
+    if _is_per_fund_schema():
+        return
+
     # ------------------------------------------------------------------
     # 1. Add fund_id column (nullable initially for backfill)
     # ------------------------------------------------------------------

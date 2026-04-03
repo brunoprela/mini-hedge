@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "PositionChanged",
+  "namespace": "com.minihedge.positions",
+  "doc": "Emitted when a position's quantity or cost basis changes after a trade.",
+  "fields": [
+    {"name": "portfolio_id", "type": "string"},
+    {"name": "instrument_id", "type": "string"},
+    {"name": "quantity", "type": "string", "doc": "Decimal as string"},
+    {"name": "avg_cost", "type": "string"},
+    {"name": "cost_basis", "type": "string"}
+  ]
+}

@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     fga_store_name: str = "minihedge"
     fga_enabled: bool = True
 
+    kafka_bootstrap_servers: str = "localhost:9092"
+    kafka_schema_registry_url: str = "http://localhost:8081"
+    kafka_enabled: bool = False
+
     keycloak_url: str = "http://localhost:8180"
     # Browser-facing URL for issuer validation; defaults to keycloak_url
     keycloak_browser_url: str = ""

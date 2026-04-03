@@ -1,0 +1,93 @@
+"""Per-fund schema lifecycle management.
+
+Creates and migrates PostgreSQL schemas for each fund.  Position data is
+isolated by schema: ``fund_{slug}.events``, ``fund_{slug}.current_positions``.
+
+Alembic migrations for the ``positions`` module are re-used — the migration
+env.py accepts a ``target_schema`` override via Alembic's ``x`` argument.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from typing import TYPE_CHECKING
+
+import structlog
+from alembic import command as alembic_command
+from alembic.config import Config as AlembicConfig
+from sqlalchemy import text
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncEngine
+
+logger = structlog.get_logger()
+
+# Schema name prefix for fund schemas.
+FUND_SCHEMA_PREFIX = "fund_"
+
+
+def fund_schema_name(fund_slug: str) -> str:
+    """Derive the PostgreSQL schema name from a fund slug.
+
+    Hyphens are replaced with underscores to produce a valid unquoted
+    PostgreSQL identifier: ``fund-alpha`` → ``fund_alpha``.
+    """
+    sanitized = fund_slug.replace("-", "_")
+    return f"{FUND_SCHEMA_PREFIX}{sanitized}"
+
+
+async def create_fund_schema(engine: AsyncEngine, fund_slug: str) -> None:
+    """Create a fund schema and run positions migrations against it.
+
+    Safe to call multiple times — ``CREATE SCHEMA IF NOT EXISTS`` and
+    Alembic's version table prevent duplicate work.
+    """
+    schema = fund_schema_name(fund_slug)
+
+    # 1. Create the schema
+    async with engine.begin() as conn:
+        await conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema}"))
+    logger.info("fund_schema_ensured", fund_slug=fund_slug, schema=schema)
+
+    # 2. Run positions Alembic migrations against this schema
+    await asyncio.to_thread(_run_fund_migrations_sync, fund_slug)
+    logger.info("fund_migrations_applied", fund_slug=fund_slug, schema=schema)
+
+
+def _run_fund_migrations_sync(fund_slug: str) -> None:
+    """Run positions module Alembic migrations targeting a fund schema.
+
+    Passes ``-x target_schema=fund_{slug}`` so the positions env.py
+    applies ``schema_translate_map`` during migration execution.
+    """
+    schema = fund_schema_name(fund_slug)
+    cfg = AlembicConfig("alembic.ini", ini_section="positions")
+    cfg.set_section_option("positions", "script_location", "app/modules/positions/migrations")
+    # Pass target schema via Alembic's -x mechanism
+    cfg.attributes["target_schema"] = schema
+    alembic_command.upgrade(cfg, "head")
+
+
+def create_fund_kafka_topics(
+    kafka_bus: object,
+    fund_slug: str,
+) -> None:
+    """Create Kafka topics for a newly onboarded fund.
+
+    Accepts any object with an ``ensure_topics`` method (i.e. ``KafkaEventBus``)
+    so this module doesn't depend on the Kafka implementation.
+    """
+    from app.shared.schema_registry import fund_topics_for_slug
+
+    topics = fund_topics_for_slug(fund_slug)
+    kafka_bus.ensure_topics(topics)  # type: ignore[attr-defined]
+    logger.info("fund_kafka_topics_created", fund_slug=fund_slug, topics=topics)
+
+
+async def ensure_all_fund_schemas(engine: AsyncEngine, fund_slugs: list[str]) -> None:
+    """Ensure schemas and migrations exist for all active funds.
+
+    Called during application startup.
+    """
+    for slug in fund_slugs:
+        await create_fund_schema(engine, slug)

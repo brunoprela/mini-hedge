@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "PnLRealized",
+  "namespace": "com.minihedge.positions",
+  "doc": "Emitted when a sell trade realizes profit or loss.",
+  "fields": [
+    {"name": "portfolio_id", "type": "string"},
+    {"name": "instrument_id", "type": "string"},
+    {"name": "realized_pnl", "type": "string", "doc": "Decimal as string"},
+    {"name": "price", "type": "string"}
+  ]
+}

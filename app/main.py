@@ -35,11 +35,11 @@ from app.modules.platform.repository import (
 from app.modules.platform.routes import router as platform_router
 from app.modules.platform.seed import (
     DEV_API_KEY,
-    build_seed_api_key,
-    build_seed_fund,
-    build_seed_membership,
+    build_seed_api_keys,
+    build_seed_funds,
+    build_seed_memberships,
     build_seed_portfolios,
-    build_seed_user,
+    build_seed_users,
 )
 from app.modules.platform.service import AuthService
 from app.modules.positions.handlers import MarkToMarketHandler, TradeHandler
@@ -51,14 +51,18 @@ from app.modules.security_master.routes import router as security_master_router
 from app.modules.security_master.seed import build_seed_records
 from app.modules.security_master.service import SecurityMasterService
 from app.shared.database import build_engine
-from app.shared.events import BaseEvent, InProcessEventBus
+from app.shared.events import BaseEvent, EventBus, InProcessEventBus
+from app.shared.fund_schema import ensure_all_fund_schemas
 from app.shared.logging import setup_logging
 from app.shared.request_context import set_request_context
+from app.shared.schema_registry import fund_topics_for_slug, shared_topic, shared_topics
 
 logger = structlog.get_logger()
 
 # Bounded contexts whose Alembic migrations run on startup.
-MIGRATION_CONTEXTS = ["platform", "security_master", "market_data", "positions"]
+# Positions are NOT here — each fund gets its own schema, created
+# by ensure_all_fund_schemas() after platform seeding discovers active funds.
+MIGRATION_CONTEXTS = ["platform", "security_master", "market_data"]
 
 # Paths that skip authentication
 PUBLIC_PATHS = {"/health", "/docs", "/openapi.json", "/redoc"}
@@ -155,26 +159,34 @@ async def _seed_platform(
     membership_repo: FundMembershipRepository,
     api_key_repo: APIKeyRepository,
 ) -> None:
-    """Seed default fund, portfolios, user, membership, and API key."""
+    """Seed funds, portfolios, users, memberships, and API keys."""
     existing_funds = await fund_repo.get_all_active()
     if not existing_funds:
-        fund = build_seed_fund()
-        await fund_repo.insert(fund)
+        funds = build_seed_funds()
+        for fund in funds:
+            await fund_repo.insert(fund)
         portfolios = build_seed_portfolios()
         await portfolio_repo.insert_batch(portfolios)
-        logger.info("platform_seeded", fund=fund.slug, portfolios=len(portfolios))
+        logger.info(
+            "platform_seeded",
+            funds=len(funds),
+            portfolios=len(portfolios),
+        )
 
     existing_users = await user_repo.get_all_active()
     if not existing_users:
-        user = build_seed_user()
-        await user_repo.insert(user)
-        membership = build_seed_membership()
-        await membership_repo.insert(membership)
-        api_key = build_seed_api_key()
-        await api_key_repo.insert(api_key)
+        users = build_seed_users()
+        for user in users:
+            await user_repo.insert(user)
+        memberships = build_seed_memberships()
+        for membership in memberships:
+            await membership_repo.insert(membership)
+        api_keys = build_seed_api_keys()
+        for api_key in api_keys:
+            await api_key_repo.insert(api_key)
         logger.info(
             "auth_seeded",
-            user=user.email,
+            users=len(users),
             api_key=DEV_API_KEY,
         )
 
@@ -188,7 +200,7 @@ async def _setup_platform(
     fastapi_app: FastAPI,
     session_factory: TenantSessionFactory,
     settings: object,
-) -> AuthService:
+) -> tuple[AuthService, FundRepository]:
     """Wire platform module: repos, seeding, FGA, auth service."""
     fund_repo = FundRepository(session_factory)
     portfolio_repo = PortfolioRepository(session_factory)
@@ -212,7 +224,7 @@ async def _setup_platform(
         keycloak_client_id=settings.keycloak_client_id,  # type: ignore[attr-defined]
     )
     fastapi_app.state.auth_service = auth_service
-    return auth_service
+    return auth_service, fund_repo
 
 
 async def _setup_fga(fastapi_app: FastAPI, settings: object) -> object | None:
@@ -248,21 +260,22 @@ async def _setup_security_master(
 def _setup_market_data(
     fastapi_app: FastAPI,
     session_factory: TenantSessionFactory,
-    event_bus: InProcessEventBus,
+    event_bus: EventBus,
 ) -> MarketDataService:
     """Wire market data module: repo, service, price event handler."""
     price_repo = PriceRepository(session_factory)
     market_data_service = MarketDataService(price_repo)
     fastapi_app.state.market_data_service = market_data_service
 
-    event_bus.subscribe("prices.normalized", _make_price_handler(market_data_service))
+    event_bus.subscribe(shared_topic("prices.normalized"), _make_price_handler(market_data_service))
     return market_data_service
 
 
 def _setup_positions(
     fastapi_app: FastAPI,
     session_factory: TenantSessionFactory,
-    event_bus: InProcessEventBus,
+    event_bus: EventBus,
+    fund_repo: FundRepository,
 ) -> None:
     """Wire positions module: repos, handlers, service, MTM subscription."""
     event_store_repo = EventStoreRepository(session_factory)
@@ -270,8 +283,12 @@ def _setup_positions(
     trade_handler = TradeHandler(event_store_repo, position_repo, event_bus)
     fastapi_app.state.position_service = PositionService(position_repo, trade_handler)
 
-    mtm_handler = MarkToMarketHandler(position_repo, event_bus)
-    event_bus.subscribe("prices.normalized", mtm_handler.handle_price_update)
+    async def get_fund_slugs() -> list[str]:
+        funds = await fund_repo.get_all_active()
+        return [f.slug for f in funds]
+
+    mtm_handler = MarkToMarketHandler(session_factory, event_bus, get_fund_slugs)
+    event_bus.subscribe(shared_topic("prices.normalized"), mtm_handler.handle_price_update)
 
 
 # ---------------------------------------------------------------------------
@@ -317,15 +334,47 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     # a root stderr handler that we reuse with structlog's formatter.
     setup_logging(settings.log_level)
 
-    # Event bus
-    event_bus = InProcessEventBus()
+    # Event bus — Kafka when enabled, in-process otherwise
+    kafka_bus = None
+    event_bus: EventBus
+    if settings.kafka_enabled:
+        from app.shared.kafka import KafkaEventBus
+        from app.shared.schema_registry import load_schemas, register_schemas
+
+        load_schemas()
+        register_schemas(settings.kafka_schema_registry_url)
+
+        kafka_bus = KafkaEventBus(
+            settings.kafka_bootstrap_servers,
+            consumer_group="minihedge",
+        )
+        event_bus = kafka_bus
+    else:
+        event_bus = InProcessEventBus()
 
     # --- Module setup ---
-    await _setup_platform(fastapi_app, session_factory, settings)
+    auth_service, fund_repo = await _setup_platform(fastapi_app, session_factory, settings)
     fga_client = await _setup_fga(fastapi_app, settings)
     await _setup_security_master(fastapi_app, session_factory)
+
+    # Create per-fund schemas and run positions migrations for each
+    active_funds = await fund_repo.get_all_active()
+    fund_slugs = [f.slug for f in active_funds]
+    await ensure_all_fund_schemas(engine, fund_slugs)
+
+    # Create Kafka topics — shared + per-fund
+    if kafka_bus is not None:
+        all_topics = shared_topics()
+        for slug in fund_slugs:
+            all_topics.extend(fund_topics_for_slug(slug))
+        kafka_bus.ensure_topics(all_topics)
+
     _setup_market_data(fastapi_app, session_factory, event_bus)
-    _setup_positions(fastapi_app, session_factory, event_bus)
+    _setup_positions(fastapi_app, session_factory, event_bus, fund_repo)
+
+    # Start Kafka consumers (after all subscriptions are registered)
+    if kafka_bus is not None:
+        await kafka_bus.start()
 
     # --- Simulator ---
     simulator_task: asyncio.Task | None = None  # type: ignore[type-arg]
@@ -351,6 +400,9 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
         simulator_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await simulator_task
+
+    if kafka_bus is not None:
+        await kafka_bus.stop()
 
     if fga_client is not None:
         await fga_client.close()
