@@ -145,7 +145,7 @@ class AlphaService:
                 prices_map[p.instrument_id] = float(p.market_value / p.quantity)
 
         # Build returns matrix
-        returns_matrix = self._build_returns_matrix(instrument_ids)
+        returns_matrix = await self._build_returns_matrix(instrument_ids)
 
         result = optimize_portfolio(
             portfolio_id,
@@ -264,16 +264,19 @@ class AlphaService:
     # Internal
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _build_returns_matrix(
+    async def _build_returns_matrix(
+        self,
         instrument_ids: list[str],
         n_days: int = 252,
     ) -> np.ndarray:  # type: ignore[type-arg]
-        """Build synthetic returns matrix from simulator parameters."""
-        from app.modules.market_data.simulator import DEFAULT_UNIVERSE
-
-        vol_map = {cfg.ticker: cfg.annual_volatility for cfg in DEFAULT_UNIVERSE}
-        drift_map = {cfg.ticker: cfg.annual_drift for cfg in DEFAULT_UNIVERSE}
+        """Build synthetic returns matrix from instrument reference data."""
+        instruments = await self._sm.get_all_active()
+        vol_map = {
+            i.ticker: i.annual_volatility for i in instruments if i.annual_volatility is not None
+        }
+        drift_map = {
+            i.ticker: i.annual_drift for i in instruments if i.annual_drift is not None
+        }
 
         n = len(instrument_ids)
         matrix = np.zeros((n_days, n))

@@ -23,9 +23,9 @@ from app.shared.schema_registry import fund_topic
 
 if TYPE_CHECKING:
     from app.modules.orders.compliance_gateway import ComplianceGateway
-    from app.modules.orders.mock_broker import MockBrokerAdapter
     from app.modules.orders.repository import OrderRepository
     from app.modules.platform.audit_repository import AuditLogRepository
+    from app.shared.adapters import BrokerAdapter
     from app.shared.events import EventBus
 
 logger = structlog.get_logger()
@@ -38,13 +38,13 @@ class OrderService:
         self,
         order_repo: OrderRepository,
         compliance_gateway: ComplianceGateway,
-        mock_broker: MockBrokerAdapter,
+        broker: BrokerAdapter,
         event_bus: EventBus,
         audit_repo: AuditLogRepository | None = None,
     ) -> None:
         self._repo = order_repo
         self._compliance = compliance_gateway
-        self._broker = mock_broker
+        self._broker = broker
         self._event_bus = event_bus
         self._audit = audit_repo
 
@@ -136,34 +136,116 @@ class OrderService:
         apply_transition(OrderState(order.state), OrderState.SENT)
         order = await self._repo.update_state(UUID(order.id), OrderState.SENT.value)
 
-        fill_price, fill_qty = await self._broker.submit_order(
+        ack = await self._broker.submit_order(
+            client_order_id=order.id,
             instrument_id=request.instrument_id,
             side=request.side.value,
             quantity=request.quantity,
-            price=request.limit_price,
+            order_type=request.order_type.value,
+            limit_price=request.limit_price,
         )
 
-        # 6. Process fill
-        order = await self._process_fill(order, fill_price, fill_qty, fund_slug)
+        if ack.status == "filled":
+            # Synchronous fill (in-process adapter) — query fill details and process
+            status_report = await self._broker.get_order_status(ack.exchange_order_id)
+            fill_price = status_report.avg_fill_price or Decimal("0")
+            fill_qty = status_report.filled_quantity
+            order = await self._process_fill(order, fill_price, fill_qty, fund_slug)
+
+            logger.info(
+                "order_filled",
+                order_id=order.id,
+                fill_price=str(fill_price),
+                fill_qty=str(fill_qty),
+            )
+            await self._audit_event(
+                "order.filled",
+                actor_id=actor_id,
+                fund_slug=fund_slug,
+                order=order,
+                extra={
+                    "fill_price": str(fill_price),
+                    "fill_quantity": str(fill_qty),
+                    "compliance_results": compliance_data,
+                },
+            )
+        else:
+            # Async fill (mock-exchange, FIX, etc.) — order stays in SENT state.
+            # Fills arrive later via execution report callback.
+            logger.info(
+                "order_sent_to_broker",
+                order_id=order.id,
+                exchange_order_id=ack.exchange_order_id,
+                status=ack.status,
+            )
+
+        return self._to_summary(order)
+
+    _FILL_RETRY_DELAYS = (0.1, 0.3, 1.0)  # seconds — handles race with order commit
+
+    async def process_execution_report(
+        self,
+        client_order_id: str,
+        fill_price: Decimal,
+        fill_quantity: Decimal,
+        filled_at: datetime | None = None,
+    ) -> None:
+        """Handle an async fill from an external broker.
+
+        Called by the broker adapter's execution report consumer when a fill
+        arrives on the vendor's Kafka. This is the async counterpart to the
+        synchronous fill path in create_order.
+
+        Retries lookup briefly to handle the race where a fill arrives before
+        the order row is committed (fill_delay_ms can be very low).
+        """
+        import asyncio
+
+        order = None
+        for delay in self._FILL_RETRY_DELAYS:
+            order = await self._repo.get_by_id(UUID(client_order_id))
+            if order is not None:
+                break
+            await asyncio.sleep(delay)
+
+        if order is None:
+            logger.warning(
+                "execution_report_unknown_order",
+                client_order_id=client_order_id,
+            )
+            return
+
+        if order.state not in (OrderState.SENT.value, OrderState.PARTIALLY_FILLED.value):
+            logger.warning(
+                "execution_report_invalid_state",
+                order_id=order.id,
+                state=order.state,
+            )
+            return
+
+        fund_slug = order.fund_slug
+        order = await self._process_fill(
+            order, fill_price, fill_quantity, fund_slug, filled_at=filled_at,
+        )
 
         logger.info(
-            "order_filled",
+            "order_filled_async",
             order_id=order.id,
             fill_price=str(fill_price),
-            fill_qty=str(fill_qty),
+            fill_qty=str(fill_quantity),
+            state=order.state,
         )
         await self._audit_event(
             "order.filled",
-            actor_id=actor_id,
+            actor_id="broker",
             fund_slug=fund_slug,
             order=order,
             extra={
                 "fill_price": str(fill_price),
-                "fill_quantity": str(fill_qty),
-                "compliance_results": compliance_data,
+                "fill_quantity": str(fill_quantity),
+                "source": "execution_report",
             },
         )
-        return self._to_summary(order)
 
     async def cancel_order(self, order_id: UUID, actor_id: str = "system") -> OrderSummary:
         """Cancel an order if transition is valid."""
@@ -217,10 +299,12 @@ class OrderService:
         fill_price: Decimal,
         fill_quantity: Decimal,
         fund_slug: str,
+        *,
+        filled_at: datetime | None = None,
     ) -> OrderRecord:
         """Record a fill and publish a trade event."""
         trade_id = uuid4()
-        now = datetime.now(UTC)
+        now = filled_at or datetime.now(UTC)
 
         # Create fill record
         fill = OrderFillRecord(

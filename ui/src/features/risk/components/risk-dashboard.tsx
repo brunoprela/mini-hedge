@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { InfoTooltip } from "@/shared/components/table-controls";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { riskSnapshotQueryOptions, takeRiskSnapshot } from "../api";
 
@@ -48,13 +49,26 @@ export function RiskDashboard({ portfolioId }: { portfolioId: string }) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label="VaR 95% (1d)" value={fmtCurrency(snapshot.var_95_1d)} />
-        <StatCard label="VaR 99% (1d)" value={fmtCurrency(snapshot.var_99_1d)} />
+        <StatCard
+          label="VaR 95% (1d)"
+          value={fmtCurrency(snapshot.var_95_1d)}
+          info="Maximum expected daily loss at 95% confidence"
+        />
+        <StatCard
+          label="VaR 99% (1d)"
+          value={fmtCurrency(snapshot.var_99_1d)}
+          info="Maximum expected daily loss at 99% confidence"
+        />
         <StatCard
           label="Expected Shortfall 95%"
           value={fmtCurrency(snapshot.expected_shortfall_95)}
+          info="Average loss in the worst 5% of scenarios (CVaR)"
         />
-        <StatCard label="NAV" value={fmtCurrency(snapshot.nav)} />
+        <StatCard
+          label="NAV"
+          value={fmtCurrency(snapshot.nav)}
+          info="Net Asset Value — total portfolio market value"
+        />
       </div>
       <div className="flex items-center gap-4">
         <button
@@ -73,10 +87,13 @@ export function RiskDashboard({ portfolioId }: { portfolioId: string }) {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+function StatCard({ label, value, info }: { label: string; value: string; info?: string }) {
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
-      <p className="text-xs text-[var(--muted-foreground)]">{label}</p>
+      <p className="inline-flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
+        {label}
+        {info && <InfoTooltip text={info} />}
+      </p>
       <p className="mt-1 font-mono text-lg font-semibold">{value}</p>
     </div>
   );

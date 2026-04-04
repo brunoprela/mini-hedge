@@ -1,9 +1,7 @@
-"""FastAPI application entry point — wires modules, starts simulator, health check."""
+"""FastAPI application entry point — wires modules, starts adapters, health check."""
 
 from __future__ import annotations
 
-import asyncio
-import contextlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
@@ -16,6 +14,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
+from app.adapters.factory import (
+    build_broker_adapter,
+    build_market_data_adapter,
+    build_reference_data_adapter,
+)
 from app.config import get_settings
 from app.exception_handlers import register_exception_handlers
 from app.middleware.auth import AuthMiddleware
@@ -25,7 +28,6 @@ from app.modules.cash_management.routes import router as cash_router
 from app.modules.compliance.routes import router as compliance_router
 from app.modules.exposure.routes import router as exposure_router
 from app.modules.market_data.routes import router as market_data_router
-from app.modules.market_data.simulator import MarketDataSimulator
 from app.modules.orders.routes import router as orders_router
 from app.modules.platform.admin_routes import router as admin_router
 from app.modules.platform.audit_repository import AuditLogRepository
@@ -95,6 +97,11 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
         consumer_group="minihedge",
     )
 
+    # --- Build adapters from config ---
+    broker_adapter = build_broker_adapter(settings)
+    reference_adapter = build_reference_data_adapter(settings)
+    market_data_adapter = build_market_data_adapter(settings, event_bus=kafka_bus)
+
     # --- Module setup ---
     # FGA must init before platform (AuthService depends on FGAClient)
     fga_client = await setup_fga(fastapi_app, settings)
@@ -106,7 +113,11 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
         engine=engine,
         event_bus=kafka_bus,
     )
-    await setup_security_master(fastapi_app, session_factory)
+    await setup_security_master(
+        fastapi_app,
+        session_factory,
+        reference_adapter=reference_adapter,
+    )
 
     # Create per-fund schemas and run positions migrations for each
     active_funds = await fund_repo.get_all_active()
@@ -127,7 +138,7 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     # Phase 2 modules — depend on positions + security_master being wired
     await setup_exposure(fastapi_app, session_factory, kafka_bus, fund_repo)
     await setup_compliance(fastapi_app, session_factory, fund_repo, kafka_bus)
-    await setup_orders(fastapi_app, session_factory, kafka_bus)
+    await setup_orders(fastapi_app, session_factory, kafka_bus, broker_adapter)
 
     # Phase 3 modules
     await setup_risk_engine(fastapi_app, session_factory, kafka_bus, fund_repo)
@@ -151,31 +162,43 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     # Start Kafka consumers (after all subscriptions are registered)
     await kafka_bus.start()
 
-    # --- Simulator ---
-    simulator_task: asyncio.Task | None = None  # type: ignore[type-arg]
-    simulator: MarketDataSimulator | None = None
-    if settings.simulator_enabled:
-        simulator = MarketDataSimulator(
-            event_bus=kafka_bus,
-            interval_ms=settings.simulator_interval_ms,
-        )
-        simulator_task = asyncio.create_task(simulator.run())
+    # --- External market data adapter ---
+    # Start the adapter's Kafka consumer that bridges vendor prices into
+    # the internal event bus.
+    instruments = await sm_service.get_all_active()
+    tickers = [i.ticker for i in instruments]
+    await market_data_adapter.start_streaming(tickers)
+
+    # --- External broker fill consumer ---
+    # When the broker is mock-exchange, start consuming execution reports
+    # from the vendor's Kafka and forwarding fills to OrderService.
+    if hasattr(broker_adapter, "start_fill_consumer"):
+        order_service = fastapi_app.state.order_service
+        await broker_adapter.start_fill_consumer(order_service.process_execution_report)
 
     # Store references for health check
     fastapi_app.state.engine = engine
     fastapi_app.state.kafka_bus = kafka_bus
 
-    logger.info("app_started", env=settings.app_env, simulator=settings.simulator_enabled)
+    # Store adapter config for visibility
+    fastapi_app.state.market_data_source = settings.market_data_source
+    fastapi_app.state.broker_adapter_type = settings.broker_adapter
+    fastapi_app.state.reference_data_source = settings.reference_data_source
+
+    logger.info(
+        "app_started",
+        env=settings.app_env,
+        market_data_source=settings.market_data_source,
+        broker_adapter=settings.broker_adapter,
+        reference_data_source=settings.reference_data_source,
+    )
 
     yield
 
     # Shutdown
-    if simulator is not None:
-        simulator.stop()
-    if simulator_task is not None:
-        simulator_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await simulator_task
+    await market_data_adapter.stop_streaming()
+    if hasattr(broker_adapter, "stop_fill_consumer"):
+        await broker_adapter.stop_fill_consumer()
 
     await kafka_bus.stop()
 
@@ -259,4 +282,9 @@ async def health_check() -> dict[str, object]:
     return {
         "status": "healthy" if all_healthy else "degraded",
         "components": components,
+        "adapters": {
+            "market_data": app.state.market_data_source,
+            "broker": app.state.broker_adapter_type,
+            "reference_data": app.state.reference_data_source,
+        },
     }

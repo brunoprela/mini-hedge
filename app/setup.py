@@ -13,6 +13,7 @@ from alembic.config import Config as AlembicConfig
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
+    from app.shared.adapters import BrokerAdapter, ExternalInstrument, ReferenceDataAdapter
     from app.shared.database import TenantSessionFactory
     from app.shared.events import BaseEvent, EventBus
     from app.shared.types import AssetClass
@@ -41,6 +42,7 @@ from app.modules.positions.position_projector import PositionProjector
 from app.modules.positions.position_repository import CurrentPositionRepository
 from app.modules.positions.service import PositionService
 from app.modules.positions.trade_handler import TradeHandler
+from app.modules.security_master.models import EquityExtensionRecord, InstrumentRecord
 from app.modules.security_master.repository import InstrumentRepository
 from app.modules.security_master.seed import build_seed_records
 from app.modules.security_master.service import SecurityMasterService
@@ -71,12 +73,54 @@ async def _run_migrations() -> None:
     await asyncio.to_thread(_run_migrations_sync)
 
 
-async def _seed_instruments(repo: InstrumentRepository) -> None:
+async def _seed_instruments(
+    repo: InstrumentRepository,
+    *,
+    reference_adapter: ReferenceDataAdapter | None = None,
+) -> None:
     existing = await repo.get_all_active()
-    if not existing:
+    if existing:
+        return
+
+    if reference_adapter is not None:
+        externals = await reference_adapter.get_all_instruments()
+        instruments, extensions = _convert_external_instruments(externals)
+        logger.info("instruments_fetched_from_adapter", count=len(instruments))
+    else:
         instruments, extensions = build_seed_records()
-        await repo.insert_batch(instruments, extensions)
-        logger.info("instruments_seeded", count=len(instruments), extensions=len(extensions))
+
+    await repo.insert_batch(instruments, extensions)
+    logger.info("instruments_seeded", count=len(instruments), extensions=len(extensions))
+
+
+def _convert_external_instruments(
+    externals: list[ExternalInstrument],
+) -> tuple[list[InstrumentRecord], list[EquityExtensionRecord]]:
+    """Convert adapter ExternalInstrument objects to ORM records."""
+    from uuid import uuid4
+
+    instruments: list[InstrumentRecord] = []
+    extensions: list[EquityExtensionRecord] = []
+    for ext in externals:
+        instrument_id = str(uuid4())
+        instruments.append(
+            InstrumentRecord(
+                id=instrument_id,
+                name=ext.name,
+                ticker=ext.ticker,
+                asset_class=ext.asset_class,
+                currency=ext.currency,
+                exchange=ext.exchange,
+                country=ext.country,
+                sector=ext.sector,
+                industry=ext.industry,
+                annual_drift=ext.annual_drift,
+                annual_volatility=ext.annual_volatility,
+                spread_bps=ext.spread_bps,
+                is_active=ext.is_active,
+            )
+        )
+    return instruments, extensions
 
 
 async def _seed_platform(
@@ -210,11 +254,13 @@ async def setup_fga(fastapi_app: FastAPI, settings: object) -> object | None:
 async def setup_security_master(
     fastapi_app: FastAPI,
     session_factory: TenantSessionFactory,
+    *,
+    reference_adapter: ReferenceDataAdapter | None = None,
 ) -> None:
     """Wire security master module: repo, service, seeding."""
     instrument_repo = InstrumentRepository(session_factory)
     fastapi_app.state.security_master_service = SecurityMasterService(instrument_repo)
-    await _seed_instruments(instrument_repo)
+    await _seed_instruments(instrument_repo, reference_adapter=reference_adapter)
 
 
 def setup_market_data(
@@ -555,22 +601,21 @@ async def setup_orders(
     fastapi_app: FastAPI,
     session_factory: TenantSessionFactory,
     event_bus: EventBus,
+    broker: BrokerAdapter,
 ) -> None:
-    """Wire orders module: repo, compliance gateway, mock broker, service."""
+    """Wire orders module: repo, compliance gateway, broker, service."""
     from app.modules.orders.compliance_gateway import ComplianceGateway
-    from app.modules.orders.mock_broker import MockBrokerAdapter
     from app.modules.orders.repository import OrderRepository
     from app.modules.orders.service import OrderService
 
     order_repo = OrderRepository(session_factory)
     compliance_service = fastapi_app.state.compliance_service
     compliance_gateway = ComplianceGateway(compliance_service.pre_trade_gate)
-    mock_broker = MockBrokerAdapter()
     audit_repo = fastapi_app.state.audit_repo
     order_service = OrderService(
         order_repo=order_repo,
         compliance_gateway=compliance_gateway,
-        mock_broker=mock_broker,
+        broker=broker,
         event_bus=event_bus,
         audit_repo=audit_repo,
     )

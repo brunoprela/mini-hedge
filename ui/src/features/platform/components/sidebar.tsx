@@ -89,7 +89,7 @@ export function Sidebar() {
           <Briefcase className="h-4 w-4 text-white" />
         </div>
         <span className="text-sm font-semibold tracking-wide text-[var(--foreground-bright)]">
-          HEDGEFUND
+          MINI-HEDGE
         </span>
       </div>
 

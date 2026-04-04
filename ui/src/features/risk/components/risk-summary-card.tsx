@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { InfoTooltip } from "@/shared/components/table-controls";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { riskSnapshotQueryOptions } from "../api";
 
@@ -39,11 +40,17 @@ export function RiskSummaryCard({ portfolioId }: { portfolioId: string }) {
       {snapshot && (
         <div className="mt-3 grid grid-cols-2 gap-3">
           <div>
-            <p className="text-xs text-[var(--muted-foreground)]">VaR 95% (1d)</p>
+            <p className="inline-flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
+              VaR 95% (1d)
+              <InfoTooltip text="Maximum expected daily loss at 95% confidence" />
+            </p>
             <p className="font-mono text-sm font-semibold">{fmtCurrency(snapshot.var_95_1d)}</p>
           </div>
           <div>
-            <p className="text-xs text-[var(--muted-foreground)]">VaR 99% (1d)</p>
+            <p className="inline-flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
+              VaR 99% (1d)
+              <InfoTooltip text="Maximum expected daily loss at 99% confidence" />
+            </p>
             <p className="font-mono text-sm font-semibold">{fmtCurrency(snapshot.var_99_1d)}</p>
           </div>
         </div>

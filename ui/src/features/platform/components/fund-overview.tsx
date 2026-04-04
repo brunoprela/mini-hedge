@@ -4,6 +4,7 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { portfolioSummaryQueryOptions, portfoliosQueryOptions } from "@/features/portfolio/api";
 import type { PortfolioInfo, PortfolioSummary } from "@/features/portfolio/types";
+import { InfoTooltip } from "@/shared/components/table-controls";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { formatPnL, pnlColorClass } from "@/shared/lib/formatters";
 
@@ -78,19 +79,33 @@ function AggregateMetrics({ summaries }: { summaries: PortfolioSummary[] }) {
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-      <MetricCard label="Total AUM" value={formatPnL(String(totalMarketValue))} />
-      <MetricCard label="Cost Basis" value={formatPnL(String(totalCostBasis))} />
+      <MetricCard
+        label="Total AUM"
+        value={formatPnL(String(totalMarketValue))}
+        info="Assets Under Management — total market value across all portfolios"
+      />
+      <MetricCard
+        label="Cost Basis"
+        value={formatPnL(String(totalCostBasis))}
+        info="Total amount invested at original purchase prices"
+      />
       <MetricCard
         label="Realized P&L"
         value={formatPnL(String(totalRealizedPnl))}
         valueClass={pnlColorClass(String(totalRealizedPnl))}
+        info="Profit/loss from closed positions"
       />
       <MetricCard
         label="Unrealized P&L"
         value={formatPnL(String(totalUnrealizedPnl))}
         valueClass={pnlColorClass(String(totalUnrealizedPnl))}
+        info="Profit/loss on open positions at current market prices"
       />
-      <MetricCard label="Positions" value={String(totalPositions)} />
+      <MetricCard
+        label="Positions"
+        value={String(totalPositions)}
+        info="Total number of open positions across all portfolios"
+      />
     </div>
   );
 }
@@ -140,14 +155,19 @@ function MetricCard({
   label,
   value,
   valueClass = "",
+  info,
 }: {
   label: string;
   value: string;
   valueClass?: string;
+  info?: string;
 }) {
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
-      <p className="text-xs text-[var(--muted-foreground)]">{label}</p>
+      <p className="inline-flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
+        {label}
+        {info && <InfoTooltip text={info} />}
+      </p>
       <p className={`mt-1 font-mono text-lg font-semibold ${valueClass}`}>{value}</p>
     </div>
   );

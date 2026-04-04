@@ -84,21 +84,20 @@ class AttributionService:
         portfolio_weights: dict[str, float] = {}
         sector_map: dict[str, str] = {}
 
+        instruments = await self._sm.get_all_active()
+        sector_lookup = {i.ticker: i.sector or "Unknown" for i in instruments}
+
         for p in positions:
             w = float(p.market_value) / nav if nav > 0 else 0.0
             portfolio_weights[p.instrument_id] = w
-            try:
-                instrument = await self._sm.get_by_ticker(p.instrument_id)
-                sector_map[p.instrument_id] = getattr(instrument, "sector", "Unknown") or "Unknown"
-            except Exception:
-                sector_map[p.instrument_id] = "Unknown"
+            sector_map[p.instrument_id] = sector_lookup.get(p.instrument_id, "Unknown")
 
         # Equal-weight benchmark (simplification — use market-cap in production)
         n = len(instrument_ids)
         benchmark_weights = {iid: 1.0 / n for iid in instrument_ids}
 
         # Synthetic returns for the period
-        returns = self._generate_synthetic_returns(instrument_ids)
+        returns = await self._generate_synthetic_returns(instrument_ids)
         portfolio_returns = dict(zip(instrument_ids, returns, strict=True))
         benchmark_returns = portfolio_returns  # same returns, different weights
 
@@ -155,16 +154,12 @@ class AttributionService:
             if p.market_value and nav > 0
         }
 
-        sector_map: dict[str, str] = {}
-        for iid in instrument_ids:
-            try:
-                instrument = await self._sm.get_by_ticker(iid)
-                sector_map[iid] = getattr(instrument, "sector", "Unknown") or "Unknown"
-            except Exception:
-                sector_map[iid] = "Unknown"
+        instruments = await self._sm.get_all_active()
+        sector_lookup = {i.ticker: i.sector or "Unknown" for i in instruments}
+        sector_map = {iid: sector_lookup.get(iid, "Unknown") for iid in instrument_ids}
 
-        # Build returns matrix from simulator params
-        returns_matrix = self._build_returns_matrix(instrument_ids)
+        # Build returns matrix from instrument reference data
+        returns_matrix = await self._build_returns_matrix(instrument_ids)
 
         result = calculate_risk_based_attribution(
             portfolio_id,
@@ -249,15 +244,18 @@ class AttributionService:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _generate_synthetic_returns(
+    async def _generate_synthetic_returns(
+        self,
         instrument_ids: list[str],
     ) -> list[float]:
-        """Generate synthetic period returns based on simulator params."""
-        from app.modules.market_data.simulator import DEFAULT_UNIVERSE
-
-        drift_map = {cfg.ticker: cfg.annual_drift for cfg in DEFAULT_UNIVERSE}
-        vol_map = {cfg.ticker: cfg.annual_volatility for cfg in DEFAULT_UNIVERSE}
+        """Generate synthetic period returns from instrument reference data."""
+        instruments = await self._sm.get_all_active()
+        drift_map = {
+            i.ticker: i.annual_drift for i in instruments if i.annual_drift is not None
+        }
+        vol_map = {
+            i.ticker: i.annual_volatility for i in instruments if i.annual_volatility is not None
+        }
 
         returns = []
         for iid in instrument_ids:
@@ -267,23 +265,26 @@ class AttributionService:
             returns.append(ret)
         return returns
 
-    @staticmethod
-    def _build_returns_matrix(
+    async def _build_returns_matrix(
+        self,
         instrument_ids: list[str],
         n_days: int = 252,
     ) -> np.ndarray:  # type: ignore[type-arg]
-        """Build synthetic returns matrix."""
-        from app.modules.market_data.simulator import DEFAULT_UNIVERSE
-
-        vol_map = {cfg.ticker: cfg.annual_volatility for cfg in DEFAULT_UNIVERSE}
-        drift_map = {cfg.ticker: cfg.annual_drift for cfg in DEFAULT_UNIVERSE}
+        """Build synthetic returns matrix from instrument reference data."""
+        instruments = await self._sm.get_all_active()
+        vol_map = {
+            i.ticker: i.annual_volatility for i in instruments if i.annual_volatility is not None
+        }
+        drift_map = {
+            i.ticker: i.annual_drift for i in instruments if i.annual_drift is not None
+        }
 
         n = len(instrument_ids)
         matrix = np.zeros((n_days, n))
-        for i, iid in enumerate(instrument_ids):
+        for idx, iid in enumerate(instrument_ids):
             daily_vol = vol_map.get(iid, 0.25) / np.sqrt(252)
             daily_drift = drift_map.get(iid, 0.08) / 252
-            matrix[:, i] = np.random.normal(daily_drift, daily_vol, n_days)
+            matrix[:, idx] = np.random.normal(daily_drift, daily_vol, n_days)
         return matrix
 
     async def _persist_brinson_fachler(self, result: BrinsonFachlerResult) -> None:

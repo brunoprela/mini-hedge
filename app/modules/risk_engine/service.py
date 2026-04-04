@@ -175,13 +175,9 @@ class RiskService:
         """Calculate factor decomposition for a portfolio."""
         weights, returns_matrix, instrument_ids, nav = await self._build_risk_inputs(portfolio_id)
 
-        sector_map: dict[str, str] = {}
-        for iid in instrument_ids:
-            try:
-                instrument = await self._sm.get_by_ticker(iid)
-                sector_map[iid] = getattr(instrument, "sector", "Unknown") or "Unknown"
-            except Exception:
-                sector_map[iid] = "Unknown"
+        instruments = await self._sm.get_all_active()
+        sector_lookup = {i.ticker: i.sector or "Unknown" for i in instruments}
+        sector_map = {iid: sector_lookup.get(iid, "Unknown") for iid in instrument_ids}
 
         result = calculate_factor_decomposition(
             portfolio_id,
@@ -268,21 +264,23 @@ class RiskService:
         return weights, returns_matrix, instrument_ids, nav
 
     async def _build_returns_matrix(self, instrument_ids: list[str]) -> np.ndarray:  # type: ignore[type-arg]
-        """Build a (n_days, n_instruments) returns matrix from price history.
+        """Build a (n_days, n_instruments) returns matrix.
 
-        Uses simulated returns based on the market data simulator's parameters
-        when insufficient price history is available.
+        Uses synthetic returns based on instrument reference data (annual_drift,
+        annual_volatility) until real price history is available.
         """
         n = len(instrument_ids)
         if n == 0:
             return np.empty((0, 0))
 
-        # Generate synthetic returns based on simulator parameters
-        # In production, this would fetch actual price history
-        from app.modules.market_data.simulator import DEFAULT_UNIVERSE
-
-        vol_map = {cfg.ticker: cfg.annual_volatility for cfg in DEFAULT_UNIVERSE}
-        drift_map = {cfg.ticker: cfg.annual_drift for cfg in DEFAULT_UNIVERSE}
+        # Look up drift/volatility from instrument reference data
+        instruments = await self._sm.get_all_active()
+        vol_map = {
+            i.ticker: i.annual_volatility for i in instruments if i.annual_volatility is not None
+        }
+        drift_map = {
+            i.ticker: i.annual_drift for i in instruments if i.annual_drift is not None
+        }
 
         n_days = DEFAULT_LOOKBACK
         daily_returns = np.zeros((n_days, n))

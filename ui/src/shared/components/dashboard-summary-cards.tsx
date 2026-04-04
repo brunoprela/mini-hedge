@@ -7,6 +7,7 @@ import { cashBalancesQueryOptions } from "@/features/cash/api";
 import { violationsQueryOptions } from "@/features/compliance/api";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
 import { riskSnapshotQueryOptions } from "@/features/risk/api";
+import { InfoTooltip } from "@/shared/components/table-controls";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { usePermission } from "@/shared/hooks/use-permission";
 import { Permission } from "@/shared/lib/permissions";
@@ -40,8 +41,16 @@ function RiskCard({ portfolioId }: { portfolioId: string }) {
       items={
         data
           ? [
-              { label: "VaR 95%", value: fmt(data.var_95_1d) },
-              { label: "VaR 99%", value: fmt(data.var_99_1d) },
+              {
+                label: "VaR 95%",
+                value: fmt(data.var_95_1d),
+                info: "Maximum expected daily loss at 95% confidence",
+              },
+              {
+                label: "VaR 99%",
+                value: fmt(data.var_99_1d),
+                info: "Maximum expected daily loss at 99% confidence",
+              },
             ]
           : [{ label: "Status", value: "No snapshot" }]
       }
@@ -62,8 +71,16 @@ function CashCard({ portfolioId }: { portfolioId: string }) {
       title="Cash"
       href={`/${fundSlug}/cash`}
       items={[
-        { label: "Available", value: fmt(String(totalAvailable)) },
-        { label: "Currencies", value: String(data?.length ?? 0) },
+        {
+          label: "Available",
+          value: fmt(String(totalAvailable)),
+          info: "Total cash available for trading across all currencies",
+        },
+        {
+          label: "Currencies",
+          value: String(data?.length ?? 0),
+          info: "Number of distinct currency balances held",
+        },
       ]}
       accentColor="var(--accent-orange)"
       accentBg="var(--accent-orange-muted)"
@@ -84,8 +101,16 @@ function AttributionCard({ portfolioId }: { portfolioId: string }) {
       items={
         data
           ? [
-              { label: "Active Return", value: pct(data.active_return) },
-              { label: "Allocation", value: pct(data.total_allocation) },
+              {
+                label: "Active Return",
+                value: pct(data.active_return),
+                info: "Portfolio return minus benchmark return over 30 days",
+              },
+              {
+                label: "Allocation",
+                value: pct(data.total_allocation),
+                info: "Return contribution from sector weight differences vs benchmark",
+              },
             ]
           : [{ label: "Status", value: "Not calculated" }]
       }
@@ -110,6 +135,7 @@ function ComplianceCard({ portfolioId }: { portfolioId: string }) {
           label: "Active Violations",
           value: String(activeCount),
           className: activeCount > 0 ? "text-[var(--destructive)]" : "text-[var(--success)]",
+          info: "Number of unresolved compliance rule breaches",
         },
       ]}
       accentColor="var(--destructive)"
@@ -127,7 +153,7 @@ function SummaryCard({
 }: {
   title: string;
   href: string;
-  items: { label: string; value: string; className?: string }[];
+  items: { label: string; value: string; className?: string; info?: string }[];
   accentColor: string;
   accentBg: string;
 }) {
@@ -143,7 +169,10 @@ function SummaryCard({
       <div className="space-y-2 rounded-lg p-3" style={{ backgroundColor: accentBg }}>
         {items.map((item) => (
           <div key={item.label} className="flex items-baseline justify-between">
-            <span className="text-xs text-[var(--muted-foreground)]">{item.label}</span>
+            <span className="inline-flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
+              {item.label}
+              {item.info && <InfoTooltip text={item.info} />}
+            </span>
             <span className={`font-mono text-sm font-semibold ${item.className ?? ""}`}>
               {item.value}
             </span>

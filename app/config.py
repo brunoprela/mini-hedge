@@ -17,9 +17,6 @@ class Settings(BaseSettings):
     app_env: str = "local"
     log_level: str = "DEBUG"
 
-    simulator_interval_ms: int = 1000
-    simulator_enabled: bool = False
-
     jwt_secret: str = _DEV_JWT_SECRET
     jwt_algorithm: str = "HS256"
     jwt_expiry_minutes: int = 60
@@ -33,6 +30,15 @@ class Settings(BaseSettings):
 
     redis_url: str = "redis://localhost:6379/0"
     redis_enabled: bool = False
+
+    # Adapter configuration — controls which external data sources the platform uses
+    mock_exchange_url: str = "http://localhost:8100"
+    mock_exchange_kafka_bootstrap_servers: str = "localhost:9192"
+    market_data_source: str = "mock-exchange"  # "mock-exchange"
+    broker_adapter: str = "in-process"  # "mock-exchange" | "in-process" | "fix"
+    reference_data_source: str = "seed"  # "mock-exchange" | "seed"
+    fix_host: str = "localhost"
+    fix_port: int = 9878
 
     keycloak_url: str = "http://localhost:8180"
     # Browser-facing URL for issuer validation; defaults to keycloak_url

@@ -63,5 +63,9 @@ path = "app.modules.alpha_engine"
 depends_on = ["app.shared", "app.modules.market_data"]
 
 [[modules]]
+path = "app.adapters"
+depends_on = ["app.shared", "app.modules.orders", "app.modules.security_master"]
+
+[[modules]]
 path = "app.setup"
 depends_on = ["app.shared", "app.modules.platform", "app.modules.security_master", "app.modules.market_data", "app.modules.positions", "app.modules.exposure", "app.modules.compliance", "app.modules.orders", "app.modules.risk_engine", "app.modules.cash_management", "app.modules.attribution", "app.modules.alpha_engine"]

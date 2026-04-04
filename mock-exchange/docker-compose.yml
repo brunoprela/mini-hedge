@@ -1,0 +1,86 @@
+# Mock Exchange — fully independent market simulation service.
+# Has its own Kafka + Schema Registry, completely decoupled from the platform.
+#
+# Usage:
+#   cd mock-exchange && docker compose up -d
+#
+# The platform connects by setting these env vars:
+#   MOCK_EXCHANGE_URL=http://localhost:8100
+#   KAFKA_BOOTSTRAP_SERVERS=localhost:9192
+
+services:
+  kafka:
+    image: confluentinc/cp-kafka:7.7.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093,EXTERNAL://0.0.0.0:9192
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,EXTERNAL://localhost:9192
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      CLUSTER_ID: TW9ja0V4Y2hhbmdlS2Fma2E
+    ports:
+      - "9192:9192"
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:29092"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.7.0
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8181
+    ports:
+      - "8181:8181"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8181/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mock-exchange:
+    build: .
+    command: >
+      sh -c "uv sync --frozen 2>/dev/null || uv sync && uv run uvicorn mock_exchange.main:app
+      --host 0.0.0.0
+      --port 8100
+      --reload
+      --reload-dir mock_exchange"
+    environment:
+      PYTHONUNBUFFERED: "1"
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:29092"
+      KAFKA_SCHEMA_REGISTRY_URL: "http://schema-registry:8181"
+      SIMULATOR_ENABLED: "true"
+      SIMULATOR_INTERVAL_MS: "1000"
+      LOG_LEVEL: "DEBUG"
+    ports:
+      - "8100:8100"
+    volumes:
+      - .:/app
+      - mock-exchange-venv:/app/.venv
+    depends_on:
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8100/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+volumes:
+  mock-exchange-venv:

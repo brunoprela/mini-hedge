@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { InfoTooltip } from "@/shared/components/table-controls";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { brinsonFachlerQueryOptions } from "../api";
 
@@ -27,7 +28,10 @@ export function AttributionSummaryCard({ portfolioId }: { portfolioId: string })
 
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
-      <p className="text-xs text-[var(--muted-foreground)]">Active Return (30d)</p>
+      <p className="inline-flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
+        Active Return (30d)
+        <InfoTooltip text="Portfolio return minus benchmark return over the last 30 days" />
+      </p>
       {isLoading ? (
         <p className="mt-1 font-mono text-lg font-semibold text-[var(--muted-foreground)]">--</p>
       ) : data ? (

@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { InfoTooltip } from "@/shared/components/table-controls";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { cashBalancesQueryOptions, settlementsQueryOptions } from "../api";
 
@@ -36,10 +37,14 @@ export function CashSummaryCard({ portfolioId }: { portfolioId: string }) {
 
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
-      <p className="text-xs text-[var(--muted-foreground)]">Cash Available</p>
+      <p className="inline-flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
+        Cash Available
+        <InfoTooltip text="Total cash available for trading across all currencies" />
+      </p>
       <p className="mt-1 font-mono text-lg font-semibold">{fmtTotal}</p>
-      <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+      <p className="mt-1 inline-flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
         {pendingCount} pending settlement{pendingCount !== 1 ? "s" : ""}
+        <InfoTooltip text="Trades awaiting T+2 settlement that will affect cash balance" />
       </p>
       <Link
         href={`/${fundSlug}/cash`}

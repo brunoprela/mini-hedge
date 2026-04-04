@@ -23,6 +23,9 @@ def _to_instrument(record: InstrumentRecord) -> Instrument:
         country=record.country,
         sector=record.sector,
         industry=record.industry,
+        annual_drift=record.annual_drift,
+        annual_volatility=record.annual_volatility,
+        spread_bps=record.spread_bps,
         is_active=record.is_active,
         listed_date=record.listed_date,
     )

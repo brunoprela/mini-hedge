@@ -29,6 +29,9 @@ class Instrument(BaseModel):
     country: str
     sector: str | None = None
     industry: str | None = None
+    annual_drift: float | None = None
+    annual_volatility: float | None = None
+    spread_bps: float | None = None
     is_active: bool = True
     listed_date: date | None = None
 

@@ -23,16 +23,16 @@ export default async function FundDashboardPage({
 
   return (
     <HydrationBoundary state={dehydratedState}>
-      <div className="space-y-6">
-        <FundOverview fundSlug={fundSlug} />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
+        {/* Main content column */}
+        <div className="space-y-6">
+          <FundOverview fundSlug={fundSlug} />
+          <DashboardSummaryCards />
+        </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <DashboardSummaryCards />
-          </div>
-          <div>
-            <ActivityFeed />
-          </div>
+        {/* Sidebar column — activity feed stays visible */}
+        <div className="lg:sticky lg:top-6 lg:self-start">
+          <ActivityFeed />
         </div>
       </div>
     </HydrationBoundary>
