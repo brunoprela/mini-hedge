@@ -91,7 +91,7 @@ class ComplianceService:
     # ---- Rules -------------------------------------------------------
 
     async def get_rules(self, fund_slug: str) -> list[RuleDefinition]:
-        records = await self._rule_repo.get_active_by_fund(fund_slug)
+        records = await self._rule_repo.get_all_by_fund(fund_slug)
         return [_to_rule(r) for r in records]
 
     async def create_rule(

@@ -92,6 +92,7 @@ class ExecutionEngine:
         self._market_data = market_data
         self._orders: dict[str, OrderState] = {}
         self._config = ExecutionConfig()
+        self._fill_tasks: set[asyncio.Task[None]] = set()
 
     @property
     def config(self) -> ExecutionConfig:
@@ -142,13 +143,24 @@ class ExecutionEngine:
         )
         self._orders[exchange_order_id] = order
 
-        # Schedule async fill
-        asyncio.create_task(self._process_fill(order))
+        # Schedule async fill (store task ref to prevent GC + log errors)
+        task = asyncio.create_task(self._process_fill(order))
+        self._fill_tasks.add(task)
+        task.add_done_callback(self._fill_tasks.discard)
 
         return order
 
     async def _process_fill(self, order: OrderState) -> None:
         """Simulate fill after configurable delay."""
+        try:
+            await self._do_fill(order)
+        except Exception:
+            logger.exception(
+                "fill_processing_failed",
+                exchange_order_id=order.exchange_order_id,
+            )
+
+    async def _do_fill(self, order: OrderState) -> None:
         await asyncio.sleep(self._config.fill_delay_ms / 1000)
 
         # Determine fill price

@@ -49,30 +49,25 @@ class ExposureService:
     async def get_current(self, portfolio_id: UUID) -> PortfolioExposure:
         """Calculate current exposure from live positions."""
         positions = await self._positions.get_by_portfolio(portfolio_id)
+
+        # Batch-fetch all instruments in one query instead of N+1
+        instruments = await self._sm.get_all_active()
+        instr_map = {i.ticker: i for i in instruments}
+
         position_values = []
         for pos in positions:
             if pos.quantity == ZERO:
                 continue
-            # Look up instrument metadata
-            asset_class = None
-            sector = None
-            country = None
-            try:
-                instrument = await self._sm.get_by_ticker(pos.instrument_id)
-                asset_class = instrument.asset_class
-                sector = getattr(instrument, "sector", None)
-                country = getattr(instrument, "country", None)
-            except Exception:
-                pass
+            instrument = instr_map.get(pos.instrument_id)
             position_values.append(
                 PositionValue(
                     instrument_id=pos.instrument_id,
                     quantity=pos.quantity,
                     market_price=pos.market_price,
                     market_value=pos.market_value,
-                    asset_class=asset_class,
-                    sector=sector,
-                    country=country,
+                    asset_class=instrument.asset_class if instrument else None,
+                    sector=getattr(instrument, "sector", None) if instrument else None,
+                    country=getattr(instrument, "country", None) if instrument else None,
                     currency=pos.currency,
                 )
             )

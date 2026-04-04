@@ -201,11 +201,14 @@ class RiskService:
         fund_slug: str | None = None,
     ) -> RiskSnapshot:
         """Calculate and persist a complete risk snapshot."""
-        var_95 = await self.calculate_var(portfolio_id, VaRMethod.HISTORICAL, 0.95, 1)
-        var_99 = await self.calculate_var(portfolio_id, VaRMethod.HISTORICAL, 0.99, 1)
+        import asyncio
 
-        # NAV from positions
-        positions = await self._positions.get_by_portfolio(portfolio_id)
+        # Run independent calculations concurrently
+        var_95, var_99, positions = await asyncio.gather(
+            self.calculate_var(portfolio_id, VaRMethod.HISTORICAL, 0.95, 1),
+            self.calculate_var(portfolio_id, VaRMethod.HISTORICAL, 0.99, 1),
+            self._positions.get_by_portfolio(portfolio_id),
+        )
         nav = sum(
             (p.market_value for p in positions if p.market_value),
             ZERO,
@@ -303,17 +306,15 @@ class RiskService:
 
         nav = float(sum((p.market_value for p in positions if p.market_value), ZERO))
 
+        # Batch-fetch instruments instead of N+1
+        instruments = await self._sm.get_all_active()
+        sector_map = {i.ticker: getattr(i, "sector", None) for i in instruments}
+
         positions_data: dict[str, tuple[Decimal, str | None]] = {}
         for p in positions:
-            sector = None
-            try:
-                instrument = await self._sm.get_by_ticker(p.instrument_id)
-                sector = getattr(instrument, "sector", None)
-            except Exception:
-                pass
             positions_data[p.instrument_id] = (
                 p.market_value or ZERO,
-                sector,
+                sector_map.get(p.instrument_id),
             )
 
         return positions_data, nav

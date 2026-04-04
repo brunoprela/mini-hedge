@@ -139,8 +139,10 @@ class MockExchangeBrokerAdapter:
             {
                 "bootstrap.servers": self._kafka_servers,
                 "group.id": "minihedge-external-fills",
-                "auto.offset.reset": "latest",
+                "auto.offset.reset": "earliest",
                 "enable.auto.commit": True,
+                # Discover newly auto-created topics quickly (default 5 min)
+                "topic.metadata.refresh.interval.ms": 10000,
             }
         )
         consumer.subscribe([_EXTERNAL_EXECUTION_REPORTS_TOPIC])

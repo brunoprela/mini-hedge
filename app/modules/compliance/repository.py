@@ -57,6 +57,16 @@ class _RepoBase:
 class RuleRepository(_RepoBase):
     """CRUD for compliance rules."""
 
+    async def get_all_by_fund(self, fund_slug: str) -> list[ComplianceRuleRecord]:
+        async with self._session() as session:
+            stmt = (
+                select(ComplianceRuleRecord)
+                .where(ComplianceRuleRecord.fund_slug == fund_slug)
+                .order_by(ComplianceRuleRecord.created_at)
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
+
     async def get_active_by_fund(self, fund_slug: str) -> list[ComplianceRuleRecord]:
         async with self._session() as session:
             stmt = (

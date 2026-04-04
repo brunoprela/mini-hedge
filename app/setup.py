@@ -419,7 +419,7 @@ async def setup_compliance(
     # Seed default compliance rules for each fund (needs fund-scoped sessions)
     for fund in active_funds:
         fund_rule_repo = RuleRepository(session_factory, fund_slug=fund.slug)
-        existing = await fund_rule_repo.get_active_by_fund(fund.slug)
+        existing = await fund_rule_repo.get_all_by_fund(fund.slug)
         if not existing:
             rules = build_seed_compliance_rules(fund.slug)
             for rule in rules:

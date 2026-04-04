@@ -62,6 +62,12 @@ _PLATFORM_ROLES = ["ops_admin", "ops_viewer"]
 _FGA_CACHE_MAX = 256
 _FGA_CACHE_TTL = 30  # seconds
 
+# User/fund caches — avoid DB round-trips on every request
+_USER_CACHE_MAX = 256
+_USER_CACHE_TTL = 60  # seconds — user data changes rarely
+_FUND_CACHE_MAX = 64
+_FUND_CACHE_TTL = 120  # seconds — fund metadata is near-static
+
 
 class AuthService:
     """Authenticates requests via JWT or API key."""
@@ -100,6 +106,14 @@ class AuthService:
         self._keycloak_ops_client_id = keycloak_ops_client_id
         self._fga_cache: TTLCache[tuple[str, str], tuple[list[str], frozenset[str]]] = TTLCache(
             maxsize=_FGA_CACHE_MAX, ttl=_FGA_CACHE_TTL
+        )
+        # keycloak_sub → UserRecord (avoid upsert DB queries on every request)
+        self._user_cache: TTLCache[str, object] = TTLCache(
+            maxsize=_USER_CACHE_MAX, ttl=_USER_CACHE_TTL
+        )
+        # fund_slug → FundRecord (avoid fund lookup DB query on every request)
+        self._fund_cache: TTLCache[str, object] = TTLCache(
+            maxsize=_FUND_CACHE_MAX, ttl=_FUND_CACHE_TTL
         )
 
     async def authenticate_jwt(self, token: str, *, fund_slug: str | None = None) -> RequestContext:
@@ -191,7 +205,7 @@ class AuthService:
             raise AuthenticationError("Identity provider not configured", code="IDP_UNAVAILABLE")
 
         try:
-            kc_claims = decode_keycloak_token(
+            kc_claims = await decode_keycloak_token(
                 token,
                 keycloak_url=self._keycloak_url,
                 realm=self._keycloak_realm,
@@ -202,12 +216,17 @@ class AuthService:
             logger.warning("keycloak_jwt_validation_failed", error=str(e))
             raise AuthenticationError("Invalid token", code="INVALID_TOKEN") from e
 
-        # JIT user sync
-        user = await self._user_repo.upsert_from_keycloak(
-            keycloak_sub=kc_claims.sub,
-            email=kc_claims.email,
-            name=kc_claims.name,
-        )
+        # JIT user sync — cached to avoid DB round-trips on every request
+        cached_user = self._user_cache.get(kc_claims.sub)
+        if cached_user is not None:
+            user = cached_user
+        else:
+            user = await self._user_repo.upsert_from_keycloak(
+                keycloak_sub=kc_claims.sub,
+                email=kc_claims.email,
+                name=kc_claims.name,
+            )
+            self._user_cache[kc_claims.sub] = user
         if not user.is_active:
             logger.warning("keycloak_user_inactive", user_id=user.id)
             raise AuthorizationError("User account is inactive", code="USER_INACTIVE")
@@ -236,7 +255,13 @@ class AuthService:
             fund_slug = fund.slug
             fund_id = fund.id
         else:
-            fund = await self._fund_repo.get_by_slug(fund_slug)
+            cached_fund = self._fund_cache.get(fund_slug)
+            if cached_fund is not None:
+                fund = cached_fund
+            else:
+                fund = await self._fund_repo.get_by_slug(fund_slug)
+                if fund is not None:
+                    self._fund_cache[fund_slug] = fund
             if fund is None:
                 logger.warning("keycloak_fund_not_found", fund_slug=fund_slug)
                 raise AuthorizationError("Fund not found", code="FUND_NOT_FOUND")
@@ -303,7 +328,7 @@ class AuthService:
             raise AuthenticationError("Identity provider not configured", code="IDP_UNAVAILABLE")
 
         try:
-            kc_claims = decode_keycloak_token(
+            kc_claims = await decode_keycloak_token(
                 token,
                 keycloak_url=self._keycloak_url,
                 realm=self._keycloak_ops_realm,

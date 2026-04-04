@@ -116,7 +116,7 @@ def get_jwk_client(keycloak_url: str, realm: str) -> PyJWKClient:
     return _jwk_clients[jwks_url]
 
 
-def decode_keycloak_token(
+async def decode_keycloak_token(
     token: str,
     *,
     keycloak_url: str,
@@ -128,16 +128,26 @@ def decode_keycloak_token(
 
     Raises jwt.PyJWTError on failure (expired, bad signature, wrong audience).
     On key-not-found, refreshes the JWKS cache once and retries.
+
+    The JWKS HTTP fetch is synchronous in PyJWKClient, so we run it in a
+    thread executor to avoid blocking the asyncio event loop.
     """
+    import asyncio
+
+    loop = asyncio.get_running_loop()
     jwk_client = get_jwk_client(keycloak_url, realm)
     jwks_url = f"{keycloak_url}/realms/{realm}/protocol/openid-connect/certs"
     try:
-        signing_key = jwk_client.get_signing_key_from_jwt(token)
+        signing_key = await loop.run_in_executor(
+            None, jwk_client.get_signing_key_from_jwt, token,
+        )
     except PyJWTError:
         # Key mismatch — Keycloak may have rotated keys. Force cache refresh.
         _jwk_clients.pop(jwks_url, None)
         jwk_client = get_jwk_client(keycloak_url, realm)
-        signing_key = jwk_client.get_signing_key_from_jwt(token)
+        signing_key = await loop.run_in_executor(
+            None, jwk_client.get_signing_key_from_jwt, token,
+        )
     issuer_base = keycloak_browser_url or keycloak_url
     issuer = f"{issuer_base}/realms/{realm}"
 
