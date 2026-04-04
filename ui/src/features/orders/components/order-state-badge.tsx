@@ -1,12 +1,12 @@
 const STATE_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700",
-  pending_compliance: "bg-yellow-100 text-yellow-800",
-  approved: "bg-blue-100 text-blue-700",
-  rejected: "bg-red-100 text-red-700",
-  sent: "bg-indigo-100 text-indigo-700",
-  partially_filled: "bg-purple-100 text-purple-700",
-  filled: "bg-green-100 text-green-700",
-  cancelled: "bg-gray-100 text-gray-500",
+  draft: "bg-[var(--muted)] text-[var(--muted-foreground)]",
+  pending_compliance: "bg-[var(--warning-muted)] text-[var(--warning)]",
+  approved: "bg-[var(--primary-muted)] text-[var(--primary)]",
+  rejected: "bg-[var(--destructive-muted)] text-[var(--destructive)]",
+  sent: "bg-[var(--primary-muted)] text-[var(--primary)]",
+  partially_filled: "bg-[var(--accent-purple-muted)] text-[var(--accent-purple)]",
+  filled: "bg-[var(--success-muted)] text-[var(--success)]",
+  cancelled: "bg-[var(--muted)] text-[var(--muted-foreground)]",
 };
 
 const STATE_LABELS: Record<string, string> = {
@@ -21,7 +21,7 @@ const STATE_LABELS: Record<string, string> = {
 };
 
 export function OrderStateBadge({ state }: { state: string }) {
-  const color = STATE_COLORS[state] ?? "bg-gray-100 text-gray-700";
+  const color = STATE_COLORS[state] ?? "bg-[var(--muted)] text-[var(--muted-foreground)]";
   const label = STATE_LABELS[state] ?? state;
 
   return (

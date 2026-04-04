@@ -8,27 +8,37 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
-import structlog
-from fastapi import FastAPI
-from sqlalchemy import text
-
 if TYPE_CHECKING:
     from app.modules.security_master.service import SecurityMasterService
-    from app.shared.events import EventBus
+
+import structlog
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.config import get_settings
 from app.exception_handlers import register_exception_handlers
 from app.middleware.auth import AuthMiddleware
+from app.modules.alpha_engine.routes import router as alpha_router
+from app.modules.attribution.routes import router as attribution_router
+from app.modules.cash_management.routes import router as cash_router
+from app.modules.compliance.routes import router as compliance_router
+from app.modules.exposure.routes import router as exposure_router
 from app.modules.market_data.routes import router as market_data_router
 from app.modules.market_data.simulator import MarketDataSimulator
+from app.modules.orders.routes import router as orders_router
 from app.modules.platform.admin_routes import router as admin_router
 from app.modules.platform.audit_repository import AuditLogRepository
 from app.modules.platform.routes import router as platform_router
 from app.modules.positions.routes import router as positions_router
 from app.modules.realtime.routes import router as realtime_router
+from app.modules.risk_engine.routes import router as risk_router
 from app.modules.security_master.routes import router as security_master_router
 from app.setup import (
     _run_migrations,
+    setup_alpha_engine,
+    setup_attribution,
+    setup_cash_management,
     setup_compliance,
     setup_exposure,
     setup_fga,
@@ -36,12 +46,22 @@ from app.setup import (
     setup_orders,
     setup_platform,
     setup_positions,
+    setup_risk_engine,
     setup_security_master,
 )
+from app.shared.audit_bridge import AuditBridge
 from app.shared.database import build_engine
 from app.shared.fund_schema import ensure_all_fund_schemas
+from app.shared.kafka import KafkaEventBus
 from app.shared.logging import setup_logging
-from app.shared.schema_registry import fund_topic, fund_topics_for_slug, shared_topics
+from app.shared.redis import create_redis_client
+from app.shared.redis_bridge import RedisBridge
+from app.shared.schema_registry import (
+    fund_topics_for_slug,
+    load_schemas,
+    register_schemas,
+    shared_topics,
+)
 
 logger = structlog.get_logger()
 
@@ -66,10 +86,7 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     # a root stderr handler that we reuse with structlog's formatter.
     setup_logging(settings.log_level)
 
-    # Event bus — always Kafka
-    from app.shared.kafka import KafkaEventBus
-    from app.shared.schema_registry import load_schemas, register_schemas
-
+    # Event bus — Kafka
     load_schemas()
     register_schemas(settings.kafka_schema_registry_url)
 
@@ -77,7 +94,6 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
         settings.kafka_bootstrap_servers,
         consumer_group="minihedge",
     )
-    event_bus: EventBus = kafka_bus
 
     # --- Module setup ---
     # FGA must init before platform (AuthService depends on FGAClient)
@@ -104,33 +120,33 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     dlq_topics = [f"{t}.dlq" for t in all_topics]
     kafka_bus.ensure_topics(all_topics + dlq_topics)
 
-    setup_market_data(fastapi_app, session_factory, event_bus)
     sm_service: SecurityMasterService = fastapi_app.state.security_master_service
-    setup_positions(fastapi_app, session_factory, event_bus, fund_repo, sm_service)
+    setup_market_data(fastapi_app, session_factory, kafka_bus)
+    setup_positions(fastapi_app, session_factory, kafka_bus, fund_repo, sm_service)
 
     # Phase 2 modules — depend on positions + security_master being wired
-    await setup_exposure(fastapi_app, session_factory)
-    await setup_compliance(fastapi_app, session_factory, fund_repo, event_bus)
-    await setup_orders(fastapi_app, session_factory, event_bus)
+    await setup_exposure(fastapi_app, session_factory, kafka_bus, fund_repo)
+    await setup_compliance(fastapi_app, session_factory, fund_repo, kafka_bus)
+    await setup_orders(fastapi_app, session_factory, kafka_bus)
 
-    # Audit log consumer — persists trade events for compliance trail
+    # Phase 3 modules
+    await setup_risk_engine(fastapi_app, session_factory, kafka_bus, fund_repo)
+    await setup_cash_management(fastapi_app, session_factory, kafka_bus, fund_repo)
+    await setup_attribution(fastapi_app, session_factory)
+    await setup_alpha_engine(fastapi_app, session_factory)
+
+    # Audit bridge — persists ALL fund-scoped events for compliance trail
     audit_repo = AuditLogRepository(session_factory)
-    for slug in fund_slugs:
-        event_bus.subscribe(
-            fund_topic(slug, "trades.executed"),
-            audit_repo.insert,
-        )
+    audit_bridge = AuditBridge(audit_repo)
+    audit_bridge.wire(kafka_bus, fund_slugs)
 
     # Redis — bridge event bus to pub/sub for SSE streaming
     redis_client = None
     if settings.redis_enabled:
-        from app.shared.redis import create_redis_client
-        from app.shared.redis_bridge import RedisBridge
-
         redis_client = await create_redis_client(settings.redis_url)
         fastapi_app.state.redis = redis_client
         bridge = RedisBridge(redis_client)
-        bridge.wire(event_bus, fund_slugs)
+        bridge.wire(kafka_bus, fund_slugs)
 
     # Start Kafka consumers (after all subscriptions are registered)
     await kafka_bus.start()
@@ -140,7 +156,7 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     simulator: MarketDataSimulator | None = None
     if settings.simulator_enabled:
         simulator = MarketDataSimulator(
-            event_bus=event_bus,
+            event_bus=kafka_bus,
             interval_ms=settings.simulator_interval_ms,
         )
         simulator_task = asyncio.create_task(simulator.run())
@@ -184,8 +200,6 @@ app.add_middleware(AuthMiddleware)
 
 # CORS — added after AuthMiddleware so it executes first (Starlette LIFO order),
 # allowing preflight OPTIONS to succeed before auth runs.
-from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
-
 _settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
@@ -204,15 +218,13 @@ app.include_router(security_master_router, prefix="/api/v1")
 app.include_router(market_data_router, prefix="/api/v1")
 app.include_router(positions_router, prefix="/api/v1")
 app.include_router(realtime_router, prefix="/api/v1")
-
-# Phase 2 routers — lazy import to avoid circular deps at module level
-from app.modules.compliance.routes import router as compliance_router  # noqa: E402
-from app.modules.exposure.routes import router as exposure_router  # noqa: E402
-from app.modules.orders.routes import router as orders_router  # noqa: E402
-
 app.include_router(exposure_router, prefix="/api/v1")
 app.include_router(compliance_router, prefix="/api/v1")
 app.include_router(orders_router, prefix="/api/v1")
+app.include_router(risk_router, prefix="/api/v1")
+app.include_router(cash_router, prefix="/api/v1")
+app.include_router(attribution_router, prefix="/api/v1")
+app.include_router(alpha_router, prefix="/api/v1")
 
 
 @app.get("/health")

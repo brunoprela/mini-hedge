@@ -3,9 +3,9 @@
 import { useConnectionStatus } from "./realtime-provider";
 
 const STATUS_CONFIG = {
-  connected: { color: "bg-green-500", label: "Live" },
-  connecting: { color: "bg-yellow-500 animate-pulse", label: "Connecting" },
-  disconnected: { color: "bg-red-500", label: "Disconnected" },
+  connected: { color: "bg-[var(--success)]", label: "Live" },
+  connecting: { color: "bg-[var(--warning)] animate-pulse", label: "Connecting" },
+  disconnected: { color: "bg-[var(--destructive)]", label: "Disconnected" },
 } as const;
 
 export function ConnectionStatus() {

@@ -37,7 +37,7 @@ export function ExposureSummary({ portfolioId }: { portfolioId: string }) {
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-lg border border-[var(--border)] p-3">
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
       <p className="text-xs text-[var(--muted-foreground)]">{label}</p>
       <p className="mt-1 font-mono text-lg font-semibold">{value}</p>
       {sub && <p className="text-xs text-[var(--muted-foreground)]">{sub}</p>}

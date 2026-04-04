@@ -50,6 +50,14 @@ Fund = register_resource_type(
                 "can_read_compliance",
                 "can_manage_compliance",
                 "can_read_exposure",
+                # Phase 3: Risk, Cash Management
+                "can_read_risk",
+                "can_read_cash",
+                "can_write_cash",
+                # Phase 3: Attribution, Alpha
+                "can_read_attribution",
+                "can_read_alpha",
+                "can_write_alpha",
             }
         ),
     )

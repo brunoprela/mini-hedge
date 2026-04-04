@@ -263,8 +263,10 @@ def setup_positions(
 async def setup_exposure(
     fastapi_app: FastAPI,
     session_factory: TenantSessionFactory,
+    event_bus: EventBus | None = None,
+    fund_repo: FundRepository | None = None,
 ) -> None:
-    """Wire exposure module: repo, service."""
+    """Wire exposure module: repo, service, event subscriptions."""
     from app.modules.exposure.repository import ExposureRepository
     from app.modules.exposure.service import ExposureService
 
@@ -275,8 +277,43 @@ async def setup_exposure(
         exposure_repo=exposure_repo,
         position_service=position_service,
         security_master_service=sm_service,
+        event_bus=event_bus,
     )
     fastapi_app.state.exposure_service = exposure_service
+
+    # Subscribe: recalculate exposure when positions change
+    if event_bus is not None and fund_repo is not None:
+        active_funds = await fund_repo.get_all_active()
+        for fund in active_funds:
+
+            def _make_handler(slug: str):  # type: ignore[no-untyped-def]
+                async def on_position_changed(event: BaseEvent) -> None:
+                    pid_str = event.data.get("portfolio_id")
+                    if not pid_str:
+                        return
+                    from uuid import UUID
+
+                    try:
+                        await exposure_service.take_snapshot(
+                            UUID(pid_str),
+                            fund_slug=slug,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "exposure_reactive_snapshot_failed",
+                            portfolio_id=pid_str,
+                        )
+
+                return on_position_changed
+
+            event_bus.subscribe(
+                fund_topic(fund.slug, "positions.changed"),
+                _make_handler(fund.slug),
+            )
+        logger.info(
+            "exposure_subscribed_to_positions",
+            fund_count=len(active_funds),
+        )
 
 
 async def setup_compliance(
@@ -312,6 +349,8 @@ async def setup_compliance(
         violation_repo=violation_repo,
         pre_trade_gate=pre_trade_gate,
         audit_repo=audit_repo,
+        position_service=position_service,
+        security_master=security_master,
     )
     fastapi_app.state.compliance_service = compliance_service
 
@@ -320,11 +359,15 @@ async def setup_compliance(
         session_factory=session_factory,
         position_service=position_service,
         security_master=security_master,
+        event_bus=event_bus,
     )
     active_funds = await fund_repo.get_all_active()
     for fund in active_funds:
         topic = fund_topic(fund.slug, "positions.changed")
         event_bus.subscribe(topic, post_trade_monitor.handle_position_changed)
+        # Also subscribe to MTM events to detect passive breaches / auto-resolve
+        pnl_topic = fund_topic(fund.slug, "pnl.updated")
+        event_bus.subscribe(pnl_topic, post_trade_monitor.handle_mtm_update)
     logger.info("post_trade_monitor_subscribed", fund_count=len(active_funds))
 
     # Seed default compliance rules for each fund (needs fund-scoped sessions)
@@ -340,6 +383,172 @@ async def setup_compliance(
                 fund_slug=fund.slug,
                 count=len(rules),
             )
+
+    # Startup compliance scan: resolve ALL existing violations, then
+    # re-evaluate every portfolio with current data.  This prevents stale
+    # violations from prior runs (created when positions were partially
+    # loaded or when the monitor had errors).
+    from uuid import UUID as _UUID
+
+    portfolio_repo: PortfolioRepository = fastapi_app.state.portfolio_repo
+    scanned = 0
+    for fund in active_funds:
+        fund_viol_repo = ViolationRepository(session_factory, fund_slug=fund.slug)
+        portfolios = await portfolio_repo.get_by_fund(str(fund.id))
+        for portfolio in portfolios:
+            pid = _UUID(portfolio.id)
+            # Clear all active violations so the scan starts fresh
+            stale = await fund_viol_repo.get_active_by_portfolio(pid)
+            for v in stale:
+                await fund_viol_repo.resolve(
+                    _UUID(v.id), resolved_by="system_startup", resolution_type="auto",
+                )
+            try:
+                # Re-evaluate — creates violations only for actual breaches
+                await post_trade_monitor._evaluate_portfolio(
+                    pid, fund.slug, is_passive=True,
+                )
+                scanned += 1
+            except Exception:
+                logger.warning(
+                    "compliance_startup_scan_portfolio_failed",
+                    portfolio_id=portfolio.id,
+                    fund_slug=fund.slug,
+                    exc_info=True,
+                )
+    logger.info("compliance_startup_scan_complete", portfolios_scanned=scanned)
+
+
+async def setup_risk_engine(
+    fastapi_app: FastAPI,
+    session_factory: TenantSessionFactory,
+    event_bus: EventBus | None = None,
+    fund_repo: FundRepository | None = None,
+) -> None:
+    """Wire risk engine module: repo, service, event subscriptions."""
+    from app.modules.risk_engine.repository import RiskRepository
+    from app.modules.risk_engine.service import RiskService
+
+    risk_repo = RiskRepository(session_factory)
+    position_service = fastapi_app.state.position_service
+    market_data_service = fastapi_app.state.market_data_service
+    sm_service = fastapi_app.state.security_master_service
+    risk_service = RiskService(
+        risk_repo=risk_repo,
+        position_service=position_service,
+        market_data_service=market_data_service,
+        security_master_service=sm_service,
+        event_bus=event_bus,
+    )
+    fastapi_app.state.risk_service = risk_service
+
+    # Subscribe: recalculate risk when positions change
+    if event_bus is not None and fund_repo is not None:
+        active_funds = await fund_repo.get_all_active()
+        for fund in active_funds:
+
+            def _make_handler(slug: str):  # type: ignore[no-untyped-def]
+                async def on_position_changed(event: BaseEvent) -> None:
+                    pid_str = event.data.get("portfolio_id")
+                    if not pid_str:
+                        return
+                    from uuid import UUID
+
+                    try:
+                        await risk_service.take_snapshot(
+                            UUID(pid_str),
+                            fund_slug=slug,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "risk_reactive_snapshot_failed",
+                            portfolio_id=pid_str,
+                        )
+
+                return on_position_changed
+
+            event_bus.subscribe(
+                fund_topic(fund.slug, "positions.changed"),
+                _make_handler(fund.slug),
+            )
+        logger.info(
+            "risk_subscribed_to_positions",
+            fund_count=len(active_funds),
+        )
+
+
+async def setup_cash_management(
+    fastapi_app: FastAPI,
+    session_factory: TenantSessionFactory,
+    event_bus: EventBus,
+    fund_repo: FundRepository,
+) -> None:
+    """Wire cash management module: repos, service, event subscriptions."""
+    from app.modules.cash_management.repository import (
+        CashBalanceRepository,
+        CashJournalRepository,
+        CashProjectionRepository,
+        ScheduledFlowRepository,
+        SettlementRepository,
+    )
+    from app.modules.cash_management.service import CashManagementService
+
+    sm_service = fastapi_app.state.security_master_service
+    cash_service = CashManagementService(
+        balance_repo=CashBalanceRepository(session_factory),
+        journal_repo=CashJournalRepository(session_factory),
+        settlement_repo=SettlementRepository(session_factory),
+        scheduled_flow_repo=ScheduledFlowRepository(session_factory),
+        projection_repo=CashProjectionRepository(session_factory),
+        security_master_service=sm_service,
+        event_bus=event_bus,
+    )
+    fastapi_app.state.cash_service = cash_service
+
+    # Subscribe to trades.executed for automatic settlement creation
+    active_funds = await fund_repo.get_all_active()
+    for fund in active_funds:
+        topic = fund_topic(fund.slug, "trades.executed")
+        event_bus.subscribe(topic, cash_service.handle_trade_executed)
+    logger.info("cash_management_subscribed", fund_count=len(active_funds))
+
+
+async def setup_attribution(
+    fastapi_app: FastAPI,
+    session_factory: TenantSessionFactory,
+) -> None:
+    """Wire attribution module: repo, service."""
+    from app.modules.attribution.repository import AttributionRepository
+    from app.modules.attribution.service import AttributionService
+
+    attribution_repo = AttributionRepository(session_factory)
+    position_service = fastapi_app.state.position_service
+    sm_service = fastapi_app.state.security_master_service
+    attribution_service = AttributionService(
+        attribution_repo=attribution_repo,
+        position_service=position_service,
+        security_master_service=sm_service,
+    )
+    fastapi_app.state.attribution_service = attribution_service
+
+
+async def setup_alpha_engine(
+    fastapi_app: FastAPI,
+    session_factory: TenantSessionFactory,
+) -> None:
+    """Wire alpha engine module: repo, service."""
+    from app.modules.alpha_engine.repository import AlphaRepository
+    from app.modules.alpha_engine.service import AlphaService
+
+    alpha_repo = AlphaRepository(session_factory)
+    position_service = fastapi_app.state.position_service
+    sm_service = fastapi_app.state.security_master_service
+    alpha_service = AlphaService(
+        alpha_repo=alpha_repo,
+        position_service=position_service,
+        security_master_service=sm_service,
+    )
+    fastapi_app.state.alpha_service = alpha_service
 
 
 async def setup_orders(

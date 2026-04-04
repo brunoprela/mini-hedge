@@ -6,7 +6,8 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
-COPY . .
+# Copy config files only — src/ and public/ are bind-mounted at runtime
+COPY next.config.ts tsconfig.json postcss.config.mjs biome.json ./
 
 EXPOSE 3000
 CMD ["pnpm", "dev", "--hostname", "0.0.0.0"]

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { toast } from "sonner";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { usePermission } from "@/shared/hooks/use-permission";
@@ -10,9 +11,9 @@ import { violationsQueryOptions } from "../api";
 import type { Violation } from "../types";
 
 const SEVERITY_BADGE: Record<string, string> = {
-  block: "bg-red-100 text-red-800",
-  warning: "bg-yellow-100 text-yellow-800",
-  breach: "bg-orange-100 text-orange-800",
+  block: "bg-[var(--destructive-muted)] text-[var(--destructive)]",
+  warning: "bg-[var(--warning-muted)] text-[var(--warning)]",
+  breach: "bg-[var(--accent-orange-muted)] text-[var(--accent-orange)]",
 };
 
 export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
@@ -48,10 +49,10 @@ export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-[var(--border)]">
+    <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-[var(--border)] bg-[var(--muted)]">
+          <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
             <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">Rule</th>
             <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">
               Severity
@@ -62,6 +63,7 @@ export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
             <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">
               Detected
             </th>
+            <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">View</th>
             {canWrite && (
               <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">
                 Actions
@@ -71,7 +73,10 @@ export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
         </thead>
         <tbody>
           {violations.map((v) => (
-            <tr key={v.id} className="border-b border-[var(--border)] last:border-b-0">
+            <tr
+              key={v.id}
+              className="border-b border-[var(--table-border)] last:border-0 hover:bg-[var(--table-row-hover)]"
+            >
               <td className="px-4 py-3 font-medium">{v.rule_name}</td>
               <td className="px-4 py-3">
                 <span
@@ -83,6 +88,14 @@ export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
               <td className="px-4 py-3 text-[var(--muted-foreground)]">{v.message}</td>
               <td className="px-4 py-3 text-xs text-[var(--muted-foreground)]">
                 {new Date(v.detected_at).toLocaleString()}
+              </td>
+              <td className="px-4 py-3">
+                <Link
+                  href={`/${fundSlug}/portfolio/${v.portfolio_id}#positions`}
+                  className="text-[var(--foreground)] underline-offset-2 hover:underline"
+                >
+                  View &rarr;
+                </Link>
               </td>
               {canWrite && (
                 <td className="px-4 py-3">

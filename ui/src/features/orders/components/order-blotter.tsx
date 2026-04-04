@@ -18,26 +18,33 @@ export function OrderBlotter({ portfolioId }: { portfolioId: string }) {
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b text-left text-[var(--muted-foreground)]">
-            <th className="pb-2 pr-4">Instrument</th>
-            <th className="pb-2 pr-4">Side</th>
-            <th className="pb-2 pr-4">Type</th>
-            <th className="pb-2 pr-4 text-right">Qty</th>
-            <th className="pb-2 pr-4 text-right">Filled</th>
-            <th className="pb-2 pr-4 text-right">Avg Price</th>
-            <th className="pb-2 pr-4">State</th>
-            <th className="pb-2">Time</th>
+          <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)] text-left text-[var(--muted-foreground)]">
+            <th className="px-4 pb-2 pt-2 pr-4">Instrument</th>
+            <th className="pb-2 pt-2 pr-4">Side</th>
+            <th className="pb-2 pt-2 pr-4">Type</th>
+            <th className="pb-2 pt-2 pr-4 text-right">Qty</th>
+            <th className="pb-2 pt-2 pr-4 text-right">Filled</th>
+            <th className="pb-2 pt-2 pr-4 text-right">Avg Price</th>
+            <th className="pb-2 pt-2 pr-4">State</th>
+            <th className="pb-2 pt-2">Time</th>
           </tr>
         </thead>
         <tbody>
           {orders.map((order) => (
-            <tr key={order.id} className="border-b last:border-0">
+            <tr
+              key={order.id}
+              className="border-b border-[var(--table-border)] last:border-0 hover:bg-[var(--table-row-hover)]"
+            >
               <td className="py-2 pr-4 font-medium">{order.instrument_id}</td>
               <td className="py-2 pr-4">
-                <span className={order.side === "buy" ? "text-green-600" : "text-red-600"}>
+                <span
+                  className={
+                    order.side === "buy" ? "text-[var(--success)]" : "text-[var(--destructive)]"
+                  }
+                >
                   {order.side.toUpperCase()}
                 </span>
               </td>

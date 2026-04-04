@@ -9,12 +9,13 @@ export function FundSelector() {
   const pathname = usePathname();
 
   if (isLoading || funds.length <= 1) {
-    return <span className="text-sm font-medium">{fundName}</span>;
+    return (
+      <span className="text-sm font-semibold text-[var(--foreground-bright)]">{fundName}</span>
+    );
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newSlug = e.target.value;
-    // Preserve the current sub-path when switching funds
     const subPath = pathname.replace(`/${fundSlug}`, "");
     router.push(`/${newSlug}${subPath}`);
   };
@@ -23,7 +24,7 @@ export function FundSelector() {
     <select
       value={fundSlug}
       onChange={handleChange}
-      className="rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-sm"
+      className="rounded-lg border border-[var(--input-border)] bg-[var(--input)] px-3 py-1.5 text-sm text-[var(--foreground)] focus:border-[var(--primary)] focus:outline-none"
     >
       {funds.map((f) => (
         <option key={f.fund_slug} value={f.fund_slug}>

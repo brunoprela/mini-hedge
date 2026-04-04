@@ -1,4 +1,4 @@
-"""In-process event bus — will be replaced by Kafka adapter in a later phase."""
+"""Domain event primitives — BaseEvent, EventBus protocol, and in-process bus."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ EventHandler = Callable[[BaseEvent], Awaitable[None]]
 class EventBus(Protocol):
     """Protocol for event publishing/subscribing.
 
-    In-process implementation below; Kafka implementation swaps in later.
+    Production: ``KafkaEventBus``.  Tests/scripts: ``InProcessEventBus``.
     """
 
     async def publish(self, topic: str, event: BaseEvent) -> None: ...
@@ -45,11 +45,10 @@ class EventBus(Protocol):
 
 
 class InProcessEventBus:
-    """Simple async event bus backed by handler lists.
+    """In-memory event bus for tests and scripts that don't need Kafka.
 
-    Handlers run concurrently via asyncio.gather. Each handler is isolated:
-    a failure in one handler does not cancel or prevent other handlers from
-    completing (return_exceptions=True).
+    Handlers run concurrently via ``asyncio.gather`` with ``return_exceptions=True``
+    so a failure in one handler does not prevent others from completing.
     """
 
     def __init__(self) -> None:

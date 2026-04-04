@@ -54,6 +54,15 @@ const SSE_EVENT_TYPES = [
   "position.changed",
   "pnl.realized",
   "pnl.mark_to_market",
+  "order.created",
+  "order.filled",
+  "trade.approved",
+  "trade.rejected",
+  "compliance.violation",
+  "exposure.updated",
+  "risk.updated",
+  "cash.settlement.created",
+  "cash.settlement.settled",
 ];
 
 /**
@@ -76,9 +85,11 @@ export function RealtimeProvider({ children }: { children?: ReactNode }) {
     };
   }, []);
 
-  // Throttle price invalidations: collect instrument IDs and flush at most once per second
+  // Throttle invalidations: batch by type and flush at most once per second
   const priceFlushTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const pendingInstruments = useRef<Set<string>>(new Set());
+  const positionFlushTimer = useRef<ReturnType<typeof setTimeout>>(null);
+  const pendingPortfolios = useRef<Set<string>>(new Set());
 
   const flushPriceInvalidations = useCallback(() => {
     const instruments = pendingInstruments.current;
@@ -89,9 +100,24 @@ export function RealtimeProvider({ children }: { children?: ReactNode }) {
         queryKey: ["prices", "latest", fundSlug, instrumentId],
       });
     }
-    // Invalidate history queries once (not per-instrument)
+    // Invalidate history queries once per flush (not per-instrument)
     queryClient.invalidateQueries({ queryKey: ["prices", "history"] });
     instruments.clear();
+  }, [queryClient, fundSlug]);
+
+  const flushPositionInvalidations = useCallback(() => {
+    const portfolios = pendingPortfolios.current;
+    if (portfolios.size === 0) return;
+
+    for (const portfolioId of portfolios) {
+      queryClient.invalidateQueries({
+        queryKey: ["positions", fundSlug, portfolioId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["portfolio-summary", fundSlug, portfolioId],
+      });
+    }
+    portfolios.clear();
   }, [queryClient, fundSlug]);
 
   useEffect(() => {
@@ -108,7 +134,9 @@ export function RealtimeProvider({ children }: { children?: ReactNode }) {
           fund_slug: parsed.fund_slug,
         };
 
-        // Invalidate React Query caches
+        // Invalidate React Query caches — scoped to specific portfolio/instrument
+        const portfolioId = realtimeEvent.data.portfolio_id;
+
         if (eventType === "price.updated") {
           const instrumentId = realtimeEvent.data.instrument_id;
           if (instrumentId) {
@@ -120,9 +148,64 @@ export function RealtimeProvider({ children }: { children?: ReactNode }) {
               flushPriceInvalidations();
             }, 1_000);
           }
-        } else {
-          queryClient.invalidateQueries({ queryKey: ["positions"] });
-          queryClient.invalidateQueries({ queryKey: ["portfolio-summary"] });
+        } else if (
+          eventType === "trade.buy" ||
+          eventType === "trade.sell" ||
+          eventType === "position.changed" ||
+          eventType === "pnl.realized" ||
+          eventType === "pnl.mark_to_market"
+        ) {
+          // Throttle position invalidations — MTM ticks on every price change
+          if (portfolioId) {
+            pendingPortfolios.current.add(portfolioId);
+          }
+          if (!positionFlushTimer.current) {
+            positionFlushTimer.current = setTimeout(() => {
+              positionFlushTimer.current = null;
+              flushPositionInvalidations();
+            }, 2_000);
+          }
+        } else if (
+          eventType === "order.created" ||
+          eventType === "order.filled" ||
+          eventType === "trade.approved" ||
+          eventType === "trade.rejected"
+        ) {
+          if (portfolioId) {
+            queryClient.invalidateQueries({
+              queryKey: ["orders", fundSlug, portfolioId],
+            });
+          }
+        } else if (eventType === "compliance.violation") {
+          if (portfolioId) {
+            queryClient.invalidateQueries({
+              queryKey: ["violations", fundSlug, portfolioId],
+            });
+          }
+        } else if (eventType === "exposure.updated") {
+          if (portfolioId) {
+            queryClient.invalidateQueries({
+              queryKey: ["exposure", fundSlug, portfolioId],
+            });
+          }
+        } else if (eventType === "risk.updated") {
+          if (portfolioId) {
+            queryClient.invalidateQueries({
+              queryKey: ["risk-snapshot", fundSlug, portfolioId],
+            });
+          }
+        } else if (
+          eventType === "cash.settlement.created" ||
+          eventType === "cash.settlement.settled"
+        ) {
+          if (portfolioId) {
+            queryClient.invalidateQueries({
+              queryKey: ["cash-balances", fundSlug, portfolioId],
+            });
+            queryClient.invalidateQueries({
+              queryKey: ["settlements", fundSlug, portfolioId],
+            });
+          }
         }
 
         // Notify all subscribers (activity feed, etc.)
@@ -158,14 +241,16 @@ export function RealtimeProvider({ children }: { children?: ReactNode }) {
     return () => {
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       if (priceFlushTimer.current) clearTimeout(priceFlushTimer.current);
+      if (positionFlushTimer.current) clearTimeout(positionFlushTimer.current);
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
       }
       pendingInstruments.current.clear();
+      pendingPortfolios.current.clear();
       setStatus("disconnected");
     };
-  }, [fundSlug, queryClient, flushPriceInvalidations]);
+  }, [fundSlug, queryClient, flushPriceInvalidations, flushPositionInvalidations]);
 
   const value: RealtimeContextValue = { status, subscribe };
 

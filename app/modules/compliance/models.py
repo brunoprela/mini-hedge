@@ -9,6 +9,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     Index,
+    Integer,
     Numeric,
     String,
     func,
@@ -44,6 +45,7 @@ class ComplianceRuleRecord(Base):
         JSONB, nullable=False, default=dict
     )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    grace_period_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -77,13 +79,18 @@ class ComplianceViolationRecord(Base):
     message: Mapped[str] = mapped_column(String(512), nullable=False)
     current_value: Mapped[Decimal | None] = mapped_column(Numeric(18, 8), nullable=True)
     limit_value: Mapped[Decimal | None] = mapped_column(Numeric(18, 8), nullable=True)
+    breach_type: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default=text("'active'")
+    )
     detected_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
     )
+    deadline_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     resolved_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    resolution_type: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
 
 class TradeDecisionRecord(Base):

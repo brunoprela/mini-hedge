@@ -207,6 +207,74 @@
               { "computed_userset": { "relation": "compliance_officer" } }
             ]
           }
+        },
+
+        "can_read_risk": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "portfolio_manager" } },
+              { "computed_userset": { "relation": "analyst" } },
+              { "computed_userset": { "relation": "risk_manager" } },
+              { "computed_userset": { "relation": "compliance_officer" } }
+            ]
+          }
+        },
+        "can_read_cash": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "portfolio_manager" } },
+              { "computed_userset": { "relation": "analyst" } },
+              { "computed_userset": { "relation": "risk_manager" } },
+              { "computed_userset": { "relation": "compliance_officer" } }
+            ]
+          }
+        },
+        "can_write_cash": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "portfolio_manager" } }
+            ]
+          }
+        },
+
+        "can_read_attribution": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "portfolio_manager" } },
+              { "computed_userset": { "relation": "analyst" } },
+              { "computed_userset": { "relation": "risk_manager" } },
+              { "computed_userset": { "relation": "compliance_officer" } }
+            ]
+          }
+        },
+        "can_read_alpha": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "portfolio_manager" } },
+              { "computed_userset": { "relation": "analyst" } },
+              { "computed_userset": { "relation": "risk_manager" } },
+              { "computed_userset": { "relation": "compliance_officer" } }
+            ]
+          }
+        },
+        "can_write_alpha": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "portfolio_manager" } }
+            ]
+          }
         }
       },
       "metadata": {
@@ -234,7 +302,13 @@
           "can_cancel_orders": { "directly_related_user_types": [{ "type": "user" }] },
           "can_read_compliance": { "directly_related_user_types": [{ "type": "user" }] },
           "can_manage_compliance": { "directly_related_user_types": [{ "type": "user" }] },
-          "can_read_exposure": { "directly_related_user_types": [{ "type": "user" }] }
+          "can_read_exposure": { "directly_related_user_types": [{ "type": "user" }] },
+          "can_read_risk": { "directly_related_user_types": [{ "type": "user" }] },
+          "can_read_cash": { "directly_related_user_types": [{ "type": "user" }] },
+          "can_write_cash": { "directly_related_user_types": [{ "type": "user" }] },
+          "can_read_attribution": { "directly_related_user_types": [{ "type": "user" }] },
+          "can_read_alpha": { "directly_related_user_types": [{ "type": "user" }] },
+          "can_write_alpha": { "directly_related_user_types": [{ "type": "user" }] }
         }
       }
     },

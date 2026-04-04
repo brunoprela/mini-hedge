@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from app.modules.security_master.service import (
         SecurityMasterService,
     )
+    from app.shared.events import EventBus
 
 logger = structlog.get_logger()
 
@@ -38,10 +39,12 @@ class ExposureService:
         exposure_repo: ExposureRepository,
         position_service: PositionService,
         security_master_service: SecurityMasterService,
+        event_bus: EventBus | None = None,
     ) -> None:
         self._repo = exposure_repo
         self._positions = position_service
         self._sm = security_master_service
+        self._event_bus = event_bus
 
     async def get_current(self, portfolio_id: UUID) -> PortfolioExposure:
         """Calculate current exposure from live positions."""
@@ -100,7 +103,11 @@ class ExposureService:
             for r in records
         ]
 
-    async def take_snapshot(self, portfolio_id: UUID) -> None:
+    async def take_snapshot(
+        self,
+        portfolio_id: UUID,
+        fund_slug: str | None = None,
+    ) -> None:
         """Calculate and persist an exposure snapshot."""
         exposure = await self.get_current(portfolio_id)
         # Serialize breakdowns to JSON-compatible dict
@@ -130,8 +137,36 @@ class ExposureService:
             snapshot_at=exposure.calculated_at,
         )
         await self._repo.save_snapshot(record)
+        await self._publish_exposure_event(exposure, fund_slug)
         logger.info(
             "exposure_snapshot_saved",
             portfolio_id=str(portfolio_id),
             gross=str(exposure.gross_exposure),
+        )
+
+    async def _publish_exposure_event(
+        self,
+        exposure: PortfolioExposure,
+        fund_slug: str | None,
+    ) -> None:
+        """Publish an exposure.updated event to Kafka."""
+        if self._event_bus is None or not fund_slug:
+            return
+        from app.shared.events import BaseEvent
+        from app.shared.schema_registry import fund_topic
+
+        event = BaseEvent(
+            event_type="exposure.updated",
+            data={
+                "portfolio_id": str(exposure.portfolio_id),
+                "gross_exposure": str(exposure.gross_exposure),
+                "net_exposure": str(exposure.net_exposure),
+                "long_exposure": str(exposure.long_exposure),
+                "short_exposure": str(exposure.short_exposure),
+            },
+            fund_slug=fund_slug,
+        )
+        await self._event_bus.publish(
+            fund_topic(fund_slug, "exposures.updated"),
+            event,
         )

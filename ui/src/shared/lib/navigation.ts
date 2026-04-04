@@ -10,7 +10,11 @@ export interface NavItem {
     | "TrendingUp"
     | "ShieldCheck"
     | "ClipboardList"
-    | "BarChart3";
+    | "BarChart3"
+    | "AlertTriangle"
+    | "Wallet"
+    | "PieChart"
+    | "Lightbulb";
   permission?: Permission;
 }
 
@@ -39,6 +43,30 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/compliance",
     icon: "ShieldCheck",
     permission: Permission.COMPLIANCE_READ,
+  },
+  {
+    label: "Risk",
+    href: "/risk",
+    icon: "AlertTriangle",
+    permission: Permission.RISK_READ,
+  },
+  {
+    label: "Cash",
+    href: "/cash",
+    icon: "Wallet",
+    permission: Permission.CASH_READ,
+  },
+  {
+    label: "Attribution",
+    href: "/attribution",
+    icon: "PieChart",
+    permission: Permission.ATTRIBUTION_READ,
+  },
+  {
+    label: "Alpha",
+    href: "/alpha",
+    icon: "Lightbulb",
+    permission: Permission.ALPHA_READ,
   },
   {
     label: "Instruments",

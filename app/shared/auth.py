@@ -88,6 +88,20 @@ class Permission(StrEnum):
     # Phase 2: Exposure
     EXPOSURE_READ = "exposure:read"
 
+    # Phase 3: Risk
+    RISK_READ = "risk:read"
+
+    # Phase 3: Cash Management
+    CASH_READ = "cash:read"
+    CASH_WRITE = "cash:write"
+
+    # Phase 3: Performance Attribution
+    ATTRIBUTION_READ = "attribution:read"
+
+    # Phase 3: Alpha Engine
+    ALPHA_READ = "alpha:read"
+    ALPHA_WRITE = "alpha:write"
+
     # Platform-level permissions (for operators)
     PLATFORM_USERS_READ = "platform:users.read"
     PLATFORM_USERS_WRITE = "platform:users.write"
@@ -148,6 +162,12 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.COMPLIANCE_READ,
             Permission.COMPLIANCE_WRITE,
             Permission.EXPOSURE_READ,
+            Permission.RISK_READ,
+            Permission.CASH_READ,
+            Permission.CASH_WRITE,
+            Permission.ATTRIBUTION_READ,
+            Permission.ALPHA_READ,
+            Permission.ALPHA_WRITE,
         }
     ),
     Role.PORTFOLIO_MANAGER: frozenset(
@@ -163,6 +183,12 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.ORDERS_CANCEL,
             Permission.COMPLIANCE_READ,
             Permission.EXPOSURE_READ,
+            Permission.RISK_READ,
+            Permission.CASH_READ,
+            Permission.CASH_WRITE,
+            Permission.ATTRIBUTION_READ,
+            Permission.ALPHA_READ,
+            Permission.ALPHA_WRITE,
         }
     ),
     Role.ANALYST: frozenset(
@@ -173,6 +199,10 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.FUNDS_READ,
             Permission.ORDERS_READ,
             Permission.EXPOSURE_READ,
+            Permission.RISK_READ,
+            Permission.CASH_READ,
+            Permission.ATTRIBUTION_READ,
+            Permission.ALPHA_READ,
         }
     ),
     Role.RISK_MANAGER: frozenset(
@@ -184,6 +214,10 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.ORDERS_READ,
             Permission.COMPLIANCE_READ,
             Permission.EXPOSURE_READ,
+            Permission.RISK_READ,
+            Permission.CASH_READ,
+            Permission.ATTRIBUTION_READ,
+            Permission.ALPHA_READ,
         }
     ),
     Role.COMPLIANCE_OFFICER: frozenset(
@@ -196,6 +230,10 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.COMPLIANCE_READ,
             Permission.COMPLIANCE_WRITE,
             Permission.EXPOSURE_READ,
+            Permission.RISK_READ,
+            Permission.CASH_READ,
+            Permission.ATTRIBUTION_READ,
+            Permission.ALPHA_READ,
         }
     ),
     Role.VIEWER: frozenset(
@@ -228,6 +266,12 @@ FGA_FUND_PERMISSIONS = [
     "can_read_compliance",
     "can_manage_compliance",
     "can_read_exposure",
+    "can_read_risk",
+    "can_read_cash",
+    "can_write_cash",
+    "can_read_attribution",
+    "can_read_alpha",
+    "can_write_alpha",
 ]
 
 # Map FGA permission relation name → Permission enum value
@@ -246,6 +290,12 @@ FGA_PERMISSION_MAP: dict[str, str] = {
     "can_read_compliance": Permission.COMPLIANCE_READ,
     "can_manage_compliance": Permission.COMPLIANCE_WRITE,
     "can_read_exposure": Permission.EXPOSURE_READ,
+    "can_read_risk": Permission.RISK_READ,
+    "can_read_cash": Permission.CASH_READ,
+    "can_write_cash": Permission.CASH_WRITE,
+    "can_read_attribution": Permission.ATTRIBUTION_READ,
+    "can_read_alpha": Permission.ALPHA_READ,
+    "can_write_alpha": Permission.ALPHA_WRITE,
 }
 
 # Reverse map: Permission enum value → FGA relation name

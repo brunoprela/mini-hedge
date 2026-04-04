@@ -6,6 +6,13 @@ Bypasses HTTP/auth and calls TradeHandler directly with a no-op event bus
 so no Kafka connection is needed. The position read models are fully populated
 in the database; the simulator's mark-to-market handler will price them once
 the app starts.
+
+Portfolio construction is designed to be compliant with the default seed
+compliance rules:
+  - Max single-name concentration: 5% of NAV  → ~20+ positions per portfolio
+  - Max sector exposure: 25% of NAV           → diversified across 4+ sectors
+  - Max country exposure: 40% of NAV          → mix of US and international
+  - No short selling                          → all buys
 """
 
 from __future__ import annotations
@@ -52,45 +59,291 @@ logger = structlog.get_logger()
 SeedTrade = tuple[str, str, str, TradeSide, str, str]
 # (fund_slug, portfolio_id, instrument_id, side, quantity, price)
 
-ALPHA_TRADES: list[SeedTrade] = [
-    # Equity Long/Short — tech longs, bank short
-    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "AAPL", TradeSide.BUY, "500", "185.50"),
-    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "MSFT", TradeSide.BUY, "300", "420.00"),
-    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "NVDA", TradeSide.BUY, "200", "875.00"),
-    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "GOOGL", TradeSide.BUY, "400", "175.25"),
-    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "JPM", TradeSide.BUY, "350", "195.00"),
-    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "TSLA", TradeSide.BUY, "150", "245.00"),
-    # Global Macro — broad exposure
-    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "XOM", TradeSide.BUY, "600", "105.75"),
-    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "GS", TradeSide.BUY, "200", "385.00"),
-    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "JNJ", TradeSide.BUY, "400", "155.50"),
-    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "AMZN", TradeSide.BUY, "250", "185.00"),
+BUY = TradeSide.BUY
+
+# ==========================================================================
+# ALPHA FUND — diversified long-only
+# ==========================================================================
+
+ALPHA_EQUITY_LS: list[SeedTrade] = [
+    # Equity Long/Short — 26 positions, globally diversified, max ~4% per name
+    # US Technology (~12%)
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "AAPL", BUY, "55", "190.00"),
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "MSFT", BUY, "25", "420.00"),
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "NVDA", BUY, "10", "880.00"),
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "META", BUY, "20", "510.00"),
+    # US Consumer (~6%)
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "AMZN", BUY, "50", "185.00"),
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "DIS", BUY, "60", "105.00"),
+    # US Financials (~6%)
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "JPM", BUY, "40", "200.00"),
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "V", BUY, "30", "280.00"),
+    # US Healthcare (~5%)
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "JNJ", BUY, "45", "155.00"),
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "PFE", BUY, "200", "28.00"),
+    # US Consumer Staples (~4%)
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "PG", BUY, "40", "165.00"),
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "KO", BUY, "80", "62.00"),
+    # US Energy (~3%)
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "XOM", BUY, "35", "115.00"),
+    # UK (~12%)
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "AZN", BUY, "65", "120.00"),
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "HSBA", BUY, "800", "7.50"),
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "SHEL", BUY, "200", "28.00"),
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "RIO", BUY, "80", "55.00"),
+    # Europe (~12%)
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "SAP", BUY, "35", "195.00"),
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "ASML", BUY, "8", "900.00"),
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "TTE", BUY, "80", "58.00"),
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "NOVO.B", BUY, "50", "120.00"),
+    # Japan (~4%)
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "7203", BUY, "200", "22.00"),
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "6758", BUY, "50", "85.00"),
+    # Switzerland (~4%)
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "NESN", BUY, "50", "95.00"),
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "ROG", BUY, "20", "250.00"),
+    # Other (~4%)
+    ("alpha", PORTFOLIO_ALPHA_EQUITY_LS_ID, "BHP", BUY, "70", "60.00"),
 ]
 
-BETA_TRADES: list[SeedTrade] = [
-    # Stat Arb — paired positions
-    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "AAPL", TradeSide.BUY, "300", "184.00"),
-    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "MSFT", TradeSide.BUY, "200", "418.50"),
-    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "GOOGL", TradeSide.BUY, "350", "174.00"),
-    # Momentum — high-beta names
-    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "NVDA", TradeSide.BUY, "400", "870.00"),
-    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "TSLA", TradeSide.BUY, "500", "242.00"),
-    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "AMZN", TradeSide.BUY, "300", "183.50"),
-    # Market Neutral — balanced long/short
-    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "AAPL", TradeSide.BUY, "200", "185.00"),
-    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "JNJ", TradeSide.BUY, "300", "154.75"),
+ALPHA_GLOBAL_MACRO: list[SeedTrade] = [
+    # Global Macro — 24 positions, tilted toward non-US, max ~4% per name
+    # US (~28%)
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "XOM", BUY, "50", "115.00"),
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "JPM", BUY, "30", "200.00"),
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "JNJ", BUY, "35", "155.00"),
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "GOOGL", BUY, "25", "175.00"),
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "CVX", BUY, "30", "155.00"),
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "BRK.B", BUY, "12", "420.00"),
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "PG", BUY, "25", "165.00"),
+    # UK (~12%)
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "SHEL", BUY, "150", "28.00"),
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "HSBA", BUY, "450", "7.50"),
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "BP", BUY, "600", "5.50"),
+    # Europe (~16%)
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "TTE", BUY, "80", "58.00"),
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "SIE", BUY, "22", "180.00"),
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "MC", BUY, "5", "750.00"),
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "SAP", BUY, "20", "195.00"),
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "NOVO.B", BUY, "30", "120.00"),
+    # Japan (~8%)
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "7203", BUY, "200", "22.00"),
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "6758", BUY, "40", "85.00"),
+    # Switzerland (~6%)
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "NESN", BUY, "40", "95.00"),
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "NOVN", BUY, "35", "88.00"),
+    # Other (~12%)
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "BHP", BUY, "60", "60.00"),
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "RY", BUY, "30", "110.00"),
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "005930", BUY, "60", "55.00"),
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "VALE3", BUY, "200", "12.00"),
+    ("alpha", PORTFOLIO_ALPHA_GLOBAL_MACRO_ID, "2330", BUY, "150", "22.00"),
 ]
 
-GAMMA_TRADES: list[SeedTrade] = [
-    # Event-Driven — catalyst plays
-    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "AMZN", TradeSide.BUY, "350", "184.25"),
-    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "GOOGL", TradeSide.BUY, "500", "173.50"),
-    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "MSFT", TradeSide.BUY, "250", "419.00"),
-    # Distressed — value plays
-    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "XOM", TradeSide.BUY, "800", "104.50"),
-    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "JPM", TradeSide.BUY, "400", "193.50"),
-    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "GS", TradeSide.BUY, "150", "382.00"),
+ALPHA_TRADES = ALPHA_EQUITY_LS + ALPHA_GLOBAL_MACRO
+
+# ==========================================================================
+# BETA FUND — quant strategies, diversified
+# ==========================================================================
+
+BETA_STAT_ARB: list[SeedTrade] = [
+    # Stat Arb — 26 positions, tech-heavy but well diversified, max ~4% per name
+    # US Tech (~16%)
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "AAPL", BUY, "35", "190.00"),
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "MSFT", BUY, "15", "420.00"),
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "GOOGL", BUY, "30", "175.00"),
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "NVDA", BUY, "6", "880.00"),
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "META", BUY, "10", "510.00"),
+    # US Consumer (~6%)
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "AMZN", BUY, "25", "185.00"),
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "TSLA", BUY, "20", "175.00"),
+    # US Financials (~6%)
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "JPM", BUY, "20", "200.00"),
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "GS", BUY, "6", "470.00"),
+    # US Healthcare (~6%)
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "UNH", BUY, "6", "525.00"),
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "JNJ", BUY, "20", "155.00"),
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "PFE", BUY, "100", "28.00"),
+    # UK (~10%)
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "AZN", BUY, "35", "120.00"),
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "SHEL", BUY, "100", "28.00"),
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "ULVR", BUY, "80", "42.00"),
+    # Europe (~12%)
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "SAP", BUY, "20", "195.00"),
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "SIE", BUY, "18", "180.00"),
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "ASML", BUY, "4", "900.00"),
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "TTE", BUY, "45", "58.00"),
+    # Japan (~4%)
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "7203", BUY, "120", "22.00"),
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "6758", BUY, "25", "85.00"),
+    # Switzerland (~4%)
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "NESN", BUY, "30", "95.00"),
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "ROG", BUY, "12", "250.00"),
+    # Other (~8%)
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "005930", BUY, "40", "55.00"),
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "BHP", BUY, "40", "60.00"),
+    ("beta", PORTFOLIO_BETA_STAT_ARB_ID, "9988", BUY, "200", "10.00"),
 ]
+
+BETA_MOMENTUM: list[SeedTrade] = [
+    # Momentum — 24 positions, higher-beta names globally, max ~4% per name
+    # US Tech (~12%)
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "NVDA", BUY, "8", "880.00"),
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "MSFT", BUY, "15", "420.00"),
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "META", BUY, "12", "510.00"),
+    # US Consumer (~8%)
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "AMZN", BUY, "25", "185.00"),
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "TSLA", BUY, "25", "175.00"),
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "DIS", BUY, "40", "105.00"),
+    # US Financials (~6%)
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "GS", BUY, "6", "470.00"),
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "V", BUY, "15", "280.00"),
+    # US Healthcare (~4%)
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "UNH", BUY, "6", "525.00"),
+    # US Energy (~4%)
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "XOM", BUY, "20", "115.00"),
+    # US Consumer Staples (~3%)
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "KO", BUY, "50", "62.00"),
+    # UK (~10%)
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "AZN", BUY, "30", "120.00"),
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "HSBA", BUY, "350", "7.50"),
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "RIO", BUY, "40", "55.00"),
+    # Europe (~12%)
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "SAP", BUY, "18", "195.00"),
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "MC", BUY, "5", "750.00"),
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "NOVO.B", BUY, "25", "120.00"),
+    # Japan (~6%)
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "6758", BUY, "35", "85.00"),
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "7203", BUY, "150", "22.00"),
+    # Switzerland (~4%)
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "NOVN", BUY, "25", "88.00"),
+    # Other (~8%)
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "005930", BUY, "45", "55.00"),
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "BHP", BUY, "30", "60.00"),
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "RY", BUY, "20", "110.00"),
+    ("beta", PORTFOLIO_BETA_MOMENTUM_ID, "2330", BUY, "100", "22.00"),
+]
+
+BETA_MARKET_NEUTRAL: list[SeedTrade] = [
+    # Market Neutral — 24 positions, balanced sectors, max ~4% per name
+    # US Tech (~8%)
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "GOOGL", BUY, "18", "175.00"),
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "AAPL", BUY, "15", "190.00"),
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "META", BUY, "6", "510.00"),
+    # US Consumer (~6%)
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "AMZN", BUY, "12", "185.00"),
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "DIS", BUY, "25", "105.00"),
+    # US Financials (~8%)
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "JPM", BUY, "15", "200.00"),
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "BRK.B", BUY, "6", "420.00"),
+    # US Healthcare (~8%)
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "JNJ", BUY, "18", "155.00"),
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "UNH", BUY, "5", "525.00"),
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "PFE", BUY, "80", "28.00"),
+    # US Energy (~4%)
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "CVX", BUY, "15", "155.00"),
+    # UK (~12%)
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "SHEL", BUY, "90", "28.00"),
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "AZN", BUY, "22", "120.00"),
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "ULVR", BUY, "60", "42.00"),
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "BP", BUY, "400", "5.50"),
+    # Europe (~12%)
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "TTE", BUY, "35", "58.00"),
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "SIE", BUY, "12", "180.00"),
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "SAP", BUY, "12", "195.00"),
+    # Japan (~6%)
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "7203", BUY, "90", "22.00"),
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "6758", BUY, "22", "85.00"),
+    # Switzerland (~6%)
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "NESN", BUY, "20", "95.00"),
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "NOVN", BUY, "20", "88.00"),
+    # Other (~6%)
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "BHP", BUY, "22", "60.00"),
+    ("beta", PORTFOLIO_BETA_MARKET_NEUTRAL_ID, "RY", BUY, "12", "110.00"),
+]
+
+BETA_TRADES = BETA_STAT_ARB + BETA_MOMENTUM + BETA_MARKET_NEUTRAL
+
+# ==========================================================================
+# GAMMA FUND — thematic but diversified
+# ==========================================================================
+
+GAMMA_EVENT_DRIVEN: list[SeedTrade] = [
+    # Event-Driven — 24 positions, catalyst plays globally, max ~4% per name
+    # US Tech (~12%)
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "MSFT", BUY, "14", "420.00"),
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "GOOGL", BUY, "22", "175.00"),
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "NVDA", BUY, "5", "880.00"),
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "META", BUY, "8", "510.00"),
+    # US Consumer (~6%)
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "AMZN", BUY, "18", "185.00"),
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "TSLA", BUY, "15", "175.00"),
+    # US Financials (~6%)
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "JPM", BUY, "15", "200.00"),
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "V", BUY, "12", "280.00"),
+    # US Healthcare (~4%)
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "UNH", BUY, "4", "525.00"),
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "PFE", BUY, "100", "28.00"),
+    # UK (~10%)
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "AZN", BUY, "28", "120.00"),
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "HSBA", BUY, "350", "7.50"),
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "SHEL", BUY, "80", "28.00"),
+    # Europe (~12%)
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "MC", BUY, "4", "750.00"),
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "SAP", BUY, "15", "195.00"),
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "TTE", BUY, "45", "58.00"),
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "ASML", BUY, "3", "900.00"),
+    # Japan (~4%)
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "6758", BUY, "20", "85.00"),
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "7203", BUY, "80", "22.00"),
+    # Switzerland (~6%)
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "NESN", BUY, "22", "95.00"),
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "NOVN", BUY, "22", "88.00"),
+    # Other (~8%)
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "005930", BUY, "30", "55.00"),
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "BHP", BUY, "30", "60.00"),
+    ("gamma", PORTFOLIO_GAMMA_EVENT_DRIVEN_ID, "RY", BUY, "15", "110.00"),
+]
+
+GAMMA_DISTRESSED: list[SeedTrade] = [
+    # Distressed/Value — 24 positions, value-oriented globally, max ~4% per name
+    # US Financials (~8%)
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "JPM", BUY, "18", "200.00"),
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "GS", BUY, "6", "470.00"),
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "BRK.B", BUY, "6", "420.00"),
+    # US Energy (~6%)
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "XOM", BUY, "22", "115.00"),
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "CVX", BUY, "15", "155.00"),
+    # US Healthcare (~6%)
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "JNJ", BUY, "15", "155.00"),
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "PFE", BUY, "100", "28.00"),
+    # US Tech (~6%)
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "AAPL", BUY, "12", "190.00"),
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "MSFT", BUY, "5", "420.00"),
+    # US Consumer Staples (~4%)
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "KO", BUY, "40", "62.00"),
+    # UK (~12%)
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "HSBA", BUY, "350", "7.50"),
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "SHEL", BUY, "100", "28.00"),
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "AZN", BUY, "22", "120.00"),
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "ULVR", BUY, "60", "42.00"),
+    # Europe (~12%)
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "SIE", BUY, "15", "180.00"),
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "TTE", BUY, "45", "58.00"),
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "MC", BUY, "3", "750.00"),
+    # Japan (~6%)
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "7203", BUY, "90", "22.00"),
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "6758", BUY, "20", "85.00"),
+    # Switzerland (~6%)
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "NESN", BUY, "20", "95.00"),
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "NOVN", BUY, "20", "88.00"),
+    # Other (~8%)
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "BHP", BUY, "35", "60.00"),
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "RY", BUY, "15", "110.00"),
+    ("gamma", PORTFOLIO_GAMMA_DISTRESSED_ID, "VALE3", BUY, "150", "12.00"),
+]
+
+GAMMA_TRADES = GAMMA_EVENT_DRIVEN + GAMMA_DISTRESSED
 
 ALL_TRADES = ALPHA_TRADES + BETA_TRADES + GAMMA_TRADES
 
@@ -153,7 +406,7 @@ async def main() -> None:
             quantity=Decimal(qty),
             price=Decimal(price),
         )
-        label = f"{side.value.upper():4s} {qty:>5s} {instrument_id:<5s} @ {price:>8s}"
+        label = f"{side.value.upper():4s} {qty:>5s} {instrument_id:<7s} @ {price:>8s}"
         print(f"  {label}  [{fund_slug}]")
 
     print(f"\nDone — {len(ALL_TRADES)} trades executed, positions populated.")

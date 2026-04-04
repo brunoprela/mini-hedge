@@ -11,9 +11,9 @@ import type { RuleDefinition } from "../types";
 import { RuleFormDialog } from "./rule-form-dialog";
 
 const SEVERITY_BADGE: Record<string, string> = {
-  block: "bg-red-100 text-red-800",
-  warning: "bg-yellow-100 text-yellow-800",
-  breach: "bg-orange-100 text-orange-800",
+  block: "bg-[var(--destructive-muted)] text-[var(--destructive)]",
+  warning: "bg-[var(--warning-muted)] text-[var(--warning)]",
+  breach: "bg-[var(--accent-orange-muted)] text-[var(--accent-orange)]",
 };
 
 function formatRuleType(type: string): string {
@@ -103,10 +103,10 @@ export function RuleTable() {
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-[var(--border)]">
+      <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-[var(--border)] bg-[var(--muted)]">
+            <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
               <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">
                 Name
               </th>
@@ -141,7 +141,10 @@ export function RuleTable() {
               </tr>
             )}
             {rules?.map((rule) => (
-              <tr key={rule.id} className="border-b border-[var(--border)] last:border-b-0">
+              <tr
+                key={rule.id}
+                className="border-b border-[var(--table-border)] last:border-0 hover:bg-[var(--table-row-hover)]"
+              >
                 <td className="px-4 py-3 font-medium">{rule.name}</td>
                 <td className="px-4 py-3">{formatRuleType(rule.rule_type)}</td>
                 <td className="px-4 py-3">
@@ -160,11 +163,11 @@ export function RuleTable() {
                     disabled={!canWrite || toggleMutation.isPending}
                     onClick={() => toggleMutation.mutate(rule)}
                     className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                      rule.is_active ? "bg-green-500" : "bg-gray-300"
+                      rule.is_active ? "bg-[var(--success)]" : "bg-[var(--border-bright)]"
                     } ${!canWrite ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
                   >
                     <span
-                      className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
+                      className={`inline-block h-3.5 w-3.5 rounded-full bg-[var(--card)] transition-transform ${
                         rule.is_active ? "translate-x-4.5" : "translate-x-0.5"
                       }`}
                     />

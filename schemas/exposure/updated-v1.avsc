@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "ExposureUpdated",
+  "namespace": "com.minihedge.exposure",
+  "doc": "Emitted when portfolio exposure is recalculated.",
+  "fields": [
+    {"name": "portfolio_id", "type": "string"},
+    {"name": "gross_exposure", "type": "string", "doc": "Decimal as string"},
+    {"name": "net_exposure", "type": "string", "doc": "Decimal as string"},
+    {"name": "long_exposure", "type": "string", "doc": "Decimal as string"},
+    {"name": "short_exposure", "type": "string", "doc": "Decimal as string"}
+  ]
+}

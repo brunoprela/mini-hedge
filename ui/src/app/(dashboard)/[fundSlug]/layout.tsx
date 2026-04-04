@@ -6,7 +6,7 @@ import { RealtimeProvider } from "@/shared/components/realtime-provider";
 export default function FundLayout({ children }: { children: ReactNode }) {
   return (
     <RealtimeProvider>
-      <div className="flex h-screen">
+      <div className="flex h-screen bg-[var(--background)]">
         <Sidebar />
         <div className="flex flex-1 flex-col overflow-hidden">
           <Header />

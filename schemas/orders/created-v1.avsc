@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "OrderCreated",
+  "namespace": "com.minihedge.orders",
+  "doc": "Emitted when a new order is created in the OMS.",
+  "fields": [
+    {"name": "order_id", "type": "string"},
+    {"name": "portfolio_id", "type": "string"},
+    {"name": "instrument_id", "type": "string"},
+    {"name": "side", "type": {"type": "enum", "name": "OrderSide", "symbols": ["buy", "sell"]}},
+    {"name": "order_type", "type": "string"},
+    {"name": "quantity", "type": "string", "doc": "Decimal as string"},
+    {"name": "state", "type": "string"}
+  ]
+}

@@ -17,6 +17,7 @@ def build_seed_compliance_rules(
             severity="block",
             parameters={"max_pct": 5},
             is_active=True,
+            grace_period_hours=72,  # 3 business days to cure passive breaches
         ),
         ComplianceRuleRecord(
             fund_slug=fund_slug,
@@ -33,6 +34,7 @@ def build_seed_compliance_rules(
             severity="block",
             parameters={"max_pct": 25},
             is_active=True,
+            grace_period_hours=120,  # 5 business days
         ),
         ComplianceRuleRecord(
             fund_slug=fund_slug,
@@ -41,6 +43,7 @@ def build_seed_compliance_rules(
             severity="breach",
             parameters={"max_pct": 40},
             is_active=True,
+            grace_period_hours=120,  # 5 business days
         ),
         ComplianceRuleRecord(
             fund_slug=fund_slug,

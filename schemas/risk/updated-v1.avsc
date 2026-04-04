@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "RiskUpdated",
+  "namespace": "com.minihedge.risk",
+  "doc": "Emitted when portfolio risk metrics are recalculated.",
+  "fields": [
+    {"name": "portfolio_id", "type": "string"},
+    {"name": "nav", "type": "string", "doc": "Decimal as string"},
+    {"name": "var_95_1d", "type": "string", "doc": "Decimal as string"},
+    {"name": "var_99_1d", "type": "string", "doc": "Decimal as string"},
+    {"name": "expected_shortfall_95", "type": "string", "doc": "Decimal as string"}
+  ]
+}

@@ -10,6 +10,7 @@ from app.modules.compliance.dependencies import (
 )
 from app.modules.compliance.interface import (
     ComplianceDecision,
+    RemediationSuggestion,
     RuleDefinition,
     RuleType,
     Severity,
@@ -51,6 +52,13 @@ class ResolveBody(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     resolved_by: str
+
+
+class WaiveBody(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    waived_by: str
+    reason: str
 
 
 # ---------------------------------------------------------------------------
@@ -133,3 +141,32 @@ async def resolve_violation(
         return await service.resolve_violation(violation_id, body.resolved_by)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post(
+    "/violations/{violation_id}/waive",
+    response_model=Violation,
+)
+async def waive_violation(
+    violation_id: UUID,
+    body: WaiveBody,
+    ctx: RequestContext = require_permission(Permission.COMPLIANCE_WRITE),
+    service: ComplianceService = Depends(get_compliance_service),
+) -> Violation:
+    try:
+        return await service.waive_violation(violation_id, body.waived_by, body.reason)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get(
+    "/violations/remediation",
+    response_model=list[RemediationSuggestion],
+)
+async def suggest_remediation(
+    portfolio_id: UUID,
+    ctx: RequestContext = require_permission(Permission.COMPLIANCE_READ),
+    service: ComplianceService = Depends(get_compliance_service),
+) -> list[RemediationSuggestion]:
+    """Suggest trades to cure active compliance violations."""
+    return await service.suggest_remediation(portfolio_id)

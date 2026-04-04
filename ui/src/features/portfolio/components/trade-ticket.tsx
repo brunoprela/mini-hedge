@@ -1,8 +1,10 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { runWhatIf } from "@/features/alpha/api";
+import type { WhatIfResult } from "@/features/alpha/types";
 import { instrumentSearchQueryOptions } from "@/features/instruments/api";
 import { latestPriceQueryOptions } from "@/features/market-data/api";
 import { createOrder } from "@/features/orders/api";
@@ -25,6 +27,9 @@ export function TradeTicket({ portfolioId, onClose }: TradeTicketProps) {
   const [price, setPrice] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [rejectionDetail, setRejectionDetail] = useState<OrderSummary | null>(null);
+  const [impact, setImpact] = useState<WhatIfResult | null>(null);
+  const [impactLoading, setImpactLoading] = useState(false);
+  const [showImpact, setShowImpact] = useState(true);
 
   const { data: searchResults } = useQuery(instrumentSearchQueryOptions(fundSlug, search));
 
@@ -63,6 +68,37 @@ export function TradeTicket({ portfolioId, onClose }: TradeTicketProps) {
     },
   });
 
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  useEffect(() => {
+    // Clear previous impact when inputs change
+    if (!instrumentId || Number(quantity) <= 0 || Number(price) <= 0) {
+      setImpact(null);
+      return;
+    }
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    debounceRef.current = setTimeout(async () => {
+      setImpactLoading(true);
+      try {
+        const result = await runWhatIf(fundSlug, portfolioId, {
+          scenario_name: "trade-preview",
+          trades: [{ instrument_id: instrumentId, side, quantity, price }],
+        });
+        setImpact(result);
+      } catch {
+        setImpact(null);
+      } finally {
+        setImpactLoading(false);
+      }
+    }, 500);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [instrumentId, quantity, price, side, fundSlug, portfolioId]);
+
   function selectInstrument(ticker: string) {
     setInstrumentId(ticker);
     setSearch("");
@@ -94,7 +130,7 @@ export function TradeTicket({ portfolioId, onClose }: TradeTicketProps) {
 
         {/* Rejection detail */}
         {rejectionDetail && (
-          <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          <div className="mb-4 rounded-md border border-[var(--destructive)]/20 bg-[var(--destructive-muted)] p-3 text-sm text-[var(--destructive)]">
             <p className="font-medium">Compliance Rejected</p>
             {rejectionDetail.rejection_reason && (
               <p className="mt-1 text-xs">{rejectionDetail.rejection_reason}</p>
@@ -104,7 +140,7 @@ export function TradeTicket({ portfolioId, onClose }: TradeTicketProps) {
                 {(rejectionDetail.compliance_results as Record<string, unknown>[]).map((r, i) => (
                   <li
                     key={`result-${r.rule_id ?? i}`}
-                    className={r.passed ? "text-green-700" : "text-red-700"}
+                    className={r.passed ? "text-[var(--success)]" : "text-[var(--destructive)]"}
                   >
                     {r.passed ? "\u2713" : "\u2717"} {String(r.rule_name)}: {String(r.message)}
                   </li>
@@ -128,7 +164,7 @@ export function TradeTicket({ portfolioId, onClose }: TradeTicketProps) {
             onClick={() => setSide("buy")}
             className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
               side === "buy"
-                ? "bg-green-600 text-white"
+                ? "bg-[var(--success)] text-white"
                 : "border border-[var(--border)] text-[var(--muted-foreground)]"
             }`}
           >
@@ -139,7 +175,7 @@ export function TradeTicket({ portfolioId, onClose }: TradeTicketProps) {
             onClick={() => setSide("sell")}
             className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
               side === "sell"
-                ? "bg-red-600 text-white"
+                ? "bg-[var(--destructive)] text-white"
                 : "border border-[var(--border)] text-[var(--muted-foreground)]"
             }`}
           >
@@ -249,6 +285,56 @@ export function TradeTicket({ portfolioId, onClose }: TradeTicketProps) {
           </p>
         )}
 
+        {/* Impact Preview */}
+        {(impact || impactLoading) && (
+          <div className="mb-4 rounded-md border border-[var(--border)] bg-[var(--muted)] p-3">
+            <button
+              type="button"
+              onClick={() => setShowImpact(!showImpact)}
+              className="flex w-full items-center justify-between text-sm font-medium"
+            >
+              Impact Preview
+              <span className="text-xs text-[var(--muted-foreground)]">
+                {showImpact ? "▾" : "▸"}
+              </span>
+            </button>
+            {showImpact &&
+              (impactLoading ? (
+                <p className="mt-2 text-xs text-[var(--muted-foreground)]">Calculating impact...</p>
+              ) : impact ? (
+                <div className="mt-2 space-y-1.5 text-sm">
+                  <ImpactRow
+                    label="NAV"
+                    before={fmtUsd(impact.current_nav)}
+                    after={fmtUsd(impact.proposed_nav)}
+                    delta={impact.nav_change_pct}
+                  />
+                  {impact.current_var_95 && impact.proposed_var_95 && (
+                    <ImpactRow
+                      label="VaR 95%"
+                      before={fmtUsd(impact.current_var_95)}
+                      after={fmtUsd(impact.proposed_var_95)}
+                    />
+                  )}
+                  {impact.compliance_issues.length > 0 && (
+                    <div className="mt-2 rounded border border-[var(--destructive)]/20 bg-[var(--destructive-muted)] p-2">
+                      <p className="text-xs font-medium text-[var(--destructive)]">
+                        Compliance Warnings
+                      </p>
+                      <ul className="mt-1 space-y-0.5">
+                        {impact.compliance_issues.map((issue) => (
+                          <li key={issue} className="text-xs text-[var(--destructive)]">
+                            ⚠ {issue}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ) : null)}
+          </div>
+        )}
+
         {/* Submit */}
         <div className="flex gap-2">
           <button
@@ -264,8 +350,8 @@ export function TradeTicket({ portfolioId, onClose }: TradeTicketProps) {
             disabled={!canSubmit}
             className={`flex-1 rounded-md py-2 text-sm font-medium text-white transition-colors ${
               side === "buy"
-                ? "bg-green-600 hover:bg-green-700 disabled:bg-green-600/50"
-                : "bg-red-600 hover:bg-red-700 disabled:bg-red-600/50"
+                ? "bg-[var(--success)] hover:brightness-110 disabled:opacity-50"
+                : "bg-[var(--destructive)] hover:brightness-110 disabled:opacity-50"
             }`}
           >
             {mutation.isPending
@@ -276,4 +362,47 @@ export function TradeTicket({ portfolioId, onClose }: TradeTicketProps) {
       </div>
     </div>
   );
+}
+
+function ImpactRow({
+  label,
+  before,
+  after,
+  delta,
+}: {
+  label: string;
+  before: string;
+  after: string;
+  delta?: string;
+}) {
+  return (
+    <div className="flex items-baseline justify-between">
+      <span className="text-xs text-[var(--muted-foreground)]">{label}</span>
+      <div className="flex items-baseline gap-2 font-mono text-xs">
+        <span className="text-[var(--muted-foreground)]">{before}</span>
+        <span>→</span>
+        <span className="font-medium">{after}</span>
+        {delta && (
+          <span
+            className={
+              parseFloat(delta) >= 0 ? "text-[var(--success)]" : "text-[var(--destructive)]"
+            }
+          >
+            ({parseFloat(delta) >= 0 ? "+" : ""}
+            {parseFloat(delta).toFixed(2)}%)
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function fmtUsd(v: string): string {
+  const n = parseFloat(v);
+  if (Number.isNaN(n)) return v;
+  return n.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
 }

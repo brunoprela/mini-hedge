@@ -1,8 +1,8 @@
-"""Kafka event bus — implements the ``EventBus`` protocol over Confluent Kafka.
+"""Kafka event bus — production ``EventBus`` implementation over Confluent Kafka.
 
-Produces events as Avro-encoded binary (envelope + payload) using the schema
-registry module. Consumes in a background asyncio task per subscription,
-polling Kafka in a thread to avoid blocking the event loop.
+Produces Avro-encoded events (envelope + payload) via the schema registry.
+Consumes in background asyncio tasks, polling Kafka in a thread pool to
+avoid blocking the event loop.
 """
 
 from __future__ import annotations
@@ -28,12 +28,11 @@ logger = structlog.get_logger()
 
 
 class KafkaEventBus:
-    """Kafka-backed event bus implementing the ``EventBus`` protocol.
+    """Production event bus backed by Confluent Kafka.
 
-    - **Publishing** is async: ``confluent_kafka.Producer.produce()`` is
-      non-blocking; delivery confirmation is polled in a background task.
-    - **Subscribing** spawns a background asyncio task per topic that polls
-      Kafka in a thread pool to avoid blocking the event loop.
+    Publishing is non-blocking (``Producer.produce`` + ``poll``).  Each
+    subscribed topic gets a background consumer task that polls in a thread
+    pool to keep the event loop free.
     """
 
     def __init__(

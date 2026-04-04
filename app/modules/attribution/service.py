@@ -1,0 +1,345 @@
+"""Performance attribution service."""
+
+from __future__ import annotations
+
+from datetime import date
+from decimal import Decimal
+from typing import TYPE_CHECKING
+from uuid import UUID
+
+import numpy as np
+import structlog
+
+from app.modules.attribution.calculator import (
+    calculate_brinson_fachler,
+    calculate_risk_based_attribution,
+    link_multi_period,
+)
+from app.modules.attribution.interface import (
+    BrinsonFachlerResult,
+    CumulativeAttribution,
+    RiskBasedResult,
+    SectorAttribution,
+)
+from app.modules.attribution.models import (
+    BrinsonFachlerRecord,
+    BrinsonFachlerSectorRecord,
+    RiskBasedRecord,
+    RiskFactorContributionRecord,
+)
+
+if TYPE_CHECKING:
+    from app.modules.attribution.repository import AttributionRepository
+    from app.modules.positions.service import PositionService
+    from app.modules.security_master.service import SecurityMasterService
+
+logger = structlog.get_logger()
+
+ZERO = Decimal(0)
+
+
+class AttributionService:
+    """Calculates and persists performance attribution."""
+
+    def __init__(
+        self,
+        *,
+        attribution_repo: AttributionRepository,
+        position_service: PositionService,
+        security_master_service: SecurityMasterService,
+    ) -> None:
+        self._repo = attribution_repo
+        self._positions = position_service
+        self._sm = security_master_service
+
+    async def calculate_brinson_fachler(
+        self,
+        portfolio_id: UUID,
+        period_start: date,
+        period_end: date,
+    ) -> BrinsonFachlerResult:
+        """Calculate Brinson-Fachler attribution for a period."""
+        positions = await self._positions.get_by_portfolio(portfolio_id)
+        positions = [p for p in positions if p.quantity != ZERO]
+
+        if not positions:
+            return BrinsonFachlerResult(
+                portfolio_id=portfolio_id,
+                period_start=period_start,
+                period_end=period_end,
+                portfolio_return=ZERO,
+                benchmark_return=ZERO,
+                active_return=ZERO,
+                total_allocation=ZERO,
+                total_selection=ZERO,
+                total_interaction=ZERO,
+                sectors=[],
+                calculated_at=__import__("datetime").datetime.now(__import__("datetime").UTC),
+            )
+
+        nav = float(sum((p.market_value for p in positions if p.market_value), ZERO))
+        instrument_ids = [p.instrument_id for p in positions]
+
+        # Build weights and sector map
+        portfolio_weights: dict[str, float] = {}
+        sector_map: dict[str, str] = {}
+
+        for p in positions:
+            w = float(p.market_value) / nav if nav > 0 else 0.0
+            portfolio_weights[p.instrument_id] = w
+            try:
+                instrument = await self._sm.get_by_ticker(p.instrument_id)
+                sector_map[p.instrument_id] = getattr(instrument, "sector", "Unknown") or "Unknown"
+            except Exception:
+                sector_map[p.instrument_id] = "Unknown"
+
+        # Equal-weight benchmark (simplification — use market-cap in production)
+        n = len(instrument_ids)
+        benchmark_weights = {iid: 1.0 / n for iid in instrument_ids}
+
+        # Synthetic returns for the period
+        returns = self._generate_synthetic_returns(instrument_ids)
+        portfolio_returns = dict(zip(instrument_ids, returns, strict=True))
+        benchmark_returns = portfolio_returns  # same returns, different weights
+
+        result = calculate_brinson_fachler(
+            portfolio_id,
+            period_start,
+            period_end,
+            portfolio_weights,
+            benchmark_weights,
+            portfolio_returns,
+            benchmark_returns,
+            sector_map,
+        )
+
+        # Persist
+        await self._persist_brinson_fachler(result)
+
+        logger.info(
+            "brinson_fachler_calculated",
+            portfolio_id=str(portfolio_id),
+            active_return=str(result.active_return),
+        )
+        return result
+
+    async def calculate_risk_based(
+        self,
+        portfolio_id: UUID,
+        period_start: date,
+        period_end: date,
+    ) -> RiskBasedResult:
+        """Calculate risk-based P&L attribution."""
+        positions = await self._positions.get_by_portfolio(portfolio_id)
+        positions = [p for p in positions if p.quantity != ZERO]
+
+        if not positions:
+            return RiskBasedResult(
+                portfolio_id=portfolio_id,
+                period_start=period_start,
+                period_end=period_end,
+                total_pnl=ZERO,
+                systematic_pnl=ZERO,
+                idiosyncratic_pnl=ZERO,
+                systematic_pct=ZERO,
+                factor_contributions=[],
+                calculated_at=__import__("datetime").datetime.now(__import__("datetime").UTC),
+            )
+
+        nav = float(sum((p.market_value for p in positions if p.market_value), ZERO))
+        instrument_ids = [p.instrument_id for p in positions]
+
+        weights = {
+            p.instrument_id: float(p.market_value) / nav
+            for p in positions
+            if p.market_value and nav > 0
+        }
+
+        sector_map: dict[str, str] = {}
+        for iid in instrument_ids:
+            try:
+                instrument = await self._sm.get_by_ticker(iid)
+                sector_map[iid] = getattr(instrument, "sector", "Unknown") or "Unknown"
+            except Exception:
+                sector_map[iid] = "Unknown"
+
+        # Build returns matrix from simulator params
+        returns_matrix = self._build_returns_matrix(instrument_ids)
+
+        result = calculate_risk_based_attribution(
+            portfolio_id,
+            period_start,
+            period_end,
+            weights,
+            returns_matrix,
+            instrument_ids,
+            sector_map,
+            nav,
+        )
+
+        # Persist
+        await self._persist_risk_based(result)
+
+        logger.info(
+            "risk_based_attribution_calculated",
+            portfolio_id=str(portfolio_id),
+            systematic_pct=str(result.systematic_pct),
+        )
+        return result
+
+    async def calculate_cumulative(
+        self,
+        portfolio_id: UUID,
+        period_start: date,
+        period_end: date,
+    ) -> CumulativeAttribution:
+        """Calculate multi-period cumulative attribution using Carino linking."""
+        # Get stored single-period results
+        records = await self._repo.get_brinson_fachler(portfolio_id, period_start, period_end)
+
+        period_results: list[BrinsonFachlerResult] = []
+        for r in records:
+            sectors_records = await self._repo.get_bf_sectors(r.id)
+            sectors = [
+                SectorAttribution(
+                    sector=s.sector,
+                    portfolio_weight=s.portfolio_weight,
+                    benchmark_weight=s.benchmark_weight,
+                    portfolio_return=s.portfolio_return,
+                    benchmark_return=s.benchmark_return,
+                    allocation_effect=s.allocation_effect,
+                    selection_effect=s.selection_effect,
+                    interaction_effect=s.interaction_effect,
+                    total_effect=s.total_effect,
+                )
+                for s in sectors_records
+            ]
+            period_results.append(
+                BrinsonFachlerResult(
+                    id=r.id,
+                    portfolio_id=r.portfolio_id,
+                    period_start=r.period_start,
+                    period_end=r.period_end,
+                    portfolio_return=r.portfolio_return,
+                    benchmark_return=r.benchmark_return,
+                    active_return=r.active_return,
+                    total_allocation=r.total_allocation,
+                    total_selection=r.total_selection,
+                    total_interaction=r.total_interaction,
+                    sectors=sectors,
+                    calculated_at=r.calculated_at,
+                )
+            )
+
+        # If no stored periods, calculate a single period
+        if not period_results:
+            single = await self.calculate_brinson_fachler(portfolio_id, period_start, period_end)
+            period_results = [single]
+
+        result = link_multi_period(portfolio_id, period_start, period_end, period_results)
+
+        logger.info(
+            "cumulative_attribution_calculated",
+            portfolio_id=str(portfolio_id),
+            periods=len(period_results),
+        )
+        return result
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _generate_synthetic_returns(
+        instrument_ids: list[str],
+    ) -> list[float]:
+        """Generate synthetic period returns based on simulator params."""
+        from app.modules.market_data.simulator import DEFAULT_UNIVERSE
+
+        drift_map = {cfg.ticker: cfg.annual_drift for cfg in DEFAULT_UNIVERSE}
+        vol_map = {cfg.ticker: cfg.annual_volatility for cfg in DEFAULT_UNIVERSE}
+
+        returns = []
+        for iid in instrument_ids:
+            drift = drift_map.get(iid, 0.08) / 12  # monthly
+            vol = vol_map.get(iid, 0.25) / np.sqrt(12)
+            ret = float(np.random.normal(drift, vol))
+            returns.append(ret)
+        return returns
+
+    @staticmethod
+    def _build_returns_matrix(
+        instrument_ids: list[str],
+        n_days: int = 252,
+    ) -> np.ndarray:  # type: ignore[type-arg]
+        """Build synthetic returns matrix."""
+        from app.modules.market_data.simulator import DEFAULT_UNIVERSE
+
+        vol_map = {cfg.ticker: cfg.annual_volatility for cfg in DEFAULT_UNIVERSE}
+        drift_map = {cfg.ticker: cfg.annual_drift for cfg in DEFAULT_UNIVERSE}
+
+        n = len(instrument_ids)
+        matrix = np.zeros((n_days, n))
+        for i, iid in enumerate(instrument_ids):
+            daily_vol = vol_map.get(iid, 0.25) / np.sqrt(252)
+            daily_drift = drift_map.get(iid, 0.08) / 252
+            matrix[:, i] = np.random.normal(daily_drift, daily_vol, n_days)
+        return matrix
+
+    async def _persist_brinson_fachler(self, result: BrinsonFachlerResult) -> None:
+        record = BrinsonFachlerRecord(
+            portfolio_id=str(result.portfolio_id),
+            period_start=result.period_start,
+            period_end=result.period_end,
+            portfolio_return=result.portfolio_return,
+            benchmark_return=result.benchmark_return,
+            active_return=result.active_return,
+            total_allocation=result.total_allocation,
+            total_selection=result.total_selection,
+            total_interaction=result.total_interaction,
+            calculated_at=result.calculated_at,
+        )
+
+        sectors = [
+            BrinsonFachlerSectorRecord(
+                bf_result_id=record.id,
+                sector=s.sector,
+                portfolio_weight=s.portfolio_weight,
+                benchmark_weight=s.benchmark_weight,
+                portfolio_return=s.portfolio_return,
+                benchmark_return=s.benchmark_return,
+                allocation_effect=s.allocation_effect,
+                selection_effect=s.selection_effect,
+                interaction_effect=s.interaction_effect,
+                total_effect=s.total_effect,
+            )
+            for s in result.sectors
+        ]
+
+        await self._repo.save_brinson_fachler(record, sectors)
+
+    async def _persist_risk_based(self, result: RiskBasedResult) -> None:
+        record = RiskBasedRecord(
+            portfolio_id=str(result.portfolio_id),
+            period_start=result.period_start,
+            period_end=result.period_end,
+            total_pnl=result.total_pnl,
+            systematic_pnl=result.systematic_pnl,
+            idiosyncratic_pnl=result.idiosyncratic_pnl,
+            systematic_pct=result.systematic_pct,
+            calculated_at=result.calculated_at,
+        )
+
+        factors = [
+            RiskFactorContributionRecord(
+                rb_result_id=record.id,
+                factor=f.factor,
+                factor_return=f.factor_return,
+                portfolio_exposure=f.portfolio_exposure,
+                pnl_contribution=f.pnl_contribution,
+                pct_of_total=f.pct_of_total,
+            )
+            for f in result.factor_contributions
+        ]
+
+        await self._repo.save_risk_based(record, factors)

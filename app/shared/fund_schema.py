@@ -56,7 +56,16 @@ async def create_fund_schema(engine: AsyncEngine, fund_slug: str) -> None:
 
 
 # Modules that store data in per-fund schemas.
-_FUND_SCOPED_MODULES = ["positions", "exposure", "compliance", "orders"]
+_FUND_SCOPED_MODULES = [
+    "positions",
+    "exposure",
+    "compliance",
+    "orders",
+    "risk_engine",
+    "cash_management",
+    "attribution",
+    "alpha_engine",
+]
 
 
 def _run_fund_migrations_sync(fund_slug: str) -> None:

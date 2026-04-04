@@ -27,6 +27,6 @@ export function latestPriceQueryOptions(fundSlug: string, instrumentId: string) 
       clientFetch<PriceSnapshot>(`/prices/latest/${instrumentId}`, {
         fundSlug,
       }),
-    refetchInterval: 5_000,
+    staleTime: 10_000,
   });
 }

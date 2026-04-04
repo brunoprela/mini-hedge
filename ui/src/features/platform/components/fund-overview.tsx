@@ -11,7 +11,6 @@ export function FundOverview({ fundSlug }: { fundSlug: string }) {
   const { fundName, role } = useFundContext();
   const { data: portfolios } = useQuery(portfoliosQueryOptions(fundSlug));
 
-  // Fetch summaries for all portfolios in parallel
   const summaryResults = useQueries({
     queries: (portfolios ?? []).map((p) => portfolioSummaryQueryOptions(fundSlug, p.id)),
   });
@@ -22,27 +21,47 @@ export function FundOverview({ fundSlug }: { fundSlug: string }) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">{fundName}</h1>
+        <h1 className="text-2xl font-semibold text-[var(--foreground-bright)]">{fundName}</h1>
         <p className="text-sm text-[var(--muted-foreground)]">
           {role ?? "loading..."} &middot; {portfolios?.length ?? 0} portfolio
           {portfolios?.length !== 1 ? "s" : ""}
         </p>
       </div>
 
-      {/* Aggregate metrics across all portfolios */}
       {summaries.length > 0 && <AggregateMetrics summaries={summaries} />}
 
-      {/* Portfolio breakdown */}
       {portfolios && portfolios.length > 0 && (
         <div>
-          <h2 className="mb-3 text-sm font-medium text-[var(--muted-foreground)]">Portfolios</h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {portfolios.map((p) => {
-              const summary = summaries.find((s) => s.portfolio_id === p.id);
-              return (
-                <PortfolioCard key={p.id} fundSlug={fundSlug} portfolio={p} summary={summary} />
-              );
-            })}
+          <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+            Portfolios
+          </h2>
+          <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)]">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-[var(--muted-foreground)]">
+                    Portfolio
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-[var(--muted-foreground)]">
+                    NAV
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-[var(--muted-foreground)]">
+                    P&L
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-[var(--muted-foreground)]">
+                    Positions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {portfolios.map((p) => {
+                  const summary = summaries.find((s) => s.portfolio_id === p.id);
+                  return (
+                    <PortfolioRow key={p.id} fundSlug={fundSlug} portfolio={p} summary={summary} />
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -64,19 +83,19 @@ function AggregateMetrics({ summaries }: { summaries: PortfolioSummary[] }) {
       <MetricCard
         label="Realized P&L"
         value={formatPnL(String(totalRealizedPnl))}
-        className={pnlColorClass(String(totalRealizedPnl))}
+        valueClass={pnlColorClass(String(totalRealizedPnl))}
       />
       <MetricCard
         label="Unrealized P&L"
         value={formatPnL(String(totalUnrealizedPnl))}
-        className={pnlColorClass(String(totalUnrealizedPnl))}
+        valueClass={pnlColorClass(String(totalUnrealizedPnl))}
       />
       <MetricCard label="Positions" value={String(totalPositions)} />
     </div>
   );
 }
 
-function PortfolioCard({
+function PortfolioRow({
   fundSlug,
   portfolio,
   summary,
@@ -86,46 +105,50 @@ function PortfolioCard({
   summary?: PortfolioSummary;
 }) {
   return (
-    <Link
-      href={`/${fundSlug}/portfolio/${portfolio.id}`}
-      className="rounded-lg border border-[var(--border)] p-4 transition-colors hover:bg-[var(--muted)]"
-    >
-      <div className="flex items-baseline justify-between">
-        <h3 className="font-medium">{portfolio.name}</h3>
-        {summary && summary.position_count > 0 && (
-          <span className="text-xs text-[var(--muted-foreground)]">
-            {summary.position_count} pos
-          </span>
+    <tr className="border-b border-[var(--table-border)] last:border-0 transition-colors hover:bg-[var(--table-row-hover)]">
+      <td className="px-4 py-3">
+        <Link
+          href={`/${fundSlug}/portfolio/${portfolio.id}`}
+          className="font-medium text-[var(--foreground-bright)] hover:text-[var(--primary)]"
+        >
+          {portfolio.name}
+        </Link>
+        {portfolio.strategy && (
+          <p className="text-xs text-[var(--muted-foreground)]">{portfolio.strategy}</p>
         )}
-      </div>
-      {portfolio.strategy && (
-        <p className="text-xs text-[var(--muted-foreground)]">{portfolio.strategy}</p>
-      )}
-      {summary && Number(summary.total_market_value) > 0 && (
-        <div className="mt-2 flex items-baseline justify-between text-sm">
-          <span className="font-mono">{formatPnL(summary.total_market_value)}</span>
-          <span className={`font-mono text-xs ${pnlColorClass(summary.total_unrealized_pnl)}`}>
+      </td>
+      <td className="px-4 py-3 text-right font-mono text-sm">
+        {summary ? formatPnL(summary.total_market_value) : "—"}
+      </td>
+      <td className="px-4 py-3 text-right">
+        {summary ? (
+          <span className={`font-mono text-sm ${pnlColorClass(summary.total_unrealized_pnl)}`}>
             {formatPnL(summary.total_unrealized_pnl)}
           </span>
-        </div>
-      )}
-    </Link>
+        ) : (
+          "—"
+        )}
+      </td>
+      <td className="px-4 py-3 text-right text-sm text-[var(--muted-foreground)]">
+        {summary?.position_count ?? "—"}
+      </td>
+    </tr>
   );
 }
 
 function MetricCard({
   label,
   value,
-  className = "",
+  valueClass = "",
 }: {
   label: string;
   value: string;
-  className?: string;
+  valueClass?: string;
 }) {
   return (
-    <div className="rounded-lg border border-[var(--border)] p-3">
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
       <p className="text-xs text-[var(--muted-foreground)]">{label}</p>
-      <p className={`mt-1 font-mono text-lg font-semibold ${className}`}>{value}</p>
+      <p className={`mt-1 font-mono text-lg font-semibold ${valueClass}`}>{value}</p>
     </div>
   );
 }

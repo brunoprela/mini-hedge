@@ -142,14 +142,21 @@ class ViolationRepository(_RepoBase):
             return record
 
     async def resolve(
-        self, violation_id: UUID, resolved_by: str
+        self,
+        violation_id: UUID,
+        resolved_by: str,
+        resolution_type: str = "manual",
     ) -> ComplianceViolationRecord | None:
         now = datetime.now(UTC)
         async with self._session() as session:
             stmt = (
                 update(ComplianceViolationRecord)
                 .where(ComplianceViolationRecord.id == str(violation_id))
-                .values(resolved_at=now, resolved_by=resolved_by)
+                .values(
+                    resolved_at=now,
+                    resolved_by=resolved_by,
+                    resolution_type=resolution_type,
+                )
             )
             await session.execute(stmt)
             await session.commit()

@@ -6,6 +6,6 @@ export function exposureQueryOptions(fundSlug: string, portfolioId: string) {
   return queryOptions({
     queryKey: ["exposure", fundSlug, portfolioId],
     queryFn: () => clientFetch<PortfolioExposure>(`/exposure/${portfolioId}`, { fundSlug }),
-    refetchInterval: 15_000,
+    staleTime: 60_000,
   });
 }

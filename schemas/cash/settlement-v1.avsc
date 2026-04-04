@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "CashSettlement",
+  "namespace": "com.minihedge.cash",
+  "doc": "Emitted when a cash settlement is created or settled.",
+  "fields": [
+    {"name": "portfolio_id", "type": "string"},
+    {"name": "instrument_id", "type": "string"},
+    {"name": "settlement_amount", "type": "string", "doc": "Decimal as string"},
+    {"name": "settlement_date", "type": "string", "doc": "ISO date"},
+    {"name": "status", "type": "string"}
+  ]
+}

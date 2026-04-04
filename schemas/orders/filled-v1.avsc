@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "OrderFilled",
+  "namespace": "com.minihedge.orders",
+  "doc": "Emitted when an order receives a fill.",
+  "fields": [
+    {"name": "order_id", "type": "string"},
+    {"name": "portfolio_id", "type": "string"},
+    {"name": "instrument_id", "type": "string"},
+    {"name": "side", "type": {"type": "enum", "name": "FillSide", "symbols": ["buy", "sell"]}},
+    {"name": "fill_quantity", "type": "string", "doc": "Decimal as string"},
+    {"name": "fill_price", "type": "string", "doc": "Decimal as string"},
+    {"name": "state", "type": "string"}
+  ]
+}

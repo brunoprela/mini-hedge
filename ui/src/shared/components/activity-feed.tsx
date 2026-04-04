@@ -27,6 +27,24 @@ function formatEvent(event: RealtimeEvent): string {
       return `${d.instrument_id} realized P&L: ${d.realized_pnl}`;
     case "pnl.mark_to_market":
       return `${d.instrument_id} MTM @ ${d.market_price}`;
+    case "order.created":
+      return `ORDER ${d.instrument_id} ${d.side} ${d.quantity} created`;
+    case "order.filled":
+      return `FILL ${d.instrument_id} ${d.fill_quantity} @ ${d.fill_price}`;
+    case "trade.approved":
+      return `APPROVED ${d.instrument_id} ${d.side} ${d.quantity}`;
+    case "trade.rejected":
+      return `REJECTED ${d.instrument_id} ${d.side} ${d.quantity}`;
+    case "compliance.violation":
+      return `VIOLATION ${d.rule_name}: ${d.message}`;
+    case "exposure.updated":
+      return `Exposure updated — gross ${d.gross_exposure}`;
+    case "risk.updated":
+      return `Risk updated — VaR95 ${d.var_95_1d}`;
+    case "cash.settlement.created":
+      return `Settlement created: ${d.instrument_id} $${d.settlement_amount}`;
+    case "cash.settlement.settled":
+      return `Settlement completed: ${d.instrument_id}`;
     default:
       return event.event_type;
   }
@@ -39,6 +57,15 @@ const ACTIVITY_TYPES = new Set([
   "position.changed",
   "pnl.realized",
   "pnl.mark_to_market",
+  "order.created",
+  "order.filled",
+  "trade.approved",
+  "trade.rejected",
+  "compliance.violation",
+  "exposure.updated",
+  "risk.updated",
+  "cash.settlement.created",
+  "cash.settlement.settled",
 ]);
 
 export function ActivityFeed() {
@@ -86,15 +113,20 @@ export function ActivityFeed() {
   );
 }
 
-function EventDot({ type }: { type: string }) {
-  const color =
-    type === "trade.buy"
-      ? "bg-green-500"
-      : type === "trade.sell"
-        ? "bg-red-500"
-        : type.startsWith("pnl")
-          ? "bg-blue-500"
-          : "bg-gray-400";
+function eventDotColor(type: string): string {
+  if (type === "trade.buy" || type === "trade.approved") return "bg-[var(--success)]";
+  if (type === "trade.sell" || type === "trade.rejected") return "bg-[var(--destructive)]";
+  if (type.startsWith("pnl")) return "bg-[var(--primary)]";
+  if (type === "order.created" || type === "order.filled") return "bg-[var(--primary)]";
+  if (type === "compliance.violation") return "bg-[var(--destructive)]";
+  if (type === "risk.updated") return "bg-[var(--accent-purple)]";
+  if (type === "exposure.updated") return "bg-[var(--accent-cyan)]";
+  if (type.startsWith("cash.")) return "bg-[var(--accent-orange)]";
+  return "bg-[var(--muted)]";
+}
 
-  return <span className={`mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full ${color}`} />;
+function EventDot({ type }: { type: string }) {
+  return (
+    <span className={`mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full ${eventDotColor(type)}`} />
+  );
 }

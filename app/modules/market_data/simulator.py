@@ -29,28 +29,61 @@ class InstrumentConfig:
     spread_bps: float = 10.0  # bid-ask spread in basis points
 
 
-# Sector-correlated instrument universe
+# Sector-correlated instrument universe — global, multi-sector
 DEFAULT_UNIVERSE: list[InstrumentConfig] = [
-    # Technology (high vol, high drift, correlated)
+    # US Technology
     InstrumentConfig("AAPL", 190.0, 0.12, 0.25, 8.0),
     InstrumentConfig("MSFT", 420.0, 0.10, 0.22, 6.0),
     InstrumentConfig("GOOGL", 175.0, 0.08, 0.28, 10.0),
     InstrumentConfig("NVDA", 880.0, 0.15, 0.45, 15.0),
-    # Consumer Discretionary
+    # US Consumer Discretionary
     InstrumentConfig("AMZN", 185.0, 0.10, 0.30, 10.0),
     InstrumentConfig("TSLA", 175.0, 0.05, 0.55, 25.0),
-    # Financials (lower vol)
+    # US Financials
     InstrumentConfig("JPM", 200.0, 0.08, 0.20, 6.0),
     InstrumentConfig("GS", 470.0, 0.07, 0.22, 8.0),
-    # Healthcare (defensive)
+    # US Healthcare
     InstrumentConfig("JNJ", 155.0, 0.05, 0.15, 5.0),
-    # Energy
+    InstrumentConfig("UNH", 525.0, 0.09, 0.20, 6.0),
+    # US Energy
     InstrumentConfig("XOM", 115.0, 0.06, 0.25, 8.0),
+    # UK
+    InstrumentConfig("AZN", 120.0, 0.07, 0.20, 8.0),
+    InstrumentConfig("HSBA", 7.50, 0.04, 0.18, 10.0),
+    InstrumentConfig("SHEL", 28.0, 0.05, 0.22, 8.0),
+    InstrumentConfig("ULVR", 42.0, 0.03, 0.15, 6.0),
+    # Germany
+    InstrumentConfig("SAP", 195.0, 0.10, 0.25, 8.0),
+    InstrumentConfig("SIE", 180.0, 0.06, 0.22, 8.0),
+    # France
+    InstrumentConfig("MC", 750.0, 0.08, 0.28, 10.0),
+    InstrumentConfig("TTE", 58.0, 0.05, 0.22, 8.0),
+    # Japan (prices in local units for simulation, treated as USD-equivalent)
+    InstrumentConfig("7203", 22.0, 0.04, 0.20, 10.0),  # Toyota (~$22 ADR equiv)
+    InstrumentConfig("6758", 85.0, 0.06, 0.30, 12.0),  # Sony (~$85 ADR equiv)
+    # Switzerland
+    InstrumentConfig("NESN", 95.0, 0.03, 0.12, 5.0),
+    InstrumentConfig("NOVN", 88.0, 0.05, 0.18, 6.0),
+    # South Korea
+    InstrumentConfig("005930", 55.0, 0.08, 0.30, 15.0),  # Samsung (~$55 ADR equiv)
+    # Australia
+    InstrumentConfig("BHP", 60.0, 0.06, 0.25, 10.0),
+    # Canada
+    InstrumentConfig("RY", 110.0, 0.05, 0.16, 6.0),
 ]
 
 # Block-diagonal correlation matrix by sector
-# Tech: 0.7 intra, Consumer: 0.5, Financials: 0.6, cross-sector: 0.2
-SECTOR_GROUPS = [[0, 1, 2, 3], [4, 5], [6, 7], [8], [9]]
+# Indices into DEFAULT_UNIVERSE grouped by sector
+SECTOR_GROUPS = [
+    [0, 1, 2, 3, 15, 20, 23],  # Technology (AAPL,MSFT,GOOGL,NVDA,SAP,6758,005930)
+    [4, 5, 17, 19],  # Consumer Discretionary (AMZN,TSLA,MC,7203)
+    [6, 7, 12, 25],  # Financials (JPM,GS,HSBA,RY)
+    [8, 9, 11, 22],  # Healthcare (JNJ,UNH,AZN,NOVN)
+    [10, 13, 18],  # Energy (XOM,SHEL,TTE)
+    [14, 21],  # Consumer Staples (ULVR,NESN)
+    [16],  # Industrials (SIE)
+    [24],  # Materials (BHP)
+]
 INTRA_SECTOR_CORR = 0.6
 CROSS_SECTOR_CORR = 0.2
 

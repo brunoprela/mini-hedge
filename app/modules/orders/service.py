@@ -111,6 +111,8 @@ class OrderService:
                 order_id=order.id,
                 reason=reason,
             )
+            await self._publish_order_event(order, "order.created", fund_slug)
+            await self._publish_trade_decision(order, "trade.rejected", fund_slug)
             await self._audit_event(
                 "order.rejected",
                 actor_id=actor_id,
@@ -127,6 +129,8 @@ class OrderService:
             OrderState.APPROVED.value,
             compliance_results=compliance_data,
         )
+        await self._publish_order_event(order, "order.created", fund_slug)
+        await self._publish_trade_decision(order, "trade.approved", fund_slug)
 
         # 5. Transition to SENT and submit to broker
         apply_transition(OrderState(order.state), OrderState.SENT)
@@ -268,7 +272,68 @@ class OrderService:
         )
         await self._event_bus.publish(fund_topic(fund_slug, "trades.executed"), event)
 
+        # Publish order fill event
+        fill_event = BaseEvent(
+            event_type="order.filled",
+            data={
+                "order_id": order.id,
+                "portfolio_id": str(order.portfolio_id),
+                "instrument_id": order.instrument_id,
+                "side": side,
+                "fill_quantity": str(fill_quantity),
+                "fill_price": str(fill_price),
+                "state": order.state,
+            },
+            fund_slug=fund_slug,
+        )
+        await self._event_bus.publish(fund_topic(fund_slug, "orders.filled"), fill_event)
+
         return order
+
+    async def _publish_order_event(
+        self,
+        order: OrderRecord,
+        event_type: str,
+        fund_slug: str,
+    ) -> None:
+        """Publish an order lifecycle event to Kafka."""
+        event = BaseEvent(
+            event_type=event_type,
+            data={
+                "order_id": order.id,
+                "portfolio_id": str(order.portfolio_id),
+                "instrument_id": order.instrument_id,
+                "side": order.side,
+                "order_type": order.order_type,
+                "quantity": str(order.quantity),
+                "state": order.state,
+            },
+            fund_slug=fund_slug,
+        )
+        await self._event_bus.publish(fund_topic(fund_slug, "orders.created"), event)
+
+    async def _publish_trade_decision(
+        self,
+        order: OrderRecord,
+        event_type: str,
+        fund_slug: str,
+    ) -> None:
+        """Publish trade.approved or trade.rejected event."""
+        event = BaseEvent(
+            event_type=event_type,
+            data={
+                "portfolio_id": str(order.portfolio_id),
+                "instrument_id": order.instrument_id,
+                "side": order.side,
+                "quantity": str(order.quantity),
+                "price": str(order.limit_price or Decimal("0")),
+                "trade_id": order.id,
+                "currency": "USD",
+            },
+            fund_slug=fund_slug,
+        )
+        topic_base = "trades.approved" if event_type == "trade.approved" else "trades.rejected"
+        await self._event_bus.publish(fund_topic(fund_slug, topic_base), event)
 
     async def _audit_event(
         self,

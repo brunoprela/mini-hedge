@@ -9,7 +9,7 @@ export function ordersQueryOptions(fundSlug: string, portfolioId: string) {
       clientFetch<OrderSummary[]>(`/orders?portfolio_id=${portfolioId}`, {
         fundSlug,
       }),
-    refetchInterval: 10_000,
+    staleTime: 60_000,
   });
 }
 

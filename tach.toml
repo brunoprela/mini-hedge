@@ -47,5 +47,21 @@ path = "app.modules.orders"
 depends_on = ["app.shared", "app.modules.compliance"]
 
 [[modules]]
+path = "app.modules.risk_engine"
+depends_on = ["app.shared", "app.modules.market_data"]
+
+[[modules]]
+path = "app.modules.cash_management"
+depends_on = ["app.shared"]
+
+[[modules]]
+path = "app.modules.attribution"
+depends_on = ["app.shared", "app.modules.market_data"]
+
+[[modules]]
+path = "app.modules.alpha_engine"
+depends_on = ["app.shared", "app.modules.market_data"]
+
+[[modules]]
 path = "app.setup"
-depends_on = ["app.shared", "app.modules.platform", "app.modules.security_master", "app.modules.market_data", "app.modules.positions", "app.modules.exposure", "app.modules.compliance", "app.modules.orders"]
+depends_on = ["app.shared", "app.modules.platform", "app.modules.security_master", "app.modules.market_data", "app.modules.positions", "app.modules.exposure", "app.modules.compliance", "app.modules.orders", "app.modules.risk_engine", "app.modules.cash_management", "app.modules.attribution", "app.modules.alpha_engine"]

@@ -205,6 +205,7 @@ services:
     volumes:
       - ./ui/src:/app/src
       - ./ui/public:/app/public
+      - ui-node-modules:/app/node_modules
     depends_on:
       keycloak:
         condition: service_healthy
@@ -234,6 +235,7 @@ services:
     volumes:
       - ./ops-ui/src:/app/src
       - ./ops-ui/public:/app/public
+      - ops-ui-node-modules:/app/node_modules
     depends_on:
       keycloak:
         condition: service_healthy
@@ -247,3 +249,5 @@ services:
 volumes:
   pgdata:
   app-venv:
+  ui-node-modules:
+  ops-ui-node-modules:

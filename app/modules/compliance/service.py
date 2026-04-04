@@ -6,7 +6,10 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from app.modules.compliance.interface import (
+    BreachType,
     ComplianceDecision,
+    RemediationSuggestion,
+    ResolutionType,
     RuleDefinition,
     RuleType,
     Severity,
@@ -32,6 +35,7 @@ def _to_rule(record: ComplianceRuleRecord) -> RuleDefinition:
         severity=Severity(record.severity),
         parameters=record.parameters,
         is_active=record.is_active,
+        grace_period_hours=record.grace_period_hours,
         created_at=record.created_at,
     )
 
@@ -48,12 +52,15 @@ def _to_violation(record: object) -> Violation:
         rule_id=UUID(record.rule_id),
         rule_name=record.rule_name,
         severity=Severity(record.severity),
+        breach_type=BreachType(record.breach_type),
         message=record.message,
         current_value=record.current_value,
         limit_value=record.limit_value,
         detected_at=record.detected_at,
+        deadline_at=record.deadline_at,
         resolved_at=record.resolved_at,
         resolved_by=record.resolved_by,
+        resolution_type=ResolutionType(record.resolution_type) if record.resolution_type else None,
     )
 
 
@@ -66,11 +73,15 @@ class ComplianceService:
         violation_repo: ViolationRepository,
         pre_trade_gate: PreTradeGate,
         audit_repo: AuditLogRepository | None = None,
+        position_service: object | None = None,
+        security_master: object | None = None,
     ) -> None:
         self._rule_repo = rule_repo
         self._violation_repo = violation_repo
         self._pre_trade_gate = pre_trade_gate
         self._audit = audit_repo
+        self._position_service = position_service
+        self._security_master = security_master
 
     @property
     def pre_trade_gate(self) -> PreTradeGate:
@@ -153,8 +164,11 @@ class ComplianceService:
         self,
         violation_id: UUID,
         resolved_by: str,
+        resolution_type: str = "manual",
     ) -> Violation:
-        record = await self._violation_repo.resolve(violation_id, resolved_by)
+        record = await self._violation_repo.resolve(
+            violation_id, resolved_by, resolution_type=resolution_type
+        )
         if record is None:
             raise LookupError(f"Violation {violation_id} not found")
         violation = _to_violation(record)
@@ -166,9 +180,122 @@ class ComplianceService:
                 "violation_id": str(violation_id),
                 "rule_name": violation.rule_name,
                 "severity": violation.severity,
+                "resolution_type": resolution_type,
             },
         )
         return violation
+
+    async def waive_violation(
+        self,
+        violation_id: UUID,
+        waived_by: str,
+        reason: str,
+    ) -> Violation:
+        """Compliance officer grants a waiver for a violation."""
+        record = await self._violation_repo.resolve(
+            violation_id, waived_by, resolution_type="waived"
+        )
+        if record is None:
+            raise LookupError(f"Violation {violation_id} not found")
+        violation = _to_violation(record)
+        await self._audit_event(
+            "compliance.violation.waived",
+            actor_id=waived_by,
+            fund_slug=None,
+            payload={
+                "violation_id": str(violation_id),
+                "rule_name": violation.rule_name,
+                "severity": violation.severity,
+                "reason": reason,
+            },
+        )
+        return violation
+
+    # ---- Remediation ----------------------------------------------------
+
+    async def suggest_remediation(
+        self,
+        portfolio_id: UUID,
+    ) -> list[RemediationSuggestion]:
+        """Calculate trades needed to cure all active concentration violations.
+
+        For each active concentration_limit violation, computes how many shares
+        to sell to bring the position back under the limit with a 0.5% buffer.
+        """
+        from decimal import Decimal
+
+        violations = await self._violation_repo.get_active_by_portfolio(portfolio_id)
+        if not violations or self._position_service is None:
+            return []
+
+        # Load current positions
+        positions = await self._position_service.get_by_portfolio(portfolio_id)  # type: ignore[attr-defined]
+        if not positions:
+            return []
+
+        # Build position map and NAV
+        pos_by_id: dict[str, object] = {}
+        nav = Decimal(0)
+        for pos in positions:
+            pos_by_id[pos.instrument_id] = pos
+            nav += abs(pos.market_value)
+
+        if nav <= 0:
+            return []
+
+        suggestions: list[RemediationSuggestion] = []
+        for v in violations:
+            if v.limit_value is None or v.current_value is None:
+                continue
+
+            # Only handle concentration limits (single-name)
+            # Parse the instrument from the violation message
+            # Message format: "TICKER is X.XX% of NAV (limit Y%)"
+            msg = v.message
+            instrument_id = msg.split(" is ")[0] if " is " in msg else None
+            if not instrument_id or instrument_id not in pos_by_id:
+                continue
+
+            pos = pos_by_id[instrument_id]
+            current_mv = abs(pos.market_value)  # type: ignore[attr-defined]
+            current_pct = (current_mv / nav) * 100
+            limit_pct = v.limit_value
+
+            # Target: bring to limit - 0.5% buffer to avoid immediate re-breach
+            target_pct = limit_pct - Decimal("0.5")
+            if target_pct < 0:
+                target_pct = Decimal(0)
+
+            target_mv = (target_pct / 100) * nav
+            excess_mv = current_mv - target_mv
+            if excess_mv <= 0:
+                continue
+
+            # Calculate shares to sell (use current price)
+            price = pos.last_price if hasattr(pos, "last_price") and pos.last_price else None  # type: ignore[attr-defined]
+            if price is None and pos.quantity != 0:  # type: ignore[attr-defined]
+                price = current_mv / abs(pos.quantity)  # type: ignore[attr-defined]
+            if price is None or price <= 0:
+                continue
+
+            qty_to_sell = (excess_mv / price).quantize(Decimal("1"))
+            if qty_to_sell <= 0:
+                continue
+
+            suggestions.append(
+                RemediationSuggestion(
+                    violation_id=UUID(v.id),
+                    rule_name=v.rule_name,
+                    instrument_id=instrument_id,
+                    side="sell",
+                    quantity=qty_to_sell,
+                    current_weight_pct=current_pct.quantize(Decimal("0.01")),
+                    target_weight_pct=target_pct,
+                    limit_pct=limit_pct,
+                )
+            )
+
+        return suggestions
 
     async def _audit_event(
         self,

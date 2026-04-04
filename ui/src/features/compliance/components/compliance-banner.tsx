@@ -5,9 +5,10 @@ import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { violationsQueryOptions } from "../api";
 
 const SEVERITY_STYLES: Record<string, string> = {
-  block: "border-red-200 bg-red-50 text-red-800",
-  warning: "border-yellow-200 bg-yellow-50 text-yellow-800",
-  breach: "border-orange-200 bg-orange-50 text-orange-800",
+  block: "border-[var(--destructive)] bg-[var(--destructive-muted)] text-[var(--destructive)]",
+  warning: "border-[var(--warning)] bg-[var(--warning-muted)] text-[var(--warning)]",
+  breach:
+    "border-[var(--accent-orange)] bg-[var(--accent-orange-muted)] text-[var(--accent-orange)]",
 };
 
 export function ComplianceBanner({ portfolioId }: { portfolioId: string }) {

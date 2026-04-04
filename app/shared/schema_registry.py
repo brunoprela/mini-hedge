@@ -73,6 +73,9 @@ def fund_topics_for_slug(fund_slug: str) -> list[str]:
         fund_topic(fund_slug, "orders.filled"),
         fund_topic(fund_slug, "trades.approved"),
         fund_topic(fund_slug, "trades.rejected"),
+        fund_topic(fund_slug, "risk.updated"),
+        fund_topic(fund_slug, "cash.settlement.created"),
+        fund_topic(fund_slug, "cash.settlement.settled"),
     ]
 
 
@@ -117,6 +120,16 @@ def load_schemas() -> None:
         "pnl.mark_to_market": "positions/pnl-mtm-v1.avsc",
         "trade.buy": "trades/executed-v1.avsc",
         "trade.sell": "trades/executed-v1.avsc",
+        "trade.approved": "trades/executed-v1.avsc",
+        "trade.rejected": "trades/executed-v1.avsc",
+        "order.created": "orders/created-v1.avsc",
+        "order.filled": "orders/filled-v1.avsc",
+        "compliance.violation": "compliance/violation-v1.avsc",
+        "compliance.violation.resolved": "compliance/violation-v1.avsc",
+        "exposure.updated": "exposure/updated-v1.avsc",
+        "risk.updated": "risk/updated-v1.avsc",
+        "cash.settlement.created": "cash/settlement-v1.avsc",
+        "cash.settlement.settled": "cash/settlement-v1.avsc",
     }
     for event_type, schema_file in event_schemas.items():
         schema = _load_avsc(_SCHEMA_DIR / schema_file)

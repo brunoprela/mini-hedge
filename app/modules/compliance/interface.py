@@ -33,6 +33,17 @@ class Severity(StrEnum):
     BREACH = "breach"
 
 
+class BreachType(StrEnum):
+    ACTIVE = "active"  # Caused by a deliberate trade
+    PASSIVE = "passive"  # Caused by market price drift
+
+
+class ResolutionType(StrEnum):
+    MANUAL = "manual"  # PM or compliance officer resolved
+    AUTO = "auto"  # Market drifted back into compliance
+    WAIVED = "waived"  # Compliance officer granted a waiver
+
+
 # ---------------------------------------------------------------------------
 # Internal domain value objects (frozen dataclasses)
 # ---------------------------------------------------------------------------
@@ -65,6 +76,7 @@ class RuleDefinition(BaseModel):
     severity: Severity
     parameters: dict[str, object]
     is_active: bool
+    grace_period_hours: int | None = None
     created_at: datetime
 
 
@@ -94,12 +106,30 @@ class Violation(BaseModel):
     rule_id: UUID
     rule_name: str
     severity: Severity
+    breach_type: BreachType = BreachType.ACTIVE
     message: str
     current_value: Decimal | None
     limit_value: Decimal | None
     detected_at: datetime
+    deadline_at: datetime | None = None
     resolved_at: datetime | None = None
     resolved_by: str | None = None
+    resolution_type: ResolutionType | None = None
+
+
+class RemediationSuggestion(BaseModel):
+    """A suggested trade to cure a compliance breach."""
+
+    model_config = ConfigDict(frozen=True)
+
+    violation_id: UUID
+    rule_name: str
+    instrument_id: str
+    side: str  # "sell" to reduce overweight
+    quantity: Decimal
+    current_weight_pct: Decimal
+    target_weight_pct: Decimal
+    limit_pct: Decimal
 
 
 # ---------------------------------------------------------------------------

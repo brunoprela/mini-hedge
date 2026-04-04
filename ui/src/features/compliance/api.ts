@@ -42,6 +42,6 @@ export function violationsQueryOptions(fundSlug: string, portfolioId: string) {
     queryKey: ["violations", fundSlug, portfolioId],
     queryFn: () =>
       clientFetch<Violation[]>(`/compliance/violations?portfolio_id=${portfolioId}`, { fundSlug }),
-    refetchInterval: 30_000,
+    staleTime: 60_000,
   });
 }

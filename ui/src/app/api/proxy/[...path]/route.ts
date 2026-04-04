@@ -1,16 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { auth } from "@/shared/lib/auth";
 
 const API_URL = process.env.API_URL ?? "http://localhost:8000";
 
 async function proxyRequest(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
-  const session = await auth();
-  if (!session?.accessToken) {
+  // Token is injected by middleware — no need to call auth() again
+  const accessToken = req.headers.get("x-auth-token");
+  if (!accessToken) {
     return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
-  }
-
-  if (session.error === "RefreshTokenError") {
-    return NextResponse.json({ detail: "Session expired" }, { status: 401 });
   }
 
   const { path } = await params;
@@ -24,7 +20,7 @@ async function proxyRequest(req: NextRequest, { params }: { params: Promise<{ pa
   const fundSlug = req.headers.get("x-fund-slug");
 
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${session.accessToken}`,
+    Authorization: `Bearer ${accessToken}`,
   };
   if (fundSlug) {
     headers["X-Fund-Slug"] = fundSlug;

@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "ComplianceViolation",
+  "namespace": "com.minihedge.compliance",
+  "doc": "Emitted when a compliance rule violation is detected.",
+  "fields": [
+    {"name": "violation_id", "type": "string"},
+    {"name": "portfolio_id", "type": "string"},
+    {"name": "rule_id", "type": "string"},
+    {"name": "rule_name", "type": "string"},
+    {"name": "severity", "type": "string"},
+    {"name": "message", "type": "string"},
+    {"name": "current_value", "type": "string", "doc": "Decimal as string"},
+    {"name": "limit_value", "type": "string", "doc": "Decimal as string"}
+  ]
+}

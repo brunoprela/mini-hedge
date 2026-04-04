@@ -46,7 +46,7 @@ export function formatDate(iso: string): string {
 
 export function pnlColorClass(value: string): string {
   const n = Number(value);
-  if (n > 0) return "text-green-600";
-  if (n < 0) return "text-red-600";
-  return "text-muted-foreground";
+  if (n > 0) return "text-[var(--success)]";
+  if (n < 0) return "text-[var(--destructive)]";
+  return "text-[var(--muted-foreground)]";
 }

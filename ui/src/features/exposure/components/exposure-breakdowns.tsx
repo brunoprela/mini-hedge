@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { exposureQueryOptions } from "../api";
 import type { ExposureBreakdown } from "../types";
@@ -37,20 +38,39 @@ export function ExposureBreakdowns({ portfolioId }: { portfolioId: string }) {
   return (
     <div className="space-y-6">
       {dimensions.map(([dim, items]) => (
-        <BreakdownTable key={dim} title={DIMENSION_LABELS[dim] ?? dim} items={items} />
+        <BreakdownTable
+          key={dim}
+          title={DIMENSION_LABELS[dim] ?? dim}
+          items={items}
+          dimension={dim}
+          fundSlug={fundSlug}
+          portfolioId={portfolioId}
+        />
       ))}
     </div>
   );
 }
 
-function BreakdownTable({ title, items }: { title: string; items: ExposureBreakdown[] }) {
+function BreakdownTable({
+  title,
+  items,
+  dimension,
+  fundSlug,
+  portfolioId,
+}: {
+  title: string;
+  items: ExposureBreakdown[];
+  dimension: string;
+  fundSlug: string;
+  portfolioId: string;
+}) {
   return (
     <div>
       <h3 className="mb-2 text-sm font-medium text-[var(--muted-foreground)]">{title}</h3>
-      <div className="overflow-x-auto rounded-lg border border-[var(--border)]">
+      <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-[var(--border)] bg-[var(--muted)]">
+            <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
               <th className="px-4 py-2 text-left font-medium text-[var(--muted-foreground)]">
                 Name
               </th>
@@ -73,8 +93,22 @@ function BreakdownTable({ title, items }: { title: string; items: ExposureBreakd
           </thead>
           <tbody>
             {items.map((row) => (
-              <tr key={row.key} className="border-b border-[var(--border)] last:border-b-0">
-                <td className="px-4 py-2 font-medium">{row.key}</td>
+              <tr
+                key={row.key}
+                className="border-b border-[var(--table-border)] last:border-b-0 hover:bg-[var(--table-row-hover)]"
+              >
+                <td className="px-4 py-2 font-medium">
+                  {dimension === "instrument" ? (
+                    <Link
+                      href={`/${fundSlug}/portfolio/${portfolioId}#positions`}
+                      className="text-[var(--foreground)] underline-offset-2 hover:underline"
+                    >
+                      {row.key}
+                    </Link>
+                  ) : (
+                    row.key
+                  )}
+                </td>
                 <td className="px-4 py-2 text-right">{fmt(row.long_value)}</td>
                 <td className="px-4 py-2 text-right">{fmt(row.short_value)}</td>
                 <td className="px-4 py-2 text-right">{fmt(row.net_value)}</td>
