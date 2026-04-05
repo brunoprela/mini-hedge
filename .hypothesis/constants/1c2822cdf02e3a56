@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/shared/cdc_transformer.py
+# hypothesis_version: 6.151.10
+
+[1000, '-', '0', 'USD', '^cdc\\.fund_.*', '^fund_(.+)$', '_', 'after', 'all', 'amount', 'avg_cost', 'before', 'c', 'cash.settlement', 'cash_entries', 'cdc', 'cdc-transformer', 'cdc_operation', 'compliance.violation', 'currency', 'current_positions', 'data', 'earliest', 'event_type', 'exposure.updated', 'exposure_snapshots', 'exposures.updated', 'fill_price', 'filled', 'fund_slug', 'id', 'instrument_id', 'market_price', 'market_value', 'message', 'nav', 'op', 'order.created', 'order.filled', 'order_id', 'orders', 'orders.created', 'orders.filled', 'portfolio_id', 'position.changed', 'positions.changed', 'quantity', 'r', 'risk.updated', 'risk_snapshots', 'rule_id', 'rule_name', 'schema', 'settlement_entries', 'severity', 'side', 'snappy', 'source', 'status', 'table', 'u', 'unrealized_pnl', 'var_95_1d', 'var_99_1d', 'violation_id']

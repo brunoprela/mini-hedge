@@ -1,0 +1,50 @@
+groups:
+  - name: minihedge-api
+    rules:
+      - alert: HighErrorRate
+        expr: sum(rate(http_requests_total{status_code=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HTTP 5xx error rate above 5%"
+          description: "{{ $value | humanizePercentage }} of requests are returning 5xx errors."
+
+      - alert: HighLatencyP99
+        expr: histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API p99 latency above 5 seconds"
+          description: "p99 latency is {{ $value | humanizeDuration }}."
+
+      - alert: HighLatencyP95
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API p95 latency above 2 seconds"
+
+  - name: minihedge-kafka
+    rules:
+      - alert: KafkaDLQEventsRising
+        expr: increase(kafka_dlq_events_total[10m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka DLQ events detected"
+          description: "{{ $value }} events sent to dead-letter queue in the last 10 minutes."
+
+  - name: minihedge-business
+    rules:
+      - alert: NoOrdersProcessed
+        expr: sum(increase(orders_total[30m])) == 0
+        for: 30m
+        labels:
+          severity: info
+        annotations:
+          summary: "No orders processed in the last 30 minutes"
+          description: "This may be expected outside trading hours."

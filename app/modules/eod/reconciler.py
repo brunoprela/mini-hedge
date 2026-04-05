@@ -60,9 +60,7 @@ class PositionReconciler:
         internal_positions = await self._positions.get_by_portfolio(portfolio_id, session=session)
         internal_map = {p.instrument_id: p.quantity for p in internal_positions}
 
-        # Placeholder: broker == internal (reconciliation always passes)
-        # Real implementation: broker_positions = await self._broker.get_eod_positions(...)
-        broker_map: dict[str, Decimal] = dict(internal_map)
+        broker_map = await self._broker.get_eod_positions(str(portfolio_id), business_date)
 
         all_instruments = set(internal_map.keys()) | set(broker_map.keys())
         breaks: list[ReconciliationBreak] = []

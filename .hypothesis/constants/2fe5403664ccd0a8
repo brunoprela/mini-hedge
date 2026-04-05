@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/shared/cdc_audit_consumer.py
+# hypothesis_version: 6.151.10
+
+[1000, '-', 'DELETE', 'INSERT', 'SNAPSHOT', 'UPDATE', '^cdc\\.fund_.*', '_', 'after', 'before', 'c', 'cdc-audit-consumer', 'cdc_audit_poll_error', 'cdc_operation', 'cdc_topic', 'changes', 'd', 'debezium', 'earliest', 'from', 'fund_', 'lsn', 'minihedge-cdc-audit', 'op', 'r', 'schema', 'source', 'system', 'table', 'to', 'u']

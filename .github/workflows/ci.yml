@@ -18,6 +18,43 @@ jobs:
       - run: uv run tach check
       - run: uv run pytest -m "not integration" -q
 
+  integration:
+    runs-on: ubuntu-latest
+    needs: backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: minihedge
+          POSTGRES_PASSWORD: minihedge
+          POSTGRES_DB: minihedge
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U minihedge"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+asyncpg://minihedge:minihedge@localhost:5432/minihedge
+      REDIS_URL: redis://localhost:6379/0
+      REDIS_ENABLED: "true"
+      APP_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - run: uv sync --frozen
+      - run: uv run pytest -m integration -q --tb=short
+
   frontend:
     runs-on: ubuntu-latest
     steps:
@@ -28,3 +65,20 @@ jobs:
       - run: corepack enable pnpm
       - run: cd ui && pnpm install --frozen-lockfile && pnpm lint && pnpm tsc --noEmit
       - run: cd ops-ui && pnpm install --frozen-lockfile && pnpm lint && pnpm tsc --noEmit
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build platform image
+        run: docker build -t minihedge-platform:ci .
+      - name: Verify image starts
+        run: |
+          docker run --rm -d --name mh-ci \
+            -e APP_ENV=test \
+            -e DATABASE_URL=sqlite+aiosqlite:///test.db \
+            -e KAFKA_ENABLED=false \
+            -e REDIS_ENABLED=false \
+            minihedge-platform:ci sleep 10
+          docker stop mh-ci

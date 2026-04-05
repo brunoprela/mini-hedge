@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/main.py
+# hypothesis_version: 6.151.10
+
+['/api/v1', '/health', '/metrics', '0.1.0', 'Authorization', 'Content-Type', 'DELETE', 'GET', 'Idempotency-Key', 'Mini Hedge Fund Desk', 'OPTIONS', 'PATCH', 'POST', 'PUT', 'SELECT 1', 'X-API-Key', 'X-Fund-Slug', 'adapters', 'app_started', 'app_stopped', 'broker', 'components', 'degraded', 'fund_schemas_ready', 'healthy', 'kafka', 'market_data', 'minihedge', 'postgres', 'redis', 'reference_data', 'start_fill_consumer', 'status', 'stop_fill_consumer']

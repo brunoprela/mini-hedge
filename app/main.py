@@ -12,6 +12,8 @@ if TYPE_CHECKING:
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from sqlalchemy import text
 from starlette.routing import Route
 
@@ -23,6 +25,7 @@ from app.adapters.factory import (
 from app.config import get_settings
 from app.exception_handlers import register_exception_handlers
 from app.middleware.auth import AuthMiddleware
+from app.middleware.rate_limit import build_limiter, rate_limit_exceeded_handler
 from app.middleware.timeout import TimeoutMiddleware
 from app.modules.alpha_engine.routes import router as alpha_router
 from app.modules.attribution.routes import router as attribution_router
@@ -293,6 +296,13 @@ app.add_middleware(
 # Prometheus middleware — outermost layer, wraps everything including auth/timeout
 # (Starlette LIFO: added last = runs first)
 app.add_middleware(PrometheusMiddleware)
+
+# Rate limiting — Redis-backed, per-API-key/per-IP
+_redis_url = _settings.redis_url if _settings.redis_enabled else None
+_limiter = build_limiter(_redis_url)
+app.state.limiter = _limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)  # type: ignore[arg-type]
+app.add_middleware(SlowAPIMiddleware)
 
 register_exception_handlers(app)
 

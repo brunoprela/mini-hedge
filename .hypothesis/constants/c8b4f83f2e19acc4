@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/corporate_actions/processor.py
+# hypothesis_version: 6.151.10
+
+['spinoff_skipped', 'unknown_action_type']

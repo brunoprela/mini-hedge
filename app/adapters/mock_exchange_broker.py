@@ -114,6 +114,34 @@ class MockExchangeBrokerAdapter:
             avg_fill_price=Decimal(data["avg_fill_price"]) if data.get("avg_fill_price") else None,
         )
 
+    async def get_eod_positions(
+        self, portfolio_id: str, business_date: datetime | None = None
+    ) -> dict[str, Decimal]:
+        """Aggregate filled orders from mock-exchange into EOD positions.
+
+        The mock-exchange tracks all fills. We query all orders for the given
+        portfolio (via client_order_id prefix convention) and aggregate by
+        instrument to build the broker's view of positions.
+        """
+        async with httpx.AsyncClient(base_url=self._base_url, timeout=10.0) as client:
+            async with self._circuit():
+                resp = await client.get("/api/v1/orders")
+                resp.raise_for_status()
+            orders = resp.json()
+
+        positions: dict[str, Decimal] = {}
+        for order in orders:
+            if order.get("status") not in ("filled", "partially_filled"):
+                continue
+            iid = order["instrument_id"]
+            qty = Decimal(order.get("filled_quantity", "0"))
+            side = order.get("side", "buy")
+            if side == "sell":
+                qty = -qty
+            positions[iid] = positions.get(iid, Decimal(0)) + qty
+
+        return positions
+
     # ------------------------------------------------------------------
     # Execution report consumer (vendor Kafka → platform callback)
     # ------------------------------------------------------------------

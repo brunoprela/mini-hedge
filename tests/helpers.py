@@ -116,3 +116,9 @@ class StubBroker:
             filled_quantity=qty,
             avg_fill_price=price,
         )
+
+    async def get_eod_positions(
+        self, portfolio_id: str, business_date: object = None
+    ) -> dict[str, Decimal]:
+        """Return empty positions — stub doesn't track by portfolio."""
+        return {}

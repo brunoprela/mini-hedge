@@ -190,6 +190,7 @@ services:
       - "9090:9090"
     volumes:
       - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
 
   grafana:
     image: grafana/grafana:10.4.0
@@ -199,6 +200,9 @@ services:
     environment:
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_AUTH_ANONYMOUS_ENABLED: "true"
+    volumes:
+      - ./infrastructure/grafana/provisioning:/etc/grafana/provisioning
+      - ./infrastructure/grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
       - prometheus
 

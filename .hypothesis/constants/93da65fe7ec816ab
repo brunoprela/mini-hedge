@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/platform/routes.py
+# hypothesis_version: 6.151.10
+
+[403, 503, 10000, '/audit/verify', '/auth/agent-token', '/me/funds', '/portfolios', 'agent_id', 'agent_name', 'bearer', 'jti', 'platform', 'revoked', 'roles', 'target_user_id', 'token_revocation', 'viewer']

@@ -77,9 +77,7 @@ async def create_fund_schema(engine: AsyncEngine, fund_slug: str) -> None:
             ).scalar()
             if not is_member:
                 await conn.execute(
-                    text(
-                        f"ALTER PUBLICATION minihedge_cdc ADD TABLES IN SCHEMA {schema}"
-                    )
+                    text(f"ALTER PUBLICATION minihedge_cdc ADD TABLES IN SCHEMA {schema}")
                 )
         finally:
             await conn.execute(text(f"SELECT pg_advisory_unlock({lock_id})"))

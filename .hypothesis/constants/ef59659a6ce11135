@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/platform/dependencies.py
+# hypothesis_version: 6.151.10
+
+[503, 'admin_service', 'audit_repo', 'audit_verifier', 'auth_service', 'portfolio_repo']

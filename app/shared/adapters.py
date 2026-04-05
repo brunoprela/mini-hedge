@@ -206,6 +206,13 @@ class BrokerAdapter(Protocol):
 
     async def get_order_status(self, exchange_order_id: str) -> OrderStatusReport: ...
 
+    async def get_eod_positions(self, portfolio_id: str, business_date: date) -> dict[str, Decimal]:
+        """Return instrument_id -> quantity from the broker's EOD statement.
+
+        Used by the position reconciler to compare against internal positions.
+        """
+        ...
+
 
 class CorporateActionsAdapter(Protocol):
     """Vendor-agnostic corporate actions source.

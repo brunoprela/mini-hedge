@@ -1,4 +1,4 @@
-.PHONY: up down logs restart install run-local run-ui run-ops-ui dev dev-stop migrate lint format typecheck tach-check test test-unit test-integration check db-reset kafka-reset redis-reset reset status mock-exchange-up mock-exchange-down mock-exchange-logs mock-exchange-status up-all down-all seed seed-trades seed-all
+.PHONY: up down logs restart install run-local run-ui run-ops-ui dev dev-stop migrate lint format typecheck tach-check test test-unit test-integration check db-reset kafka-reset redis-reset reset status mock-exchange-up mock-exchange-down mock-exchange-logs mock-exchange-status up-all down-all seed seed-trades seed-all backup restore load-test load-test-headless
 
 # --- Platform Infrastructure ---
 
@@ -172,3 +172,34 @@ test-integration:
 	uv run pytest -m integration
 
 check: lint typecheck tach-check test
+
+# ---------------------------------------------------------------------------
+# Backup / Restore
+# ---------------------------------------------------------------------------
+
+backup:
+	@bash scripts/backup.sh
+
+restore:
+	@bash scripts/restore.sh $(FILE)
+
+# ---------------------------------------------------------------------------
+# Load Testing (Locust)
+# ---------------------------------------------------------------------------
+
+load-test:
+	@echo "Starting Locust load test..."
+	@echo "  Web UI: http://localhost:8089"
+	@echo "  Target: http://localhost:8000"
+	@echo ""
+	@echo "Set LOAD_TEST_PORTFOLIO_ID to a valid portfolio UUID before running."
+	@echo "Example: LOAD_TEST_PORTFOLIO_ID=<uuid> make load-test"
+	cd load_tests && pip install -q -r requirements.txt && \
+		locust -f locustfile.py --host http://localhost:8000
+
+load-test-headless:
+	@echo "Running headless load test (50 users, 5/s spawn, 60s duration)..."
+	cd load_tests && pip install -q -r requirements.txt && \
+		locust -f locustfile.py --host http://localhost:8000 \
+		--headless -u 50 -r 5 --run-time 60s \
+		--csv=results/run

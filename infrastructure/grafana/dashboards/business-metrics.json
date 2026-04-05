@@ -1,0 +1,97 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "minihedge-business",
+    "title": "Mini-Hedge Business Metrics",
+    "tags": ["minihedge"],
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": { "from": "now-6h", "to": "now" },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Orders by Status",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum by (status) (rate(orders_total[5m]))",
+            "legendFormat": "{{status}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": { "unit": "ops" }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Orders by Fund",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum by (fund) (rate(orders_total[5m]))",
+            "legendFormat": "{{fund}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": { "unit": "ops" }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Kafka Events Published",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "sum by (topic) (rate(kafka_events_published_total[5m]))",
+            "legendFormat": "{{topic}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": { "unit": "eps" }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Kafka DLQ Events",
+        "type": "stat",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+        "targets": [
+          {
+            "expr": "sum(kafka_dlq_events_total)",
+            "legendFormat": "Total DLQ"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 1 },
+                { "color": "red", "value": 10 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Kafka Events Consumed",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+        "targets": [
+          {
+            "expr": "sum by (topic) (rate(kafka_events_consumed_total[5m]))",
+            "legendFormat": "{{topic}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": { "unit": "eps" }
+        }
+      }
+    ]
+  }
+}

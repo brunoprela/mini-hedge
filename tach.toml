@@ -40,7 +40,7 @@ depends_on = ["app.shared"]
 
 [[modules]]
 path = "app.modules.compliance"
-depends_on = ["app.shared"]
+depends_on = ["app.shared", "app.modules.positions"]
 
 [[modules]]
 path = "app.modules.orders"
@@ -48,7 +48,7 @@ depends_on = ["app.shared", "app.modules.compliance"]
 
 [[modules]]
 path = "app.modules.risk_engine"
-depends_on = ["app.shared", "app.modules.market_data"]
+depends_on = ["app.shared"]
 
 [[modules]]
 path = "app.modules.cash_management"
@@ -56,11 +56,11 @@ depends_on = ["app.shared"]
 
 [[modules]]
 path = "app.modules.attribution"
-depends_on = ["app.shared", "app.modules.market_data"]
+depends_on = ["app.shared"]
 
 [[modules]]
 path = "app.modules.alpha_engine"
-depends_on = ["app.shared", "app.modules.market_data"]
+depends_on = ["app.shared"]
 
 [[modules]]
 path = "app.adapters"
