@@ -113,7 +113,7 @@ def get_jwk_client(keycloak_url: str, realm: str) -> PyJWKClient:
     """Get or create a cached PyJWKClient for the Keycloak realm."""
     jwks_url = f"{keycloak_url}/realms/{realm}/protocol/openid-connect/certs"
     if jwks_url not in _jwk_clients:
-        _jwk_clients[jwks_url] = PyJWKClient(jwks_url, cache_keys=True)
+        _jwk_clients[jwks_url] = PyJWKClient(jwks_url, cache_keys=True, lifespan=300)
     return _jwk_clients[jwks_url]
 
 

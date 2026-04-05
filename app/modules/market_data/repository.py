@@ -4,17 +4,17 @@ from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.market_data.models import PriceRecord
-from app.shared.database import TenantSessionFactory
+from app.shared.repository import BaseRepository
 
 
-class PriceRepository:
-    def __init__(self, session_factory: TenantSessionFactory) -> None:
-        self._sf = session_factory
-
-    async def get_latest(self, instrument_id: str) -> PriceRecord | None:
-        async with self._sf() as session:
+class PriceRepository(BaseRepository):
+    async def get_latest(
+        self, instrument_id: str, *, session: AsyncSession | None = None
+    ) -> PriceRecord | None:
+        async with self._session(session) as session:
             stmt = (
                 select(PriceRecord)
                 .where(PriceRecord.instrument_id == instrument_id)
@@ -29,8 +29,10 @@ class PriceRepository:
         instrument_id: str,
         start: datetime,
         end: datetime,
+        *,
+        session: AsyncSession | None = None,
     ) -> list[PriceRecord]:
-        async with self._sf() as session:
+        async with self._session(session) as session:
             stmt = (
                 select(PriceRecord)
                 .where(
@@ -43,8 +45,8 @@ class PriceRepository:
             result = await session.execute(stmt)
             return list(result.scalars().all())
 
-    async def insert(self, record: PriceRecord) -> None:
-        async with self._sf() as session:
+    async def insert(self, record: PriceRecord, *, session: AsyncSession | None = None) -> None:
+        async with self._session(session) as session:
             stmt = (
                 pg_insert(PriceRecord)
                 .values(

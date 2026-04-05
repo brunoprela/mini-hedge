@@ -14,11 +14,11 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
-from functools import partial
 from typing import TYPE_CHECKING
 
 import structlog
-from confluent_kafka import Consumer, KafkaError, KafkaException
+from aiokafka import AIOKafkaConsumer
+from aiokafka.errors import KafkaError
 
 from app.shared.events import BaseEvent
 from app.shared.schema_registry import shared_topic
@@ -77,45 +77,35 @@ class MockExchangeMarketDataAdapter:
         logger.info("mock_exchange_market_data_stopped")
 
     async def _consume_prices(self) -> None:
-        """Poll the external vendor's Kafka for JSON price events and bridge them."""
-        consumer = Consumer(
-            {
-                "bootstrap.servers": self._kafka_servers,
-                "group.id": "minihedge-external-market-data",
-                "auto.offset.reset": "latest",
-                "enable.auto.commit": True,
-            }
+        """Consume price events from the external vendor's Kafka and bridge them."""
+        consumer = AIOKafkaConsumer(
+            _EXTERNAL_PRICES_TOPIC,
+            bootstrap_servers=self._kafka_servers,
+            group_id="minihedge-external-market-data",
+            auto_offset_reset="latest",
+            enable_auto_commit=True,
         )
-        consumer.subscribe([_EXTERNAL_PRICES_TOPIC])
-        loop = asyncio.get_running_loop()
+        await consumer.start()
 
         try:
             while self._running:
                 try:
-                    msg = await loop.run_in_executor(
-                        None,
-                        partial(consumer.poll, 1.0),
-                    )
-                except KafkaException:
+                    msg_batch = await consumer.getmany(timeout_ms=1000, max_records=10)
+                except KafkaError:
                     logger.exception("external_kafka_poll_error")
                     await asyncio.sleep(1)
                     continue
 
-                if msg is None:
-                    continue
-
-                if msg.error():
-                    if msg.error().code() == KafkaError._PARTITION_EOF:
-                        continue
-                    logger.error("external_kafka_message_error", error=str(msg.error()))
-                    continue
-
-                try:
-                    await self._bridge_price_event(msg.value())
-                except Exception:
-                    logger.exception("price_bridge_failed")
+                for _tp, messages in msg_batch.items():
+                    for msg in messages:
+                        if msg.value is None:
+                            continue
+                        try:
+                            await self._bridge_price_event(msg.value)
+                        except Exception:
+                            logger.exception("price_bridge_failed")
         finally:
-            consumer.close()
+            await consumer.stop()
 
     async def _bridge_price_event(self, raw: bytes) -> None:
         """Decode a JSON envelope from the vendor and re-publish as an internal event."""

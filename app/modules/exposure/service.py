@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
@@ -20,6 +21,8 @@ from app.shared.events import BaseEvent
 from app.shared.schema_registry import fund_topic
 
 if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
     from app.modules.exposure.repository import ExposureRepository
     from app.modules.positions.service import PositionService
     from app.modules.security_master.service import (
@@ -43,17 +46,19 @@ class ExposureService:
         security_master_service: SecurityMasterService,
         event_bus: EventBus | None = None,
     ) -> None:
-        self._repo = exposure_repo
-        self._positions = position_service
-        self._sm = security_master_service
+        self._exposure_repo = exposure_repo
+        self._position_service = position_service
+        self._security_master_service = security_master_service
         self._event_bus = event_bus
 
-    async def get_current(self, portfolio_id: UUID) -> PortfolioExposure:
+    async def get_current(
+        self, portfolio_id: UUID, *, session: AsyncSession | None = None
+    ) -> PortfolioExposure:
         """Calculate current exposure from live positions."""
-        positions = await self._positions.get_by_portfolio(portfolio_id)
-
-        # Batch-fetch all instruments in one query instead of N+1
-        instruments = await self._sm.get_all_active()
+        positions, instruments = await asyncio.gather(
+            self._position_service.get_by_portfolio(portfolio_id, session=session),
+            self._security_master_service.get_all_active(session=session),
+        )
         instr_map = {i.ticker: i for i in instruments}
 
         position_values = []
@@ -81,9 +86,11 @@ class ExposureService:
         start: datetime,
         end: datetime,
         fund_slug: str | None = None,
+        *,
+        session: AsyncSession | None = None,
     ) -> list[ExposureSnapshot]:
         """Return persisted exposure snapshots for a time range."""
-        records = await self._repo.get_history(portfolio_id, start, end)
+        records = await self._exposure_repo.get_history(portfolio_id, start, end, session=session)
         return [
             ExposureSnapshot(
                 id=r.id,
@@ -104,9 +111,11 @@ class ExposureService:
         self,
         portfolio_id: UUID,
         fund_slug: str | None = None,
+        *,
+        session: AsyncSession | None = None,
     ) -> None:
         """Calculate and persist an exposure snapshot."""
-        exposure = await self.get_current(portfolio_id)
+        exposure = await self.get_current(portfolio_id, session=session)
         # Serialize breakdowns to JSON-compatible dict
         breakdowns_json: dict[str, list[dict[str, str]]] = {}
         for dim_key, items in exposure.breakdowns.items():
@@ -133,7 +142,7 @@ class ExposureService:
             breakdowns=breakdowns_json,
             snapshot_at=exposure.calculated_at,
         )
-        await self._repo.save_snapshot(record)
+        await self._exposure_repo.save_snapshot(record, session=session)
         await self._publish_exposure_event(exposure, fund_slug)
         logger.info(
             "exposure_snapshot_saved",

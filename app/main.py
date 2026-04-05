@@ -22,6 +22,7 @@ from app.adapters.factory import (
 from app.config import get_settings
 from app.exception_handlers import register_exception_handlers
 from app.middleware.auth import AuthMiddleware
+from app.middleware.timeout import TimeoutMiddleware
 from app.modules.alpha_engine.routes import router as alpha_router
 from app.modules.attribution.routes import router as attribution_router
 from app.modules.cash_management.routes import router as cash_router
@@ -96,6 +97,8 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     kafka_bus = KafkaEventBus(
         settings.kafka_bootstrap_servers,
         consumer_group="minihedge",
+        replication_factor=settings.kafka_replication_factor,
+        num_partitions=settings.kafka_num_partitions,
     )
 
     # --- Build adapters from config ---
@@ -130,7 +133,7 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     for slug in fund_slugs:
         all_topics.extend(fund_topics_for_slug(slug))
     dlq_topics = [f"{t}.dlq" for t in all_topics]
-    kafka_bus.ensure_topics(all_topics + dlq_topics)
+    await kafka_bus.ensure_topics(all_topics + dlq_topics)
 
     sm_service: SecurityMasterService = fastapi_app.state.security_master_service
     setup_market_data(fastapi_app, session_factory, kafka_bus)
@@ -220,7 +223,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Auth middleware — registered at module level; looks up auth_service from app.state
+# Timeout middleware — outermost, prevents stuck workers (Starlette LIFO: added first = runs last)
+app.add_middleware(TimeoutMiddleware)
+
+# Auth middleware — looks up auth_service from app.state
 app.add_middleware(AuthMiddleware)
 
 # CORS — added after AuthMiddleware so it executes first (Starlette LIFO order),
@@ -275,10 +281,10 @@ async def health_check() -> dict[str, object]:
             components["redis"] = f"unhealthy: {e}"
 
     # Kafka
-    if app.state.kafka_bus.health_check():
+    if await app.state.kafka_bus.health_check():
         components["kafka"] = "healthy"
     else:
-        components["kafka"] = "unhealthy: flush failed"
+        components["kafka"] = "unhealthy: broker unreachable"
 
     all_healthy = all(v == "healthy" for v in components.values())
     return {

@@ -11,23 +11,21 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.modules.positions.models import CurrentPositionRecord, LotRecord
+from app.shared.repository import BaseRepository
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
-    from app.shared.database import TenantSessionFactory
 
-
-class CurrentPositionRepository:
-    def __init__(self, session_factory: TenantSessionFactory) -> None:
-        self._sf = session_factory
-
+class CurrentPositionRepository(BaseRepository):
     async def get_position(
         self,
         portfolio_id: UUID,
         instrument_id: str,
+        *,
+        session: AsyncSession | None = None,
     ) -> CurrentPositionRecord | None:
-        async with self._sf() as session:
+        async with self._session(session) as session:
             stmt = select(CurrentPositionRecord).where(
                 CurrentPositionRecord.portfolio_id == str(portfolio_id),
                 CurrentPositionRecord.instrument_id == instrument_id,
@@ -38,8 +36,10 @@ class CurrentPositionRepository:
     async def get_by_portfolio(
         self,
         portfolio_id: UUID,
+        *,
+        session: AsyncSession | None = None,
     ) -> list[CurrentPositionRecord]:
-        async with self._sf() as session:
+        async with self._session(session) as session:
             stmt = (
                 select(CurrentPositionRecord)
                 .where(CurrentPositionRecord.portfolio_id == str(portfolio_id))
@@ -88,11 +88,9 @@ class CurrentPositionRepository:
             )
             await s.execute(stmt)
 
-        if session is not None:
-            await _upsert(session)
-        else:
-            async with self._sf() as s:
-                await _upsert(s)
+        async with self._session(session) as s:
+            await _upsert(s)
+            if session is None:
                 await s.commit()
 
     async def update_market_value(
@@ -102,8 +100,10 @@ class CurrentPositionRepository:
         market_price: Decimal,
         market_value: Decimal,
         unrealized_pnl: Decimal,
+        *,
+        session: AsyncSession | None = None,
     ) -> None:
-        async with self._sf() as session:
+        async with self._session(session) as session:
             stmt = select(CurrentPositionRecord).where(
                 CurrentPositionRecord.portfolio_id == str(portfolio_id),
                 CurrentPositionRecord.instrument_id == instrument_id,
@@ -117,8 +117,10 @@ class CurrentPositionRepository:
                 position.last_updated = datetime.now(UTC)
                 await session.commit()
 
-    async def get_by_instrument(self, instrument_id: str) -> list[CurrentPositionRecord]:
-        async with self._sf() as session:
+    async def get_by_instrument(
+        self, instrument_id: str, *, session: AsyncSession | None = None
+    ) -> list[CurrentPositionRecord]:
+        async with self._session(session) as session:
             stmt = select(CurrentPositionRecord).where(
                 CurrentPositionRecord.instrument_id == instrument_id
             )
@@ -128,9 +130,11 @@ class CurrentPositionRepository:
     async def get_portfolio_summary(
         self,
         portfolio_id: UUID,
+        *,
+        session: AsyncSession | None = None,
     ) -> dict[str, object] | None:
         """Aggregate market value, cost basis, realized and unrealized P&L for a portfolio."""
-        async with self._sf() as session:
+        async with self._session(session) as session:
             stmt = select(
                 func.coalesce(func.sum(CurrentPositionRecord.market_value), Decimal(0)),
                 func.coalesce(func.sum(CurrentPositionRecord.cost_basis), Decimal(0)),
@@ -152,8 +156,10 @@ class CurrentPositionRepository:
         self,
         portfolio_id: UUID,
         instrument_id: str,
+        *,
+        session: AsyncSession | None = None,
     ) -> list[LotRecord]:
-        async with self._sf() as session:
+        async with self._session(session) as session:
             stmt = (
                 select(LotRecord)
                 .where(

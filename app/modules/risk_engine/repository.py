@@ -16,24 +16,26 @@ from app.modules.risk_engine.models import (
     VaRContributionRecord,
     VaRResultRecord,
 )
+from app.shared.repository import BaseRepository
 
 if TYPE_CHECKING:
-    from app.shared.database import TenantSessionFactory
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
-class RiskRepository:
-    def __init__(self, session_factory: TenantSessionFactory) -> None:
-        self._sf = session_factory
-
+class RiskRepository(BaseRepository):
     # -- Snapshots --
 
-    async def save_snapshot(self, record: RiskSnapshotRecord) -> None:
-        async with self._sf() as session:
+    async def save_snapshot(
+        self, record: RiskSnapshotRecord, *, session: AsyncSession | None = None
+    ) -> None:
+        async with self._session(session) as session:
             session.add(record)
             await session.commit()
 
-    async def get_latest_snapshot(self, portfolio_id: UUID) -> RiskSnapshotRecord | None:
-        async with self._sf() as session:
+    async def get_latest_snapshot(
+        self, portfolio_id: UUID, *, session: AsyncSession | None = None
+    ) -> RiskSnapshotRecord | None:
+        async with self._session(session) as session:
             result = await session.execute(
                 select(RiskSnapshotRecord)
                 .where(RiskSnapshotRecord.portfolio_id == str(portfolio_id))
@@ -47,8 +49,10 @@ class RiskRepository:
         portfolio_id: UUID,
         start: datetime,
         end: datetime,
+        *,
+        session: AsyncSession | None = None,
     ) -> list[RiskSnapshotRecord]:
-        async with self._sf() as session:
+        async with self._session(session) as session:
             result = await session.execute(
                 select(RiskSnapshotRecord)
                 .where(
@@ -66,15 +70,19 @@ class RiskRepository:
         self,
         result_record: VaRResultRecord,
         contributions: list[VaRContributionRecord],
+        *,
+        session: AsyncSession | None = None,
     ) -> None:
-        async with self._sf() as session:
+        async with self._session(session) as session:
             session.add(result_record)
             for c in contributions:
                 session.add(c)
             await session.commit()
 
-    async def get_latest_var(self, portfolio_id: UUID, method: str) -> VaRResultRecord | None:
-        async with self._sf() as session:
+    async def get_latest_var(
+        self, portfolio_id: UUID, method: str, *, session: AsyncSession | None = None
+    ) -> VaRResultRecord | None:
+        async with self._session(session) as session:
             result = await session.execute(
                 select(VaRResultRecord)
                 .where(
@@ -86,8 +94,10 @@ class RiskRepository:
             )
             return result.scalar_one_or_none()
 
-    async def get_var_contributions(self, var_result_id: str) -> list[VaRContributionRecord]:
-        async with self._sf() as session:
+    async def get_var_contributions(
+        self, var_result_id: str, *, session: AsyncSession | None = None
+    ) -> list[VaRContributionRecord]:
+        async with self._session(session) as session:
             result = await session.execute(
                 select(VaRContributionRecord).where(
                     VaRContributionRecord.var_result_id == var_result_id
@@ -101,15 +111,19 @@ class RiskRepository:
         self,
         result_record: StressTestResultRecord,
         impacts: list[StressPositionImpactRecord],
+        *,
+        session: AsyncSession | None = None,
     ) -> None:
-        async with self._sf() as session:
+        async with self._session(session) as session:
             session.add(result_record)
             for imp in impacts:
                 session.add(imp)
             await session.commit()
 
-    async def get_stress_results(self, portfolio_id: UUID) -> list[StressTestResultRecord]:
-        async with self._sf() as session:
+    async def get_stress_results(
+        self, portfolio_id: UUID, *, session: AsyncSession | None = None
+    ) -> list[StressTestResultRecord]:
+        async with self._session(session) as session:
             result = await session.execute(
                 select(StressTestResultRecord)
                 .where(StressTestResultRecord.portfolio_id == str(portfolio_id))
@@ -118,8 +132,10 @@ class RiskRepository:
             )
             return list(result.scalars().all())
 
-    async def get_stress_impacts(self, stress_result_id: str) -> list[StressPositionImpactRecord]:
-        async with self._sf() as session:
+    async def get_stress_impacts(
+        self, stress_result_id: str, *, session: AsyncSession | None = None
+    ) -> list[StressPositionImpactRecord]:
+        async with self._session(session) as session:
             result = await session.execute(
                 select(StressPositionImpactRecord).where(
                     StressPositionImpactRecord.stress_result_id == stress_result_id
@@ -129,14 +145,18 @@ class RiskRepository:
 
     # -- Factor exposures --
 
-    async def save_factor_exposures(self, records: list[FactorExposureRecord]) -> None:
-        async with self._sf() as session:
+    async def save_factor_exposures(
+        self, records: list[FactorExposureRecord], *, session: AsyncSession | None = None
+    ) -> None:
+        async with self._session(session) as session:
             for r in records:
                 session.add(r)
             await session.commit()
 
-    async def get_factor_exposures(self, snapshot_id: str) -> list[FactorExposureRecord]:
-        async with self._sf() as session:
+    async def get_factor_exposures(
+        self, snapshot_id: str, *, session: AsyncSession | None = None
+    ) -> list[FactorExposureRecord]:
+        async with self._session(session) as session:
             result = await session.execute(
                 select(FactorExposureRecord).where(FactorExposureRecord.snapshot_id == snapshot_id)
             )

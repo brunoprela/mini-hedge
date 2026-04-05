@@ -1,6 +1,7 @@
 """Admin API routes — platform operator endpoints for managing users, funds, and access."""
 
 from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.platform.admin_service import AdminService
 from app.modules.platform.dependencies import get_admin_service
@@ -23,6 +24,7 @@ from app.modules.platform.interface import (
     UserPage,
 )
 from app.shared.auth import Permission, require_platform_permission
+from app.shared.database import get_db
 from app.shared.request_context import RequestContext
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -36,39 +38,47 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 async def list_users(
     limit: int = 100,
     offset: int = 0,
-    ctx: RequestContext = require_platform_permission(Permission.PLATFORM_USERS_READ),
-    svc: AdminService = Depends(get_admin_service),
+    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_USERS_READ),
+    admin_service: AdminService = Depends(get_admin_service),
+    session: AsyncSession = Depends(get_db),
 ) -> UserPage:
-    return await svc.list_users(limit=limit, offset=offset)
+    return await admin_service.list_users(limit=limit, offset=offset, session=session)
 
 
 @router.post("/users", response_model=UserInfo, status_code=201)
 async def create_user(
     body: CreateUserRequest,
-    ctx: RequestContext = require_platform_permission(Permission.PLATFORM_USERS_WRITE),
-    svc: AdminService = Depends(get_admin_service),
+    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_USERS_WRITE),
+    admin_service: AdminService = Depends(get_admin_service),
+    session: AsyncSession = Depends(get_db),
 ) -> UserInfo:
-    return await svc.create_user(email=body.email, name=body.name, actor=ctx)
+    return await admin_service.create_user(
+        email=body.email, name=body.name, request_context=request_context, session=session
+    )
 
 
 @router.get("/users/{user_id}", response_model=UserInfo)
 async def get_user(
     user_id: str,
-    ctx: RequestContext = require_platform_permission(Permission.PLATFORM_USERS_READ),
-    svc: AdminService = Depends(get_admin_service),
+    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_USERS_READ),
+    admin_service: AdminService = Depends(get_admin_service),
+    session: AsyncSession = Depends(get_db),
 ) -> UserInfo:
-    return await svc.get_user(user_id)
+    return await admin_service.get_user(user_id, session=session)
 
 
 @router.patch("/users/{user_id}", response_model=UserInfo)
 async def update_user(
     user_id: str,
     body: UpdateUserRequest,
-    ctx: RequestContext = require_platform_permission(Permission.PLATFORM_USERS_WRITE),
-    svc: AdminService = Depends(get_admin_service),
+    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_USERS_WRITE),
+    admin_service: AdminService = Depends(get_admin_service),
+    session: AsyncSession = Depends(get_db),
 ) -> UserInfo:
     fields = body.model_dump(exclude_none=True)
-    return await svc.update_user(user_id, actor=ctx, **fields)
+    return await admin_service.update_user(
+        user_id, request_context=request_context, session=session, **fields
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -80,23 +90,30 @@ async def update_user(
 async def list_operators(
     limit: int = 100,
     offset: int = 0,
-    ctx: RequestContext = require_platform_permission(Permission.PLATFORM_OPERATORS_READ),
-    svc: AdminService = Depends(get_admin_service),
+    request_context: RequestContext = require_platform_permission(
+        Permission.PLATFORM_OPERATORS_READ
+    ),
+    admin_service: AdminService = Depends(get_admin_service),
+    session: AsyncSession = Depends(get_db),
 ) -> OperatorPage:
-    return await svc.list_operators(limit=limit, offset=offset)
+    return await admin_service.list_operators(limit=limit, offset=offset, session=session)
 
 
 @router.post("/operators", response_model=OperatorInfo, status_code=201)
 async def create_operator(
     body: CreateOperatorRequest,
-    ctx: RequestContext = require_platform_permission(Permission.PLATFORM_OPERATORS_WRITE),
-    svc: AdminService = Depends(get_admin_service),
+    request_context: RequestContext = require_platform_permission(
+        Permission.PLATFORM_OPERATORS_WRITE
+    ),
+    admin_service: AdminService = Depends(get_admin_service),
+    session: AsyncSession = Depends(get_db),
 ) -> OperatorInfo:
-    return await svc.create_operator(
+    return await admin_service.create_operator(
         email=body.email,
         name=body.name,
         platform_role=body.platform_role,
-        actor=ctx,
+        request_context=request_context,
+        session=session,
     )
 
 
@@ -104,15 +121,19 @@ async def create_operator(
 async def update_operator(
     operator_id: str,
     body: UpdateOperatorRequest,
-    ctx: RequestContext = require_platform_permission(Permission.PLATFORM_OPERATORS_WRITE),
-    svc: AdminService = Depends(get_admin_service),
+    request_context: RequestContext = require_platform_permission(
+        Permission.PLATFORM_OPERATORS_WRITE
+    ),
+    admin_service: AdminService = Depends(get_admin_service),
+    session: AsyncSession = Depends(get_db),
 ) -> OperatorInfo:
-    return await svc.update_operator(
+    return await admin_service.update_operator(
         operator_id,
-        actor=ctx,
+        request_context=request_context,
         name=body.name,
         is_active=body.is_active,
         platform_role=body.platform_role,
+        session=session,
     )
 
 
@@ -125,23 +146,26 @@ async def update_operator(
 async def list_funds(
     limit: int = 100,
     offset: int = 0,
-    ctx: RequestContext = require_platform_permission(Permission.PLATFORM_FUNDS_READ),
-    svc: AdminService = Depends(get_admin_service),
+    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_FUNDS_READ),
+    admin_service: AdminService = Depends(get_admin_service),
+    session: AsyncSession = Depends(get_db),
 ) -> FundPage:
-    return await svc.list_funds(limit=limit, offset=offset)
+    return await admin_service.list_funds(limit=limit, offset=offset, session=session)
 
 
 @router.post("/funds", response_model=FundDetail, status_code=201)
 async def create_fund(
     body: CreateFundRequest,
-    ctx: RequestContext = require_platform_permission(Permission.PLATFORM_FUNDS_WRITE),
-    svc: AdminService = Depends(get_admin_service),
+    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_FUNDS_WRITE),
+    admin_service: AdminService = Depends(get_admin_service),
+    session: AsyncSession = Depends(get_db),
 ) -> FundDetail:
-    return await svc.create_fund(
+    return await admin_service.create_fund(
         slug=body.slug,
         name=body.name,
         base_currency=body.base_currency,
-        actor=ctx,
+        request_context=request_context,
+        session=session,
     )
 
 
@@ -149,11 +173,14 @@ async def create_fund(
 async def update_fund(
     fund_id: str,
     body: UpdateFundRequest,
-    ctx: RequestContext = require_platform_permission(Permission.PLATFORM_FUNDS_WRITE),
-    svc: AdminService = Depends(get_admin_service),
+    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_FUNDS_WRITE),
+    admin_service: AdminService = Depends(get_admin_service),
+    session: AsyncSession = Depends(get_db),
 ) -> FundDetail:
     fields = body.model_dump(exclude_none=True)
-    return await svc.update_fund(fund_id, actor=ctx, **fields)
+    return await admin_service.update_fund(
+        fund_id, request_context=request_context, session=session, **fields
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -164,25 +191,28 @@ async def update_fund(
 @router.get("/funds/{fund_id}/access", response_model=list[FundAccessGrant])
 async def list_fund_access(
     fund_id: str,
-    ctx: RequestContext = require_platform_permission(Permission.PLATFORM_ACCESS_READ),
-    svc: AdminService = Depends(get_admin_service),
+    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_ACCESS_READ),
+    admin_service: AdminService = Depends(get_admin_service),
+    session: AsyncSession = Depends(get_db),
 ) -> list[FundAccessGrant]:
-    return await svc.list_fund_access(fund_id)
+    return await admin_service.list_fund_access(fund_id, session=session)
 
 
 @router.post("/funds/{fund_id}/access", status_code=204)
 async def grant_access(
     fund_id: str,
     body: AccessGrantRequest,
-    ctx: RequestContext = require_platform_permission(Permission.PLATFORM_ACCESS_WRITE),
-    svc: AdminService = Depends(get_admin_service),
+    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_ACCESS_WRITE),
+    admin_service: AdminService = Depends(get_admin_service),
+    session: AsyncSession = Depends(get_db),
 ) -> None:
-    await svc.grant_access(
+    await admin_service.grant_access(
         fund_id,
         user_type=body.user_type,
         user_id=body.user_id,
         relation=body.relation,
-        actor=ctx,
+        request_context=request_context,
+        session=session,
     )
 
 
@@ -190,15 +220,17 @@ async def grant_access(
 async def revoke_access(
     fund_id: str,
     body: AccessRevokeRequest,
-    ctx: RequestContext = require_platform_permission(Permission.PLATFORM_ACCESS_WRITE),
-    svc: AdminService = Depends(get_admin_service),
+    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_ACCESS_WRITE),
+    admin_service: AdminService = Depends(get_admin_service),
+    session: AsyncSession = Depends(get_db),
 ) -> None:
-    await svc.revoke_access(
+    await admin_service.revoke_access(
         fund_id,
         user_type=body.user_type,
         user_id=body.user_id,
         relation=body.relation,
-        actor=ctx,
+        request_context=request_context,
+        session=session,
     )
 
 
@@ -213,12 +245,14 @@ async def list_audit(
     event_type: str | None = None,
     limit: int = 100,
     offset: int = 0,
-    ctx: RequestContext = require_platform_permission(Permission.PLATFORM_AUDIT_READ),
-    svc: AdminService = Depends(get_admin_service),
+    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_AUDIT_READ),
+    admin_service: AdminService = Depends(get_admin_service),
+    session: AsyncSession = Depends(get_db),
 ) -> AuditPage:
-    return await svc.list_audit(
+    return await admin_service.list_audit(
         fund_slug=fund_slug,
         event_type=event_type,
         limit=limit,
         offset=offset,
+        session=session,
     )

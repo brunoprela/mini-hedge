@@ -5,6 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.risk_engine.dependencies import get_risk_service
 from app.modules.risk_engine.interface import (
@@ -17,8 +18,9 @@ from app.modules.risk_engine.interface import (
     VaRMethod,
     VaRResult,
 )
-from app.modules.risk_engine.service import RiskService
+from app.modules.risk_engine.risk_service import RiskService
 from app.shared.auth import Permission, require_permission
+from app.shared.database import get_db
 from app.shared.fga import require_access
 from app.shared.fga_resources import Portfolio
 from app.shared.request_context import RequestContext
@@ -55,11 +57,12 @@ class CustomStressRequest(BaseModel):
 @router.get("/{portfolio_id}/snapshot", response_model=RiskSnapshot | None)
 async def get_risk_snapshot(
     portfolio_id: UUID,
-    ctx: RequestContext = require_permission(Permission.RISK_READ),
+    request_context: RequestContext = require_permission(Permission.RISK_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
-    service: RiskService = Depends(get_risk_service),
+    risk_service: RiskService = Depends(get_risk_service),
+    session: AsyncSession = Depends(get_db),
 ) -> RiskSnapshot | None:
-    return await service.get_latest_snapshot(portfolio_id)
+    return await risk_service.get_latest_snapshot(portfolio_id, session=session)
 
 
 @router.get(
@@ -70,36 +73,40 @@ async def get_risk_history(
     portfolio_id: UUID,
     start: datetime = Query(...),
     end: datetime = Query(...),
-    ctx: RequestContext = require_permission(Permission.RISK_READ),
+    request_context: RequestContext = require_permission(Permission.RISK_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
-    service: RiskService = Depends(get_risk_service),
+    risk_service: RiskService = Depends(get_risk_service),
+    session: AsyncSession = Depends(get_db),
 ) -> list[RiskSnapshot]:
-    return await service.get_snapshot_history(portfolio_id, start, end)
+    return await risk_service.get_snapshot_history(portfolio_id, start, end, session=session)
 
 
 @router.post("/{portfolio_id}/snapshot", response_model=RiskSnapshot)
 async def take_risk_snapshot(
     portfolio_id: UUID,
-    ctx: RequestContext = require_permission(Permission.RISK_READ),
+    request_context: RequestContext = require_permission(Permission.RISK_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
-    service: RiskService = Depends(get_risk_service),
+    risk_service: RiskService = Depends(get_risk_service),
+    session: AsyncSession = Depends(get_db),
 ) -> RiskSnapshot:
-    return await service.take_snapshot(portfolio_id)
+    return await risk_service.take_snapshot(portfolio_id, session=session)
 
 
 @router.post("/{portfolio_id}/var", response_model=VaRResult)
 async def calculate_var(
     portfolio_id: UUID,
     body: VaRRequest,
-    ctx: RequestContext = require_permission(Permission.RISK_READ),
+    request_context: RequestContext = require_permission(Permission.RISK_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
-    service: RiskService = Depends(get_risk_service),
+    risk_service: RiskService = Depends(get_risk_service),
+    session: AsyncSession = Depends(get_db),
 ) -> VaRResult:
-    return await service.calculate_var(
+    return await risk_service.calculate_var(
         portfolio_id,
         method=body.method,
         confidence=body.confidence,
         horizon_days=body.horizon_days,
+        session=session,
     )
 
 
@@ -109,13 +116,14 @@ async def calculate_var(
 )
 async def run_predefined_stress_tests(
     portfolio_id: UUID,
-    ctx: RequestContext = require_permission(Permission.RISK_READ),
+    request_context: RequestContext = require_permission(Permission.RISK_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
-    service: RiskService = Depends(get_risk_service),
+    risk_service: RiskService = Depends(get_risk_service),
+    session: AsyncSession = Depends(get_db),
 ) -> list[StressTestResult]:
     results = []
     for scenario in PREDEFINED_SCENARIOS:
-        result = await service.run_stress_test(portfolio_id, scenario)
+        result = await risk_service.run_stress_test(portfolio_id, scenario, session=session)
         results.append(result)
     return results
 
@@ -127,9 +135,10 @@ async def run_predefined_stress_tests(
 async def run_custom_stress_test(
     portfolio_id: UUID,
     body: CustomStressRequest,
-    ctx: RequestContext = require_permission(Permission.RISK_READ),
+    request_context: RequestContext = require_permission(Permission.RISK_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
-    service: RiskService = Depends(get_risk_service),
+    risk_service: RiskService = Depends(get_risk_service),
+    session: AsyncSession = Depends(get_db),
 ) -> StressTestResult:
     scenario = StressScenario(
         name=body.name,
@@ -137,7 +146,7 @@ async def run_custom_stress_test(
         shocks=body.shocks,
         description=body.description,
     )
-    return await service.run_stress_test(portfolio_id, scenario)
+    return await risk_service.run_stress_test(portfolio_id, scenario, session=session)
 
 
 @router.get(
@@ -146,16 +155,17 @@ async def run_custom_stress_test(
 )
 async def get_factor_decomposition(
     portfolio_id: UUID,
-    ctx: RequestContext = require_permission(Permission.RISK_READ),
+    request_context: RequestContext = require_permission(Permission.RISK_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
-    service: RiskService = Depends(get_risk_service),
+    risk_service: RiskService = Depends(get_risk_service),
+    session: AsyncSession = Depends(get_db),
 ) -> FactorDecomposition:
-    return await service.calculate_factor_model(portfolio_id)
+    return await risk_service.calculate_factor_model(portfolio_id, session=session)
 
 
 @router.get("/scenarios", response_model=list[dict])
 async def list_predefined_scenarios(
-    ctx: RequestContext = require_permission(Permission.RISK_READ),
+    request_context: RequestContext = require_permission(Permission.RISK_READ),
 ) -> list[dict]:
     """List available predefined stress scenarios."""
     return [

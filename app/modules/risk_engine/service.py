@@ -36,6 +36,8 @@ from app.shared.events import BaseEvent
 from app.shared.schema_registry import fund_topic
 
 if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
     from app.modules.market_data.service import MarketDataService
     from app.modules.positions.service import PositionService
     from app.modules.risk_engine.repository import RiskRepository
@@ -63,18 +65,23 @@ class RiskService:
         security_master_service: SecurityMasterService,
         event_bus: EventBus | None = None,
     ) -> None:
-        self._repo = risk_repo
-        self._positions = position_service
-        self._market_data = market_data_service
-        self._sm = security_master_service
+        self._risk_repo = risk_repo
+        self._position_service = position_service
+        self._market_data_service = market_data_service
+        self._security_master_service = security_master_service
         self._event_bus = event_bus
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
-    async def get_latest_snapshot(self, portfolio_id: UUID) -> RiskSnapshot | None:
-        record = await self._repo.get_latest_snapshot(portfolio_id)
+    async def get_latest_snapshot(
+        self,
+        portfolio_id: UUID,
+        *,
+        session: AsyncSession | None = None,
+    ) -> RiskSnapshot | None:
+        record = await self._risk_repo.get_latest_snapshot(portfolio_id, session=session)
         if record is None:
             return None
         return RiskSnapshot(
@@ -94,8 +101,12 @@ class RiskService:
         portfolio_id: UUID,
         start: datetime,
         end: datetime,
+        *,
+        session: AsyncSession | None = None,
     ) -> list[RiskSnapshot]:
-        records = await self._repo.get_snapshot_history(portfolio_id, start, end)
+        records = await self._risk_repo.get_snapshot_history(
+            portfolio_id, start, end, session=session
+        )
         return [
             RiskSnapshot(
                 id=r.id,
@@ -117,9 +128,13 @@ class RiskService:
         method: VaRMethod = VaRMethod.HISTORICAL,
         confidence: float = 0.95,
         horizon_days: int = 1,
+        *,
+        session: AsyncSession | None = None,
     ) -> VaRResult:
         """Calculate VaR for a portfolio."""
-        weights, returns_matrix, instrument_ids, nav = await self._build_risk_inputs(portfolio_id)
+        weights, returns_matrix, instrument_ids, nav = await self._build_risk_inputs(
+            portfolio_id, session=session
+        )
 
         if method == VaRMethod.HISTORICAL:
             result = calculate_historical_var(
@@ -143,7 +158,7 @@ class RiskService:
             )
 
         # Persist
-        await self._persist_var_result(result)
+        await self._persist_var_result(result, session=session)
 
         logger.info(
             "var_calculated",
@@ -157,14 +172,16 @@ class RiskService:
         self,
         portfolio_id: UUID,
         scenario: StressScenario,
+        *,
+        session: AsyncSession | None = None,
     ) -> StressTestResult:
         """Run a stress test scenario on a portfolio."""
-        positions_data, nav = await self._build_stress_inputs(portfolio_id)
+        positions_data, nav = await self._build_stress_inputs(portfolio_id, session=session)
 
         result = run_stress_test(portfolio_id, scenario, positions_data, nav)
 
         # Persist
-        await self._persist_stress_result(result, scenario)
+        await self._persist_stress_result(result, scenario, session=session)
 
         logger.info(
             "stress_test_run",
@@ -174,11 +191,18 @@ class RiskService:
         )
         return result
 
-    async def calculate_factor_model(self, portfolio_id: UUID) -> FactorDecomposition:
+    async def calculate_factor_model(
+        self,
+        portfolio_id: UUID,
+        *,
+        session: AsyncSession | None = None,
+    ) -> FactorDecomposition:
         """Calculate factor decomposition for a portfolio."""
-        weights, returns_matrix, instrument_ids, nav = await self._build_risk_inputs(portfolio_id)
+        weights, returns_matrix, instrument_ids, nav = await self._build_risk_inputs(
+            portfolio_id, session=session
+        )
 
-        instruments = await self._sm.get_all_active()
+        instruments = await self._security_master_service.get_all_active(session=session)
         sector_lookup = {i.ticker: i.sector or "Unknown" for i in instruments}
         sector_map = {iid: sector_lookup.get(iid, "Unknown") for iid in instrument_ids}
 
@@ -202,13 +226,15 @@ class RiskService:
         self,
         portfolio_id: UUID,
         fund_slug: str | None = None,
+        *,
+        session: AsyncSession | None = None,
     ) -> RiskSnapshot:
         """Calculate and persist a complete risk snapshot."""
         # Run independent calculations concurrently
         var_95, var_99, positions = await asyncio.gather(
-            self.calculate_var(portfolio_id, VaRMethod.HISTORICAL, 0.95, 1),
-            self.calculate_var(portfolio_id, VaRMethod.HISTORICAL, 0.99, 1),
-            self._positions.get_by_portfolio(portfolio_id),
+            self.calculate_var(portfolio_id, VaRMethod.HISTORICAL, 0.95, 1, session=session),
+            self.calculate_var(portfolio_id, VaRMethod.HISTORICAL, 0.99, 1, session=session),
+            self._position_service.get_by_portfolio(portfolio_id, session=session),
         )
         nav = sum(
             (p.market_value for p in positions if p.market_value),
@@ -224,7 +250,7 @@ class RiskService:
             max_drawdown=ZERO,  # would need historical NAV series
             snapshot_at=datetime.now(UTC),
         )
-        await self._repo.save_snapshot(record)
+        await self._risk_repo.save_snapshot(record, session=session)
         await self._publish_risk_event(record, fund_slug)
 
         return RiskSnapshot(
@@ -244,10 +270,13 @@ class RiskService:
     # ------------------------------------------------------------------
 
     async def _build_risk_inputs(
-        self, portfolio_id: UUID
+        self,
+        portfolio_id: UUID,
+        *,
+        session: AsyncSession | None = None,
     ) -> tuple[dict[str, float], np.ndarray, list[str], float]:  # type: ignore[type-arg]
         """Build weights, returns matrix, instrument list, and NAV."""
-        positions = await self._positions.get_by_portfolio(portfolio_id)
+        positions = await self._position_service.get_by_portfolio(portfolio_id, session=session)
         positions = [p for p in positions if p.quantity != ZERO]
 
         if not positions:
@@ -263,11 +292,16 @@ class RiskService:
         }
 
         # Build returns matrix from price history
-        returns_matrix = await self._build_returns_matrix(instrument_ids)
+        returns_matrix = await self._build_returns_matrix(instrument_ids, session=session)
 
         return weights, returns_matrix, instrument_ids, nav
 
-    async def _build_returns_matrix(self, instrument_ids: list[str]) -> np.ndarray:  # type: ignore[type-arg]
+    async def _build_returns_matrix(
+        self,
+        instrument_ids: list[str],
+        *,
+        session: AsyncSession | None = None,
+    ) -> np.ndarray:  # type: ignore[type-arg]
         """Build a (n_days, n_instruments) returns matrix.
 
         Uses synthetic returns based on instrument reference data (annual_drift,
@@ -278,7 +312,7 @@ class RiskService:
             return np.empty((0, 0))
 
         # Look up drift/volatility from instrument reference data
-        instruments = await self._sm.get_all_active()
+        instruments = await self._security_master_service.get_all_active(session=session)
         vol_map = {
             i.ticker: i.annual_volatility for i in instruments if i.annual_volatility is not None
         }
@@ -297,16 +331,19 @@ class RiskService:
         return daily_returns
 
     async def _build_stress_inputs(
-        self, portfolio_id: UUID
+        self,
+        portfolio_id: UUID,
+        *,
+        session: AsyncSession | None = None,
     ) -> tuple[dict[str, tuple[Decimal, str | None]], float]:
         """Build position data for stress testing."""
-        positions = await self._positions.get_by_portfolio(portfolio_id)
+        positions = await self._position_service.get_by_portfolio(portfolio_id, session=session)
         positions = [p for p in positions if p.quantity != ZERO]
 
         nav = float(sum((p.market_value for p in positions if p.market_value), ZERO))
 
         # Batch-fetch instruments instead of N+1
-        instruments = await self._sm.get_all_active()
+        instruments = await self._security_master_service.get_all_active(session=session)
         sector_map = {i.ticker: getattr(i, "sector", None) for i in instruments}
 
         positions_data: dict[str, tuple[Decimal, str | None]] = {}
@@ -343,7 +380,9 @@ class RiskService:
             event,
         )
 
-    async def _persist_var_result(self, result: VaRResult) -> None:
+    async def _persist_var_result(
+        self, result: VaRResult, *, session: AsyncSession | None = None
+    ) -> None:
         """Persist VaR result and contributions."""
         result_record = VaRResultRecord(
             portfolio_id=str(result.portfolio_id),
@@ -368,12 +407,14 @@ class RiskService:
             for c in result.contributions
         ]
 
-        await self._repo.save_var_result(result_record, contributions)
+        await self._risk_repo.save_var_result(result_record, contributions, session=session)
 
     async def _persist_stress_result(
         self,
         result: StressTestResult,
         scenario: StressScenario,
+        *,
+        session: AsyncSession | None = None,
     ) -> None:
         """Persist stress test result and position impacts."""
         result_record = StressTestResultRecord(
@@ -398,4 +439,4 @@ class RiskService:
             for imp in result.position_impacts
         ]
 
-        await self._repo.save_stress_result(result_record, impacts)
+        await self._risk_repo.save_stress_result(result_record, impacts, session=session)

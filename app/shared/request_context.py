@@ -103,6 +103,6 @@ def get_request_context_or_system() -> RequestContext:
         return SYSTEM_CONTEXT
 
 
-def set_request_context(ctx: RequestContext) -> None:
+def set_request_context(request_context: RequestContext) -> None:
     """Set the request context for this async task."""
-    _current_context.set(ctx)
+    _current_context.set(request_context)

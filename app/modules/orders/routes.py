@@ -3,6 +3,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.orders.dependencies import get_order_service
 from app.modules.orders.interface import (
@@ -10,9 +11,10 @@ from app.modules.orders.interface import (
     FillDetail,
     OrderSummary,
 )
-from app.modules.orders.service import OrderService
+from app.modules.orders.order_service import OrderService
 from app.modules.orders.state_machine import InvalidTransitionError
 from app.shared.auth import Permission, require_permission
+from app.shared.database import get_db
 from app.shared.request_context import RequestContext
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -21,13 +23,15 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 @router.post("", response_model=OrderSummary, status_code=201)
 async def create_order(
     body: CreateOrderRequest,
-    ctx: RequestContext = require_permission(Permission.ORDERS_CREATE),
-    service: OrderService = Depends(get_order_service),
+    request_context: RequestContext = require_permission(Permission.ORDERS_CREATE),
+    order_service: OrderService = Depends(get_order_service),
+    session: AsyncSession = Depends(get_db),
 ) -> OrderSummary:
-    return await service.create_order(
+    return await order_service.create_order(
         request=body,
-        fund_slug=ctx.fund_slug,
-        actor_id=ctx.actor_id,
+        fund_slug=request_context.fund_slug,
+        actor_id=request_context.actor_id,
+        session=session,
     )
 
 
@@ -35,20 +39,22 @@ async def create_order(
 async def list_orders(
     portfolio_id: UUID = Query(...),
     state: str | None = Query(None),
-    ctx: RequestContext = require_permission(Permission.ORDERS_READ),
-    service: OrderService = Depends(get_order_service),
+    request_context: RequestContext = require_permission(Permission.ORDERS_READ),
+    order_service: OrderService = Depends(get_order_service),
+    session: AsyncSession = Depends(get_db),
 ) -> list[OrderSummary]:
-    return await service.get_orders(portfolio_id, state=state)
+    return await order_service.get_orders(portfolio_id, state=state, session=session)
 
 
 @router.get("/{order_id}", response_model=OrderSummary)
 async def get_order(
     order_id: UUID,
-    ctx: RequestContext = require_permission(Permission.ORDERS_READ),
-    service: OrderService = Depends(get_order_service),
+    request_context: RequestContext = require_permission(Permission.ORDERS_READ),
+    order_service: OrderService = Depends(get_order_service),
+    session: AsyncSession = Depends(get_db),
 ) -> OrderSummary:
     try:
-        return await service.get_order(order_id)
+        return await order_service.get_order(order_id, session=session)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -56,20 +62,24 @@ async def get_order(
 @router.get("/{order_id}/fills", response_model=list[FillDetail])
 async def get_fills(
     order_id: UUID,
-    ctx: RequestContext = require_permission(Permission.ORDERS_READ),
-    service: OrderService = Depends(get_order_service),
+    request_context: RequestContext = require_permission(Permission.ORDERS_READ),
+    order_service: OrderService = Depends(get_order_service),
+    session: AsyncSession = Depends(get_db),
 ) -> list[FillDetail]:
-    return await service.get_fills(order_id)
+    return await order_service.get_fills(order_id, session=session)
 
 
 @router.post("/{order_id}/cancel", response_model=OrderSummary)
 async def cancel_order(
     order_id: UUID,
-    ctx: RequestContext = require_permission(Permission.ORDERS_CANCEL),
-    service: OrderService = Depends(get_order_service),
+    request_context: RequestContext = require_permission(Permission.ORDERS_CANCEL),
+    order_service: OrderService = Depends(get_order_service),
+    session: AsyncSession = Depends(get_db),
 ) -> OrderSummary:
     try:
-        return await service.cancel_order(order_id, actor_id=ctx.actor_id)
+        return await order_service.cancel_order(
+            order_id, actor_id=request_context.actor_id, session=session
+        )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except InvalidTransitionError as exc:

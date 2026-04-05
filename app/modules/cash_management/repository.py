@@ -15,26 +15,26 @@ from app.modules.cash_management.models import (
     CashSettlementRecord,
     ScheduledFlowRecord,
 )
+from app.shared.repository import BaseRepository
 
 if TYPE_CHECKING:
-    from app.shared.database import TenantSessionFactory
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
-class CashBalanceRepository:
-    def __init__(self, session_factory: TenantSessionFactory) -> None:
-        self._sf = session_factory
-
-    async def get_by_portfolio(self, portfolio_id: UUID) -> list[CashBalanceRecord]:
-        async with self._sf() as session:
+class CashBalanceRepository(BaseRepository):
+    async def get_by_portfolio(
+        self, portfolio_id: UUID, *, session: AsyncSession | None = None
+    ) -> list[CashBalanceRecord]:
+        async with self._session(session) as session:
             result = await session.execute(
                 select(CashBalanceRecord).where(CashBalanceRecord.portfolio_id == str(portfolio_id))
             )
             return list(result.scalars().all())
 
     async def get_by_portfolio_currency(
-        self, portfolio_id: UUID, currency: str
+        self, portfolio_id: UUID, currency: str, *, session: AsyncSession | None = None
     ) -> CashBalanceRecord | None:
-        async with self._sf() as session:
+        async with self._session(session) as session:
             result = await session.execute(
                 select(CashBalanceRecord).where(
                     CashBalanceRecord.portfolio_id == str(portfolio_id),
@@ -43,8 +43,10 @@ class CashBalanceRepository:
             )
             return result.scalar_one_or_none()
 
-    async def upsert(self, record: CashBalanceRecord) -> None:
-        async with self._sf() as session:
+    async def upsert(
+        self, record: CashBalanceRecord, *, session: AsyncSession | None = None
+    ) -> None:
+        async with self._session(session) as session:
             existing = await session.execute(
                 select(CashBalanceRecord).where(
                     CashBalanceRecord.portfolio_id == record.portfolio_id,
@@ -67,12 +69,11 @@ class CashBalanceRepository:
             await session.commit()
 
 
-class CashJournalRepository:
-    def __init__(self, session_factory: TenantSessionFactory) -> None:
-        self._sf = session_factory
-
-    async def insert(self, record: CashJournalRecord) -> None:
-        async with self._sf() as session:
+class CashJournalRepository(BaseRepository):
+    async def insert(
+        self, record: CashJournalRecord, *, session: AsyncSession | None = None
+    ) -> None:
+        async with self._session(session) as session:
             session.add(record)
             await session.commit()
 
@@ -80,8 +81,10 @@ class CashJournalRepository:
         self,
         portfolio_id: UUID,
         limit: int = 100,
+        *,
+        session: AsyncSession | None = None,
     ) -> list[CashJournalRecord]:
-        async with self._sf() as session:
+        async with self._session(session) as session:
             result = await session.execute(
                 select(CashJournalRecord)
                 .where(CashJournalRecord.portfolio_id == str(portfolio_id))
@@ -91,17 +94,18 @@ class CashJournalRepository:
             return list(result.scalars().all())
 
 
-class SettlementRepository:
-    def __init__(self, session_factory: TenantSessionFactory) -> None:
-        self._sf = session_factory
-
-    async def insert(self, record: CashSettlementRecord) -> None:
-        async with self._sf() as session:
+class SettlementRepository(BaseRepository):
+    async def insert(
+        self, record: CashSettlementRecord, *, session: AsyncSession | None = None
+    ) -> None:
+        async with self._session(session) as session:
             session.add(record)
             await session.commit()
 
-    async def get_pending(self, portfolio_id: UUID) -> list[CashSettlementRecord]:
-        async with self._sf() as session:
+    async def get_pending(
+        self, portfolio_id: UUID, *, session: AsyncSession | None = None
+    ) -> list[CashSettlementRecord]:
+        async with self._session(session) as session:
             result = await session.execute(
                 select(CashSettlementRecord)
                 .where(
@@ -117,8 +121,10 @@ class SettlementRepository:
         portfolio_id: UUID,
         start: date,
         end: date,
+        *,
+        session: AsyncSession | None = None,
     ) -> list[CashSettlementRecord]:
-        async with self._sf() as session:
+        async with self._session(session) as session:
             result = await session.execute(
                 select(CashSettlementRecord)
                 .where(
@@ -130,9 +136,9 @@ class SettlementRepository:
             )
             return list(result.scalars().all())
 
-    async def settle(self, settlement_id: str) -> None:
+    async def settle(self, settlement_id: str, *, session: AsyncSession | None = None) -> None:
         """Mark a settlement as settled."""
-        async with self._sf() as session:
+        async with self._session(session) as session:
             await session.execute(
                 update(CashSettlementRecord)
                 .where(CashSettlementRecord.id == settlement_id)
@@ -140,9 +146,11 @@ class SettlementRepository:
             )
             await session.commit()
 
-    async def get_due_settlements(self, as_of: date) -> list[CashSettlementRecord]:
+    async def get_due_settlements(
+        self, as_of: date, *, session: AsyncSession | None = None
+    ) -> list[CashSettlementRecord]:
         """Get all pending settlements due on or before a date."""
-        async with self._sf() as session:
+        async with self._session(session) as session:
             result = await session.execute(
                 select(CashSettlementRecord)
                 .where(
@@ -154,12 +162,11 @@ class SettlementRepository:
             return list(result.scalars().all())
 
 
-class ScheduledFlowRepository:
-    def __init__(self, session_factory: TenantSessionFactory) -> None:
-        self._sf = session_factory
-
-    async def insert(self, record: ScheduledFlowRecord) -> None:
-        async with self._sf() as session:
+class ScheduledFlowRepository(BaseRepository):
+    async def insert(
+        self, record: ScheduledFlowRecord, *, session: AsyncSession | None = None
+    ) -> None:
+        async with self._session(session) as session:
             session.add(record)
             await session.commit()
 
@@ -168,8 +175,10 @@ class ScheduledFlowRepository:
         portfolio_id: UUID,
         start: date,
         end: date,
+        *,
+        session: AsyncSession | None = None,
     ) -> list[ScheduledFlowRecord]:
-        async with self._sf() as session:
+        async with self._session(session) as session:
             result = await session.execute(
                 select(ScheduledFlowRecord)
                 .where(
@@ -182,17 +191,18 @@ class ScheduledFlowRepository:
             return list(result.scalars().all())
 
 
-class CashProjectionRepository:
-    def __init__(self, session_factory: TenantSessionFactory) -> None:
-        self._sf = session_factory
-
-    async def save(self, record: CashProjectionRecord) -> None:
-        async with self._sf() as session:
+class CashProjectionRepository(BaseRepository):
+    async def save(
+        self, record: CashProjectionRecord, *, session: AsyncSession | None = None
+    ) -> None:
+        async with self._session(session) as session:
             session.add(record)
             await session.commit()
 
-    async def get_latest(self, portfolio_id: UUID) -> CashProjectionRecord | None:
-        async with self._sf() as session:
+    async def get_latest(
+        self, portfolio_id: UUID, *, session: AsyncSession | None = None
+    ) -> CashProjectionRecord | None:
+        async with self._session(session) as session:
             result = await session.execute(
                 select(CashProjectionRecord)
                 .where(CashProjectionRecord.portfolio_id == str(portfolio_id))

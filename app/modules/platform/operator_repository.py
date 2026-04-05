@@ -7,46 +7,50 @@ from typing import TYPE_CHECKING
 from sqlalchemy import func, select, update
 
 from app.modules.platform.models import OperatorRecord
+from app.shared.repository import BaseRepository
 
 if TYPE_CHECKING:
-    from app.shared.database import TenantSessionFactory
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
-class OperatorRepository:
-    def __init__(self, session_factory: TenantSessionFactory) -> None:
-        self._sf = session_factory
-
-    async def get_by_id(self, operator_id: str) -> OperatorRecord | None:
-        async with self._sf() as session:
+class OperatorRepository(BaseRepository):
+    async def get_by_id(
+        self, operator_id: str, *, session: AsyncSession | None = None
+    ) -> OperatorRecord | None:
+        async with self._session(session) as session:
             result = await session.execute(
                 select(OperatorRecord).where(OperatorRecord.id == operator_id)
             )
             return result.scalar_one_or_none()
 
-    async def get_by_email(self, email: str) -> OperatorRecord | None:
-        async with self._sf() as session:
+    async def get_by_email(
+        self, email: str, *, session: AsyncSession | None = None
+    ) -> OperatorRecord | None:
+        async with self._session(session) as session:
             result = await session.execute(
                 select(OperatorRecord).where(OperatorRecord.email == email)
             )
             return result.scalar_one_or_none()
 
-    async def get_by_keycloak_sub(self, keycloak_sub: str) -> OperatorRecord | None:
-        async with self._sf() as session:
+    async def get_by_keycloak_sub(
+        self, keycloak_sub: str, *, session: AsyncSession | None = None
+    ) -> OperatorRecord | None:
+        async with self._session(session) as session:
             result = await session.execute(
                 select(OperatorRecord).where(OperatorRecord.keycloak_sub == keycloak_sub)
             )
             return result.scalar_one_or_none()
 
-    async def insert(self, record: OperatorRecord) -> None:
-        async with self._sf() as session:
+    async def insert(self, record: OperatorRecord, *, session: AsyncSession | None = None) -> None:
+        async with self._session(session) as session:
             session.add(record)
             await session.commit()
 
     async def upsert_from_keycloak(
-        self, *, keycloak_sub: str, email: str, name: str
+        self, *, keycloak_sub: str, email: str, name: str, session: AsyncSession | None = None
     ) -> OperatorRecord:
         """JIT sync: create or update an operator from Keycloak claims."""
-        async with self._sf() as session:
+        async with self._session(session) as session:
             result = await session.execute(
                 select(OperatorRecord).where(OperatorRecord.keycloak_sub == keycloak_sub)
             )
@@ -92,30 +96,32 @@ class OperatorRepository:
             await session.refresh(op)
             return op
 
-    async def get_all_active(self) -> list[OperatorRecord]:
-        async with self._sf() as session:
+    async def get_all_active(self, *, session: AsyncSession | None = None) -> list[OperatorRecord]:
+        async with self._session(session) as session:
             result = await session.execute(
                 select(OperatorRecord).where(OperatorRecord.is_active.is_(True))
             )
             return list(result.scalars().all())
 
-    async def get_all(self) -> list[OperatorRecord]:
-        async with self._sf() as session:
+    async def get_all(self, *, session: AsyncSession | None = None) -> list[OperatorRecord]:
+        async with self._session(session) as session:
             result = await session.execute(select(OperatorRecord))
             return list(result.scalars().all())
 
     async def get_all_paginated(
-        self, *, limit: int = 100, offset: int = 0
+        self, *, limit: int = 100, offset: int = 0, session: AsyncSession | None = None
     ) -> tuple[list[OperatorRecord], int]:
-        async with self._sf() as session:
+        async with self._session(session) as session:
             total = (await session.execute(select(func.count(OperatorRecord.id)))).scalar_one()
             result = await session.execute(
                 select(OperatorRecord).order_by(OperatorRecord.name).offset(offset).limit(limit)
             )
             return list(result.scalars().all()), total
 
-    async def update(self, operator_id: str, **fields: object) -> OperatorRecord | None:
-        async with self._sf() as session:
+    async def update(
+        self, operator_id: str, *, session: AsyncSession | None = None, **fields: object
+    ) -> OperatorRecord | None:
+        async with self._session(session) as session:
             if fields:
                 await session.execute(
                     update(OperatorRecord).where(OperatorRecord.id == operator_id).values(**fields)

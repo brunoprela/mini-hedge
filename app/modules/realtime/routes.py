@@ -1,8 +1,8 @@
 """SSE streaming endpoint — pushes real-time events to browsers via Redis pub/sub.
 
-Authentication is via JWT query parameter because the browser's EventSource API
-does not support custom headers. The middleware skips this path; auth is handled
-inline.
+Authentication is handled by the auth middleware, which extracts the JWT
+from the ``token`` query parameter for SSE paths (EventSource API does
+not support custom headers).
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import structlog
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import StreamingResponse
 
-from app.shared.errors import AuthenticationError, AuthorizationError
+from app.shared.auth import get_actor_context
 from app.shared.redis_bridge import PRICES_CHANNEL, fund_channel
 
 logger = structlog.get_logger()
@@ -23,16 +23,6 @@ logger = structlog.get_logger()
 router = APIRouter(tags=["realtime"])
 
 _HEARTBEAT_INTERVAL = 30  # seconds
-
-
-def _sse_error(message: str, *, status_code: int) -> StreamingResponse:
-    """Return a single-event SSE response containing an error."""
-    payload = json.dumps({"error": message})
-    return StreamingResponse(
-        iter([f"data: {payload}\n\n"]),
-        status_code=status_code,
-        media_type="text/event-stream",
-    )
 
 
 async def _event_stream(
@@ -78,34 +68,28 @@ async def _event_stream(
 @router.get("/stream/events")
 async def stream_events(
     request: Request,
-    token: str = Query(..., description="JWT for authentication"),
+    token: str = Query(..., description="JWT for authentication (used by middleware)"),
     fund_slug: str | None = Query(None, description="Fund slug override"),
 ) -> StreamingResponse:
     """SSE endpoint for real-time event streaming.
 
-    Authenticates via ``token`` query parameter, subscribes to Redis pub/sub
-    channels for the authenticated fund, and streams events as SSE.
+    The ``token`` query parameter is consumed by the auth middleware —
+    by the time we get here, ``RequestContext`` is already set.
     """
-    auth_service = getattr(request.app.state, "auth_service", None)
-    if auth_service is None:
-        return _sse_error("Auth service unavailable", status_code=503)
-
-    try:
-        ctx = await auth_service.authenticate_jwt(token, fund_slug=fund_slug)
-    except AuthenticationError as exc:
-        return _sse_error(exc.message, status_code=401)
-    except AuthorizationError as exc:
-        return _sse_error(exc.message, status_code=403)
-
     redis = getattr(request.app.state, "redis", None)
     if redis is None:
-        return _sse_error("Real-time streaming not available", status_code=503)
+        payload = json.dumps({"error": "Real-time streaming not available"})
+        return StreamingResponse(
+            iter([f"data: {payload}\n\n"]),
+            status_code=503,
+            media_type="text/event-stream",
+        )
 
-    # Build channel list — always include global prices; add fund channel
-    # only if the caller has a fund context (operators may not).
+    # Context is set by middleware — use it to determine channels
+    request_context = get_actor_context()
     channels = [PRICES_CHANNEL]
-    if ctx.fund_slug:
-        channels.append(fund_channel(ctx.fund_slug))
+    if request_context.fund_slug:
+        channels.append(fund_channel(request_context.fund_slug))
 
     return StreamingResponse(
         _event_stream(request, channels),

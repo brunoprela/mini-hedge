@@ -14,6 +14,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 import structlog
+from cachetools import TTLCache
 from fastapi import Depends, HTTPException, Request
 from openfga_sdk import ReadRequestTupleKey
 from openfga_sdk.client.models import (
@@ -117,17 +118,38 @@ def validate_resource_registry(model_json: dict) -> None:
 
 
 class FGAClient:
-    """Thin async wrapper around the OpenFGA SDK client."""
+    """Thin async wrapper around the OpenFGA SDK client.
+
+    Includes a local TTL cache for ``check()`` results to avoid redundant
+    HTTP round-trips for repeated identical permission checks.
+    """
+
+    _CHECK_CACHE_MAX = 512
+    _CHECK_CACHE_TTL = 30  # seconds — matches OpenFGA server-side cache TTL
 
     def __init__(self, client: OpenFgaClient) -> None:
         self._client = client
+        self._check_cache: TTLCache[tuple[str, str, str], bool] = TTLCache(
+            maxsize=self._CHECK_CACHE_MAX, ttl=self._CHECK_CACHE_TTL
+        )
 
     async def check(self, *, user: str, relation: str, object: str) -> bool:
-        """Check if *user* has *relation* on *object*."""
+        """Check if *user* has *relation* on *object*. Results cached for 30s."""
+        cache_key = (user, relation, object)
+        cached = self._check_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         response = await self._client.check(
             body=ClientCheckRequest(user=user, relation=relation, object=object),
         )
-        return bool(response.allowed)
+        result = bool(response.allowed)
+        self._check_cache[cache_key] = result
+        return result
+
+    def invalidate_check_cache(self) -> None:
+        """Clear the local check cache (e.g. after permission changes)."""
+        self._check_cache.clear()
 
     async def write_tuples(self, tuples: list[ClientTuple]) -> None:
         """Write relationship tuples (ignores duplicates)."""
@@ -139,12 +161,14 @@ class FGAClient:
                 ),
             },
         )
+        self._check_cache.clear()
 
     async def delete_tuples(self, tuples: list[ClientTuple]) -> None:
         """Delete relationship tuples."""
         await self._client.write(
             body=ClientWriteRequest(deletes=tuples),
         )
+        self._check_cache.clear()
 
     async def list_objects(self, *, user: str, relation: str, type: str) -> list[str]:
         """List object IDs where *user* has *relation* on objects of *type*."""
@@ -202,7 +226,7 @@ async def _extract_resource_id(
     request: Request,
     param_name: str,
     source: ParamSource,
-    ctx: RequestContext | None = None,
+    request_context: RequestContext | None = None,
 ) -> str:
     """Pull the resource ID from the request path, body, query, or context."""
     if source == ParamSource.PATH:
@@ -213,9 +237,9 @@ async def _extract_resource_id(
     elif source == ParamSource.QUERY:
         value = request.query_params.get(param_name)
     elif source == ParamSource.CONTEXT:
-        if ctx is None:
+        if request_context is None:
             raise HTTPException(status_code=500, detail="Context not available for FGA check")
-        value = getattr(ctx, param_name, None)
+        value = getattr(request_context, param_name, None)
     else:
         raise ValueError(f"Unknown source: {source}")
 
@@ -247,7 +271,7 @@ def require_access(
         @router.get("/{portfolio_id}/positions")
         async def list_positions(
             portfolio_id: UUID,
-            ctx: RequestContext = require_permission(Permission.POSITIONS_READ),
+            request_context: RequestContext = require_permission(Permission.POSITIONS_READ),
             _access: None = require_access(Portfolio.relation("can_view")),
         ):
             ...
@@ -257,17 +281,17 @@ def require_access(
 
     async def _check(
         request: Request,
-        ctx: RequestContext = Depends(get_actor_context),
+        request_context: RequestContext = Depends(get_actor_context),
         fga: FGAClient | None = Depends(_get_fga),
     ) -> None:
         if fga is None:
             # FGA not enabled — skip object-level check (RBAC still enforced)
             return
-        resource_id = await _extract_resource_id(request, param_name, source, ctx)
+        resource_id = await _extract_resource_id(request, param_name, source, request_context)
         # Use the correct FGA subject type based on actor type
-        fga_prefix = "operator" if ctx.actor_type == ActorType.OPERATOR else "user"
+        fga_prefix = "operator" if request_context.actor_type == ActorType.OPERATOR else "user"
         allowed = await fga.check(
-            user=f"{fga_prefix}:{ctx.actor_id}",
+            user=f"{fga_prefix}:{request_context.actor_id}",
             relation=resource_relation.relation,
             object=f"{rt.name}:{resource_id}",
         )

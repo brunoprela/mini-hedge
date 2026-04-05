@@ -30,9 +30,11 @@ const serverIssuer = requireEnv("AUTH_KEYCLOAK_ISSUER");
 const serverOidc = `${serverIssuer}/protocol/openid-connect`;
 const browserOidc = `${browserIssuer}/protocol/openid-connect`;
 
-async function refreshAccessToken(
-  token: import("next-auth/jwt").JWT,
-): Promise<import("next-auth/jwt").JWT> {
+// In-memory refresh lock — prevents concurrent token refreshes from
+// multiple auth() calls in the same request lifecycle.
+let refreshPromise: Promise<import("next-auth/jwt").JWT> | null = null;
+
+async function doRefresh(token: import("next-auth/jwt").JWT): Promise<import("next-auth/jwt").JWT> {
   const response = await fetch(`${serverOidc}/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -54,6 +56,18 @@ async function refreshAccessToken(
     refreshToken: data.refresh_token ?? token.refreshToken,
     expiresAt: Math.floor(Date.now() / 1000) + data.expires_in,
   };
+}
+
+async function refreshAccessToken(
+  token: import("next-auth/jwt").JWT,
+): Promise<import("next-auth/jwt").JWT> {
+  // Deduplicate concurrent refresh calls — only one HTTP request in flight
+  if (!refreshPromise) {
+    refreshPromise = doRefresh(token).finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
 }
 
 function extractPlatformRole(accessToken: string): string {

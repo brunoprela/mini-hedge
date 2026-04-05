@@ -3,17 +3,17 @@
 from datetime import UTC, datetime
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.platform.models import APIKeyRecord
-from app.shared.database import TenantSessionFactory
+from app.shared.repository import BaseRepository
 
 
-class APIKeyRepository:
-    def __init__(self, session_factory: TenantSessionFactory) -> None:
-        self._sf = session_factory
-
-    async def get_by_hash(self, key_hash: str) -> APIKeyRecord | None:
-        async with self._sf() as session:
+class APIKeyRepository(BaseRepository):
+    async def get_by_hash(
+        self, key_hash: str, *, session: AsyncSession | None = None
+    ) -> APIKeyRecord | None:
+        async with self._session(session) as session:
             result = await session.execute(
                 select(APIKeyRecord).where(
                     APIKeyRecord.key_hash == key_hash,
@@ -25,7 +25,7 @@ class APIKeyRepository:
                 return None
             return record
 
-    async def insert(self, record: APIKeyRecord) -> None:
-        async with self._sf() as session:
+    async def insert(self, record: APIKeyRecord, *, session: AsyncSession | None = None) -> None:
+        async with self._session(session) as session:
             session.add(record)
             await session.commit()

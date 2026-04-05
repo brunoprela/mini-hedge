@@ -47,8 +47,8 @@ class PreTradeGate:
     ) -> None:
         self._rule_repo = rule_repo
         self._position_service = position_service
-        self._sm = security_master
-        self._cash_repo = cash_balance_repo
+        self._security_master_service = security_master
+        self._cash_balance_repo = cash_balance_repo
 
     async def check_trade(
         self,
@@ -133,10 +133,10 @@ class PreTradeGate:
 
         Returns defaults if security master is unavailable.
         """
-        if self._sm is None:
+        if self._security_master_service is None:
             return ("", "", "")
         try:
-            inst = await self._sm.get_by_ticker(instrument_id)
+            inst = await self._security_master_service.get_by_ticker(instrument_id)
             return (
                 str(inst.asset_class) if inst.asset_class else "",
                 inst.sector or "",
@@ -210,8 +210,8 @@ class PreTradeGate:
         # Recalculate NAV: positions + available cash
         position_value = sum(abs(p.market_value) for p in positions.values())
         cash = Decimal(0)
-        if self._cash_repo is not None:
-            balances = await self._cash_repo.get_by_portfolio(request.portfolio_id)
+        if self._cash_balance_repo is not None:
+            balances = await self._cash_balance_repo.get_by_portfolio(request.portfolio_id)
             cash = sum(b.available_balance for b in balances)
         nav = position_value + cash
 

@@ -374,13 +374,13 @@ async def main() -> None:
     trade_handler = TradeHandler(session_factory, event_store, projector, event_bus)
 
     # Check if trades already exist (idempotent)
-    ctx = RequestContext(
+    request_context = RequestContext(
         actor_id=USER_ADMIN_ID,
         actor_type=ActorType.SYSTEM,
         fund_slug="alpha",
         fund_id=FUND_ALPHA_ID,
     )
-    set_request_context(ctx)
+    set_request_context(request_context)
     existing = await position_repo.get_by_portfolio(UUID(PORTFOLIO_ALPHA_EQUITY_LS_ID))
     if existing:
         print(f"Already have {len(existing)} positions in Alpha Equity L/S, skipping seed trades.")
@@ -399,7 +399,7 @@ async def main() -> None:
         set_request_context(trade_ctx)
 
         await trade_handler.handle_trade(
-            ctx=trade_ctx,
+            request_context=trade_ctx,
             portfolio_id=UUID(portfolio_id),
             instrument_id=instrument_id,
             side=side,

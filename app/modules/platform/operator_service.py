@@ -12,6 +12,8 @@ from app.modules.platform.models import OperatorRecord
 from app.shared.errors import NotFoundError, ValidationError
 
 if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
     from app.modules.platform.audit_repository import AuditLogRepository
     from app.modules.platform.operator_repository import OperatorRepository
     from app.shared.fga import FGAClient
@@ -33,14 +35,18 @@ class OperatorAdminService:
         audit_repo: AuditLogRepository,
     ) -> None:
         self._operator_repo = operator_repo
-        self._fga = fga_client
-        self._audit = audit_repo
+        self._fga_client = fga_client
+        self._audit_repo = audit_repo
 
-    async def list_operators(self, *, limit: int = 100, offset: int = 0) -> OperatorPage:
-        records, total = await self._operator_repo.get_all_paginated(limit=limit, offset=offset)
+    async def list_operators(
+        self, *, limit: int = 100, offset: int = 0, session: AsyncSession | None = None
+    ) -> OperatorPage:
+        records, total = await self._operator_repo.get_all_paginated(
+            limit=limit, offset=offset, session=session
+        )
         items: list[OperatorInfo] = []
         for r in records:
-            roles = await self._fga.list_relations(
+            roles = await self._fga_client.list_relations(
                 user=f"operator:{r.id}",
                 object="platform:global",
                 relations=_PLATFORM_ROLES,
@@ -60,15 +66,16 @@ class OperatorAdminService:
         email: str,
         name: str,
         platform_role: str,
-        actor: RequestContext,
+        request_context: RequestContext,
+        session: AsyncSession | None = None,
     ) -> OperatorInfo:
-        existing = await self._operator_repo.get_by_email(email)
+        existing = await self._operator_repo.get_by_email(email, session=session)
         if existing is not None:
             raise ValidationError("Operator with this email already exists")
         record = OperatorRecord(email=email, name=name, is_active=True)
-        await self._operator_repo.insert(record)
+        await self._operator_repo.insert(record, session=session)
         # Grant platform role via FGA
-        await self._fga.write_tuples(
+        await self._fga_client.write_tuples(
             [
                 ClientTuple(
                     user=f"operator:{record.id}",
@@ -77,16 +84,17 @@ class OperatorAdminService:
                 )
             ]
         )
-        await self._audit.insert_admin_event(
+        await self._audit_repo.insert_admin_event(
             event_type="admin.operator.created",
-            actor_id=actor.actor_id,
-            actor_type=actor.actor_type.value,
+            actor_id=request_context.actor_id,
+            actor_type=request_context.actor_type.value,
             payload={
                 "email": email,
                 "name": name,
                 "operator_id": record.id,
                 "platform_role": platform_role,
             },
+            session=session,
         )
         return _operator_to_info(record, platform_role=platform_role)
 
@@ -94,32 +102,37 @@ class OperatorAdminService:
         self,
         operator_id: str,
         *,
-        actor: RequestContext,
+        request_context: RequestContext,
         name: str | None = None,
         is_active: bool | None = None,
         platform_role: str | None = None,
+        session: AsyncSession | None = None,
     ) -> OperatorInfo:
         fields: dict[str, object] = {}
         if name is not None:
             fields["name"] = name
         if is_active is not None:
             fields["is_active"] = is_active
-        record = await self._operator_repo.update(operator_id, **fields) if fields else None
+        record = (
+            await self._operator_repo.update(operator_id, session=session, **fields)
+            if fields
+            else None
+        )
         if record is None:
-            record = await self._operator_repo.get_by_id(operator_id)
+            record = await self._operator_repo.get_by_id(operator_id, session=session)
         if record is None:
             raise NotFoundError("Operator", operator_id)
 
         # Update platform role if requested
         if platform_role is not None:
             # Remove old roles, add new one
-            old_roles = await self._fga.list_relations(
+            old_roles = await self._fga_client.list_relations(
                 user=f"operator:{operator_id}",
                 object="platform:global",
                 relations=_PLATFORM_ROLES,
             )
             if old_roles:
-                await self._fga.delete_tuples(
+                await self._fga_client.delete_tuples(
                     [
                         ClientTuple(
                             user=f"operator:{operator_id}",
@@ -129,7 +142,7 @@ class OperatorAdminService:
                         for r in old_roles
                     ]
                 )
-            await self._fga.write_tuples(
+            await self._fga_client.write_tuples(
                 [
                     ClientTuple(
                         user=f"operator:{operator_id}",
@@ -139,15 +152,16 @@ class OperatorAdminService:
                 ]
             )
 
-        await self._audit.insert_admin_event(
+        await self._audit_repo.insert_admin_event(
             event_type="admin.operator.updated",
-            actor_id=actor.actor_id,
-            actor_type=actor.actor_type.value,
+            actor_id=request_context.actor_id,
+            actor_type=request_context.actor_type.value,
             payload={"operator_id": operator_id, "fields": {k: str(v) for k, v in fields.items()}},
+            session=session,
         )
 
         # Resolve current role for response
-        roles = await self._fga.list_relations(
+        roles = await self._fga_client.list_relations(
             user=f"operator:{operator_id}",
             object="platform:global",
             relations=_PLATFORM_ROLES,

@@ -4,13 +4,20 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.platform.audit_repository import AuditLogRepository
 from app.modules.platform.auth_service import AuthService
 from app.modules.platform.dependencies import get_audit_repo, get_auth_service, get_portfolio_repo
 from app.modules.platform.interface import FundInfo, PortfolioInfo
 from app.modules.platform.portfolio_repository import PortfolioRepository
-from app.shared.auth import Permission, get_actor_context, require_permission, resolve_permissions
+from app.shared.auth_service import (
+    Permission,
+    get_actor_context,
+    require_permission,
+    resolve_permissions,
+)
+from app.shared.database import get_db
 from app.shared.request_context import ActorType, RequestContext
 
 router = APIRouter(tags=["platform"])
@@ -45,23 +52,24 @@ class AgentTokenResponse(BaseModel):
 
 @router.get("/me/funds", response_model=list[FundInfo])
 async def list_my_funds(
-    ctx: RequestContext = Depends(get_actor_context),
-    auth: AuthService = Depends(get_auth_service),
+    request_context: RequestContext = Depends(get_actor_context),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> list[FundInfo]:
     """Return all funds the authenticated user has access to.
 
     Requires authentication only — no specific permission needed.
     This endpoint bootstraps the fund selector before fund context exists.
     """
-    return await auth.get_user_funds(ctx.actor_id)
+    return await auth_service.get_user_funds(request_context.actor_id)
 
 
 @router.post("/auth/agent-token", response_model=AgentTokenResponse)
 async def create_agent_token(
     body: AgentTokenRequest,
-    ctx: RequestContext = require_permission(Permission.FUNDS_MANAGE),
-    auth: AuthService = Depends(get_auth_service),
-    audit: AuditLogRepository = Depends(get_audit_repo),
+    request_context: RequestContext = require_permission(Permission.FUNDS_MANAGE),
+    auth_service: AuthService = Depends(get_auth_service),
+    audit_repo: AuditLogRepository = Depends(get_audit_repo),
+    session: AsyncSession = Depends(get_db),
 ) -> AgentTokenResponse:
     """Issue a JWT for an LLM agent.
 
@@ -73,51 +81,53 @@ async def create_agent_token(
     # Prevent privilege escalation: agent permissions must be a subset
     # of the delegator's permissions.
     agent_permissions = resolve_permissions(frozenset(body.roles))
-    if not agent_permissions <= ctx.permissions:
-        escalated = sorted(agent_permissions - ctx.permissions)
+    if not agent_permissions <= request_context.permissions:
+        escalated = sorted(agent_permissions - request_context.permissions)
         raise HTTPException(
             status_code=403,
             detail=f"Cannot delegate permissions you don't hold: {', '.join(escalated)}",
         )
 
     agent_id = str(uuid4())
-    token = auth.issue_agent_token(
+    token = auth_service.issue_agent_token(
         agent_id=agent_id,
-        fund_slug=ctx.fund_slug,
-        fund_id=ctx.fund_id,
+        fund_slug=request_context.fund_slug,
+        fund_id=request_context.fund_id,
         roles=body.roles,
-        delegated_by=ctx.actor_id,
+        delegated_by=request_context.actor_id,
     )
 
-    await audit.insert_admin_event(
+    await audit_repo.insert_admin_event(
         event_type="auth.agent_token.created",
-        actor_id=ctx.actor_id,
-        actor_type=ctx.actor_type.value,
-        fund_slug=ctx.fund_slug,
+        actor_id=request_context.actor_id,
+        actor_type=request_context.actor_type.value,
+        fund_slug=request_context.fund_slug,
         payload={
             "agent_id": agent_id,
             "agent_name": body.agent_name,
             "roles": body.roles,
         },
+        session=session,
     )
 
     return AgentTokenResponse(
         access_token=token,
         actor_type=ActorType.AGENT,
-        fund_slug=ctx.fund_slug,
+        fund_slug=request_context.fund_slug,
         roles=body.roles,
     )
 
 
 @router.get("/portfolios", response_model=list[PortfolioInfo])
 async def list_portfolios(
-    ctx: RequestContext = require_permission(Permission.POSITIONS_READ),
-    repo: PortfolioRepository = Depends(get_portfolio_repo),
+    request_context: RequestContext = require_permission(Permission.POSITIONS_READ),
+    portfolio_repo: PortfolioRepository = Depends(get_portfolio_repo),
+    session: AsyncSession = Depends(get_db),
 ) -> list[PortfolioInfo]:
     """Return all active portfolios for the authenticated user's fund."""
-    if not ctx.fund_id:
+    if not request_context.fund_id:
         return []
-    records = await repo.get_by_fund(ctx.fund_id)
+    records = await portfolio_repo.get_by_fund(request_context.fund_id, session=session)
     return [
         PortfolioInfo(
             id=r.id,

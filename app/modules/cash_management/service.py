@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING
@@ -30,6 +31,8 @@ from app.shared.events import BaseEvent
 from app.shared.schema_registry import fund_topic
 
 if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
     from app.modules.cash_management.repository import (
         CashBalanceRepository,
         CashJournalRepository,
@@ -62,21 +65,26 @@ class CashManagementService:
         security_master_service: SecurityMasterService,
         event_bus: EventBus | None = None,
     ) -> None:
-        self._sf = session_factory
-        self._balances = balance_repo
-        self._journal = journal_repo
-        self._settlements = settlement_repo
-        self._scheduled = scheduled_flow_repo
-        self._projections = projection_repo
-        self._sm = security_master_service
+        self._session_factory = session_factory
+        self._balance_repo = balance_repo
+        self._journal_repo = journal_repo
+        self._settlement_repo = settlement_repo
+        self._scheduled_flow_repo = scheduled_flow_repo
+        self._projection_repo = projection_repo
+        self._security_master_service = security_master_service
         self._event_bus = event_bus
 
     # ------------------------------------------------------------------
     # Cash balances
     # ------------------------------------------------------------------
 
-    async def get_balances(self, portfolio_id: UUID) -> list[CashBalance]:
-        records = await self._balances.get_by_portfolio(portfolio_id)
+    async def get_balances(
+        self,
+        portfolio_id: UUID,
+        *,
+        session: AsyncSession | None = None,
+    ) -> list[CashBalance]:
+        records = await self._balance_repo.get_by_portfolio(portfolio_id, session=session)
         return [
             CashBalance(
                 portfolio_id=r.portfolio_id,
@@ -98,9 +106,13 @@ class CashManagementService:
         flow_type: CashFlowType,
         reference_id: str | None = None,
         description: str | None = None,
+        *,
+        session: AsyncSession | None = None,
     ) -> None:
         """Credit (add) cash to a portfolio balance."""
-        record = await self._balances.get_by_portfolio_currency(portfolio_id, currency)
+        record = await self._balance_repo.get_by_portfolio_currency(
+            portfolio_id, currency, session=session
+        )
         current_balance = record.available_balance if record else ZERO
         new_balance = current_balance + amount
 
@@ -111,7 +123,7 @@ class CashManagementService:
             pending_inflows=record.pending_inflows if record else ZERO,
             pending_outflows=record.pending_outflows if record else ZERO,
         )
-        await self._balances.upsert(balance_record)
+        await self._balance_repo.upsert(balance_record, session=session)
 
         journal = CashJournalRecord(
             portfolio_id=str(portfolio_id),
@@ -123,7 +135,7 @@ class CashManagementService:
             reference_id=reference_id,
             description=description,
         )
-        await self._journal.insert(journal)
+        await self._journal_repo.insert(journal, session=session)
 
     async def debit(
         self,
@@ -133,9 +145,13 @@ class CashManagementService:
         flow_type: CashFlowType,
         reference_id: str | None = None,
         description: str | None = None,
+        *,
+        session: AsyncSession | None = None,
     ) -> None:
         """Debit (remove) cash from a portfolio balance."""
-        record = await self._balances.get_by_portfolio_currency(portfolio_id, currency)
+        record = await self._balance_repo.get_by_portfolio_currency(
+            portfolio_id, currency, session=session
+        )
         current_balance = record.available_balance if record else ZERO
         new_balance = current_balance - amount
 
@@ -146,7 +162,7 @@ class CashManagementService:
             pending_inflows=record.pending_inflows if record else ZERO,
             pending_outflows=record.pending_outflows if record else ZERO,
         )
-        await self._balances.upsert(balance_record)
+        await self._balance_repo.upsert(balance_record, session=session)
 
         journal = CashJournalRecord(
             portfolio_id=str(portfolio_id),
@@ -158,7 +174,7 @@ class CashManagementService:
             reference_id=reference_id,
             description=description,
         )
-        await self._journal.insert(journal)
+        await self._journal_repo.insert(journal, session=session)
 
     # ------------------------------------------------------------------
     # Settlements
@@ -173,12 +189,16 @@ class CashManagementService:
         amount: Decimal,
         trade_date: date,
         fund_slug: str | None = None,
+        *,
+        session: AsyncSession | None = None,
     ) -> None:
         """Create a settlement entry for a trade."""
         # Look up country for settlement convention
         country = "US"
         try:
-            instrument = await self._sm.get_by_ticker(instrument_id)
+            instrument = await self._security_master_service.get_by_ticker(
+                instrument_id, session=session
+            )
             country = getattr(instrument, "country", "US") or "US"
         except Exception:
             pass
@@ -194,10 +214,12 @@ class CashManagementService:
             trade_date=trade_date,
             settlement_date=settlement_date,
         )
-        await self._settlements.insert(record)
+        await self._settlement_repo.insert(record, session=session)
 
         # Update pending flows on the balance
-        balance = await self._balances.get_by_portfolio_currency(portfolio_id, currency)
+        balance = await self._balance_repo.get_by_portfolio_currency(
+            portfolio_id, currency, session=session
+        )
         if amount > ZERO:
             # Inflow (sell proceeds)
             new_inflows = (balance.pending_inflows if balance else ZERO) + amount
@@ -218,7 +240,7 @@ class CashManagementService:
                 pending_inflows=(balance.pending_inflows if balance else ZERO),
                 pending_outflows=new_outflows,
             )
-        await self._balances.upsert(balance_record)
+        await self._balance_repo.upsert(balance_record, session=session)
 
         await self._publish_settlement_event(
             "cash.settlement.created",
@@ -236,16 +258,26 @@ class CashManagementService:
             settle_date=str(settlement_date),
         )
 
-    async def get_pending_settlements(self, portfolio_id: UUID) -> list[SettlementRecord]:
-        records = await self._settlements.get_pending(portfolio_id)
+    async def get_pending_settlements(
+        self,
+        portfolio_id: UUID,
+        *,
+        session: AsyncSession | None = None,
+    ) -> list[SettlementRecord]:
+        records = await self._settlement_repo.get_pending(portfolio_id, session=session)
         return [self._to_settlement_record(r) for r in records]
 
-    async def process_due_settlements(self, as_of: date) -> int:
+    async def process_due_settlements(
+        self,
+        as_of: date,
+        *,
+        session: AsyncSession | None = None,
+    ) -> int:
         """Settle all pending settlements due on or before as_of.
 
         Returns the number of settlements processed.
         """
-        due = await self._settlements.get_due_settlements(as_of)
+        due = await self._settlement_repo.get_due_settlements(as_of, session=session)
         count = 0
         for settlement in due:
             pid = UUID(settlement.portfolio_id)
@@ -259,6 +291,7 @@ class CashManagementService:
                     CashFlowType.TRADE_SETTLEMENT,
                     reference_id=settlement.id,
                     description=f"Settlement: {settlement.instrument_id}",
+                    session=session,
                 )
             else:
                 await self.debit(
@@ -268,9 +301,10 @@ class CashManagementService:
                     CashFlowType.TRADE_SETTLEMENT,
                     reference_id=settlement.id,
                     description=f"Settlement: {settlement.instrument_id}",
+                    session=session,
                 )
 
-            await self._settlements.settle(settlement.id)
+            await self._settlement_repo.settle(settlement.id, session=session)
             # Note: fund_slug not available in batch context; settled events
             # are published only when fund_slug can be resolved.
             count += 1
@@ -287,13 +321,17 @@ class CashManagementService:
         self,
         portfolio_id: UUID,
         horizon_days: int = 10,
+        *,
+        session: AsyncSession | None = None,
     ) -> SettlementLadder:
         """Build a settlement ladder showing expected flows by date."""
         today = date.today()
         end = today + timedelta(days=horizon_days)
 
-        settlements = await self._settlements.get_by_date_range(portfolio_id, today, end)
-        balances = await self._balances.get_by_portfolio(portfolio_id)
+        settlements, balances = await asyncio.gather(
+            self._settlement_repo.get_by_date_range(portfolio_id, today, end, session=session),
+            self._balance_repo.get_by_portfolio(portfolio_id, session=session),
+        )
 
         # Start with current available balance (simplified: USD only)
         current_balance = ZERO
@@ -347,19 +385,19 @@ class CashManagementService:
         self,
         portfolio_id: UUID,
         horizon_days: int = 30,
+        *,
+        session: AsyncSession | None = None,
     ) -> CashProjection:
         """Generate a forward-looking cash projection."""
         today = date.today()
         end = today + timedelta(days=horizon_days)
 
-        # Get pending settlements
-        settlements = await self._settlements.get_by_date_range(portfolio_id, today, end)
-
-        # Get scheduled flows
-        scheduled = await self._scheduled.get_by_portfolio(portfolio_id, today, end)
-
-        # Get current balance
-        balances = await self._balances.get_by_portfolio(portfolio_id)
+        # Fetch settlements, scheduled flows, and balances in parallel
+        settlements, scheduled, balances = await asyncio.gather(
+            self._settlement_repo.get_by_date_range(portfolio_id, today, end, session=session),
+            self._scheduled_flow_repo.get_by_portfolio(portfolio_id, today, end, session=session),
+            self._balance_repo.get_by_portfolio(portfolio_id, session=session),
+        )
         current_balance = ZERO
         for b in balances:
             current_balance += b.available_balance
@@ -448,7 +486,7 @@ class CashManagementService:
             if not portfolio_id_str:
                 return
 
-            async with self._sf.fund_scope(event.fund_slug):
+            async with self._session_factory.fund_scope(event.fund_slug):
                 portfolio_id = UUID(portfolio_id_str)
                 instrument_id = data.get("instrument_id", "")
                 currency = data.get("currency", "USD")

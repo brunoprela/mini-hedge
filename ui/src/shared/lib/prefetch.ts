@@ -1,18 +1,13 @@
 import { dehydrate, QueryClient } from "@tanstack/react-query";
-import { auth } from "@/shared/lib/auth";
+import { headers } from "next/headers";
 import { serverFetch } from "./api";
 
 /**
  * Create a server-side QueryClient, prefetch multiple queries in parallel,
  * and return the dehydrated state for HydrationBoundary.
  *
- * Usage in server components:
- * ```ts
- * const { dehydratedState } = await prefetch(fundSlug, [
- *   { queryKey: ["positions", fundSlug, pid], path: `/portfolios/${pid}/positions` },
- *   { queryKey: ["orders", fundSlug, pid], path: `/orders?portfolio_id=${pid}` },
- * ]);
- * ```
+ * Reads the access token from the x-auth-token header injected by middleware,
+ * avoiding a redundant auth() call (which decrypts the JWT again).
  */
 
 interface PrefetchEntry {
@@ -21,8 +16,9 @@ interface PrefetchEntry {
 }
 
 export async function prefetch(fundSlug: string, entries: PrefetchEntry[]) {
-  const session = await auth();
-  if (!session?.accessToken) {
+  const headerStore = await headers();
+  const accessToken = headerStore.get("x-auth-token");
+  if (!accessToken) {
     return { dehydratedState: dehydrate(new QueryClient()) };
   }
 
@@ -34,7 +30,7 @@ export async function prefetch(fundSlug: string, entries: PrefetchEntry[]) {
     entries.map((entry) =>
       queryClient.prefetchQuery({
         queryKey: entry.queryKey,
-        queryFn: () => serverFetch(`/api/v1${entry.path}`, session.accessToken, { fundSlug }),
+        queryFn: () => serverFetch(`/api/v1${entry.path}`, accessToken, { fundSlug }),
       }),
     ),
   );

@@ -1,18 +1,18 @@
-.PHONY: up down logs restart install run-local run-ui run-ops-ui migrate lint format typecheck tach-check test test-unit test-integration check db-reset kafka-reset redis-reset reset status mock-exchange-up mock-exchange-down mock-exchange-logs mock-exchange-status up-all down-all seed seed-trades seed-all
+.PHONY: up down logs restart install run-local run-ui run-ops-ui dev dev-stop migrate lint format typecheck tach-check test test-unit test-integration check db-reset kafka-reset redis-reset reset status mock-exchange-up mock-exchange-down mock-exchange-logs mock-exchange-status up-all down-all seed seed-trades seed-all
 
 # --- Platform Infrastructure ---
 
 up:
-	docker compose --profile core up -d --build
+	docker compose --profile core --profile frontend up -d --build
 
 down:
-	docker compose --profile core down
+	docker compose --profile core --profile frontend down
 
 restart:
-	docker compose --profile core restart
+	docker compose --profile core --profile frontend restart
 
 logs:
-	docker compose --profile core logs -f
+	docker compose --profile core --profile frontend logs -f
 
 status:
 	@echo "=== Platform Services ==="
@@ -74,10 +74,10 @@ redis-reset:
 	@docker compose exec -T redis redis-cli FLUSHALL 2>/dev/null || echo "Redis not running"
 	@echo "Redis reset complete."
 
-reset: down
+reset:
 	@echo "Full reset — removing all volumes..."
-	docker compose --profile core down -v
-	@echo "Starting all services..."
+	docker compose --profile core --profile frontend down -v
+	@echo "Starting backend services..."
 	docker compose --profile core up -d --build
 	@echo "Waiting for Postgres..."
 	@docker compose --profile core exec -T postgres sh -c 'until pg_isready -U minihedge; do sleep 1; done' 2>/dev/null
@@ -87,9 +87,9 @@ reset: down
 	@$(MAKE) migrate
 	@echo "Seeding data..."
 	@$(MAKE) seed
-	@echo "Ready — all services running with seed data."
-	@echo "  Platform:       http://localhost:8000"
-	@echo "  Mock Exchange:  http://localhost:8100"
+	@echo "Ready. Run 'make dev' to start frontends."
+	@echo "  Backend:   http://localhost:8000"
+	@echo "  Keycloak:  http://localhost:8180"
 
 # --- Development ---
 
@@ -107,6 +107,21 @@ run-ui:
 
 run-ops-ui:
 	cd ops-ui && pnpm dev
+
+dev:
+	@echo "Starting frontends locally (Turbopack)..."
+	@cd ui && pnpm dev --turbopack &
+	@cd ops-ui && pnpm dev --turbopack &
+	@echo ""
+	@echo "  UI:        http://localhost:3000"
+	@echo "  Ops UI:    http://localhost:3100"
+	@echo ""
+	@echo "Press Ctrl+C to stop frontends."
+	@wait
+
+dev-stop:
+	@echo "Stopping frontend dev servers..."
+	-@pkill -f "next dev" 2>/dev/null || true
 
 migrate:
 	@for ctx in platform security_master market_data; do \

@@ -56,7 +56,7 @@ class TradeHandler:
         projector: PositionProjector,
         event_bus: EventBus,
     ) -> None:
-        self._sf = session_factory
+        self._session_factory = session_factory
         self._event_store = event_store
         self._projector = projector
         self._event_bus = event_bus
@@ -67,7 +67,7 @@ class TradeHandler:
 
     async def handle_trade(
         self,
-        ctx: RequestContext,
+        request_context: RequestContext,
         portfolio_id: UUID,
         instrument_id: str,
         side: TradeSide,
@@ -79,7 +79,7 @@ class TradeHandler:
         """Direct call path — applies the trade AND publishes trades.executed."""
         trade_id = uuid4()
         downstream = await self._apply_trade(
-            fund_slug=ctx.fund_slug,
+            fund_slug=request_context.fund_slug,
             portfolio_id=portfolio_id,
             instrument_id=instrument_id,
             side=side,
@@ -103,7 +103,9 @@ class TradeHandler:
             "currency": currency,
         }
         trade_topic = (
-            fund_topic(ctx.fund_slug, "trades.executed") if ctx.fund_slug else "trades.executed"
+            fund_topic(request_context.fund_slug, "trades.executed")
+            if request_context.fund_slug
+            else "trades.executed"
         )
         await self._event_bus.publish(
             trade_topic,
@@ -114,17 +116,17 @@ class TradeHandler:
                     else PositionEventType.TRADE_SELL
                 ),
                 data=trade_data,
-                actor_id=ctx.actor_id,
-                actor_type=ctx.actor_type.value,
-                fund_slug=ctx.fund_slug,
+                actor_id=request_context.actor_id,
+                actor_type=request_context.actor_type.value,
+                fund_slug=request_context.fund_slug,
             ),
         )
 
         # Publish downstream (positions.changed, pnl.updated)
         await self._publish_downstream(
-            ctx.fund_slug,
-            ctx.actor_id,
-            ctx.actor_type.value,
+            request_context.fund_slug,
+            request_context.actor_id,
+            request_context.actor_type.value,
             downstream,
         )
 
@@ -150,7 +152,7 @@ class TradeHandler:
             side = TradeSide.BUY if side_str == "buy" else TradeSide.SELL
             trade_id = UUID(data["trade_id"]) if "trade_id" in data else uuid4()
 
-            async with self._sf.fund_scope(fund_slug):
+            async with self._session_factory.fund_scope(fund_slug):
                 downstream = await self._apply_trade(
                     fund_slug=fund_slug,
                     portfolio_id=UUID(data["portfolio_id"]),
@@ -229,7 +231,7 @@ class TradeHandler:
             try:
                 # fund_scope() or request context ensures the session
                 # targets the correct per-fund schema automatically.
-                async with self._sf() as session:
+                async with self._session_factory() as session:
                     # Idempotency check
                     if idempotency_key and await self._event_store.has_idempotency_key(
                         idempotency_key,

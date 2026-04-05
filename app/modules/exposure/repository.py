@@ -9,22 +9,24 @@ from uuid import UUID
 from sqlalchemy import select
 
 from app.modules.exposure.models import ExposureSnapshotRecord
+from app.shared.repository import BaseRepository
 
 if TYPE_CHECKING:
-    from app.shared.database import TenantSessionFactory
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
-class ExposureRepository:
-    def __init__(self, session_factory: TenantSessionFactory) -> None:
-        self._sf = session_factory
-
-    async def save_snapshot(self, record: ExposureSnapshotRecord) -> None:
-        async with self._sf() as session:
+class ExposureRepository(BaseRepository):
+    async def save_snapshot(
+        self, record: ExposureSnapshotRecord, *, session: AsyncSession | None = None
+    ) -> None:
+        async with self._session(session) as session:
             session.add(record)
             await session.commit()
 
-    async def get_latest(self, portfolio_id: UUID) -> ExposureSnapshotRecord | None:
-        async with self._sf() as session:
+    async def get_latest(
+        self, portfolio_id: UUID, *, session: AsyncSession | None = None
+    ) -> ExposureSnapshotRecord | None:
+        async with self._session(session) as session:
             result = await session.execute(
                 select(ExposureSnapshotRecord)
                 .where(ExposureSnapshotRecord.portfolio_id == str(portfolio_id))
@@ -38,8 +40,10 @@ class ExposureRepository:
         portfolio_id: UUID,
         start: datetime,
         end: datetime,
+        *,
+        session: AsyncSession | None = None,
     ) -> list[ExposureSnapshotRecord]:
-        async with self._sf() as session:
+        async with self._session(session) as session:
             result = await session.execute(
                 select(ExposureSnapshotRecord)
                 .where(

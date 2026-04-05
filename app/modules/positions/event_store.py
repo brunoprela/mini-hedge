@@ -15,21 +15,17 @@ from app.modules.positions.interface import (
     TradeSide,
 )
 from app.modules.positions.models import PositionEventRecord
+from app.shared.repository import BaseRepository
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
-    from app.shared.database import TenantSessionFactory
 
-
-class EventStoreRepository:
-    def __init__(self, session_factory: TenantSessionFactory) -> None:
-        self._sf = session_factory
-
+class EventStoreRepository(BaseRepository):
     async def get_by_aggregate(
         self, aggregate_id: str, *, session: AsyncSession | None = None
     ) -> list[TradeEvent]:
-        async def _query(s: AsyncSession) -> list[TradeEvent]:
+        async with self._session(session) as s:
             stmt = (
                 select(PositionEventRecord)
                 .where(PositionEventRecord.aggregate_id == aggregate_id)
@@ -37,11 +33,6 @@ class EventStoreRepository:
             )
             result = await s.execute(stmt)
             return [self._deserialize(record) for record in result.scalars().all()]
-
-        if session is not None:
-            return await _query(session)
-        async with self._sf() as s:
-            return await _query(s)
 
     async def has_idempotency_key(
         self,
@@ -92,11 +83,9 @@ class EventStoreRepository:
             )
             s.add(event)
 
-        if session is not None:
-            await _append(session)
-        else:
-            async with self._sf() as s:
-                await _append(s)
+        async with self._session(session) as s:
+            await _append(s)
+            if session is None:
                 await s.commit()
 
     @staticmethod

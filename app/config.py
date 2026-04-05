@@ -10,8 +10,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     database_url: str = "postgresql+asyncpg://minihedge:minihedge@localhost:5433/minihedge"
-    database_pool_size: int = 10
-    database_max_overflow: int = 5
+    database_pool_size: int = 20
+    database_max_overflow: int = 10
     database_pool_timeout: int = 30
 
     app_env: str = "local"
@@ -27,6 +27,8 @@ class Settings(BaseSettings):
 
     kafka_bootstrap_servers: str = "localhost:9092"
     kafka_schema_registry_url: str = "http://localhost:8081"
+    kafka_replication_factor: int = 1  # 3 for production
+    kafka_num_partitions: int = 3
 
     redis_url: str = "redis://localhost:6379/0"
     redis_enabled: bool = False

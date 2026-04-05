@@ -9,27 +9,29 @@ from uuid import UUID
 from sqlalchemy import select, update
 
 from app.modules.orders.models import OrderFillRecord, OrderRecord
+from app.shared.repository import BaseRepository
 
 if TYPE_CHECKING:
-    from app.shared.database import TenantSessionFactory
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
-class OrderRepository:
+class OrderRepository(BaseRepository):
     """CRUD for orders and fills."""
 
-    def __init__(self, session_factory: TenantSessionFactory) -> None:
-        self._sf = session_factory
-
-    async def save(self, record: OrderRecord) -> OrderRecord:
-        async with self._sf() as session:
+    async def save(
+        self, record: OrderRecord, *, session: AsyncSession | None = None
+    ) -> OrderRecord:
+        async with self._session(session) as session:
             session.add(record)
             await session.flush()
             await session.commit()
             await session.refresh(record)
             return record
 
-    async def get_by_id(self, order_id: UUID) -> OrderRecord | None:
-        async with self._sf() as session:
+    async def get_by_id(
+        self, order_id: UUID, *, session: AsyncSession | None = None
+    ) -> OrderRecord | None:
+        async with self._session(session) as session:
             stmt = select(OrderRecord).where(OrderRecord.id == str(order_id))
             result = await session.execute(stmt)
             return result.scalar_one_or_none()
@@ -38,8 +40,10 @@ class OrderRepository:
         self,
         portfolio_id: UUID,
         state: str | None = None,
+        *,
+        session: AsyncSession | None = None,
     ) -> list[OrderRecord]:
-        async with self._sf() as session:
+        async with self._session(session) as session:
             stmt = select(OrderRecord).where(OrderRecord.portfolio_id == str(portfolio_id))
             if state is not None:
                 stmt = stmt.where(OrderRecord.state == state)
@@ -47,9 +51,11 @@ class OrderRepository:
             result = await session.execute(stmt)
             return list(result.scalars().all())
 
-    async def get_open_orders(self, fund_slug: str) -> list[OrderRecord]:
+    async def get_open_orders(
+        self, fund_slug: str, *, session: AsyncSession | None = None
+    ) -> list[OrderRecord]:
         open_states = ["draft", "pending_compliance", "approved", "sent", "partially_filled"]
-        async with self._sf() as session:
+        async with self._session(session) as session:
             stmt = (
                 select(OrderRecord)
                 .where(
@@ -65,9 +71,11 @@ class OrderRepository:
         self,
         order_id: UUID,
         state: str,
+        *,
+        session: AsyncSession | None = None,
         **fields: object,
     ) -> OrderRecord | None:
-        async with self._sf() as session:
+        async with self._session(session) as session:
             values: dict[str, object] = {
                 "state": state,
                 "updated_at": datetime.now(UTC),
@@ -78,16 +86,20 @@ class OrderRepository:
             await session.commit()
         return await self.get_by_id(order_id)
 
-    async def save_fill(self, fill: OrderFillRecord) -> OrderFillRecord:
-        async with self._sf() as session:
+    async def save_fill(
+        self, fill: OrderFillRecord, *, session: AsyncSession | None = None
+    ) -> OrderFillRecord:
+        async with self._session(session) as session:
             session.add(fill)
             await session.flush()
             await session.commit()
             await session.refresh(fill)
             return fill
 
-    async def get_fills(self, order_id: UUID) -> list[OrderFillRecord]:
-        async with self._sf() as session:
+    async def get_fills(
+        self, order_id: UUID, *, session: AsyncSession | None = None
+    ) -> list[OrderFillRecord]:
+        async with self._session(session) as session:
             stmt = (
                 select(OrderFillRecord)
                 .where(OrderFillRecord.order_id == str(order_id))

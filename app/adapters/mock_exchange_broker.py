@@ -17,11 +17,11 @@ import json
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from decimal import Decimal
-from functools import partial
 
 import httpx
 import structlog
-from confluent_kafka import Consumer, KafkaError, KafkaException
+from aiokafka import AIOKafkaConsumer
+from aiokafka.errors import KafkaError
 
 from app.shared.adapters import OrderAcknowledgement, OrderStatusReport
 
@@ -134,73 +134,65 @@ class MockExchangeBrokerAdapter:
         logger.info("mock_exchange_fill_consumer_stopped")
 
     async def _consume_execution_reports(self, callback: FillCallback) -> None:
-        """Poll the vendor's Kafka for execution reports and dispatch fills."""
-        consumer = Consumer(
-            {
-                "bootstrap.servers": self._kafka_servers,
-                "group.id": "minihedge-external-fills",
-                "auto.offset.reset": "earliest",
-                "enable.auto.commit": True,
-                # Discover newly auto-created topics quickly (default 5 min)
-                "topic.metadata.refresh.interval.ms": 10000,
-            }
+        """Consume execution reports from the vendor's Kafka and dispatch fills."""
+        consumer = AIOKafkaConsumer(
+            _EXTERNAL_EXECUTION_REPORTS_TOPIC,
+            bootstrap_servers=self._kafka_servers,
+            group_id="minihedge-external-fills",
+            auto_offset_reset="earliest",
+            enable_auto_commit=True,
+            metadata_max_age_ms=10000,
         )
-        consumer.subscribe([_EXTERNAL_EXECUTION_REPORTS_TOPIC])
-        loop = asyncio.get_running_loop()
+        await consumer.start()
 
         try:
             while self._running:
                 try:
-                    msg = await loop.run_in_executor(
-                        None,
-                        partial(consumer.poll, 1.0),
-                    )
-                except KafkaException:
+                    msg_batch = await consumer.getmany(timeout_ms=1000, max_records=10)
+                except KafkaError:
                     logger.exception("external_kafka_fill_poll_error")
                     await asyncio.sleep(1)
                     continue
 
-                if msg is None:
-                    continue
+                for _tp, messages in msg_batch.items():
+                    for msg in messages:
+                        if msg.value is None:
+                            continue
 
-                if msg.error():
-                    if msg.error().code() == KafkaError._PARTITION_EOF:
-                        continue
-                    logger.error("external_kafka_fill_error", error=str(msg.error()))
-                    continue
+                        try:
+                            envelope = json.loads(msg.value)
+                            data = envelope["data"]
 
-                try:
-                    envelope = json.loads(msg.value())
-                    data = envelope["data"]
+                            # Only process actual fills (not acks or rejects)
+                            status = data.get("status", "")
+                            if status not in ("filled", "partially_filled"):
+                                if status in ("rejected", "cancelled"):
+                                    logger.warning(
+                                        "execution_report_non_fill",
+                                        client_order_id=data.get("client_order_id"),
+                                        status=status,
+                                    )
+                                continue
 
-                    # Only process actual fills (not acks or rejects)
-                    status = data.get("status", "")
-                    if status not in ("filled", "partially_filled"):
-                        if status in ("rejected", "cancelled"):
-                            logger.warning(
-                                "execution_report_non_fill",
-                                client_order_id=data.get("client_order_id"),
-                                status=status,
+                            client_order_id = data["client_order_id"]
+                            fill_price = Decimal(data["fill_price"])
+                            fill_quantity = Decimal(data["fill_quantity"])
+
+                            # Parse exchange fill timestamp if available
+                            raw_filled_at = data.get("filled_at")
+                            filled_at = (
+                                datetime.fromisoformat(raw_filled_at) if raw_filled_at else None
                             )
-                        continue
 
-                    client_order_id = data["client_order_id"]
-                    fill_price = Decimal(data["fill_price"])
-                    fill_quantity = Decimal(data["fill_quantity"])
+                            await callback(client_order_id, fill_price, fill_quantity, filled_at)
 
-                    # Parse exchange fill timestamp if available
-                    raw_filled_at = data.get("filled_at")
-                    filled_at = datetime.fromisoformat(raw_filled_at) if raw_filled_at else None
-
-                    await callback(client_order_id, fill_price, fill_quantity, filled_at)
-
-                    logger.debug(
-                        "execution_report_bridged",
-                        client_order_id=client_order_id,
-                        fill_price=str(fill_price),
-                        fill_quantity=str(fill_quantity),
-                    )
-                except Exception:
-                    logger.exception("execution_report_bridge_failed")
+                            logger.debug(
+                                "execution_report_bridged",
+                                client_order_id=client_order_id,
+                                fill_price=str(fill_price),
+                                fill_quantity=str(fill_quantity),
+                            )
+                        except Exception:
+                            logger.exception("execution_report_bridge_failed")
         finally:
-            consumer.close()
+            await consumer.stop()

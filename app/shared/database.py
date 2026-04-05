@@ -7,6 +7,16 @@ The ``TenantSessionFactory`` transparently rewrites queries against the
 
 Shared data (platform, security_master, market_data) uses fixed schemas
 and is unaffected by the translation.
+
+Session lifecycle
+-----------------
+HTTP requests receive a session via the ``get_db`` FastAPI dependency, which
+routes pass explicitly to services and repositories. This gives one pool
+checkout per request, snapshot isolation, and full testability.
+
+Background tasks (Kafka handlers) don't go through FastAPI routes, so
+repositories still support creating their own session from the factory
+when no session is provided.
 """
 
 from __future__ import annotations
@@ -14,7 +24,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -24,6 +34,9 @@ from sqlalchemy.ext.asyncio import (
 
 from app.config import get_settings
 from app.shared.fund_schema import fund_schema_name
+
+if TYPE_CHECKING:
+    from fastapi import Request
 
 # Schema name used in positions ORM models (__table_args__ schema key).
 # This is the key in schema_translate_map that gets rewritten per-fund.
@@ -85,6 +98,30 @@ class TenantSessionFactory:
     def current_fund_slug(cls) -> str | None:
         """Return the active fund slug, or None."""
         return cls._fund_slug_var.get()
+
+
+# ---------------------------------------------------------------------------
+# FastAPI session dependency
+# ---------------------------------------------------------------------------
+
+
+async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
+    """FastAPI dependency — yields a single session for the entire request.
+
+    Routes should ``Depends(get_db)`` and pass the session explicitly
+    to services/repos::
+
+        @router.get("/portfolios/{id}")
+        async def get_portfolio(
+            id: UUID,
+            session: AsyncSession = Depends(get_db),
+            service: PortfolioService = Depends(get_service),
+        ):
+            return await service.get(id, session=session)
+    """
+    sf: TenantSessionFactory = request.app.state.session_factory
+    async with sf() as session:
+        yield session
 
 
 def build_engine(

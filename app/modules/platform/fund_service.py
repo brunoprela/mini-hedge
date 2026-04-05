@@ -13,7 +13,7 @@ from app.shared.fund_schema import create_fund_kafka_topics, create_fund_schema
 from app.shared.schema_registry import fund_topic
 
 if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncEngine
+    from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
     from app.modules.platform.audit_repository import AuditLogRepository
     from app.modules.platform.auth_service import AuthService
@@ -39,8 +39,8 @@ class FundAdminService:
         auth_service: AuthService | None = None,
     ) -> None:
         self._fund_repo = fund_repo
-        self._fga = fga_client
-        self._audit = audit_repo
+        self._fga_client = fga_client
+        self._audit_repo = audit_repo
         self._engine = engine
         self._event_bus = event_bus
         self._auth_service = auth_service
@@ -50,8 +50,12 @@ class FundAdminService:
         """Register a callback invoked with the fund slug after creation."""
         self._on_fund_created_hooks.append(hook)
 
-    async def list_funds(self, *, limit: int = 100, offset: int = 0) -> FundPage:
-        records, total = await self._fund_repo.get_all_paginated(limit=limit, offset=offset)
+    async def list_funds(
+        self, *, limit: int = 100, offset: int = 0, session: AsyncSession | None = None
+    ) -> FundPage:
+        records, total = await self._fund_repo.get_all_paginated(
+            limit=limit, offset=offset, session=session
+        )
         return FundPage(
             items=[_fund_to_detail(r) for r in records],
             total=total,
@@ -65,9 +69,10 @@ class FundAdminService:
         slug: str,
         name: str,
         base_currency: str,
-        actor: RequestContext,
+        request_context: RequestContext,
+        session: AsyncSession | None = None,
     ) -> FundDetail:
-        existing = await self._fund_repo.get_by_slug(slug)
+        existing = await self._fund_repo.get_by_slug(slug, session=session)
         if existing is not None:
             raise ValidationError("Fund slug already in use")
         record = FundRecord(
@@ -76,18 +81,18 @@ class FundAdminService:
             status=FundStatus.ACTIVE,
             base_currency=base_currency,
         )
-        await self._fund_repo.insert(record)
+        await self._fund_repo.insert(record, session=session)
 
         # Provision fund infrastructure (schema + Kafka topics)
         if self._engine is not None:
             await create_fund_schema(self._engine, slug)
 
         if self._event_bus is not None:
-            create_fund_kafka_topics(self._event_bus, slug)
+            await create_fund_kafka_topics(self._event_bus, slug)
             # Subscribe audit consumer for the new fund
             self._event_bus.subscribe(
                 fund_topic(slug, "trades.executed"),
-                self._audit.insert,
+                self._audit_repo.insert,
             )
 
         # Notify modules that need per-fund subscriptions (positions, etc.)
@@ -97,12 +102,13 @@ class FundAdminService:
             except Exception:
                 logger.exception("on_fund_created_hook_failed", fund_slug=slug)
 
-        await self._audit.insert_admin_event(
+        await self._audit_repo.insert_admin_event(
             event_type="admin.fund.created",
-            actor_id=actor.actor_id,
-            actor_type=actor.actor_type.value,
+            actor_id=request_context.actor_id,
+            actor_type=request_context.actor_type.value,
             fund_slug=slug,
             payload={"fund_id": record.id, "slug": slug, "name": name},
+            session=session,
         )
         return _fund_to_detail(record)
 
@@ -110,18 +116,20 @@ class FundAdminService:
         self,
         fund_id: str,
         *,
-        actor: RequestContext,
+        request_context: RequestContext,
+        session: AsyncSession | None = None,
         **fields: object,
     ) -> FundDetail:
-        record = await self._fund_repo.update(fund_id, **fields)
+        record = await self._fund_repo.update(fund_id, session=session, **fields)
         if record is None:
             raise NotFoundError("Fund", fund_id)
-        await self._audit.insert_admin_event(
+        await self._audit_repo.insert_admin_event(
             event_type="admin.fund.updated",
-            actor_id=actor.actor_id,
-            actor_type=actor.actor_type.value,
+            actor_id=request_context.actor_id,
+            actor_type=request_context.actor_type.value,
             fund_slug=record.slug,
             payload={"fund_id": fund_id, "fields": {k: str(v) for k, v in fields.items()}},
+            session=session,
         )
         return _fund_to_detail(record)
 

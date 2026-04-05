@@ -3,6 +3,7 @@
 from uuid import UUID
 
 import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.security_master.interface import AssetClass, Instrument
 from app.modules.security_master.models import InstrumentRecord
@@ -35,16 +36,20 @@ class SecurityMasterService:
     """Implements SecurityMasterReader protocol."""
 
     def __init__(self, *, repository: InstrumentRepository) -> None:
-        self._repo = repository
+        self._instrument_repo = repository
 
-    async def get_by_id(self, instrument_id: UUID) -> Instrument:
-        record = await self._repo.get_by_id(instrument_id)
+    async def get_by_id(
+        self, instrument_id: UUID, *, session: AsyncSession | None = None
+    ) -> Instrument:
+        record = await self._instrument_repo.get_by_id(instrument_id, session=session)
         if record is None:
             raise NotFoundError("Instrument", str(instrument_id))
         return _to_instrument(record)
 
-    async def get_by_ticker(self, ticker: str) -> Instrument:
-        record = await self._repo.get_by_ticker(ticker)
+    async def get_by_ticker(
+        self, ticker: str, *, session: AsyncSession | None = None
+    ) -> Instrument:
+        record = await self._instrument_repo.get_by_ticker(ticker, session=session)
         if record is None:
             raise NotFoundError("Instrument", ticker)
         return _to_instrument(record)
@@ -52,10 +57,14 @@ class SecurityMasterService:
     async def get_all_active(
         self,
         asset_class: AssetClass | None = None,
+        *,
+        session: AsyncSession | None = None,
     ) -> list[Instrument]:
-        records = await self._repo.get_all_active(asset_class)
+        records = await self._instrument_repo.get_all_active(asset_class, session=session)
         return [_to_instrument(r) for r in records]
 
-    async def search(self, query: str, limit: int = 20, *, offset: int = 0) -> list[Instrument]:
-        records = await self._repo.search(query, limit, offset=offset)
+    async def search(
+        self, query: str, limit: int = 20, *, offset: int = 0, session: AsyncSession | None = None
+    ) -> list[Instrument]:
+        records = await self._instrument_repo.search(query, limit, offset=offset, session=session)
         return [_to_instrument(r) for r in records]

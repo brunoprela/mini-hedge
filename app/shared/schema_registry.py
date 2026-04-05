@@ -1,9 +1,9 @@
 """Avro schema management — loads .avsc files, serializes/deserializes events.
 
 Uses ``fastavro`` for Avro encoding and Confluent Schema Registry's REST API
-(via ``confluent_kafka.schema_registry``) for schema registration and lookup.
-The envelope/payload pattern separates event metadata from domain data so each
-can evolve independently.
+(via ``httpx``) for schema registration and lookup. The envelope/payload
+pattern separates event metadata from domain data so each can evolve
+independently.
 """
 
 from __future__ import annotations
@@ -14,8 +14,8 @@ from pathlib import Path
 from typing import Any
 
 import fastavro
+import httpx
 import structlog
-from confluent_kafka.schema_registry import Schema, SchemaRegistryClient
 
 logger = structlog.get_logger()
 
@@ -209,20 +209,24 @@ def register_schemas(registry_url: str) -> None:
     Uses BACKWARD compatibility (Confluent default). Subject naming
     follows ``{topic}-value`` convention.
     """
-    client = SchemaRegistryClient({"url": registry_url})
+
+    def _register(subject: str, schema_dict: dict[str, Any]) -> int:
+        resp = httpx.post(
+            f"{registry_url}/subjects/{subject}/versions",
+            json={"schema": json.dumps(schema_dict), "schemaType": "AVRO"},
+            headers={"Content-Type": "application/vnd.schemaregistry.v1+json"},
+            timeout=10.0,
+        )
+        resp.raise_for_status()
+        return resp.json()["id"]
 
     # Register envelope schema
     if _ENVELOPE_SCHEMA is not None:
-        envelope_schema = Schema(
-            json.dumps(_ENVELOPE_SCHEMA),
-            schema_type="AVRO",
-        )
-        schema_id = client.register_schema("event-envelope-value", envelope_schema)
+        schema_id = _register("event-envelope-value", _ENVELOPE_SCHEMA)
         logger.info("schema_registered", subject="event-envelope-value", schema_id=schema_id)
 
     # Register payload schemas
-    for topic, schema in _PAYLOAD_SCHEMAS.items():
-        avro_schema = Schema(json.dumps(schema), schema_type="AVRO")
-        subject = f"{topic}-value"
-        schema_id = client.register_schema(subject, avro_schema)
+    for event_type, schema in _PAYLOAD_SCHEMAS.items():
+        subject = f"{event_type}-value"
+        schema_id = _register(subject, schema)
         logger.info("schema_registered", subject=subject, schema_id=schema_id)

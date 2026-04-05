@@ -65,13 +65,13 @@ class PostTradeMonitor:
         event_bus: EventBus | None = None,
         cash_balance_repo: CashBalanceRepository | None = None,
     ) -> None:
-        self._sf = session_factory
+        self._session_factory = session_factory
         self._rule_repo = rule_repo
         self._violation_repo = violation_repo
-        self._pos_repo = position_repo
-        self._sm = security_master
+        self._position_repo = position_repo
+        self._security_master_service = security_master
         self._event_bus = event_bus
-        self._cash_repo = cash_balance_repo
+        self._cash_balance_repo = cash_balance_repo
 
     async def handle_position_changed(self, event: BaseEvent) -> None:
         """Event handler for ``positions.changed`` topic (trade-triggered)."""
@@ -83,7 +83,7 @@ class PostTradeMonitor:
                 return
 
             portfolio_id = UUID(str(portfolio_id_str))
-            async with self._sf.fund_scope(fund_slug):
+            async with self._session_factory.fund_scope(fund_slug):
                 await self._evaluate_portfolio(portfolio_id, fund_slug, is_passive=False)
         except Exception:
             logger.exception(
@@ -105,7 +105,7 @@ class PostTradeMonitor:
                 return
 
             portfolio_id = UUID(str(portfolio_id_str))
-            async with self._sf.fund_scope(fund_slug):
+            async with self._session_factory.fund_scope(fund_slug):
                 await self._evaluate_portfolio(portfolio_id, fund_slug, is_passive=True)
         except Exception:
             logger.exception(
@@ -141,7 +141,7 @@ class PostTradeMonitor:
         ]
 
         # Load current positions
-        pos_records = await self._pos_repo.get_by_portfolio(portfolio_id)
+        pos_records = await self._position_repo.get_by_portfolio(portfolio_id)
         positions: list[Position] = [
             Position(
                 portfolio_id=UUID(r.portfolio_id),
@@ -284,10 +284,10 @@ class PostTradeMonitor:
         self,
         instrument_id: str,
     ) -> tuple[str, str, str]:
-        if self._sm is None:
+        if self._security_master_service is None:
             return ("", "", "")
         try:
-            inst = await self._sm.get_by_ticker(instrument_id)
+            inst = await self._security_master_service.get_by_ticker(instrument_id)
             return (
                 str(inst.asset_class) if inst.asset_class else "",
                 inst.sector or "",
@@ -317,8 +317,8 @@ class PostTradeMonitor:
 
         position_value = sum(abs(p.market_value) for p in pos_map.values())
         cash = Decimal(0)
-        if self._cash_repo is not None:
-            balances = await self._cash_repo.get_by_portfolio(portfolio_id)
+        if self._cash_balance_repo is not None:
+            balances = await self._cash_balance_repo.get_by_portfolio(portfolio_id)
             cash = sum(b.available_balance for b in balances)
         nav = position_value + cash
 

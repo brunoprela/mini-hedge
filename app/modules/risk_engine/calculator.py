@@ -30,6 +30,8 @@ _Q4 = Decimal("0.0001")
 
 
 def _to_dec(v: float) -> Decimal:
+    if np.isnan(v) or np.isinf(v):
+        return ZERO
     return Decimal(str(v)).quantize(_Q4)
 
 
@@ -357,7 +359,7 @@ def calculate_factor_decomposition(
             )
         )
 
-    total_systematic = systematic_var_market + sector_systematic_var
+    total_systematic = max(systematic_var_market + sector_systematic_var, 0.0)
     idiosyncratic_var = max(port_var - total_systematic, 0.0)
 
     total_risk = _to_dec(np.sqrt(port_var) * np.sqrt(252) * nav)

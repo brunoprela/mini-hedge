@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -21,6 +22,8 @@ from app.modules.compliance.models import ComplianceRuleRecord, ComplianceViolat
 from app.shared.database import TenantSessionFactory
 
 if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
     from app.modules.compliance.pre_trade import PreTradeGate
     from app.modules.compliance.repository import (
         RuleRepository,
@@ -80,9 +83,9 @@ class ComplianceService:
         self._rule_repo = rule_repo
         self._violation_repo = violation_repo
         self._pre_trade_gate = pre_trade_gate
-        self._audit = audit_repo
+        self._audit_repo = audit_repo
         self._position_service = position_service
-        self._security_master = security_master
+        self._security_master_service = security_master
 
     @property
     def pre_trade_gate(self) -> PreTradeGate:
@@ -91,8 +94,8 @@ class ComplianceService:
 
     # ---- Rules -------------------------------------------------------
 
-    async def get_rules(self) -> list[RuleDefinition]:
-        records = await self._rule_repo.get_all()
+    async def get_rules(self, *, session: AsyncSession | None = None) -> list[RuleDefinition]:
+        records = await self._rule_repo.get_all(session=session)
         return [_to_rule(r) for r in records]
 
     async def create_rule(
@@ -102,6 +105,8 @@ class ComplianceService:
         severity: Severity,
         parameters: dict[str, object],
         actor_id: str = "system",
+        *,
+        session: AsyncSession | None = None,
     ) -> RuleDefinition:
         fund_slug = TenantSessionFactory.current_fund_slug() or ""
         record = ComplianceRuleRecord(
@@ -112,13 +117,14 @@ class ComplianceService:
             parameters=parameters,
             is_active=True,
         )
-        saved = await self._rule_repo.insert(record)
+        saved = await self._rule_repo.insert(record, session=session)
         rule = _to_rule(saved)
         await self._audit_event(
             "compliance.rule.created",
             actor_id=actor_id,
             fund_slug=fund_slug,
             payload={"rule_id": str(rule.id), "name": name, "rule_type": rule_type.value},
+            session=session,
         )
         return rule
 
@@ -128,13 +134,14 @@ class ComplianceService:
         actor_id: str = "system",
         **fields: object,
     ) -> RuleDefinition:
+        session: AsyncSession | None = fields.pop("session", None)  # type: ignore[assignment]
         # Normalise enum values if present
         if "rule_type" in fields and isinstance(fields["rule_type"], RuleType):
             fields["rule_type"] = fields["rule_type"].value
         if "severity" in fields and isinstance(fields["severity"], Severity):
             fields["severity"] = fields["severity"].value
 
-        record = await self._rule_repo.update(rule_id, **fields)
+        record = await self._rule_repo.update(rule_id, session=session, **fields)
         if record is None:
             raise LookupError(f"Compliance rule {rule_id} not found")
         rule = _to_rule(record)
@@ -143,6 +150,7 @@ class ComplianceService:
             actor_id=actor_id,
             fund_slug=record.fund_slug,
             payload={"rule_id": str(rule_id), "changes": {k: str(v) for k, v in fields.items()}},
+            session=session,
         )
         return rule
 
@@ -151,13 +159,17 @@ class ComplianceService:
     async def check_trade(
         self,
         request: TradeCheckRequest,
+        *,
+        session: AsyncSession | None = None,
     ) -> ComplianceDecision:
         return await self._pre_trade_gate.check_trade(request)
 
     # ---- Violations --------------------------------------------------
 
-    async def get_violations(self, portfolio_id: UUID) -> list[Violation]:
-        records = await self._violation_repo.get_active_by_portfolio(portfolio_id)
+    async def get_violations(
+        self, portfolio_id: UUID, *, session: AsyncSession | None = None
+    ) -> list[Violation]:
+        records = await self._violation_repo.get_active_by_portfolio(portfolio_id, session=session)
         return [_to_violation(r) for r in records]
 
     async def resolve_violation(
@@ -165,9 +177,11 @@ class ComplianceService:
         violation_id: UUID,
         resolved_by: str,
         resolution_type: str = "manual",
+        *,
+        session: AsyncSession | None = None,
     ) -> Violation:
         record = await self._violation_repo.resolve(
-            violation_id, resolved_by, resolution_type=resolution_type
+            violation_id, resolved_by, resolution_type=resolution_type, session=session
         )
         if record is None:
             raise LookupError(f"Violation {violation_id} not found")
@@ -182,6 +196,7 @@ class ComplianceService:
                 "severity": violation.severity,
                 "resolution_type": resolution_type,
             },
+            session=session,
         )
         return violation
 
@@ -190,10 +205,12 @@ class ComplianceService:
         violation_id: UUID,
         waived_by: str,
         reason: str,
+        *,
+        session: AsyncSession | None = None,
     ) -> Violation:
         """Compliance officer grants a waiver for a violation."""
         record = await self._violation_repo.resolve(
-            violation_id, waived_by, resolution_type="waived"
+            violation_id, waived_by, resolution_type="waived", session=session
         )
         if record is None:
             raise LookupError(f"Violation {violation_id} not found")
@@ -208,6 +225,7 @@ class ComplianceService:
                 "severity": violation.severity,
                 "reason": reason,
             },
+            session=session,
         )
         return violation
 
@@ -216,19 +234,22 @@ class ComplianceService:
     async def suggest_remediation(
         self,
         portfolio_id: UUID,
+        *,
+        session: AsyncSession | None = None,
     ) -> list[RemediationSuggestion]:
         """Calculate trades needed to cure all active concentration violations.
 
         For each active concentration_limit violation, computes how many shares
         to sell to bring the position back under the limit with a 0.5% buffer.
         """
-        violations = await self._violation_repo.get_active_by_portfolio(portfolio_id)
-        if not violations or self._position_service is None:
+        if self._position_service is None:
             return []
 
-        # Load current positions
-        positions = await self._position_service.get_by_portfolio(portfolio_id)
-        if not positions:
+        violations, positions = await asyncio.gather(
+            self._violation_repo.get_active_by_portfolio(portfolio_id, session=session),
+            self._position_service.get_by_portfolio(portfolio_id, session=session),
+        )
+        if not violations or not positions:
             return []
 
         # Build position map and NAV
@@ -302,13 +323,15 @@ class ComplianceService:
         actor_id: str,
         fund_slug: str | None,
         payload: dict[str, object],
+        session: AsyncSession | None = None,
     ) -> None:
-        if self._audit is None:
+        if self._audit_repo is None:
             return
-        await self._audit.insert_admin_event(
+        await self._audit_repo.insert_admin_event(
             event_type=event_type,
             actor_id=actor_id,
             actor_type="user",
             fund_slug=fund_slug,
             payload=payload,
+            session=session,
         )

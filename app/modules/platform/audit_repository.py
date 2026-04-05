@@ -10,21 +10,20 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from app.modules.platform.models import AuditLogRecord
+from app.shared.repository import BaseRepository
 
 if TYPE_CHECKING:
-    from app.shared.database import TenantSessionFactory
+    from sqlalchemy.ext.asyncio import AsyncSession
+
     from app.shared.events import BaseEvent
 
 logger = structlog.get_logger()
 
 
-class AuditLogRepository:
-    def __init__(self, session_factory: TenantSessionFactory) -> None:
-        self._sf = session_factory
-
-    async def insert(self, event: BaseEvent) -> None:
+class AuditLogRepository(BaseRepository):
+    async def insert(self, event: BaseEvent, *, session: AsyncSession | None = None) -> None:
         """Persist an event to the audit log. Idempotent via unique event_id."""
-        async with self._sf() as session:
+        async with self._session(session) as session:
             stmt = insert(AuditLogRecord).values(
                 event_id=event.event_id,
                 event_type=event.event_type,
@@ -45,9 +44,10 @@ class AuditLogRepository:
         actor_type: str,
         fund_slug: str | None = None,
         payload: dict[str, Any] | None = None,
+        session: AsyncSession | None = None,
     ) -> None:
         """Insert an admin audit event directly (no BaseEvent required)."""
-        async with self._sf() as session:
+        async with self._session(session) as session:
             record = AuditLogRecord(
                 event_id=f"admin-{uuid4().hex}",
                 event_type=event_type,
@@ -66,12 +66,13 @@ class AuditLogRepository:
         event_type: str | None = None,
         limit: int = 100,
         offset: int = 0,
+        session: AsyncSession | None = None,
     ) -> tuple[list[AuditLogRecord], int]:
         """Query audit log with optional filters.
 
         Returns ``(records, total_count)`` for pagination.
         """
-        async with self._sf() as session:
+        async with self._session(session) as session:
             # Base filter
             conditions = []
             if fund_slug:

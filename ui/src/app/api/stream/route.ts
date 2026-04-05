@@ -1,5 +1,4 @@
 import type { NextRequest } from "next/server";
-import { auth } from "@/shared/lib/auth";
 
 const API_URL = process.env.API_URL ?? "http://localhost:8000";
 
@@ -7,13 +6,12 @@ const API_URL = process.env.API_URL ?? "http://localhost:8000";
  * Streaming BFF proxy — forwards SSE from the backend to the browser.
  *
  * The browser connects to `/api/stream?fundSlug=alpha` (same-origin).
- * This route validates the NextAuth session, extracts the JWT, and
- * proxies to the backend SSE endpoint with the token as a query param
- * (EventSource doesn't support custom headers).
+ * The middleware already validates the session and injects the access
+ * token via `x-auth-token` header, so we don't need to call auth() here.
  */
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (!session?.accessToken) {
+  const token = req.headers.get("x-auth-token");
+  if (!token) {
     return new Response(JSON.stringify({ detail: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
@@ -22,7 +20,7 @@ export async function GET(req: NextRequest) {
 
   const fundSlug = req.nextUrl.searchParams.get("fundSlug");
   const url = new URL("/api/v1/stream/events", API_URL);
-  url.searchParams.set("token", session.accessToken);
+  url.searchParams.set("token", token);
   if (fundSlug) {
     url.searchParams.set("fund_slug", fundSlug);
   }

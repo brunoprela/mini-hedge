@@ -3,6 +3,7 @@
 from datetime import datetime
 
 import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.market_data.interface import PriceSnapshot
 from app.modules.market_data.models import PriceRecord
@@ -27,7 +28,7 @@ class MarketDataService:
     """Implements MarketDataReader protocol."""
 
     def __init__(self, *, repository: PriceRepository) -> None:
-        self._repo = repository
+        self._price_repo = repository
         # In-memory latest prices cache (updated by simulator events)
         self._latest: dict[str, PriceSnapshot] = {}
 
@@ -35,13 +36,15 @@ class MarketDataService:
         """Called by event handler to keep in-memory cache current."""
         self._latest[snapshot.instrument_id] = snapshot
 
-    async def get_latest_price(self, instrument_id: str) -> PriceSnapshot | None:
+    async def get_latest_price(
+        self, instrument_id: str, *, session: AsyncSession | None = None
+    ) -> PriceSnapshot | None:
         # Check in-memory cache first
         cached = self._latest.get(instrument_id)
         if cached is not None:
             return cached
         # Fall back to database
-        record = await self._repo.get_latest(instrument_id)
+        record = await self._price_repo.get_latest(instrument_id, session=session)
         if record is None:
             return None
         return _to_snapshot(record)
@@ -51,11 +54,15 @@ class MarketDataService:
         instrument_id: str,
         start: datetime,
         end: datetime,
+        *,
+        session: AsyncSession | None = None,
     ) -> list[PriceSnapshot]:
-        records = await self._repo.get_history(instrument_id, start, end)
+        records = await self._price_repo.get_history(instrument_id, start, end, session=session)
         return [_to_snapshot(r) for r in records]
 
-    async def store_price(self, snapshot: PriceSnapshot) -> None:
+    async def store_price(
+        self, snapshot: PriceSnapshot, *, session: AsyncSession | None = None
+    ) -> None:
         """Persist a price snapshot to the database."""
         record = PriceRecord(
             timestamp=snapshot.timestamp,
@@ -66,4 +73,4 @@ class MarketDataService:
             volume=snapshot.volume,
             source=snapshot.source,
         )
-        await self._repo.insert(record)
+        await self._price_repo.insert(record, session=session)

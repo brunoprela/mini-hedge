@@ -88,7 +88,7 @@ def _run_fund_migrations_sync(fund_slug: str) -> None:
         alembic_command.upgrade(cfg, "head")
 
 
-def create_fund_kafka_topics(
+async def create_fund_kafka_topics(
     kafka_bus: object,
     fund_slug: str,
 ) -> None:
@@ -98,7 +98,7 @@ def create_fund_kafka_topics(
     so this module doesn't depend on the Kafka implementation.
     """
     topics = fund_topics_for_slug(fund_slug)
-    kafka_bus.ensure_topics(topics)  # type: ignore[attr-defined]
+    await kafka_bus.ensure_topics(topics)  # type: ignore[attr-defined]
     logger.info("fund_kafka_topics_created", fund_slug=fund_slug, topics=topics)
 
 

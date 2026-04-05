@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
@@ -29,6 +30,8 @@ from app.modules.attribution.models import (
 )
 
 if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
     from app.modules.attribution.repository import AttributionRepository
     from app.modules.positions.service import PositionService
     from app.modules.security_master.service import SecurityMasterService
@@ -48,19 +51,24 @@ class AttributionService:
         position_service: PositionService,
         security_master_service: SecurityMasterService,
     ) -> None:
-        self._repo = attribution_repo
-        self._positions = position_service
-        self._sm = security_master_service
+        self._attribution_repo = attribution_repo
+        self._position_service = position_service
+        self._security_master_service = security_master_service
 
     async def calculate_brinson_fachler(
         self,
         portfolio_id: UUID,
         period_start: date,
         period_end: date,
+        *,
+        session: AsyncSession | None = None,
     ) -> BrinsonFachlerResult:
         """Calculate Brinson-Fachler attribution for a period."""
-        positions = await self._positions.get_by_portfolio(portfolio_id)
-        positions = [p for p in positions if p.quantity != ZERO]
+        all_positions, instruments = await asyncio.gather(
+            self._position_service.get_by_portfolio(portfolio_id, session=session),
+            self._security_master_service.get_all_active(session=session),
+        )
+        positions = [p for p in all_positions if p.quantity != ZERO]
 
         if not positions:
             return BrinsonFachlerResult(
@@ -83,8 +91,6 @@ class AttributionService:
         # Build weights and sector map
         portfolio_weights: dict[str, float] = {}
         sector_map: dict[str, str] = {}
-
-        instruments = await self._sm.get_all_active()
         sector_lookup = {i.ticker: i.sector or "Unknown" for i in instruments}
 
         for p in positions:
@@ -97,7 +103,7 @@ class AttributionService:
         benchmark_weights = {iid: 1.0 / n for iid in instrument_ids}
 
         # Synthetic returns for the period
-        returns = await self._generate_synthetic_returns(instrument_ids)
+        returns = await self._generate_synthetic_returns(instrument_ids, session=session)
         portfolio_returns = dict(zip(instrument_ids, returns, strict=True))
         benchmark_returns = portfolio_returns  # same returns, different weights
 
@@ -113,7 +119,7 @@ class AttributionService:
         )
 
         # Persist
-        await self._persist_brinson_fachler(result)
+        await self._persist_brinson_fachler(result, session=session)
 
         logger.info(
             "brinson_fachler_calculated",
@@ -127,10 +133,15 @@ class AttributionService:
         portfolio_id: UUID,
         period_start: date,
         period_end: date,
+        *,
+        session: AsyncSession | None = None,
     ) -> RiskBasedResult:
         """Calculate risk-based P&L attribution."""
-        positions = await self._positions.get_by_portfolio(portfolio_id)
-        positions = [p for p in positions if p.quantity != ZERO]
+        all_positions, instruments = await asyncio.gather(
+            self._position_service.get_by_portfolio(portfolio_id, session=session),
+            self._security_master_service.get_all_active(session=session),
+        )
+        positions = [p for p in all_positions if p.quantity != ZERO]
 
         if not positions:
             return RiskBasedResult(
@@ -153,13 +164,11 @@ class AttributionService:
             for p in positions
             if p.market_value and nav > 0
         }
-
-        instruments = await self._sm.get_all_active()
         sector_lookup = {i.ticker: i.sector or "Unknown" for i in instruments}
         sector_map = {iid: sector_lookup.get(iid, "Unknown") for iid in instrument_ids}
 
         # Build returns matrix from instrument reference data
-        returns_matrix = await self._build_returns_matrix(instrument_ids)
+        returns_matrix = await self._build_returns_matrix(instrument_ids, session=session)
 
         result = calculate_risk_based_attribution(
             portfolio_id,
@@ -173,7 +182,7 @@ class AttributionService:
         )
 
         # Persist
-        await self._persist_risk_based(result)
+        await self._persist_risk_based(result, session=session)
 
         logger.info(
             "risk_based_attribution_calculated",
@@ -187,14 +196,18 @@ class AttributionService:
         portfolio_id: UUID,
         period_start: date,
         period_end: date,
+        *,
+        session: AsyncSession | None = None,
     ) -> CumulativeAttribution:
         """Calculate multi-period cumulative attribution using Carino linking."""
         # Get stored single-period results
-        records = await self._repo.get_brinson_fachler(portfolio_id, period_start, period_end)
+        records = await self._attribution_repo.get_brinson_fachler(
+            portfolio_id, period_start, period_end, session=session
+        )
 
         period_results: list[BrinsonFachlerResult] = []
         for r in records:
-            sectors_records = await self._repo.get_bf_sectors(r.id)
+            sectors_records = await self._attribution_repo.get_bf_sectors(r.id, session=session)
             sectors = [
                 SectorAttribution(
                     sector=s.sector,
@@ -228,7 +241,9 @@ class AttributionService:
 
         # If no stored periods, calculate a single period
         if not period_results:
-            single = await self.calculate_brinson_fachler(portfolio_id, period_start, period_end)
+            single = await self.calculate_brinson_fachler(
+                portfolio_id, period_start, period_end, session=session
+            )
             period_results = [single]
 
         result = link_multi_period(portfolio_id, period_start, period_end, period_results)
@@ -247,9 +262,11 @@ class AttributionService:
     async def _generate_synthetic_returns(
         self,
         instrument_ids: list[str],
+        *,
+        session: AsyncSession | None = None,
     ) -> list[float]:
         """Generate synthetic period returns from instrument reference data."""
-        instruments = await self._sm.get_all_active()
+        instruments = await self._security_master_service.get_all_active(session=session)
         drift_map = {i.ticker: i.annual_drift for i in instruments if i.annual_drift is not None}
         vol_map = {
             i.ticker: i.annual_volatility for i in instruments if i.annual_volatility is not None
@@ -267,9 +284,11 @@ class AttributionService:
         self,
         instrument_ids: list[str],
         n_days: int = 252,
+        *,
+        session: AsyncSession | None = None,
     ) -> np.ndarray:  # type: ignore[type-arg]
         """Build synthetic returns matrix from instrument reference data."""
-        instruments = await self._sm.get_all_active()
+        instruments = await self._security_master_service.get_all_active(session=session)
         vol_map = {
             i.ticker: i.annual_volatility for i in instruments if i.annual_volatility is not None
         }
@@ -283,7 +302,9 @@ class AttributionService:
             matrix[:, idx] = np.random.normal(daily_drift, daily_vol, n_days)
         return matrix
 
-    async def _persist_brinson_fachler(self, result: BrinsonFachlerResult) -> None:
+    async def _persist_brinson_fachler(
+        self, result: BrinsonFachlerResult, *, session: AsyncSession | None = None
+    ) -> None:
         record = BrinsonFachlerRecord(
             portfolio_id=str(result.portfolio_id),
             period_start=result.period_start,
@@ -313,9 +334,11 @@ class AttributionService:
             for s in result.sectors
         ]
 
-        await self._repo.save_brinson_fachler(record, sectors)
+        await self._attribution_repo.save_brinson_fachler(record, sectors, session=session)
 
-    async def _persist_risk_based(self, result: RiskBasedResult) -> None:
+    async def _persist_risk_based(
+        self, result: RiskBasedResult, *, session: AsyncSession | None = None
+    ) -> None:
         record = RiskBasedRecord(
             portfolio_id=str(result.portfolio_id),
             period_start=result.period_start,
@@ -339,4 +362,4 @@ class AttributionService:
             for f in result.factor_contributions
         ]
 
-        await self._repo.save_risk_based(record, factors)
+        await self._attribution_repo.save_risk_based(record, factors, session=session)

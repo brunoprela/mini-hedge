@@ -5,7 +5,9 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.alpha_engine.alpha_service import AlphaService
 from app.modules.alpha_engine.dependencies import get_alpha_service
 from app.modules.alpha_engine.interface import (
     HypotheticalTrade,
@@ -15,8 +17,8 @@ from app.modules.alpha_engine.interface import (
     ScenarioRun,
     WhatIfResult,
 )
-from app.modules.alpha_engine.service import AlphaService
 from app.shared.auth import Permission, require_permission
+from app.shared.database import get_db
 from app.shared.fga import require_access
 from app.shared.fga_resources import Portfolio
 from app.shared.request_context import RequestContext
@@ -60,9 +62,10 @@ class OptimizeRequest(BaseModel):
 async def run_what_if(
     portfolio_id: UUID,
     body: WhatIfRequest,
-    ctx: RequestContext = require_permission(Permission.ALPHA_READ),
+    request_context: RequestContext = require_permission(Permission.ALPHA_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
-    service: AlphaService = Depends(get_alpha_service),
+    alpha_service: AlphaService = Depends(get_alpha_service),
+    session: AsyncSession = Depends(get_db),
 ) -> WhatIfResult:
     trades = [
         HypotheticalTrade(
@@ -73,7 +76,9 @@ async def run_what_if(
         )
         for t in body.trades
     ]
-    return await service.run_what_if(portfolio_id, body.scenario_name, trades)
+    return await alpha_service.run_what_if(
+        portfolio_id, body.scenario_name, trades, session=session
+    )
 
 
 @router.get(
@@ -82,11 +87,12 @@ async def run_what_if(
 )
 async def list_scenarios(
     portfolio_id: UUID,
-    ctx: RequestContext = require_permission(Permission.ALPHA_READ),
+    request_context: RequestContext = require_permission(Permission.ALPHA_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
-    service: AlphaService = Depends(get_alpha_service),
+    alpha_service: AlphaService = Depends(get_alpha_service),
+    session: AsyncSession = Depends(get_db),
 ) -> list[ScenarioRun]:
-    return await service.get_scenarios(portfolio_id)
+    return await alpha_service.get_scenarios(portfolio_id, session=session)
 
 
 # ---------------------------------------------------------------------------
@@ -101,11 +107,12 @@ async def list_scenarios(
 async def optimize_portfolio(
     portfolio_id: UUID,
     body: OptimizeRequest,
-    ctx: RequestContext = require_permission(Permission.ALPHA_WRITE),
+    request_context: RequestContext = require_permission(Permission.ALPHA_WRITE),
     _access: None = require_access(Portfolio.relation("can_trade")),
-    service: AlphaService = Depends(get_alpha_service),
+    alpha_service: AlphaService = Depends(get_alpha_service),
+    session: AsyncSession = Depends(get_db),
 ) -> OptimizationResult:
-    return await service.optimize(portfolio_id, body.objective)
+    return await alpha_service.optimize(portfolio_id, body.objective, session=session)
 
 
 @router.get(
@@ -114,11 +121,12 @@ async def optimize_portfolio(
 )
 async def list_optimizations(
     portfolio_id: UUID,
-    ctx: RequestContext = require_permission(Permission.ALPHA_READ),
+    request_context: RequestContext = require_permission(Permission.ALPHA_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
-    service: AlphaService = Depends(get_alpha_service),
+    alpha_service: AlphaService = Depends(get_alpha_service),
+    session: AsyncSession = Depends(get_db),
 ) -> list[OptimizationResult]:
-    return await service.get_optimizations(portfolio_id)
+    return await alpha_service.get_optimizations(portfolio_id, session=session)
 
 
 # ---------------------------------------------------------------------------
@@ -132,22 +140,24 @@ async def list_optimizations(
 )
 async def list_order_intents(
     portfolio_id: UUID,
-    ctx: RequestContext = require_permission(Permission.ALPHA_READ),
+    request_context: RequestContext = require_permission(Permission.ALPHA_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
-    service: AlphaService = Depends(get_alpha_service),
+    alpha_service: AlphaService = Depends(get_alpha_service),
+    session: AsyncSession = Depends(get_db),
 ) -> list[OrderIntent]:
-    return await service.get_order_intents(portfolio_id)
+    return await alpha_service.get_order_intents(portfolio_id, session=session)
 
 
 @router.post("/{portfolio_id}/intents/{intent_id}/approve")
 async def approve_intent(
     portfolio_id: UUID,
     intent_id: str,
-    ctx: RequestContext = require_permission(Permission.ALPHA_WRITE),
+    request_context: RequestContext = require_permission(Permission.ALPHA_WRITE),
     _access: None = require_access(Portfolio.relation("can_trade")),
-    service: AlphaService = Depends(get_alpha_service),
+    alpha_service: AlphaService = Depends(get_alpha_service),
+    session: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
-    await service.approve_intent(intent_id)
+    await alpha_service.approve_intent(intent_id, session=session)
     return {"status": "approved"}
 
 
@@ -155,9 +165,10 @@ async def approve_intent(
 async def cancel_intent(
     portfolio_id: UUID,
     intent_id: str,
-    ctx: RequestContext = require_permission(Permission.ALPHA_WRITE),
+    request_context: RequestContext = require_permission(Permission.ALPHA_WRITE),
     _access: None = require_access(Portfolio.relation("can_trade")),
-    service: AlphaService = Depends(get_alpha_service),
+    alpha_service: AlphaService = Depends(get_alpha_service),
+    session: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
-    await service.cancel_intent(intent_id)
+    await alpha_service.cancel_intent(intent_id, session=session)
     return {"status": "cancelled"}

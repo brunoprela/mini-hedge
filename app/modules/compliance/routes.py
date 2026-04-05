@@ -4,7 +4,9 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.compliance.compliance_service import ComplianceService
 from app.modules.compliance.dependencies import (
     get_compliance_service,
 )
@@ -17,8 +19,8 @@ from app.modules.compliance.interface import (
     TradeCheckRequest,
     Violation,
 )
-from app.modules.compliance.service import ComplianceService
 from app.shared.auth import Permission, require_permission
+from app.shared.database import get_db
 from app.shared.request_context import RequestContext
 
 router = APIRouter(prefix="/compliance", tags=["compliance"])
@@ -68,24 +70,27 @@ class WaiveBody(BaseModel):
 
 @router.get("/rules", response_model=list[RuleDefinition])
 async def list_rules(
-    ctx: RequestContext = require_permission(Permission.COMPLIANCE_READ),
-    service: ComplianceService = Depends(get_compliance_service),
+    request_context: RequestContext = require_permission(Permission.COMPLIANCE_READ),
+    compliance_service: ComplianceService = Depends(get_compliance_service),
+    session: AsyncSession = Depends(get_db),
 ) -> list[RuleDefinition]:
-    return await service.get_rules()
+    return await compliance_service.get_rules(session=session)
 
 
 @router.post("/rules", response_model=RuleDefinition, status_code=201)
 async def create_rule(
     body: CreateRuleBody,
-    ctx: RequestContext = require_permission(Permission.COMPLIANCE_WRITE),
-    service: ComplianceService = Depends(get_compliance_service),
+    request_context: RequestContext = require_permission(Permission.COMPLIANCE_WRITE),
+    compliance_service: ComplianceService = Depends(get_compliance_service),
+    session: AsyncSession = Depends(get_db),
 ) -> RuleDefinition:
-    return await service.create_rule(
+    return await compliance_service.create_rule(
         name=body.name,
         rule_type=body.rule_type,
         severity=body.severity,
         parameters=body.parameters,
-        actor_id=ctx.actor_id,
+        actor_id=request_context.actor_id,
+        session=session,
     )
 
 
@@ -93,8 +98,9 @@ async def create_rule(
 async def update_rule(
     rule_id: UUID,
     body: UpdateRuleBody,
-    ctx: RequestContext = require_permission(Permission.COMPLIANCE_WRITE),
-    service: ComplianceService = Depends(get_compliance_service),
+    request_context: RequestContext = require_permission(Permission.COMPLIANCE_WRITE),
+    compliance_service: ComplianceService = Depends(get_compliance_service),
+    session: AsyncSession = Depends(get_db),
 ) -> RuleDefinition:
     fields = body.model_dump(exclude_none=True)
     if not fields:
@@ -103,7 +109,9 @@ async def update_rule(
             detail="No fields to update",
         )
     try:
-        return await service.update_rule(rule_id, actor_id=ctx.actor_id, **fields)
+        return await compliance_service.update_rule(
+            rule_id, actor_id=request_context.actor_id, session=session, **fields
+        )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -111,19 +119,21 @@ async def update_rule(
 @router.post("/check", response_model=ComplianceDecision)
 async def check_trade(
     body: TradeCheckRequest,
-    ctx: RequestContext = require_permission(Permission.COMPLIANCE_READ),
-    service: ComplianceService = Depends(get_compliance_service),
+    request_context: RequestContext = require_permission(Permission.COMPLIANCE_READ),
+    compliance_service: ComplianceService = Depends(get_compliance_service),
+    session: AsyncSession = Depends(get_db),
 ) -> ComplianceDecision:
-    return await service.check_trade(body)
+    return await compliance_service.check_trade(body, session=session)
 
 
 @router.get("/violations", response_model=list[Violation])
 async def list_violations(
     portfolio_id: UUID,
-    ctx: RequestContext = require_permission(Permission.COMPLIANCE_READ),
-    service: ComplianceService = Depends(get_compliance_service),
+    request_context: RequestContext = require_permission(Permission.COMPLIANCE_READ),
+    compliance_service: ComplianceService = Depends(get_compliance_service),
+    session: AsyncSession = Depends(get_db),
 ) -> list[Violation]:
-    return await service.get_violations(portfolio_id)
+    return await compliance_service.get_violations(portfolio_id, session=session)
 
 
 @router.post(
@@ -133,11 +143,14 @@ async def list_violations(
 async def resolve_violation(
     violation_id: UUID,
     body: ResolveBody,
-    ctx: RequestContext = require_permission(Permission.COMPLIANCE_WRITE),
-    service: ComplianceService = Depends(get_compliance_service),
+    request_context: RequestContext = require_permission(Permission.COMPLIANCE_WRITE),
+    compliance_service: ComplianceService = Depends(get_compliance_service),
+    session: AsyncSession = Depends(get_db),
 ) -> Violation:
     try:
-        return await service.resolve_violation(violation_id, body.resolved_by)
+        return await compliance_service.resolve_violation(
+            violation_id, body.resolved_by, session=session
+        )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -149,11 +162,14 @@ async def resolve_violation(
 async def waive_violation(
     violation_id: UUID,
     body: WaiveBody,
-    ctx: RequestContext = require_permission(Permission.COMPLIANCE_WRITE),
-    service: ComplianceService = Depends(get_compliance_service),
+    request_context: RequestContext = require_permission(Permission.COMPLIANCE_WRITE),
+    compliance_service: ComplianceService = Depends(get_compliance_service),
+    session: AsyncSession = Depends(get_db),
 ) -> Violation:
     try:
-        return await service.waive_violation(violation_id, body.waived_by, body.reason)
+        return await compliance_service.waive_violation(
+            violation_id, body.waived_by, body.reason, session=session
+        )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -164,8 +180,9 @@ async def waive_violation(
 )
 async def suggest_remediation(
     portfolio_id: UUID,
-    ctx: RequestContext = require_permission(Permission.COMPLIANCE_READ),
-    service: ComplianceService = Depends(get_compliance_service),
+    request_context: RequestContext = require_permission(Permission.COMPLIANCE_READ),
+    compliance_service: ComplianceService = Depends(get_compliance_service),
+    session: AsyncSession = Depends(get_db),
 ) -> list[RemediationSuggestion]:
     """Suggest trades to cure active compliance violations."""
-    return await service.suggest_remediation(portfolio_id)
+    return await compliance_service.suggest_remediation(portfolio_id, session=session)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -31,6 +32,8 @@ from app.modules.alpha_engine.models import (
 )
 
 if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
     from app.modules.alpha_engine.repository import AlphaRepository
     from app.modules.positions.service import PositionService
     from app.modules.security_master.service import SecurityMasterService
@@ -50,9 +53,9 @@ class AlphaService:
         position_service: PositionService,
         security_master_service: SecurityMasterService,
     ) -> None:
-        self._repo = alpha_repo
-        self._positions = position_service
-        self._sm = security_master_service
+        self._alpha_repo = alpha_repo
+        self._position_service = position_service
+        self._security_master_service = security_master_service
 
     # ------------------------------------------------------------------
     # What-if analysis
@@ -63,9 +66,11 @@ class AlphaService:
         portfolio_id: UUID,
         scenario_name: str,
         trades: list[HypotheticalTrade],
+        *,
+        session: AsyncSession | None = None,
     ) -> WhatIfResult:
         """Run a what-if scenario analysis."""
-        positions = await self._positions.get_by_portfolio(portfolio_id)
+        positions = await self._position_service.get_by_portfolio(portfolio_id, session=session)
         positions = [p for p in positions if p.quantity != ZERO]
 
         nav = float(sum((p.market_value for p in positions if p.market_value), ZERO))
@@ -96,7 +101,7 @@ class AlphaService:
         )
 
         # Persist scenario run
-        await self._persist_scenario(portfolio_id, scenario_name, trades, result)
+        await self._persist_scenario(portfolio_id, scenario_name, trades, result, session=session)
 
         logger.info(
             "what_if_completed",
@@ -114,9 +119,11 @@ class AlphaService:
         self,
         portfolio_id: UUID,
         objective: OptimizationObjective,
+        *,
+        session: AsyncSession | None = None,
     ) -> OptimizationResult:
         """Run portfolio optimization."""
-        positions = await self._positions.get_by_portfolio(portfolio_id)
+        positions = await self._position_service.get_by_portfolio(portfolio_id, session=session)
         positions = [p for p in positions if p.quantity != ZERO]
 
         if not positions:
@@ -145,7 +152,7 @@ class AlphaService:
                 prices_map[p.instrument_id] = float(p.market_value / p.quantity)
 
         # Build returns matrix
-        returns_matrix = await self._build_returns_matrix(instrument_ids)
+        returns_matrix = await self._build_returns_matrix(instrument_ids, session=session)
 
         result = optimize_portfolio(
             portfolio_id,
@@ -158,7 +165,7 @@ class AlphaService:
         )
 
         # Persist
-        await self._persist_optimization(result)
+        await self._persist_optimization(result, session=session)
 
         logger.info(
             "optimization_completed",
@@ -173,8 +180,13 @@ class AlphaService:
     # Scenario history
     # ------------------------------------------------------------------
 
-    async def get_scenarios(self, portfolio_id: UUID) -> list[ScenarioRun]:
-        records = await self._repo.get_scenarios(portfolio_id)
+    async def get_scenarios(
+        self,
+        portfolio_id: UUID,
+        *,
+        session: AsyncSession | None = None,
+    ) -> list[ScenarioRun]:
+        records = await self._alpha_repo.get_scenarios(portfolio_id, session=session)
         return [
             ScenarioRun(
                 id=r.id,
@@ -192,8 +204,13 @@ class AlphaService:
     # Order intents
     # ------------------------------------------------------------------
 
-    async def get_order_intents(self, portfolio_id: UUID) -> list[OrderIntent]:
-        records = await self._repo.get_intents(portfolio_id)
+    async def get_order_intents(
+        self,
+        portfolio_id: UUID,
+        *,
+        session: AsyncSession | None = None,
+    ) -> list[OrderIntent]:
+        records = await self._alpha_repo.get_intents(portfolio_id, session=session)
         return [
             OrderIntent(
                 instrument_id=r.instrument_id,
@@ -205,22 +222,29 @@ class AlphaService:
             for r in records
         ]
 
-    async def approve_intent(self, intent_id: str) -> None:
-        await self._repo.update_intent_status(intent_id, "approved")
+    async def approve_intent(self, intent_id: str, *, session: AsyncSession | None = None) -> None:
+        await self._alpha_repo.update_intent_status(intent_id, "approved", session=session)
 
-    async def cancel_intent(self, intent_id: str) -> None:
-        await self._repo.update_intent_status(intent_id, "cancelled")
+    async def cancel_intent(self, intent_id: str, *, session: AsyncSession | None = None) -> None:
+        await self._alpha_repo.update_intent_status(intent_id, "cancelled", session=session)
 
     # ------------------------------------------------------------------
     # Optimization history
     # ------------------------------------------------------------------
 
-    async def get_optimizations(self, portfolio_id: UUID) -> list[OptimizationResult]:
-        records = await self._repo.get_optimizations(portfolio_id)
+    async def get_optimizations(
+        self,
+        portfolio_id: UUID,
+        *,
+        session: AsyncSession | None = None,
+    ) -> list[OptimizationResult]:
+        records = await self._alpha_repo.get_optimizations(portfolio_id, session=session)
         results = []
         for r in records:
-            weight_records = await self._repo.get_optimization_weights(r.id)
-            intent_records = await self._repo.get_intents_by_run(r.id)
+            weight_records, intent_records = await asyncio.gather(
+                self._alpha_repo.get_optimization_weights(r.id, session=session),
+                self._alpha_repo.get_intents_by_run(r.id, session=session),
+            )
 
             weights = [
                 OptimizationWeight(
@@ -268,9 +292,11 @@ class AlphaService:
         self,
         instrument_ids: list[str],
         n_days: int = 252,
+        *,
+        session: AsyncSession | None = None,
     ) -> np.ndarray:  # type: ignore[type-arg]
         """Build synthetic returns matrix from instrument reference data."""
-        instruments = await self._sm.get_all_active()
+        instruments = await self._security_master_service.get_all_active(session=session)
         vol_map = {
             i.ticker: i.annual_volatility for i in instruments if i.annual_volatility is not None
         }
@@ -290,6 +316,8 @@ class AlphaService:
         scenario_name: str,
         trades: list[HypotheticalTrade],
         result: WhatIfResult,
+        *,
+        session: AsyncSession | None = None,
     ) -> None:
         record = ScenarioRunRecord(
             portfolio_id=str(portfolio_id),
@@ -310,9 +338,11 @@ class AlphaService:
             },
             status="completed",
         )
-        await self._repo.save_scenario(record)
+        await self._alpha_repo.save_scenario(record, session=session)
 
-    async def _persist_optimization(self, result: OptimizationResult) -> None:
+    async def _persist_optimization(
+        self, result: OptimizationResult, *, session: AsyncSession | None = None
+    ) -> None:
         record = OptimizationRunRecord(
             portfolio_id=str(result.portfolio_id),
             objective=result.objective,
@@ -347,4 +377,4 @@ class AlphaService:
             for i in result.order_intents
         ]
 
-        await self._repo.save_optimization(record, weights, intents)
+        await self._alpha_repo.save_optimization(record, weights, intents, session=session)

@@ -46,7 +46,7 @@ class MarkToMarketHandler:
         get_fund_slugs: Callable[[], Awaitable[list[str]]],
         get_asset_class: Callable[[str], Awaitable[AssetClass | None]],
     ) -> None:
-        self._sf = session_factory
+        self._session_factory = session_factory
         self._event_bus = event_bus
         self._get_fund_slugs = get_fund_slugs
         self._get_asset_class = get_asset_class
@@ -90,7 +90,7 @@ class MarkToMarketHandler:
         new_price: Decimal,
         strategy: PositionStrategy,
     ) -> None:
-        async with self._sf.fund_scope(fund_slug):
+        async with self._session_factory.fund_scope(fund_slug):
             await self._update_positions_for_instrument(
                 fund_slug,
                 instrument_id,
@@ -105,7 +105,7 @@ class MarkToMarketHandler:
         new_price: Decimal,
         strategy: PositionStrategy,
     ) -> None:
-        repo = CurrentPositionRepository(self._sf)
+        repo = CurrentPositionRepository(self._session_factory)
         positions = await repo.get_by_instrument(instrument_id)
         for pos in positions:
             old_unrealized = pos.unrealized_pnl

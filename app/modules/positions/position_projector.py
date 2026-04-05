@@ -26,7 +26,7 @@ class PositionProjector:
     """Projects aggregate state onto the current_positions and lots read models."""
 
     def __init__(self, position_repo: CurrentPositionRepository) -> None:
-        self._repo = position_repo
+        self._position_repo = position_repo
 
     async def project(
         self,
@@ -40,7 +40,7 @@ class PositionProjector:
         Must be called within the same transaction as the event store append
         to maintain read-after-write consistency.
         """
-        await self._repo.upsert(
+        await self._position_repo.upsert(
             portfolio_id=aggregate.portfolio_id,
             instrument_id=aggregate.instrument_id,
             quantity=aggregate.quantity,
@@ -106,7 +106,7 @@ class PositionProjector:
         aggregate = PositionAggregate.from_events(portfolio_id, instrument_id, events)
 
         async with session_factory() as session:
-            await self._repo.upsert(
+            await self._position_repo.upsert(
                 portfolio_id=aggregate.portfolio_id,
                 instrument_id=aggregate.instrument_id,
                 quantity=aggregate.quantity,

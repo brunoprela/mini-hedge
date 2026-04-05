@@ -333,28 +333,28 @@ def get_actor_context(request: Request) -> RequestContext:
     Use directly when you need the actor's identity without a specific
     permission check.  Raises 401 if no user is authenticated.
     """
-    ctx = get_request_context()
-    if ctx.actor_type == ActorType.SYSTEM:
+    request_context = get_request_context()
+    if request_context.actor_type == ActorType.SYSTEM:
         raise HTTPException(
             status_code=401,
             detail="Authentication required",
         )
-    return ctx
+    return request_context
 
 
 def require_permission(*perms: Permission) -> Any:
     """FastAPI dependency that checks the caller has all listed permissions."""
 
     async def _check(
-        ctx: RequestContext = Depends(get_actor_context),
+        request_context: RequestContext = Depends(get_actor_context),
     ) -> RequestContext:
-        missing = {p.value for p in perms} - set(ctx.permissions)
+        missing = {p.value for p in perms} - set(request_context.permissions)
         if missing:
             raise HTTPException(
                 status_code=403,
                 detail=f"Missing permissions: {', '.join(sorted(missing))}",
             )
-        return ctx
+        return request_context
 
     return Depends(_check)
 
@@ -363,16 +363,16 @@ def require_platform_permission(*perms: Permission) -> Any:
     """FastAPI dependency — checks the caller is a platform operator with required perms."""
 
     async def _check(
-        ctx: RequestContext = Depends(get_actor_context),
+        request_context: RequestContext = Depends(get_actor_context),
     ) -> RequestContext:
-        if not ctx.is_platform_operator:
+        if not request_context.is_platform_operator:
             raise HTTPException(status_code=403, detail="Platform operator access required")
-        missing = {p.value for p in perms} - set(ctx.permissions)
+        missing = {p.value for p in perms} - set(request_context.permissions)
         if missing:
             raise HTTPException(
                 status_code=403,
                 detail=f"Missing permissions: {', '.join(sorted(missing))}",
             )
-        return ctx
+        return request_context
 
     return Depends(_check)

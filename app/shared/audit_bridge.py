@@ -24,7 +24,7 @@ class AuditBridge:
     """Forwards all fund-scoped events to the audit log."""
 
     def __init__(self, audit_repo: AuditLogRepository) -> None:
-        self._repo = audit_repo
+        self._audit_repo = audit_repo
 
     def wire(self, event_bus: EventBus, fund_slugs: list[str]) -> None:
         """Subscribe to all fund-scoped topics for audit persistence."""
@@ -42,7 +42,7 @@ class AuditBridge:
 
         async def handler(event: BaseEvent) -> None:
             try:
-                await self._repo.insert(event)
+                await self._audit_repo.insert(event)
             except Exception:
                 logger.exception(
                     "audit_bridge_insert_failed",

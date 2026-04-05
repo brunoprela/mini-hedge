@@ -11,6 +11,8 @@ from app.modules.platform.interface import AuditEntry, AuditPage, FundAccessGran
 from app.shared.errors import NotFoundError
 
 if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
     from app.modules.platform.audit_repository import AuditLogRepository
     from app.modules.platform.auth_service import AuthService
     from app.modules.platform.fund_repository import FundRepository
@@ -65,13 +67,15 @@ class AccessGrantService:
         self._user_repo = user_repo
         self._operator_repo = operator_repo
         self._fund_repo = fund_repo
-        self._fga = fga_client
-        self._audit = audit_repo
+        self._fga_client = fga_client
+        self._audit_repo = audit_repo
         self._auth_service = auth_service
 
-    async def list_fund_access(self, fund_id: str) -> list[FundAccessGrant]:
+    async def list_fund_access(
+        self, fund_id: str, *, session: AsyncSession | None = None
+    ) -> list[FundAccessGrant]:
         """List all access grants on a fund via a single FGA read."""
-        tuples = await self._fga.read_tuples(object=f"fund:{fund_id}")
+        tuples = await self._fga_client.read_tuples(object=f"fund:{fund_id}")
 
         # Collect IDs for batch display-name lookup
         user_ids: set[str] = set()
@@ -85,11 +89,11 @@ class AccessGrantService:
         # Build display-name maps
         names: dict[str, str] = {}
         for uid in user_ids:
-            record = await self._user_repo.get_by_id(uid)
+            record = await self._user_repo.get_by_id(uid, session=session)
             if record:
                 names[f"user:{uid}"] = record.name
         for oid in operator_ids:
-            record = await self._operator_repo.get_by_id(oid)
+            record = await self._operator_repo.get_by_id(oid, session=session)
             if record:
                 names[f"operator:{oid}"] = record.name
 
@@ -120,18 +124,25 @@ class AccessGrantService:
         user_type: str,
         user_id: str,
         relation: str,
-        actor: RequestContext,
+        request_context: RequestContext,
+        session: AsyncSession | None = None,
     ) -> None:
         """Grant a user or operator a relation on a fund via FGA."""
-        fund = await self._fund_repo.get_by_id(fund_id)
+        fund = await self._fund_repo.get_by_id(fund_id, session=session)
         if fund is None:
             raise NotFoundError("Fund", fund_id)
         # Validate that the subject exists
-        if user_type == "user" and await self._user_repo.get_by_id(user_id) is None:
+        if (
+            user_type == "user"
+            and await self._user_repo.get_by_id(user_id, session=session) is None
+        ):
             raise NotFoundError("User", user_id)
-        elif user_type == "operator" and await self._operator_repo.get_by_id(user_id) is None:
+        elif (
+            user_type == "operator"
+            and await self._operator_repo.get_by_id(user_id, session=session) is None
+        ):
             raise NotFoundError("Operator", user_id)
-        await self._fga.write_tuples(
+        await self._fga_client.write_tuples(
             [
                 ClientTuple(
                     user=f"{user_type}:{user_id}",
@@ -144,10 +155,10 @@ class AccessGrantService:
         if user_type == "user" and self._auth_service is not None:
             self._auth_service.invalidate_fga_cache(user_id, fund_id)
 
-        await self._audit.insert_admin_event(
+        await self._audit_repo.insert_admin_event(
             event_type="admin.access.granted",
-            actor_id=actor.actor_id,
-            actor_type=actor.actor_type.value,
+            actor_id=request_context.actor_id,
+            actor_type=request_context.actor_type.value,
             fund_slug=fund.slug,
             payload={
                 "fund_id": fund_id,
@@ -155,6 +166,7 @@ class AccessGrantService:
                 "user_id": user_id,
                 "relation": relation,
             },
+            session=session,
         )
 
     async def revoke_access(
@@ -164,13 +176,14 @@ class AccessGrantService:
         user_type: str,
         user_id: str,
         relation: str,
-        actor: RequestContext,
+        request_context: RequestContext,
+        session: AsyncSession | None = None,
     ) -> None:
         """Revoke a user or operator's relation on a fund via FGA."""
-        fund = await self._fund_repo.get_by_id(fund_id)
+        fund = await self._fund_repo.get_by_id(fund_id, session=session)
         if fund is None:
             raise NotFoundError("Fund", fund_id)
-        await self._fga.delete_tuples(
+        await self._fga_client.delete_tuples(
             [
                 ClientTuple(
                     user=f"{user_type}:{user_id}",
@@ -183,10 +196,10 @@ class AccessGrantService:
         if user_type == "user" and self._auth_service is not None:
             self._auth_service.invalidate_fga_cache(user_id, fund_id)
 
-        await self._audit.insert_admin_event(
+        await self._audit_repo.insert_admin_event(
             event_type="admin.access.revoked",
-            actor_id=actor.actor_id,
-            actor_type=actor.actor_type.value,
+            actor_id=request_context.actor_id,
+            actor_type=request_context.actor_type.value,
             fund_slug=fund.slug,
             payload={
                 "fund_id": fund_id,
@@ -194,6 +207,7 @@ class AccessGrantService:
                 "user_id": user_id,
                 "relation": relation,
             },
+            session=session,
         )
 
     async def list_audit(
@@ -203,12 +217,14 @@ class AccessGrantService:
         event_type: str | None = None,
         limit: int = 100,
         offset: int = 0,
+        session: AsyncSession | None = None,
     ) -> AuditPage:
-        records, total = await self._audit.query(
+        records, total = await self._audit_repo.query(
             fund_slug=fund_slug,
             event_type=event_type,
             limit=limit,
             offset=offset,
+            session=session,
         )
         items = [
             AuditEntry(

@@ -38,6 +38,14 @@ services:
       OPENFGA_DATASTORE_ENGINE: postgres
       OPENFGA_DATASTORE_URI: "postgres://minihedge:minihedge@postgres:5432/minihedge"
       OPENFGA_PLAYGROUND_ENABLED: "true"
+      # Check API caching — trades freshness for latency
+      OPENFGA_CHECK_QUERY_CACHE_ENABLED: "true"
+      OPENFGA_CHECK_QUERY_CACHE_TTL: "30s"
+      # Connection pool tuning
+      OPENFGA_DATASTORE_MAX_OPEN_CONNS: "20"
+      OPENFGA_DATASTORE_MIN_OPEN_CONNS: "5"
+      # Limit expensive queries
+      OPENFGA_LIST_OBJECTS_MAX_RESULTS: "100"
     ports:
       - "8080:8080"
       - "3001:3000"
@@ -276,7 +284,7 @@ services:
     build:
       context: ./ui
       dockerfile: Dockerfile.dev
-    profiles: ["core"]
+    profiles: ["frontend"]
     command: pnpm dev --hostname 0.0.0.0
     ports:
       - "3000:3000"
@@ -306,7 +314,7 @@ services:
     build:
       context: ./ops-ui
       dockerfile: Dockerfile.dev
-    profiles: ["core"]
+    profiles: ["frontend"]
     command: pnpm dev --hostname 0.0.0.0
     ports:
       - "3100:3100"

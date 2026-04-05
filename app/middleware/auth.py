@@ -1,101 +1,139 @@
-"""Authentication middleware — extracts identity and sets request context."""
+"""Authentication middleware — extracts identity and sets request context.
+
+Pure ASGI implementation (no BaseHTTPMiddleware) for proper concurrent
+request handling. BaseHTTPMiddleware serializes response reading through
+an internal channel, causing ~3s delays under concurrent load.
+"""
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 import structlog
-from fastapi import Request, Response
-from fastapi.responses import JSONResponse
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 from app.shared.errors import AuthenticationError, AuthorizationError
 from app.shared.request_context import set_request_context
 
 if TYPE_CHECKING:
+    from starlette.types import ASGIApp, Receive, Scope, Send
+
     from app.modules.platform.auth_service import AuthService
-    from app.shared.request_context import RequestContext
 
 logger = structlog.get_logger()
 
 # Paths that skip authentication
-PUBLIC_PATHS = {"/health", "/docs", "/openapi.json", "/redoc", "/api/v1/stream/events"}
+PUBLIC_PATHS = {"/health", "/docs", "/openapi.json", "/redoc"}
+
+# Paths where the JWT is in the query string (e.g. browser EventSource API)
+_QUERY_TOKEN_PATHS = {"/api/v1/stream/events"}
 
 
-class AuthMiddleware(BaseHTTPMiddleware):
-    """Extracts identity from Authorization header and sets RequestContext.
+def _json_response(status: int, body: dict) -> tuple[int, bytes, list[tuple[bytes, bytes]]]:
+    data = json.dumps(body).encode()
+    headers = [
+        (b"content-type", b"application/json"),
+        (b"content-length", str(len(data)).encode()),
+    ]
+    return status, data, headers
 
-    Looks up ``auth_service`` from ``request.app.state`` so it can be
-    registered at module level (before the lifespan runs).
-    """
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        # Skip auth for public endpoints
-        if request.url.path in PUBLIC_PATHS:
-            return await call_next(request)
+class AuthMiddleware:
+    """Pure ASGI auth middleware — no BaseHTTPMiddleware overhead."""
 
-        # /auth/agent-token requires auth via its own dependency.
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
 
-        auth_service: AuthService | None = getattr(request.app.state, "auth_service", None)
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        path = scope["path"]
+        if path in PUBLIC_PATHS:
+            await self.app(scope, receive, send)
+            return
+
+        # Extract app state from scope
+        app = scope.get("app")
+        auth_service: AuthService | None = getattr(app.state, "auth_service", None) if app else None
         if auth_service is None:
-            return Response(
-                content='{"detail":"Auth service unavailable"}',
-                status_code=503,
-                media_type="application/json",
-            )
+            await self._send_json(send, 503, {"detail": "Auth service unavailable"})
+            return
 
+        # Extract auth credentials
+        headers = dict(scope.get("headers", []))
+        auth_header = headers.get(b"authorization", b"").decode()
+        fund_slug_header = headers.get(b"x-fund-slug", b"").decode() or None
+
+        # SSE endpoints pass the JWT as a query parameter (EventSource has no headers)
+        query_token = None
+        if path in _QUERY_TOKEN_PATHS:
+            qs = scope.get("query_string", b"").decode()
+            for param in qs.split("&"):
+                if param.startswith("token="):
+                    query_token = param[6:]
+                elif param.startswith("fund_slug="):
+                    fund_slug_header = fund_slug_header or param[10:]
+
+        request_context = None
         try:
-            ctx = await self._resolve_context(request, auth_service)
+            if query_token:
+                request_context = await auth_service.authenticate_jwt(
+                    query_token, fund_slug=fund_slug_header
+                )
+            elif auth_header.startswith("Bearer "):
+                token = auth_header[7:]
+                request_context = await auth_service.authenticate_jwt(
+                    token, fund_slug=fund_slug_header
+                )
+            elif auth_header.startswith("ApiKey "):
+                raw_key = auth_header[7:]
+                request_context = await auth_service.authenticate_api_key(raw_key)
+            else:
+                api_key = headers.get(b"x-api-key", b"").decode()
+                if api_key:
+                    request_context = await auth_service.authenticate_api_key(api_key)
         except AuthenticationError as exc:
-            return JSONResponse(
-                status_code=401,
-                content={"detail": exc.message, "code": exc.code},
-            )
+            await self._send_json(send, 401, {"detail": exc.message, "code": exc.code})
+            return
         except AuthorizationError as exc:
-            return JSONResponse(
-                status_code=403,
-                content={"detail": exc.message, "code": exc.code},
-            )
+            await self._send_json(send, 403, {"detail": exc.message, "code": exc.code})
+            return
         except Exception:
-            logger.exception("auth_middleware_error", path=request.url.path)
-            return JSONResponse(
-                status_code=500,
-                content={"detail": "Internal server error"},
+            logger.exception("auth_middleware_error", path=path)
+            await self._send_json(send, 500, {"detail": "Internal server error"})
+            return
+
+        if request_context is None:
+            await self._send_json(
+                send, 401, {"detail": "Authentication required", "code": "MISSING_CREDENTIALS"}
             )
+            return
 
-        if ctx is None:
-            return JSONResponse(
-                status_code=401,
-                content={"detail": "Authentication required", "code": "MISSING_CREDENTIALS"},
-            )
+        set_request_context(request_context)
 
-        set_request_context(ctx)
-
-        # Set fund scope so TenantSessionFactory sessions target the
-        # correct per-fund schema for the duration of this request.
-        if ctx.fund_slug:
-            sf = getattr(request.app.state, "session_factory", None)
+        # Set fund scope for per-fund schema isolation
+        if request_context.fund_slug and app:
+            sf = getattr(app.state, "session_factory", None)
             if sf is not None:
-                async with sf.fund_scope(ctx.fund_slug):
-                    return await call_next(request)
+                async with sf.fund_scope(request_context.fund_slug):
+                    await self.app(scope, receive, send)
+                    return
 
-        return await call_next(request)
+        await self.app(scope, receive, send)
 
-    async def _resolve_context(self, request: Request, auth: AuthService) -> RequestContext | None:
-        auth_header = request.headers.get("authorization", "")
-        fund_slug = request.headers.get("x-fund-slug")
-
-        if auth_header.startswith("Bearer "):
-            token = auth_header[7:]
-            return await auth.authenticate_jwt(token, fund_slug=fund_slug)
-
-        if auth_header.startswith("ApiKey "):
-            raw_key = auth_header[7:]
-            return await auth.authenticate_api_key(raw_key)
-
-        # Also check X-API-Key header
-        api_key = request.headers.get("x-api-key")
-        if api_key:
-            return await auth.authenticate_api_key(api_key)
-
-        return None
+    @staticmethod
+    async def _send_json(send: Send, status: int, body: dict) -> None:
+        data = json.dumps(body).encode()
+        await send(
+            {
+                "type": "http.response.start",
+                "status": status,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", str(len(data)).encode()),
+                ],
+            }
+        )
+        await send({"type": "http.response.body", "body": data})

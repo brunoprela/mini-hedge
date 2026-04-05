@@ -3,7 +3,9 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.cash_management.cash_management_service import CashManagementService
 from app.modules.cash_management.dependencies import get_cash_service
 from app.modules.cash_management.interface import (
     CashBalance,
@@ -11,8 +13,8 @@ from app.modules.cash_management.interface import (
     SettlementLadder,
     SettlementRecord,
 )
-from app.modules.cash_management.service import CashManagementService
 from app.shared.auth import Permission, require_permission
+from app.shared.database import get_db
 from app.shared.fga import require_access
 from app.shared.fga_resources import Portfolio
 from app.shared.request_context import RequestContext
@@ -26,11 +28,12 @@ router = APIRouter(prefix="/cash", tags=["cash"])
 )
 async def get_cash_balances(
     portfolio_id: UUID,
-    ctx: RequestContext = require_permission(Permission.CASH_READ),
+    request_context: RequestContext = require_permission(Permission.CASH_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
-    service: CashManagementService = Depends(get_cash_service),
+    cash_management_service: CashManagementService = Depends(get_cash_service),
+    session: AsyncSession = Depends(get_db),
 ) -> list[CashBalance]:
-    return await service.get_balances(portfolio_id)
+    return await cash_management_service.get_balances(portfolio_id, session=session)
 
 
 @router.get(
@@ -39,11 +42,12 @@ async def get_cash_balances(
 )
 async def get_pending_settlements(
     portfolio_id: UUID,
-    ctx: RequestContext = require_permission(Permission.CASH_READ),
+    request_context: RequestContext = require_permission(Permission.CASH_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
-    service: CashManagementService = Depends(get_cash_service),
+    cash_management_service: CashManagementService = Depends(get_cash_service),
+    session: AsyncSession = Depends(get_db),
 ) -> list[SettlementRecord]:
-    return await service.get_pending_settlements(portfolio_id)
+    return await cash_management_service.get_pending_settlements(portfolio_id, session=session)
 
 
 @router.get(
@@ -53,11 +57,14 @@ async def get_pending_settlements(
 async def get_settlement_ladder(
     portfolio_id: UUID,
     horizon_days: int = Query(default=10, ge=1, le=90),
-    ctx: RequestContext = require_permission(Permission.CASH_READ),
+    request_context: RequestContext = require_permission(Permission.CASH_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
-    service: CashManagementService = Depends(get_cash_service),
+    cash_management_service: CashManagementService = Depends(get_cash_service),
+    session: AsyncSession = Depends(get_db),
 ) -> SettlementLadder:
-    return await service.get_settlement_ladder(portfolio_id, horizon_days)
+    return await cash_management_service.get_settlement_ladder(
+        portfolio_id, horizon_days, session=session
+    )
 
 
 @router.get(
@@ -67,8 +74,9 @@ async def get_settlement_ladder(
 async def get_cash_projection(
     portfolio_id: UUID,
     horizon_days: int = Query(default=30, ge=1, le=365),
-    ctx: RequestContext = require_permission(Permission.CASH_READ),
+    request_context: RequestContext = require_permission(Permission.CASH_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
-    service: CashManagementService = Depends(get_cash_service),
+    cash_management_service: CashManagementService = Depends(get_cash_service),
+    session: AsyncSession = Depends(get_db),
 ) -> CashProjection:
-    return await service.get_projection(portfolio_id, horizon_days)
+    return await cash_management_service.get_projection(portfolio_id, horizon_days, session=session)

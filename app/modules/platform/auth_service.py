@@ -14,6 +14,7 @@ Two Keycloak realms are supported:
 
 from __future__ import annotations
 
+import hashlib
 from typing import TYPE_CHECKING
 
 import jwt as pyjwt
@@ -68,6 +69,12 @@ _USER_CACHE_TTL = 60  # seconds — user data changes rarely
 _FUND_CACHE_MAX = 64
 _FUND_CACHE_TTL = 120  # seconds — fund metadata is near-static
 
+# Full RequestContext cache keyed by (token_hash, fund_slug) — avoids ALL
+# downstream calls (JWKS, FGA, DB) for repeated requests with the same JWT.
+# The token only changes on refresh (every few minutes).
+_CTX_CACHE_MAX = 256
+_CTX_CACHE_TTL = 300  # seconds — JWT only changes on refresh (~5 min)
+
 
 class AuthService:
     """Authenticates requests via JWT or API key."""
@@ -94,7 +101,7 @@ class AuthService:
         self._fund_repo = fund_repo
         self._operator_repo = operator_repo
         self._api_key_repo = api_key_repo
-        self._fga = fga_client
+        self._fga_client = fga_client
         self._jwt_secret = jwt_secret
         self._jwt_algorithm = jwt_algorithm
         self._jwt_expiry_minutes = jwt_expiry_minutes
@@ -115,6 +122,16 @@ class AuthService:
         self._fund_cache: TTLCache[str, object] = TTLCache(
             maxsize=_FUND_CACHE_MAX, ttl=_FUND_CACHE_TTL
         )
+        # (token_hash, fund_slug) → RequestContext — skip ALL downstream calls
+        self._ctx_cache: TTLCache[tuple[str, str | None], RequestContext] = TTLCache(
+            maxsize=_CTX_CACHE_MAX, ttl=_CTX_CACHE_TTL
+        )
+
+    @staticmethod
+    def _token_hash(token: str) -> str:
+        """Fast hash of the JWT signature (last segment) for cache keying."""
+        # The signature is the unique part — no need to hash the full token.
+        return hashlib.sha256(token.rpartition(".")[2].encode()).hexdigest()[:16]
 
     async def authenticate_jwt(self, token: str, *, fund_slug: str | None = None) -> RequestContext:
         """Validate a JWT and return a RequestContext, or None if invalid.
@@ -122,6 +139,12 @@ class AuthService:
         Detects Keycloak-issued tokens (RS256 with ``iss`` claim) vs
         app-issued tokens (HS256) and routes accordingly.
         """
+        # Fast path: return cached context for repeated requests with same token
+        ctx_key = (self._token_hash(token), fund_slug)
+        cached_ctx = self._ctx_cache.get(ctx_key)
+        if cached_ctx is not None:
+            return cached_ctx
+
         try:
             header = pyjwt.get_unverified_header(token)
         except PyJWTError as exc:
@@ -138,17 +161,20 @@ class AuthService:
 
             issuer = unverified.get("iss", "")
             if self._keycloak_ops_realm and f"/realms/{self._keycloak_ops_realm}" in issuer:
-                return await self._authenticate_keycloak_operator(token)
-            return await self._authenticate_keycloak(token, fund_slug=fund_slug)
+                request_context = await self._authenticate_keycloak_operator(token)
+            else:
+                request_context = await self._authenticate_keycloak(token, fund_slug=fund_slug)
+        else:
+            # App-issued HS256 token (agent tokens, legacy)
+            try:
+                claims = decode_token(token, secret=self._jwt_secret, algorithm=self._jwt_algorithm)
+            except PyJWTError as e:
+                logger.warning("jwt_validation_failed", error=str(e))
+                raise AuthenticationError("Invalid token", code="INVALID_TOKEN") from e
+            request_context = self._claims_to_context(claims)
 
-        # App-issued HS256 token (agent tokens, legacy)
-        try:
-            claims = decode_token(token, secret=self._jwt_secret, algorithm=self._jwt_algorithm)
-        except PyJWTError as e:
-            logger.warning("jwt_validation_failed", error=str(e))
-            raise AuthenticationError("Invalid token", code="INVALID_TOKEN") from e
-
-        return self._claims_to_context(claims)
+        self._ctx_cache[ctx_key] = request_context
+        return request_context
 
     async def authenticate_api_key(self, raw_key: str) -> RequestContext:
         """Validate an API key and return a RequestContext, or None if invalid."""
@@ -234,13 +260,13 @@ class AuthService:
         # Resolve fund + roles from FGA
         if fund_slug is None:
             # No fund specified — discover from FGA
-            if self._fga is None:
+            if self._fga_client is None:
                 logger.warning("fga_not_available_for_fund_discovery")
                 raise AuthenticationError(
                     "Authorization service unavailable",
                     code="FGA_UNAVAILABLE",
                 )
-            fund_ids = await self._fga.list_objects(
+            fund_ids = await self._fga_client.list_objects(
                 user=f"user:{user.id}", relation="can_read", type="fund"
             )
             if not fund_ids:
@@ -299,11 +325,11 @@ class AuthService:
         if cached is not None:
             return cached
 
-        if self._fga is None:
+        if self._fga_client is None:
             return [], frozenset()
 
         # Single FGA call resolves both roles and effective permissions
-        all_relations = await self._fga.list_relations(
+        all_relations = await self._fga_client.list_relations(
             user=f"user:{user_id}",
             object=f"fund:{fund_id}",
             relations=_FUND_USER_ROLES + FGA_FUND_PERMISSIONS,
@@ -351,8 +377,8 @@ class AuthService:
 
         # Resolve platform role from FGA
         platform_roles: list[str] = []
-        if self._fga is not None:
-            platform_roles = await self._fga.list_relations(
+        if self._fga_client is not None:
+            platform_roles = await self._fga_client.list_relations(
                 user=f"operator:{operator.id}",
                 object="platform:global",
                 relations=_PLATFORM_ROLES,
@@ -385,15 +411,17 @@ class AuthService:
     def invalidate_fga_cache(self, user_id: str, fund_id: str) -> None:
         """Evict a cached FGA role lookup so access changes take effect immediately."""
         self._fga_cache.pop((user_id, fund_id), None)
+        # Also clear context cache — roles/permissions may have changed.
+        self._ctx_cache.clear()
 
     # ----- Public API -----
 
     async def get_user_funds(self, user_id: str) -> list[FundInfo]:
         """Return funds the user has access to (for /me/funds endpoint)."""
-        if self._fga is None:
+        if self._fga_client is None:
             return []
 
-        fund_ids = await self._fga.list_objects(
+        fund_ids = await self._fga_client.list_objects(
             user=f"user:{user_id}", relation="can_read", type="fund"
         )
 

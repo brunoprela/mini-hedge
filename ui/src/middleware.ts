@@ -22,15 +22,11 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // Forward the access token to API proxy routes via internal header
-  // so the proxy doesn't need to call auth() again.
-  if (pathname.startsWith("/api/proxy") && req.auth.accessToken) {
-    const headers = new Headers(req.headers);
-    headers.set("x-auth-token", req.auth.accessToken);
-    return NextResponse.next({ request: { headers } });
-  }
-
-  return NextResponse.next();
+  // Forward the access token via internal header so downstream
+  // handlers and server components don't need to call auth() again.
+  const headers = new Headers(req.headers);
+  headers.set("x-auth-token", req.auth.accessToken);
+  return NextResponse.next({ request: { headers } });
 });
 
 export const config = {

@@ -22,6 +22,8 @@ from app.shared.events import BaseEvent
 from app.shared.schema_registry import fund_topic
 
 if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
     from app.modules.orders.compliance_gateway import ComplianceGateway
     from app.modules.orders.repository import OrderRepository
     from app.modules.platform.audit_repository import AuditLogRepository
@@ -45,12 +47,12 @@ class OrderService:
         event_bus: EventBus,
         audit_repo: AuditLogRepository | None = None,
     ) -> None:
-        self._sf = session_factory
-        self._repo = order_repo
-        self._compliance = compliance_gateway
+        self._session_factory = session_factory
+        self._order_repo = order_repo
+        self._compliance_gateway = compliance_gateway
         self._broker = broker
         self._event_bus = event_bus
-        self._audit = audit_repo
+        self._audit_repo = audit_repo
         self._fund_slugs: list[str] = []  # Set by setup code; used to locate orders across schemas
 
     async def create_order(
@@ -58,6 +60,8 @@ class OrderService:
         request: CreateOrderRequest,
         fund_slug: str,
         actor_id: str,
+        *,
+        session: AsyncSession | None = None,
     ) -> OrderSummary:
         """Create and process an order through the full lifecycle."""
         # 1. Create order in DRAFT state
@@ -74,11 +78,13 @@ class OrderService:
             time_in_force=request.time_in_force.value,
             fund_slug=fund_slug,
         )
-        order = await self._repo.save(order)
+        order = await self._order_repo.save(order, session=session)
 
         # 2. Transition to PENDING_COMPLIANCE
         apply_transition(OrderState(order.state), OrderState.PENDING_COMPLIANCE)
-        order = await self._repo.update_state(UUID(order.id), OrderState.PENDING_COMPLIANCE.value)
+        order = await self._order_repo.update_state(
+            UUID(order.id), OrderState.PENDING_COMPLIANCE.value, session=session
+        )
 
         # 3. Run compliance check
         check_request = TradeCheckRequest(
@@ -88,7 +94,7 @@ class OrderService:
             quantity=request.quantity,
             price=request.limit_price or Decimal("100.00"),
         )
-        decision = await self._compliance.check(check_request)
+        decision = await self._compliance_gateway.check(check_request)
 
         compliance_data = [
             {
@@ -105,11 +111,12 @@ class OrderService:
             # 4a. Rejected
             apply_transition(OrderState(order.state), OrderState.REJECTED)
             reason = "; ".join(decision.blocked_by)
-            order = await self._repo.update_state(
+            order = await self._order_repo.update_state(
                 UUID(order.id),
                 OrderState.REJECTED.value,
                 rejection_reason=reason,
                 compliance_results=compliance_data,
+                session=session,
             )
             logger.info(
                 "order_rejected",
@@ -124,22 +131,26 @@ class OrderService:
                 fund_slug=fund_slug,
                 order=order,
                 extra={"rejection_reason": reason, "compliance_results": compliance_data},
+                session=session,
             )
             return self._to_summary(order)
 
         # 4b. Approved
         apply_transition(OrderState(order.state), OrderState.APPROVED)
-        order = await self._repo.update_state(
+        order = await self._order_repo.update_state(
             UUID(order.id),
             OrderState.APPROVED.value,
             compliance_results=compliance_data,
+            session=session,
         )
         await self._publish_order_event(order, "order.created", fund_slug)
         await self._publish_trade_decision(order, "trade.approved", fund_slug)
 
         # 5. Transition to SENT and submit to broker
         apply_transition(OrderState(order.state), OrderState.SENT)
-        order = await self._repo.update_state(UUID(order.id), OrderState.SENT.value)
+        order = await self._order_repo.update_state(
+            UUID(order.id), OrderState.SENT.value, session=session
+        )
 
         ack = await self._broker.submit_order(
             client_order_id=order.id,
@@ -155,7 +166,9 @@ class OrderService:
             status_report = await self._broker.get_order_status(ack.exchange_order_id)
             fill_price = status_report.avg_fill_price or Decimal("0")
             fill_qty = status_report.filled_quantity
-            order = await self._process_fill(order, fill_price, fill_qty, fund_slug)
+            order = await self._process_fill(
+                order, fill_price, fill_qty, fund_slug, session=session
+            )
 
             logger.info(
                 "order_filled",
@@ -173,6 +186,7 @@ class OrderService:
                     "fill_quantity": str(fill_qty),
                     "compliance_results": compliance_data,
                 },
+                session=session,
             )
         else:
             # Async fill (mock-exchange, FIX, etc.) — order stays in SENT state.
@@ -214,8 +228,8 @@ class OrderService:
 
         for attempt_delay in self._FILL_RETRY_DELAYS:
             for slug in self._fund_slugs:
-                async with self._sf.fund_scope(slug):
-                    found = await self._repo.get_by_id(UUID(client_order_id))
+                async with self._session_factory.fund_scope(slug):
+                    found = await self._order_repo.get_by_id(UUID(client_order_id))
                 if found is not None:
                     order = found
                     fund_slug = slug
@@ -239,7 +253,7 @@ class OrderService:
             )
             return
 
-        async with self._sf.fund_scope(fund_slug):
+        async with self._session_factory.fund_scope(fund_slug):
             order = await self._process_fill(
                 order,
                 fill_price,
@@ -267,25 +281,32 @@ class OrderService:
             },
         )
 
-    async def cancel_order(self, order_id: UUID, actor_id: str = "system") -> OrderSummary:
+    async def cancel_order(
+        self, order_id: UUID, actor_id: str = "system", *, session: AsyncSession | None = None
+    ) -> OrderSummary:
         """Cancel an order if transition is valid."""
-        order = await self._repo.get_by_id(order_id)
+        order = await self._order_repo.get_by_id(order_id, session=session)
         if order is None:
             raise LookupError(f"Order {order_id} not found")
 
         apply_transition(OrderState(order.state), OrderState.CANCELLED)
-        order = await self._repo.update_state(order_id, OrderState.CANCELLED.value)
+        order = await self._order_repo.update_state(
+            order_id, OrderState.CANCELLED.value, session=session
+        )
         await self._audit_event(
             "order.cancelled",
             actor_id=actor_id,
             fund_slug=order.fund_slug,
             order=order,
+            session=session,
         )
         return self._to_summary(order)
 
-    async def get_order(self, order_id: UUID) -> OrderSummary:
+    async def get_order(
+        self, order_id: UUID, *, session: AsyncSession | None = None
+    ) -> OrderSummary:
         """Get a single order by ID."""
-        order = await self._repo.get_by_id(order_id)
+        order = await self._order_repo.get_by_id(order_id, session=session)
         if order is None:
             raise LookupError(f"Order {order_id} not found")
         return self._to_summary(order)
@@ -294,14 +315,20 @@ class OrderService:
         self,
         portfolio_id: UUID,
         state: str | None = None,
+        *,
+        session: AsyncSession | None = None,
     ) -> list[OrderSummary]:
         """List orders for a portfolio, optionally filtered by state."""
-        records = await self._repo.get_by_portfolio(portfolio_id, state=state)
+        records = await self._order_repo.get_by_portfolio(
+            portfolio_id, state=state, session=session
+        )
         return [self._to_summary(r) for r in records]
 
-    async def get_fills(self, order_id: UUID) -> list[FillDetail]:
+    async def get_fills(
+        self, order_id: UUID, *, session: AsyncSession | None = None
+    ) -> list[FillDetail]:
         """Get fill details for an order."""
-        fills = await self._repo.get_fills(order_id)
+        fills = await self._order_repo.get_fills(order_id, session=session)
         return [
             FillDetail(
                 id=UUID(f.id),
@@ -321,6 +348,7 @@ class OrderService:
         fund_slug: str,
         *,
         filled_at: datetime | None = None,
+        session: AsyncSession | None = None,
     ) -> OrderRecord:
         """Record a fill and publish a trade event."""
         trade_id = uuid4()
@@ -334,7 +362,7 @@ class OrderService:
             price=fill_price,
             filled_at=now,
         )
-        await self._repo.save_fill(fill)
+        await self._order_repo.save_fill(fill, session=session)
 
         # Update order state
         new_filled = order.filled_quantity + fill_quantity
@@ -352,11 +380,12 @@ class OrderService:
             avg_price = fill_price
 
         apply_transition(OrderState(order.state), target_state)
-        order = await self._repo.update_state(
+        order = await self._order_repo.update_state(
             UUID(order.id),
             target_state.value,
             filled_quantity=new_filled,
             avg_fill_price=avg_price,
+            session=session,
         )
 
         # Publish trade event — TradeHandler subscribes and creates the
@@ -449,8 +478,9 @@ class OrderService:
         fund_slug: str,
         order: OrderRecord,
         extra: dict[str, object] | None = None,
+        session: AsyncSession | None = None,
     ) -> None:
-        if self._audit is None:
+        if self._audit_repo is None:
             return
         payload: dict[str, object] = {
             "order_id": order.id,
@@ -462,12 +492,13 @@ class OrderService:
         }
         if extra:
             payload.update(extra)
-        await self._audit.insert_admin_event(
+        await self._audit_repo.insert_admin_event(
             event_type=event_type,
             actor_id=actor_id,
             actor_type="user",
             fund_slug=fund_slug,
             payload=payload,
+            session=session,
         )
 
     @staticmethod

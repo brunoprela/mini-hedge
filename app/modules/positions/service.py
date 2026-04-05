@@ -3,6 +3,8 @@
 from decimal import Decimal
 from uuid import UUID
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.modules.positions.interface import PortfolioSummary, Position, PositionLot, TradeRequest
 from app.modules.positions.models import CurrentPositionRecord, LotRecord
 from app.modules.positions.position_repository import CurrentPositionRepository
@@ -54,8 +56,12 @@ class PositionService:
         self,
         portfolio_id: UUID,
         instrument_id: str,
+        *,
+        session: AsyncSession | None = None,
     ) -> Position | None:
-        record = await self._position_repo.get_position(portfolio_id, instrument_id)
+        record = await self._position_repo.get_position(
+            portfolio_id, instrument_id, session=session
+        )
         if record is None:
             return None
         return _to_position(record)
@@ -63,20 +69,29 @@ class PositionService:
     async def get_by_portfolio(
         self,
         portfolio_id: UUID,
+        *,
+        session: AsyncSession | None = None,
     ) -> list[Position]:
-        records = await self._position_repo.get_by_portfolio(portfolio_id)
+        records = await self._position_repo.get_by_portfolio(portfolio_id, session=session)
         return [_to_position(r) for r in records]
 
     async def get_lots(
         self,
         portfolio_id: UUID,
         instrument_id: str,
+        *,
+        session: AsyncSession | None = None,
     ) -> list[PositionLot]:
-        records = await self._position_repo.get_lots(portfolio_id, instrument_id)
+        records = await self._position_repo.get_lots(portfolio_id, instrument_id, session=session)
         return [_to_lot(r) for r in records]
 
-    async def get_portfolio_summary(self, portfolio_id: UUID) -> PortfolioSummary:
-        summary = await self._position_repo.get_portfolio_summary(portfolio_id)
+    async def get_portfolio_summary(
+        self,
+        portfolio_id: UUID,
+        *,
+        session: AsyncSession | None = None,
+    ) -> PortfolioSummary:
+        summary = await self._position_repo.get_portfolio_summary(portfolio_id, session=session)
         if summary is None:
             return PortfolioSummary(
                 portfolio_id=portfolio_id,
@@ -88,10 +103,16 @@ class PositionService:
             )
         return PortfolioSummary(portfolio_id=portfolio_id, **summary)
 
-    async def execute_trade(self, request: TradeRequest, ctx: RequestContext) -> Position:
+    async def execute_trade(
+        self,
+        request: TradeRequest,
+        request_context: RequestContext,
+        *,
+        session: AsyncSession | None = None,
+    ) -> Position:
         """Process a trade and return the updated position."""
         await self._trade_handler.handle_trade(
-            ctx=ctx,
+            request_context=request_context,
             portfolio_id=request.portfolio_id,
             instrument_id=request.instrument_id.upper(),
             side=request.side,
@@ -102,7 +123,9 @@ class PositionService:
         )
 
         # Return updated position (or existing position for idempotent duplicates)
-        position = await self.get_position(request.portfolio_id, request.instrument_id.upper())
+        position = await self.get_position(
+            request.portfolio_id, request.instrument_id.upper(), session=session
+        )
         if position is None:
             raise LookupError(f"Position read-back failed after trade for {request.instrument_id}")
         return position
