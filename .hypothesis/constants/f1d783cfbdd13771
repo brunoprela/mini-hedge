@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/orders/models.py
+# hypothesis_version: 6.151.10
+
+[512, '0', 'fund_slug', 'gen_random_uuid()', 'ix_order_fills_order', 'ix_orders_fund', 'ix_orders_portfolio', 'ix_orders_state', 'order_fills', 'order_id', 'orders', 'portfolio_id', 'positions', 'positions.orders.id', 'schema', 'state']

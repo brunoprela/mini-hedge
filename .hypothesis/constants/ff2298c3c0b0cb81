@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/risk_engine/routes.py
+# hypothesis_version: 6.151.10
+
+[0.95, '/risk', '/scenarios', '/{portfolio_id}/var', 'can_view', 'description', 'name', 'risk', 'shocks']

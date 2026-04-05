@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/eod/dependencies.py
+# hypothesis_version: 6.151.10
+
+[503, 'eod_orchestrator']

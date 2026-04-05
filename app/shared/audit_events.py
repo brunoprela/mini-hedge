@@ -29,6 +29,8 @@ class AuditEventType(StrEnum):
     ADMIN_ACCESS_GRANTED = "admin.access.granted"
     ADMIN_ACCESS_REVOKED = "admin.access.revoked"
     AUTH_AGENT_TOKEN_CREATED = "auth.agent_token.created"
+    AUTH_TOKEN_REVOKED = "auth.token.revoked"
+    AUTH_USER_TOKENS_REVOKED = "auth.user_tokens.revoked"
 
     # -- Orders ------------------------------------------------------------
     ORDER_CREATED = "order.created"

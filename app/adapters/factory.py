@@ -10,7 +10,12 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.config import Settings
-    from app.shared.adapters import BrokerAdapter, MarketDataAdapter, ReferenceDataAdapter
+    from app.shared.adapters import (
+        BrokerAdapter,
+        CorporateActionsAdapter,
+        MarketDataAdapter,
+        ReferenceDataAdapter,
+    )
     from app.shared.events import EventBus
 
 
@@ -69,6 +74,15 @@ def _build_seed_reference_data(cfg: Settings, **_kwargs: object) -> ReferenceDat
     return SeedReferenceDataAdapter()
 
 
+def _build_mock_exchange_corporate_actions(
+    cfg: Settings,
+    **_kwargs: object,
+) -> CorporateActionsAdapter:
+    from app.adapters.mock_exchange_corporate_actions import MockExchangeCorporateActionsAdapter
+
+    return MockExchangeCorporateActionsAdapter(base_url=cfg.mock_exchange_url)
+
+
 # ---------------------------------------------------------------------------
 #  Registries — one per adapter type
 # ---------------------------------------------------------------------------
@@ -88,6 +102,10 @@ _BROKER_REGISTRY: dict[str, type[object] | object] = {
 _REFERENCE_DATA_REGISTRY: dict[str, type[object] | object] = {
     "mock-exchange": _build_mock_exchange_reference_data,
     "seed": _build_seed_reference_data,
+}
+
+_CORPORATE_ACTIONS_REGISTRY: dict[str, type[object] | object] = {
+    "mock-exchange": _build_mock_exchange_corporate_actions,
 }
 
 
@@ -128,6 +146,20 @@ def build_reference_data_adapter(config: Settings) -> ReferenceDataAdapter:
         msg = (
             f"Unknown reference_data_source: {config.reference_data_source!r}. "
             f"Available: {sorted(_REFERENCE_DATA_REGISTRY)}"
+        )
+        raise ValueError(msg)
+    return factory(config)  # type: ignore[operator]
+
+
+def build_corporate_actions_adapter(
+    config: Settings,
+) -> CorporateActionsAdapter:
+    source = config.corporate_actions_source
+    factory = _CORPORATE_ACTIONS_REGISTRY.get(source)
+    if factory is None:
+        msg = (
+            f"Unknown corporate_actions_source: {source!r}. "
+            f"Available: {sorted(_CORPORATE_ACTIONS_REGISTRY)}"
         )
         raise ValueError(msg)
     return factory(config)  # type: ignore[operator]

@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/platform/models.py
+# hypothesis_version: 6.151.10
+
+[128, 255, 'USD', 'active', 'api_keys', 'apikey', 'audit_log', 'created_at', 'email', 'entry_hash', 'event_type', 'fund_id', 'fund_slug', 'funds', 'gen_random_uuid()', 'inactive', 'key_hash', 'keycloak_sub', 'offboarded', 'operators', 'platform', 'platform.funds.id', 'platform.users.id', 'portfolios', 'schema', 'slug', 'users']

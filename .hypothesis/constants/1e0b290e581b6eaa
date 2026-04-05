@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/compliance/post_trade.py
+# hypothesis_version: 6.151.10
+
+['active', 'auto', 'breach_type', 'current_value', 'deadline_at', 'limit_value', 'message', 'passive', 'portfolio_id', 'rule_id', 'rule_name', 'severity', 'system', 'violation_id']

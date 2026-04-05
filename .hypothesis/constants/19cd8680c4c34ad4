@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/shared/idempotency.py
+# hypothesis_version: 6.151.10
+
+[b'content-type', b'idempotency-key', 200, 409, '1', ':lock', 'DELETE', 'GET', 'PATCH', 'POST', 'PUT', 'app', 'application/json', 'body', 'content_type', 'detail', 'headers', 'http', 'http.response.body', 'http.response.start', 'idempotency:', 'idempotency_cached', 'idempotency_conflict', 'method', 'redis', 'replace', 'status', 'type', 'utf-8']

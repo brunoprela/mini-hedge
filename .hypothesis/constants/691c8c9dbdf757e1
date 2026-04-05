@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/orders/routes.py
+# hypothesis_version: 6.151.10
+
+[201, 404, 409, '/orders', '/{order_id}', '/{order_id}/cancel', '/{order_id}/fills', 'orders']

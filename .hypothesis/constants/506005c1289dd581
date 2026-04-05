@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/shared/token_revocation.py
+# hypothesis_version: 6.151.10
+
+['1', 'revoked:jti:', 'revoked:user:', 'token_revoked', 'user_tokens_revoked']

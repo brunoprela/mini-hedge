@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/platform/interface.py
+# hypothesis_version: 6.151.10
+
+[200, 'CHF', 'EUR', 'GBP', 'JPY', 'USD', 'admin', 'analyst', 'can_cancel_orders', 'can_create_orders', 'can_execute_trades', 'can_manage_fund', 'can_read_compliance', 'can_read_exposure', 'can_read_fund', 'can_read_instruments', 'can_read_orders', 'can_read_positions', 'can_read_prices', 'can_write_positions', 'compliance_officer', 'name', 'operator', 'ops_admin', 'ops_full', 'ops_read', 'ops_viewer', 'portfolio_manager', 'relation', 'risk_manager', 'role', 'slug', 'user', 'user_id', 'viewer']

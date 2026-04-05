@@ -11,6 +11,22 @@
   "accessTokenLifespan": 900,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 36000,
+  "otpPolicyType": "totp",
+  "otpPolicyAlgorithm": "HmacSHA1",
+  "otpPolicyDigits": 6,
+  "otpPolicyPeriod": 30,
+  "otpPolicyInitialCounter": 0,
+  "otpPolicyLookAheadWindow": 1,
+  "requiredActions": [
+    {
+      "alias": "CONFIGURE_TOTP",
+      "name": "Configure OTP",
+      "providerId": "CONFIGURE_TOTP",
+      "enabled": true,
+      "defaultAction": true,
+      "priority": 10
+    }
+  ],
   "roles": {
     "realm": [
       { "name": "admin", "description": "Full system access" },
@@ -21,6 +37,94 @@
       { "name": "viewer", "description": "Read-only access" }
     ]
   },
+  "authenticationFlows": [
+    {
+      "alias": "browser",
+      "description": "Browser-based authentication with conditional OTP",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "auth-cookie",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 10
+        },
+        {
+          "authenticator": "auth-spnego",
+          "authenticatorFlow": false,
+          "requirement": "DISABLED",
+          "priority": 20
+        },
+        {
+          "authenticatorFlow": true,
+          "requirement": "ALTERNATIVE",
+          "priority": 30,
+          "flowAlias": "browser-forms"
+        }
+      ]
+    },
+    {
+      "alias": "browser-forms",
+      "description": "Username/password and conditional OTP",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "auth-username-password-form",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10
+        },
+        {
+          "authenticatorFlow": true,
+          "requirement": "CONDITIONAL",
+          "priority": 20,
+          "flowAlias": "browser-conditional-otp"
+        }
+      ]
+    },
+    {
+      "alias": "browser-conditional-otp",
+      "description": "Require OTP for admin and pm roles",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "conditional-user-role",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "authenticatorConfig": "condition-admin-role"
+        },
+        {
+          "authenticator": "auth-otp-form",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 20
+        }
+      ]
+    }
+  ],
+  "authenticatorConfig": [
+    {
+      "alias": "condition-admin-role",
+      "config": {
+        "condUserRole": "admin",
+        "negate": "false"
+      }
+    },
+    {
+      "alias": "condition-pm-role",
+      "config": {
+        "condUserRole": "portfolio_manager",
+        "negate": "false"
+      }
+    }
+  ],
   "clients": [
     {
       "clientId": "mini-hedge-ui",
@@ -83,7 +187,8 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["admin"]
+      "realmRoles": ["admin"],
+      "requiredActions": ["CONFIGURE_TOTP"]
     }
   ]
 }

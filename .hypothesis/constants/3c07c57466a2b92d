@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/cash_management/service.py
+# hypothesis_version: 6.151.10
+
+['0', '0.0001', 'US', 'USD', 'amount', 'buy', 'country', 'created', 'currency', 'description', 'instrument', 'instrument_id', 'order_id', 'pending', 'portfolio_id', 'price', 'quantity', 'settled', 'settlement', 'settlement_amount', 'settlement_created', 'settlement_date', 'side', 'status', 'type']

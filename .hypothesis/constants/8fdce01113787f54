@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/risk_engine/dependencies.py
+# hypothesis_version: 6.151.10
+
+[503, 'risk_service']

@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/positions/mtm_handler.py
+# hypothesis_version: 6.151.10
+
+['0.0001', 'instrument_id', 'mid', 'mtm_handler_failed', 'mtm_no_strategy', 'pnl.updated', 'system']

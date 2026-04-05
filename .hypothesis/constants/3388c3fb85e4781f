@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/attribution/models.py
+# hypothesis_version: 6.151.10
+
+[100, 'attr_brinson_fachler', 'attr_cumulative', 'attr_risk_based', 'bf_result_id', 'gen_random_uuid()', 'ix_bf_period', 'ix_bf_portfolio', 'ix_bf_sector_result', 'ix_cum_portfolio', 'ix_rb_period', 'ix_rb_portfolio', 'ix_rfc_result', 'period_end', 'period_start', 'portfolio_id', 'positions', 'rb_result_id', 'schema']

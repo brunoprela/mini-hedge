@@ -1,8 +1,14 @@
-"""Module wiring and lifespan helpers — migrations, seeding, per-module setup."""
+"""Module wiring and lifespan helpers — migrations, seeding, per-module setup.
+
+This file is split into two sections:
+  1. Module wiring  — repos, services, event subscriptions (always runs)
+  2. Dev seeding    — populates seed data when APP_ENV == "local"
+"""
 
 from __future__ import annotations
 
 import asyncio
+import os
 from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
@@ -80,11 +86,11 @@ logger = structlog.get_logger()
 # Bounded contexts whose Alembic migrations run on startup.
 # Positions are NOT here — each fund gets its own schema, created
 # by ensure_all_fund_schemas() after platform seeding discovers active funds.
-MIGRATION_CONTEXTS = ["platform", "security_master", "market_data"]
+MIGRATION_CONTEXTS = ["platform", "security_master", "market_data", "eod"]
 
 
 # ---------------------------------------------------------------------------
-# Migrations and seeding
+# Migrations (always run)
 # ---------------------------------------------------------------------------
 
 
@@ -98,6 +104,15 @@ def _run_migrations_sync() -> None:
 
 async def _run_migrations() -> None:
     await asyncio.to_thread(_run_migrations_sync)
+
+
+# ---------------------------------------------------------------------------
+# Dev seeding — only runs when APP_ENV == "local"
+# ---------------------------------------------------------------------------
+
+
+def _is_local_env() -> bool:
+    return os.environ.get("APP_ENV", "local") == "local"
 
 
 async def _seed_instruments(
@@ -191,6 +206,23 @@ async def _seed_platform(
         logger.info("operators_seeded", count=len(operators))
 
 
+async def seed_dev_data(
+    fund_repo: FundRepository,
+    portfolio_repo: PortfolioRepository,
+    user_repo: UserRepository,
+    operator_repo: OperatorRepository,
+    api_key_repo: APIKeyRepository,
+    instrument_repo: InstrumentRepository,
+    *,
+    reference_adapter: ReferenceDataAdapter | None = None,
+) -> None:
+    """Run all dev-environment seeding.  No-op when APP_ENV != 'local'."""
+    if not _is_local_env():
+        return
+    await _seed_platform(fund_repo, portfolio_repo, user_repo, operator_repo, api_key_repo)
+    await _seed_instruments(instrument_repo, reference_adapter=reference_adapter)
+
+
 # ---------------------------------------------------------------------------
 # Per-module setup helpers (called from lifespan)
 # ---------------------------------------------------------------------------
@@ -204,14 +236,16 @@ async def setup_platform(
     engine: AsyncEngine | None = None,
     event_bus: EventBus | None = None,
 ) -> tuple[AuthService, FundRepository]:
-    """Wire platform module: repos, seeding, auth service."""
+    """Wire platform module: repos, auth service.  Dev seeding is in seed_dev_data()."""
     fund_repo = FundRepository(session_factory)
     portfolio_repo = PortfolioRepository(session_factory)
     user_repo = UserRepository(session_factory)
     operator_repo = OperatorRepository(session_factory)
     api_key_repo = APIKeyRepository(session_factory)
 
-    await _seed_platform(fund_repo, portfolio_repo, user_repo, operator_repo, api_key_repo)
+    # Dev seeding — only populates data in local environment
+    if _is_local_env():
+        await _seed_platform(fund_repo, portfolio_repo, user_repo, operator_repo, api_key_repo)
 
     auth_service = AuthService(
         user_repo=user_repo,
@@ -230,6 +264,7 @@ async def setup_platform(
         keycloak_ops_client_id=settings.keycloak_ops_client_id,
     )
     fastapi_app.state.auth_service = auth_service
+    fastapi_app.state.fund_repo = fund_repo
     fastapi_app.state.portfolio_repo = portfolio_repo
     fastapi_app.state.operator_repo = operator_repo
 
@@ -279,10 +314,12 @@ async def setup_security_master(
     *,
     reference_adapter: ReferenceDataAdapter | None = None,
 ) -> None:
-    """Wire security master module: repo, service, seeding."""
+    """Wire security master module: repo, service.  Dev seeding is in seed_dev_data()."""
     instrument_repo = InstrumentRepository(session_factory)
     fastapi_app.state.security_master_service = SecurityMasterService(repository=instrument_repo)
-    await _seed_instruments(instrument_repo, reference_adapter=reference_adapter)
+    # Dev seeding — only populates data in local environment
+    if _is_local_env():
+        await _seed_instruments(instrument_repo, reference_adapter=reference_adapter)
 
 
 def setup_market_data(
@@ -605,6 +642,73 @@ async def setup_orders(
         audit_repo=audit_repo,
     )
     fastapi_app.state.order_service = order_service
+
+
+async def setup_eod(
+    fastapi_app: FastAPI,
+    session_factory: TenantSessionFactory,
+    broker: BrokerAdapter,
+) -> None:
+    """Wire EOD processing module: orchestrator, services, repositories."""
+    from app.modules.eod.nav_calculator import NAVCalculator
+    from app.modules.eod.orchestrator import EODOrchestrator
+    from app.modules.eod.pnl_snapshot import PnLSnapshotService
+    from app.modules.eod.price_finalization import PriceFinalizationService
+    from app.modules.eod.reconciler import PositionReconciler
+    from app.modules.eod.repository import (
+        EODRunRepository,
+        FinalizedPriceRepository,
+        NAVSnapshotRepository,
+        PnLSnapshotRepository,
+        ReconciliationRepository,
+    )
+
+    run_repo = EODRunRepository(session_factory)
+    price_repo = FinalizedPriceRepository(session_factory)
+    nav_repo = NAVSnapshotRepository(session_factory)
+    pnl_repo = PnLSnapshotRepository(session_factory)
+    recon_repo = ReconciliationRepository(session_factory)
+
+    position_service = fastapi_app.state.position_service
+    cash_service = fastapi_app.state.cash_service
+    market_data_service = fastapi_app.state.market_data_service
+    sm_service = fastapi_app.state.security_master_service
+    risk_service = fastapi_app.state.risk_service
+    fund_repo = fastapi_app.state.fund_repo
+    portfolio_repo = fastapi_app.state.portfolio_repo
+
+    price_service = PriceFinalizationService(
+        price_repo=price_repo,
+        market_data_service=market_data_service,
+        security_master_service=sm_service,
+    )
+    nav_calculator = NAVCalculator(
+        position_service=position_service,
+        cash_service=cash_service,
+        nav_repo=nav_repo,
+    )
+    pnl_service = PnLSnapshotService(
+        position_service=position_service,
+        pnl_repo=pnl_repo,
+    )
+    reconciler = PositionReconciler(
+        position_service=position_service,
+        broker_adapter=broker,
+        recon_repo=recon_repo,
+    )
+
+    orchestrator = EODOrchestrator(
+        run_repo=run_repo,
+        fund_repo=fund_repo,
+        portfolio_repo=portfolio_repo,
+        price_service=price_service,
+        nav_calculator=nav_calculator,
+        pnl_service=pnl_service,
+        reconciler=reconciler,
+        risk_service=risk_service,
+    )
+    fastapi_app.state.eod_orchestrator = orchestrator
+    logger.info("eod_module_ready")
 
 
 # ---------------------------------------------------------------------------

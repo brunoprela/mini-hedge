@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/risk_engine/interface.py
+# hypothesis_version: 6.151.10
+
+[-0.3, -0.2, -0.18, -0.15, -0.12, -0.1, -0.08, 0.05, 0.25, 'EM Contagion', 'Energy', 'Energy Crisis', 'Financials', 'Market Crash -20%', 'Rate Shock +200bps', 'Tech Selloff -30%', 'Technology', 'custom', 'historical', 'idiosyncratic', 'market', 'parametric', 'predefined', 'sector']

@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/shared/audit_events.py
+# hypothesis_version: 6.151.10
+
+['admin.access.granted', 'admin.access.revoked', 'admin.fund.created', 'admin.fund.updated', 'admin.user.created', 'admin.user.updated', 'auth.token.revoked', 'compliance.violation', 'exposure.updated', 'order.cancelled', 'order.created', 'order.filled', 'order.rejected', 'pnl.mark_to_market', 'pnl.realized', 'position.changed', 'price.updated', 'risk.updated', 'trade.approved', 'trade.buy', 'trade.rejected', 'trade.sell']

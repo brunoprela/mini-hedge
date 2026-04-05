@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/orders/service.py
+# hypothesis_version: 6.151.10
+
+[0.1, 0.3, 1.0, '0', '100.00', '; ', 'USD', 'broker', 'buy', 'compliance_results', 'currency', 'execution_report', 'fill_price', 'fill_quantity', 'filled', 'instrument_id', 'message', 'order_filled', 'order_filled_async', 'order_id', 'order_rejected', 'order_sent_to_broker', 'order_type', 'orders.created', 'orders.filled', 'passed', 'portfolio_id', 'price', 'quantity', 'rejection_reason', 'rule_id', 'rule_name', 'severity', 'side', 'source', 'state', 'system', 'trade_id', 'trades.approved', 'trades.executed', 'trades.rejected', 'user']

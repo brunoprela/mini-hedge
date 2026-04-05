@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/platform/seed.py
+# hypothesis_version: 6.151.10
+
+['Alpha Dev Key', 'Beta Dev Key', 'Citrine Event-Driven', 'Compliance Officer', 'Dev Admin', 'Distressed Credit', 'Equity Long/Short', 'Event-Driven', 'Gamma Dev Key', 'Global Macro', 'James Chen', 'Market Neutral', 'Michael Ross', 'Ops Admin', 'Ops Viewer', 'Risk Manager', 'Sarah Patel', 'USD', 'admin', 'admin@minihedge.dev', 'alpha', 'beta', 'compliance_officer', 'distressed', 'distressed-credit', 'equity-long-short', 'equity_long_short', 'event-driven', 'event_driven', 'fund', 'gamma', 'global-macro', 'global_macro', 'market-neutral', 'market_neutral', 'momentum', 'ops_admin', 'ops_full', 'ops_read', 'ops_viewer', 'platform:global', 'portfolio_manager', 'risk@minihedge.dev', 'risk_manager', 'stat-arb', 'stat_arb']

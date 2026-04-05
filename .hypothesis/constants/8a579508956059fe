@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/positions/position_repository.py
+# hypothesis_version: 6.151.10
+
+['avg_cost', 'cost_basis', 'instrument_id', 'last_updated', 'portfolio_id', 'position_count', 'quantity', 'realized_pnl', 'total_cost_basis', 'total_market_value', 'total_realized_pnl', 'total_unrealized_pnl']

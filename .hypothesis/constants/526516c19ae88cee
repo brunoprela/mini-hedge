@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/compliance/service.py
+# hypothesis_version: 6.151.10
+
+[100, ' is ', '0.01', '0.5', '1', 'changes', 'manual', 'name', 'reason', 'resolution_type', 'rule_id', 'rule_name', 'rule_type', 'sell', 'severity', 'system', 'user', 'violation_id', 'waived']

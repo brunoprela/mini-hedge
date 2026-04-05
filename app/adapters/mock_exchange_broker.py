@@ -24,6 +24,7 @@ from aiokafka import AIOKafkaConsumer
 from aiokafka.errors import KafkaError
 
 from app.shared.adapters import OrderAcknowledgement, OrderStatusReport
+from app.shared.circuit_breaker import CircuitBreaker
 
 logger = structlog.get_logger()
 
@@ -51,6 +52,10 @@ class MockExchangeBrokerAdapter:
         self._kafka_servers = kafka_bootstrap_servers
         self._running = False
         self._task: asyncio.Task[None] | None = None
+        self._circuit = CircuitBreaker(
+            "mock-exchange-broker",
+            tracked_exceptions=(httpx.HTTPError, httpx.TimeoutException, ConnectionError),
+        )
 
     # ------------------------------------------------------------------
     # BrokerAdapter protocol methods
@@ -76,8 +81,9 @@ class MockExchangeBrokerAdapter:
             body["limit_price"] = str(limit_price)
 
         async with httpx.AsyncClient(base_url=self._base_url, timeout=10.0) as client:
-            resp = await client.post("/api/v1/orders", json=body)
-            resp.raise_for_status()
+            async with self._circuit():
+                resp = await client.post("/api/v1/orders", json=body)
+                resp.raise_for_status()
             data = resp.json()
 
         return OrderAcknowledgement(
@@ -89,13 +95,15 @@ class MockExchangeBrokerAdapter:
 
     async def cancel_order(self, exchange_order_id: str) -> bool:
         async with httpx.AsyncClient(base_url=self._base_url, timeout=10.0) as client:
-            resp = await client.delete(f"/api/v1/orders/{exchange_order_id}")
+            async with self._circuit():
+                resp = await client.delete(f"/api/v1/orders/{exchange_order_id}")
             return resp.status_code == 200
 
     async def get_order_status(self, exchange_order_id: str) -> OrderStatusReport:
         async with httpx.AsyncClient(base_url=self._base_url, timeout=10.0) as client:
-            resp = await client.get(f"/api/v1/orders/{exchange_order_id}")
-            resp.raise_for_status()
+            async with self._circuit():
+                resp = await client.get(f"/api/v1/orders/{exchange_order_id}")
+                resp.raise_for_status()
             data = resp.json()
 
         return OrderStatusReport(

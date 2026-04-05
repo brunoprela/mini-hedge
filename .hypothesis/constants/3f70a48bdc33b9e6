@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/realtime/routes.py
+# hypothesis_version: 6.151.10
+
+[1.0, 503, '/stream/events', ': heartbeat\n\n', 'Cache-Control', 'Connection', 'Fund slug override', 'X-Accel-Buffering', 'data', 'error', 'event_type', 'keep-alive', 'message', 'no', 'no-cache', 'realtime', 'redis', 'sse_disconnected', 'sse_subscribed', 'text/event-stream', 'type']

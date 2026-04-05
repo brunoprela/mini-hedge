@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/orders/repository.py
+# hypothesis_version: 6.151.10
+
+['approved', 'avg_fill_price', 'compliance_results', 'draft', 'filled_quantity', 'partially_filled', 'pending_compliance', 'rejection_reason', 'sent', 'state', 'updated_at']

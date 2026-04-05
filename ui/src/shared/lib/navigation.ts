@@ -14,7 +14,8 @@ export interface NavItem {
     | "AlertTriangle"
     | "Wallet"
     | "PieChart"
-    | "Lightbulb";
+    | "Lightbulb"
+    | "Settings";
   permission?: Permission;
 }
 
@@ -79,5 +80,10 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/market-data",
     icon: "TrendingUp",
     permission: Permission.PRICES_READ,
+  },
+  {
+    label: "Settings",
+    href: "/settings",
+    icon: "Settings",
   },
 ];

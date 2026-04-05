@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/setup.py
+# hypothesis_version: 6.151.10
+
+['APP_ENV', 'admin_service', 'alembic.ini', 'ask', 'auth_seeded', 'bid', 'eod', 'eod_module_ready', 'fga_tuples_seeded', 'funds_seeded', 'head', 'instrument_id', 'instruments_seeded', 'local', 'market_data', 'mid', 'migrations_applied', 'operators_seeded', 'platform', 'pnl.updated', 'portfolio_id', 'positions.changed', 'prices.normalized', 'script_location', 'security_master', 'source', 'trades.executed', 'volume']

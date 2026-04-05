@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/shared/schema_registry.py
+# hypothesis_version: 6.151.10
+
+[10.0, '.', 'AVRO', 'Content-Type', 'avro_schemas_loaded', 'data', 'envelope-v1.avsc', 'event-envelope-value', 'event_type', 'exposures.updated', 'fund-', 'id', 'orders.created', 'orders.filled', 'pnl.updated', 'positions.changed', 'prices.normalized', 'risk.updated', 'risk/updated-v1.avsc', 'schema', 'schemaType', 'schema_registered', 'schemas', 'shared.', 'trades.approved', 'trades.executed', 'trades.rejected']

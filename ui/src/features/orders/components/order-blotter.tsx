@@ -1,11 +1,16 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Download } from "lucide-react";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { SortableHeader, TablePagination, TableSearch } from "@/shared/components/table-controls";
+import { useExportCSV } from "@/shared/hooks/use-export-csv";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
+import { usePermission } from "@/shared/hooks/use-permission";
 import { useTableState } from "@/shared/hooks/use-table-state";
-import { ordersQueryOptions } from "../api";
+import { Permission } from "@/shared/lib/permissions";
+import { cancelOrder, ordersQueryOptions } from "../api";
 import { OrderStateBadge } from "./order-state-badge";
 
 type StatusFilter = "all" | "open" | "filled" | "cancelled" | "rejected";
@@ -18,10 +23,40 @@ const STATUS_TABS: { label: string; value: StatusFilter }[] = [
   { label: "Rejected", value: "rejected" },
 ];
 
+/** Order states that can be cancelled */
+const CANCELLABLE_STATES = new Set([
+  "draft",
+  "pending_compliance",
+  "approved",
+  "new",
+  "sent",
+  "partially_filled",
+  "pending_approval",
+]);
+
 export function OrderBlotter({ portfolioId }: { portfolioId: string }) {
   const { fundSlug } = useFundContext();
+  const { can } = usePermission();
+  const queryClient = useQueryClient();
   const { data: orders, isLoading } = useQuery(ordersQueryOptions(fundSlug, portfolioId));
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const exportCSV = useExportCSV();
+
+  const canCancel = can(Permission.ORDERS_CANCEL);
+
+  const cancelMutation = useMutation({
+    mutationFn: (orderId: string) => cancelOrder(fundSlug, orderId),
+    onMutate: (orderId) => setCancellingId(orderId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orders", fundSlug, portfolioId] });
+      toast.success("Order cancelled");
+    },
+    onError: (err: Error) => {
+      toast.error(`Cancel failed: ${err.message}`);
+    },
+    onSettled: () => setCancellingId(null),
+  });
 
   const filteredOrders = useMemo(() => {
     if (!orders) return [];
@@ -48,6 +83,21 @@ export function OrderBlotter({ portfolioId }: { portfolioId: string }) {
     pageSize: 20,
     searchKeys: ["instrument_id", "side", "state"],
   });
+
+  const handleExport = () => {
+    if (!filteredOrders || filteredOrders.length === 0) return;
+    const exportData = filteredOrders.map((o) => ({
+      instrument: o.instrument_id,
+      side: o.side,
+      type: o.order_type,
+      quantity: o.quantity,
+      filled_quantity: o.filled_quantity,
+      avg_fill_price: o.avg_fill_price ?? "",
+      state: o.state,
+      created_at: o.created_at,
+    }));
+    exportCSV(exportData as unknown as Record<string, unknown>[], `orders-${portfolioId}`);
+  };
 
   if (isLoading) {
     return <div className="text-sm text-[var(--muted-foreground)]">Loading orders...</div>;
@@ -82,13 +132,24 @@ export function OrderBlotter({ portfolioId }: { portfolioId: string }) {
           ))}
         </div>
 
-        {/* Search */}
-        <div className="w-64">
-          <TableSearch
-            value={table.search}
-            onChange={table.setSearch}
-            placeholder="Search orders..."
-          />
+        {/* Search + Export */}
+        <div className="flex items-center gap-2">
+          <div className="w-64">
+            <TableSearch
+              value={table.search}
+              onChange={table.setSearch}
+              placeholder="Search orders..."
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleExport}
+            title="Export to CSV"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+          >
+            <Download className="h-4 w-4" />
+            CSV
+          </button>
         </div>
       </div>
 
@@ -153,11 +214,19 @@ export function OrderBlotter({ portfolioId }: { portfolioId: string }) {
                 direction={table.sortDirection}
                 onSort={table.onSort}
               />
+              {canCancel && (
+                <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+                  Actions
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
             {table.rows.map((row) => {
               const order = row as Record<string, unknown>;
+              const isCancellable = CANCELLABLE_STATES.has(order.state as string);
+              const isCancelling = cancellingId === (order.id as string);
+
               return (
                 <tr
                   key={order.id as string}
@@ -193,6 +262,20 @@ export function OrderBlotter({ portfolioId }: { portfolioId: string }) {
                   <td className="px-3 py-2 text-xs text-[var(--muted-foreground)]">
                     {new Date(order.created_at as string).toLocaleTimeString()}
                   </td>
+                  {canCancel && (
+                    <td className="px-3 py-2">
+                      {isCancellable && (
+                        <button
+                          type="button"
+                          onClick={() => cancelMutation.mutate(order.id as string)}
+                          disabled={isCancelling}
+                          className="rounded-md border border-[var(--destructive)] px-2 py-1 text-xs font-medium text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)] hover:text-white disabled:opacity-50"
+                        >
+                          {isCancelling ? "Cancelling..." : "Cancel"}
+                        </button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               );
             })}

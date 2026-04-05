@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/compliance/models.py
+# hypothesis_version: 6.151.10
+
+[128, 512, "'active'", 'compliance_rules', 'fund_slug', 'gen_random_uuid()', 'is_active', 'ix_comp_rules_active', 'ix_comp_rules_fund', 'ix_comp_viol_rule', 'portfolio_id', 'positions', 'rule_id', 'schema', 'trade_decisions']

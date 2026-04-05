@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/shared/events.py
+# hypothesis_version: 6.151.10
+
+['__qualname__', 'event_handler_failed']

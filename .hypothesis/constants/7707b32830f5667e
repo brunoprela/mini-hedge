@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/middleware/auth.py
+# hypothesis_version: 6.151.10
+
+[b'application/json', b'authorization', b'content-length', b'content-type', b'x-api-key', b'x-fund-slug', 401, 403, 500, 503, '&', '/docs', '/health', '/metrics', '/openapi.json', '/redoc', 'ApiKey ', 'Bearer ', 'MISSING_CREDENTIALS', 'TOKEN_REVOKED', 'app', 'auth_service', 'body', 'code', 'detail', 'fund_slug=', 'headers', 'http', 'http.response.body', 'http.response.start', 'iat', 'jti', 'path', 'query_string', 'session_factory', 'status', 'token=', 'token_revocation', 'type', 'verify_signature']

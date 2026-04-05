@@ -8,22 +8,24 @@ an internal channel, causing ~3s delays under concurrent load.
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import structlog
 
 from app.shared.errors import AuthenticationError, AuthorizationError
-from app.shared.request_context import set_request_context
+from app.shared.request_context import RequestContext, set_request_context
 
 if TYPE_CHECKING:
     from starlette.types import ASGIApp, Receive, Scope, Send
 
     from app.modules.platform.auth_service import AuthService
+    from app.shared.token_revocation import TokenRevocationService
 
 logger = structlog.get_logger()
 
 # Paths that skip authentication
-PUBLIC_PATHS = {"/health", "/docs", "/openapi.json", "/redoc"}
+PUBLIC_PATHS = {"/health", "/metrics", "/docs", "/openapi.json", "/redoc"}
 
 # Paths where the JWT is in the query string (e.g. browser EventSource API)
 _QUERY_TOKEN_PATHS = {"/api/v1/stream/events"}
@@ -77,15 +79,17 @@ class AuthMiddleware:
                     fund_slug_header = fund_slug_header or param[10:]
 
         request_context = None
+        token_str: str | None = None  # raw JWT for revocation checks
         try:
             if query_token:
+                token_str = query_token
                 request_context = await auth_service.authenticate_jwt(
                     query_token, fund_slug=fund_slug_header
                 )
             elif auth_header.startswith("Bearer "):
-                token = auth_header[7:]
+                token_str = auth_header[7:]
                 request_context = await auth_service.authenticate_jwt(
-                    token, fund_slug=fund_slug_header
+                    token_str, fund_slug=fund_slug_header
                 )
             elif auth_header.startswith("ApiKey "):
                 raw_key = auth_header[7:]
@@ -111,6 +115,22 @@ class AuthMiddleware:
             )
             return
 
+        # Token revocation check (graceful degradation: skip if Redis unavailable)
+        revocation: TokenRevocationService | None = (
+            getattr(app.state, "token_revocation", None) if app else None
+        )
+        if revocation is not None:
+            try:
+                revoked = await self._check_revocation(revocation, token_str, request_context)
+                if revoked:
+                    await self._send_json(
+                        send, 401, {"detail": "Token has been revoked", "code": "TOKEN_REVOKED"}
+                    )
+                    return
+            except Exception:
+                # Redis down — fail open (graceful degradation)
+                logger.warning("revocation_check_failed", path=path)
+
         set_request_context(request_context)
 
         # Set fund scope for per-fund schema isolation
@@ -122,6 +142,38 @@ class AuthMiddleware:
                     return
 
         await self.app(scope, receive, send)
+
+    @staticmethod
+    async def _check_revocation(
+        revocation: TokenRevocationService,
+        token_str: str | None,
+        request_context: RequestContext,
+    ) -> bool:
+        """Return True if the token or user session has been revoked."""
+        if token_str is None:
+            # API-key auth — no JWT to revoke
+            return False
+
+        import jwt as pyjwt
+
+        try:
+            # Decode without verification — the JWT was already validated above.
+            payload = pyjwt.decode(token_str, options={"verify_signature": False})
+        except Exception:
+            return False
+
+        jti: str | None = payload.get("jti")
+        if jti and await revocation.is_revoked(jti):
+            return True
+
+        # Check user-wide revocation
+        iat_raw = payload.get("iat")
+        if iat_raw is not None:
+            issued_at = datetime.fromtimestamp(float(iat_raw), tz=UTC)
+            if await revocation.is_user_revoked_since(request_context.actor_id, issued_at):
+                return True
+
+        return False
 
     @staticmethod
     async def _send_json(send: Send, status: int, body: dict) -> None:

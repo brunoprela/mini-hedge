@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/orders/interface.py
+# hypothesis_version: 6.151.10
+
+['approved', 'buy', 'cancelled', 'day', 'draft', 'filled', 'gtc', 'ioc', 'limit', 'market', 'partially_filled', 'pending_compliance', 'rejected', 'sell', 'sent']

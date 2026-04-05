@@ -1,10 +1,12 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Download } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { SortableHeader, TablePagination, TableSearch } from "@/shared/components/table-controls";
+import { useExportCSV } from "@/shared/hooks/use-export-csv";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { usePermission } from "@/shared/hooks/use-permission";
 import { useTableState } from "@/shared/hooks/use-table-state";
@@ -48,6 +50,7 @@ export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
 
   const canWrite = can(Permission.COMPLIANCE_WRITE);
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
+  const exportCSV = useExportCSV();
 
   const resolveMutation = useMutation({
     mutationFn: (violationId: string) =>
@@ -77,6 +80,18 @@ export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
     pageSize: 15,
     searchKeys: ["rule_name", "message"],
   });
+
+  const handleExport = () => {
+    if (!filteredViolations || filteredViolations.length === 0) return;
+    const exportData = filteredViolations.map((v) => ({
+      rule: v.rule_name,
+      severity: v.severity,
+      message: v.message,
+      portfolio_id: v.portfolio_id,
+      detected_at: v.detected_at,
+    }));
+    exportCSV(exportData as unknown as Record<string, unknown>[], `violations-${portfolioId}`);
+  };
 
   const handleResolveAll = () => {
     for (const row of table.rows) {
@@ -116,13 +131,22 @@ export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
           })}
         </div>
 
-        {/* Search + Resolve All */}
+        {/* Search + Export + Resolve All */}
         <div className="flex items-center gap-2">
           <TableSearch
             value={table.search}
             onChange={table.setSearch}
             placeholder="Search violations..."
           />
+          <button
+            type="button"
+            onClick={handleExport}
+            title="Export to CSV"
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+          >
+            <Download className="h-4 w-4" />
+            CSV
+          </button>
           {canWrite && table.rows.length > 0 && (
             <button
               type="button"

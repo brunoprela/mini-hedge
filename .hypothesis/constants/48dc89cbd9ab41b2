@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/shared/request_context.py
+# hypothesis_version: 6.151.10
+
+['admin', 'agent', 'alpha', 'apikey', 'funds:manage', 'funds:read', 'instruments:read', 'instruments:write', 'operator', 'positions:read', 'positions:write', 'prices:read', 'request_context', 'system', 'trades:execute', 'user']

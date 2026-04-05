@@ -33,12 +33,16 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     redis_enabled: bool = False
 
+    otel_enabled: bool = False
+    otel_endpoint: str = "http://localhost:4317"
+
     # Adapter configuration — controls which external data sources the platform uses
     mock_exchange_url: str = "http://localhost:8100"
     mock_exchange_kafka_bootstrap_servers: str = "localhost:9192"
     market_data_source: str = "mock-exchange"  # "mock-exchange"
     broker_adapter: str = "in-process"  # "mock-exchange" | "in-process" | "fix"
     reference_data_source: str = "seed"  # "mock-exchange" | "seed"
+    corporate_actions_source: str = "mock-exchange"  # "mock-exchange"
     fix_host: str = "localhost"
     fix_port: int = 9878
 

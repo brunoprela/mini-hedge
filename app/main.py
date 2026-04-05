@@ -13,6 +13,7 @@ import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
+from starlette.routing import Route
 
 from app.adapters.factory import (
     build_broker_adapter,
@@ -27,6 +28,7 @@ from app.modules.alpha_engine.routes import router as alpha_router
 from app.modules.attribution.routes import router as attribution_router
 from app.modules.cash_management.routes import router as cash_router
 from app.modules.compliance.routes import router as compliance_router
+from app.modules.eod.routes import router as eod_router
 from app.modules.exposure.routes import router as exposure_router
 from app.modules.market_data.routes import router as market_data_router
 from app.modules.orders.routes import router as orders_router
@@ -43,6 +45,7 @@ from app.setup import (
     setup_attribution,
     setup_cash_management,
     setup_compliance,
+    setup_eod,
     setup_exposure,
     setup_fga,
     setup_market_data,
@@ -53,10 +56,14 @@ from app.setup import (
     setup_security_master,
 )
 from app.shared.audit_bridge import AuditBridge
+from app.shared.cdc_audit_consumer import CdcAuditConsumer
+from app.shared.cdc_transformer import CdcTransformer
 from app.shared.database import build_engine
 from app.shared.fund_schema import ensure_all_fund_schemas
+from app.shared.idempotency import IdempotencyMiddleware
 from app.shared.kafka import KafkaEventBus
 from app.shared.logging import setup_logging
+from app.shared.metrics import PrometheusMiddleware, metrics_route
 from app.shared.redis import create_redis_client
 from app.shared.redis_bridge import RedisBridge
 from app.shared.schema_registry import (
@@ -65,6 +72,8 @@ from app.shared.schema_registry import (
     register_schemas,
     shared_topics,
 )
+from app.shared.telemetry import setup_telemetry
+from app.shared.token_revocation import TokenRevocationService
 
 logger = structlog.get_logger()
 
@@ -77,6 +86,9 @@ logger = structlog.get_logger()
 @asynccontextmanager
 async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
+
+    # OpenTelemetry — must be set up before other instrumented components
+    setup_telemetry(fastapi_app)
 
     # Database
     engine, session_factory = build_engine()
@@ -155,6 +167,7 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     await setup_cash_management(fastapi_app, session_factory, kafka_bus, fund_repo)
     await setup_attribution(fastapi_app, session_factory)
     await setup_alpha_engine(fastapi_app, session_factory)
+    await setup_eod(fastapi_app, session_factory, broker_adapter)
     logger.info("phase_3_modules_ready")
 
     # Audit bridge — persists ALL fund-scoped events for compliance trail
@@ -167,6 +180,7 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     if settings.redis_enabled:
         redis_client = await create_redis_client(settings.redis_url)
         fastapi_app.state.redis = redis_client
+        fastapi_app.state.token_revocation = TokenRevocationService(redis_client)
         bridge = RedisBridge(redis_client)
         bridge.wire(kafka_bus, fund_slugs)
 
@@ -174,6 +188,22 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     logger.info("kafka_consumers_starting")
     await kafka_bus.start()
     logger.info("kafka_consumers_ready")
+
+    # --- CDC transformer ---
+    # Consumes Debezium CDC events from cdc.fund_* topics and re-publishes
+    # as domain events on internal Kafka topics — replaces dual-writes.
+    cdc_transformer = CdcTransformer(
+        bootstrap_servers=settings.kafka_bootstrap_servers,
+    )
+    await cdc_transformer.start()
+
+    # --- CDC audit enrichment ---
+    # Captures raw before/after row snapshots from CDC events for compliance.
+    cdc_audit = CdcAuditConsumer(
+        audit_repo=audit_repo,
+        bootstrap_servers=settings.kafka_bootstrap_servers,
+    )
+    await cdc_audit.start()
 
     # --- External market data adapter ---
     # Start the adapter's Kafka consumer that bridges vendor prices into
@@ -214,6 +244,9 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     yield
 
     # Shutdown
+    await cdc_audit.stop()
+    await cdc_transformer.stop()
+
     await market_data_adapter.stop_streaming()
     if hasattr(broker_adapter, "stop_fill_consumer"):
         await broker_adapter.stop_fill_consumer()
@@ -242,6 +275,10 @@ app.add_middleware(TimeoutMiddleware)
 # Auth middleware — looks up auth_service from app.state
 app.add_middleware(AuthMiddleware)
 
+# Idempotency middleware — added after auth (Starlette LIFO: runs before auth),
+# so duplicate mutations short-circuit before auth/handler work.
+app.add_middleware(IdempotencyMiddleware)
+
 # CORS — added after AuthMiddleware so it executes first (Starlette LIFO order),
 # allowing preflight OPTIONS to succeed before auth runs.
 _settings = get_settings()
@@ -250,8 +287,12 @@ app.add_middleware(
     allow_origins=_settings.cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Fund-Slug", "X-API-Key"],
+    allow_headers=["Authorization", "Content-Type", "X-Fund-Slug", "X-API-Key", "Idempotency-Key"],
 )
+
+# Prometheus middleware — outermost layer, wraps everything including auth/timeout
+# (Starlette LIFO: added last = runs first)
+app.add_middleware(PrometheusMiddleware)
 
 register_exception_handlers(app)
 
@@ -269,6 +310,10 @@ app.include_router(risk_router, prefix="/api/v1")
 app.include_router(cash_router, prefix="/api/v1")
 app.include_router(attribution_router, prefix="/api/v1")
 app.include_router(alpha_router, prefix="/api/v1")
+app.include_router(eod_router, prefix="/api/v1")
+
+# Prometheus metrics endpoint — plain Starlette route (bypasses auth via PUBLIC_PATHS)
+app.routes.append(Route("/metrics", metrics_route))
 
 
 @app.get("/health")

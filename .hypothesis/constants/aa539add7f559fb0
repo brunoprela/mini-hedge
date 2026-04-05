@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/compliance/engine.py
+# hypothesis_version: 6.151.10
+
+[100, 'No short positions.', 'Unknown', 'allow_short', 'country', 'max_pct', 'sector']

@@ -11,12 +11,78 @@
   "accessTokenLifespan": 900,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 36000,
+  "otpPolicyType": "totp",
+  "otpPolicyAlgorithm": "HmacSHA1",
+  "otpPolicyDigits": 6,
+  "otpPolicyPeriod": 30,
+  "otpPolicyInitialCounter": 0,
+  "otpPolicyLookAheadWindow": 1,
+  "requiredActions": [
+    {
+      "alias": "CONFIGURE_TOTP",
+      "name": "Configure OTP",
+      "providerId": "CONFIGURE_TOTP",
+      "enabled": true,
+      "defaultAction": true,
+      "priority": 10
+    }
+  ],
   "roles": {
     "realm": [
       { "name": "ops_admin", "description": "Full platform administration" },
       { "name": "ops_viewer", "description": "Read-only platform access" }
     ]
   },
+  "authenticationFlows": [
+    {
+      "alias": "browser",
+      "description": "Browser-based authentication with mandatory OTP for all ops users",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "auth-cookie",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 10
+        },
+        {
+          "authenticator": "auth-spnego",
+          "authenticatorFlow": false,
+          "requirement": "DISABLED",
+          "priority": 20
+        },
+        {
+          "authenticatorFlow": true,
+          "requirement": "ALTERNATIVE",
+          "priority": 30,
+          "flowAlias": "ops-browser-forms"
+        }
+      ]
+    },
+    {
+      "alias": "ops-browser-forms",
+      "description": "Username/password followed by mandatory OTP",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "auth-username-password-form",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10
+        },
+        {
+          "authenticator": "auth-otp-form",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 20
+        }
+      ]
+    }
+  ],
   "clients": [
     {
       "clientId": "mini-hedge-ops-ui",
@@ -77,7 +143,8 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["ops_admin"]
+      "realmRoles": ["ops_admin"],
+      "requiredActions": ["CONFIGURE_TOTP"]
     },
     {
       "username": "ops-viewer@minihedge.dev",
@@ -93,7 +160,8 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["ops_viewer"]
+      "realmRoles": ["ops_viewer"],
+      "requiredActions": ["CONFIGURE_TOTP"]
     }
   ]
 }

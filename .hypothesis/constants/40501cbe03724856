@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/exception_handlers.py
+# hypothesis_version: 6.151.10
+
+[400, 401, 403, 404, 422, 500, 'application/json', 'code', 'detail', 'unhandled_exception']

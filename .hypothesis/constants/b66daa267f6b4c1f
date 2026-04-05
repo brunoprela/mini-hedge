@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/cash_management/routes.py
+# hypothesis_version: 6.151.10
+
+[365, '/cash', 'can_view', 'cash']

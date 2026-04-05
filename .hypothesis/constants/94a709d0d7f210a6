@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/security_master/interface.py
+# hypothesis_version: 6.151.10
+
+['AssetClass', 'Instrument', 'SecurityMasterReader']

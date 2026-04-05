@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/config.py
+# hypothesis_version: 6.151.10
+
+[9878, '.env', 'DEBUG', 'HS256', 'Settings', 'after', 'in-process', 'local', 'localhost', 'localhost:9092', 'localhost:9192', 'mini-hedge-ops-ui', 'mini-hedge-ui', 'minihedge', 'minihedge-ops', 'mock-exchange', 'seed', 'test', 'utf-8']

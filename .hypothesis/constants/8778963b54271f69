@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/positions/trade_handler.py
+# hypothesis_version: 6.151.10
+
+['USD', 'buy', 'currency', 'idempotency_key', 'instrument_id', 'pnl.updated', 'portfolio_id', 'positions.changed', 'price', 'quantity', 'side', 'trade_conflict_retry', 'trade_handler_failed', 'trade_id', 'trade_processed', 'trades.executed']

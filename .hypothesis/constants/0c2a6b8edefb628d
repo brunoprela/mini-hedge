@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/shared/jwt.py
+# hypothesis_version: 6.151.10
+
+[300, 'HS256', 'RS256', 'account', 'actor_type', 'delegated_by', 'email', 'email_verified', 'exp', 'family_name', 'fund_id', 'fund_slug', 'given_name', 'iat', 'jti', 'preferred_username', 'roles', 'sub']

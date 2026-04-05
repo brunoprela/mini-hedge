@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/shared/telemetry.py
+# hypothesis_version: 6.151.10
+
+['032x', 'OTEL_SERVICE_NAME', 'minihedge', 'otel_tracing_enabled', 'service.name', 'trace_id']

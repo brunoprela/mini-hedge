@@ -12,6 +12,8 @@ import structlog
 from fastapi import FastAPI
 
 from mock_exchange.config import settings
+from mock_exchange.corporate_actions.engine import CorporateActionsEngine
+from mock_exchange.corporate_actions.routes import router as corporate_actions_router
 from mock_exchange.execution.engine import ExecutionEngine
 from mock_exchange.execution.routes import router as execution_router
 from mock_exchange.market_data.routes import router as market_data_router
@@ -47,6 +49,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     execution_engine = ExecutionEngine(producer=producer, market_data=market_data_service)
     app.state.execution_engine = execution_engine
 
+    # Corporate actions engine
+    corporate_actions_engine = CorporateActionsEngine(producer=producer)
+    app.state.corporate_actions_engine = corporate_actions_engine
+
     # Scenario engine for market regime control
     scenario_engine = ScenarioEngine(
         simulator=None,  # wired after simulator starts
@@ -81,6 +87,7 @@ app.include_router(market_data_router, prefix="/api/v1")
 app.include_router(reference_data_router, prefix="/api/v1")
 app.include_router(execution_router, prefix="/api/v1")
 app.include_router(scenarios_router, prefix="/api/v1")
+app.include_router(corporate_actions_router, prefix="/api/v1")
 
 
 @app.get("/health")

@@ -50,6 +50,37 @@ async def create_fund_schema(engine: AsyncEngine, fund_slug: str) -> None:
         await conn.execute(text(f"SELECT pg_advisory_lock({lock_id})"))
         try:
             await conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema}"))
+            # Grant CDC replication role access so Debezium can capture changes
+            await conn.execute(text(f"GRANT USAGE ON SCHEMA {schema} TO debezium_replication"))
+            await conn.execute(
+                text(f"GRANT SELECT ON ALL TABLES IN SCHEMA {schema} TO debezium_replication")
+            )
+            # Ensure future tables in this schema are also readable
+            await conn.execute(
+                text(
+                    f"ALTER DEFAULT PRIVILEGES IN SCHEMA {schema} "
+                    f"GRANT SELECT ON TABLES TO debezium_replication"
+                )
+            )
+            # Add schema to CDC publication so Debezium captures changes
+            # (idempotent — skip if already a member)
+            is_member = (
+                await conn.execute(
+                    text(
+                        "SELECT 1 FROM pg_publication_namespace pn "
+                        "JOIN pg_namespace n ON n.oid = pn.pnnspid "
+                        "JOIN pg_publication p ON p.oid = pn.pnpubid "
+                        "WHERE p.pubname = 'minihedge_cdc' AND n.nspname = :schema"
+                    ),
+                    {"schema": schema},
+                )
+            ).scalar()
+            if not is_member:
+                await conn.execute(
+                    text(
+                        f"ALTER PUBLICATION minihedge_cdc ADD TABLES IN SCHEMA {schema}"
+                    )
+                )
         finally:
             await conn.execute(text(f"SELECT pg_advisory_unlock({lock_id})"))
     logger.info("fund_schema_ensured", fund_slug=fund_slug, schema=schema)

@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/exposure/service.py
+# hypothesis_version: 6.151.10
+
+['country', 'dimension', 'exposures.updated', 'gross_exposure', 'gross_value', 'key', 'long_exposure', 'long_value', 'net_exposure', 'net_value', 'portfolio_id', 'sector', 'short_exposure', 'short_value', 'weight_pct']

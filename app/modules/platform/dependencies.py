@@ -4,6 +4,7 @@ from fastapi import HTTPException, Request
 
 from app.modules.platform.admin_service import AdminService
 from app.modules.platform.audit_repository import AuditLogRepository
+from app.modules.platform.audit_verifier import AuditIntegrityVerifier
 from app.modules.platform.auth_service import AuthService
 from app.modules.platform.portfolio_repository import PortfolioRepository
 
@@ -34,3 +35,10 @@ def get_audit_repo(request: Request) -> AuditLogRepository:
     if repo is None:
         raise HTTPException(status_code=503, detail="AuditLogRepository not initialized")
     return repo
+
+
+def get_audit_verifier(request: Request) -> AuditIntegrityVerifier:
+    verifier: AuditIntegrityVerifier | None = getattr(request.app.state, "audit_verifier", None)
+    if verifier is None:
+        raise HTTPException(status_code=503, detail="AuditIntegrityVerifier not initialized")
+    return verifier

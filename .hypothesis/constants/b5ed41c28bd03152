@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/middleware/timeout.py
+# hypothesis_version: 6.151.10
+
+[b'application/json', b'content-type', b'{"detail":"Request timed out"}', 504, 3600, 'body', 'headers', 'http', 'http.response.body', 'http.response.start', 'path', 'request_timeout', 'status', 'type']

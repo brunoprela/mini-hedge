@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/shared/redis_bridge.py
+# hypothesis_version: 6.151.10
+
+['actor_id', 'channel', 'data', 'event_id', 'event_type', 'fund_slug', 'redis_bridge_wired', 'shared:prices', 'timestamp']

@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/positions/models.py
+# hypothesis_version: 6.151.10
+
+[128, '1', 'USD', 'aggregate_id', 'created_at', 'current_positions', 'event_type', 'events', 'gen_random_uuid()', 'instrument_id', 'ix_pos_events_type', 'ix_pos_lots_position', 'lots', 'metadata', 'portfolio_id', 'positions', 'quantity != 0', 'schema', 'sequence_number', 'valid_lot']

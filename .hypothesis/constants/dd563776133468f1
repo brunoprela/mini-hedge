@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/shared/kafka.py
+# hypothesis_version: 6.151.10
+
+[5.0, 100, 1000, 3000, 10000, 60000, 1048576, '__consumer_offsets', '__qualname__', 'actor_id', 'actor_type', 'all', 'dlq_publish_failed', 'event_id', 'event_sent_to_dlq', 'event_type', 'event_version', 'fund_slug', 'instrument_id', 'kafka_commit_failed', 'kafka_handler_failed', 'kafka_poll_error', 'kafka_produce_failed', 'kafka_topics_ensured', 'latest', 'minihedge', 'portfolio_id', 'snappy', 'timestamp']

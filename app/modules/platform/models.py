@@ -150,6 +150,7 @@ class AuditLogRecord(Base):
         Index("ix_platform_audit_log_event_type", "event_type"),
         Index("ix_platform_audit_log_fund_slug", "fund_slug"),
         Index("ix_platform_audit_log_created_at", "created_at"),
+        Index("ix_platform_audit_log_entry_hash", "entry_hash"),
         {"schema": "platform"},
     )
 
@@ -162,6 +163,8 @@ class AuditLogRecord(Base):
     actor_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
     fund_slug: Mapped[str | None] = mapped_column(String(64), nullable=True)
     payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    prev_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    entry_hash: Mapped[str] = mapped_column(String(64), nullable=False, default="")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

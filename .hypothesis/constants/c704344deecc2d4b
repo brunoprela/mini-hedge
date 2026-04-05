@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/positions/routes.py
+# hypothesis_version: 6.151.10
+
+[201, 400, 404, '/portfolios', '/trades', 'can_trade', 'can_view', 'positions']

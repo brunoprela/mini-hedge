@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/compliance/interface.py
+# hypothesis_version: 6.151.10
+
+['active', 'auto', 'block', 'breach', 'concentration_limit', 'country_limit', 'manual', 'passive', 'restricted_list', 'sector_limit', 'short_selling', 'waived', 'warning']

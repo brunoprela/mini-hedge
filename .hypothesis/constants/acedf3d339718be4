@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/eod/interface.py
+# hypothesis_version: 6.151.10
+
+['completed', 'eod_risk', 'failed', 'market_close', 'missing_broker', 'missing_internal', 'nav_calculation', 'pending', 'pnl_snapshot', 'position_recon', 'price_finalization', 'quantity_mismatch', 'running', 'skipped']

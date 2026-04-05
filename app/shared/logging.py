@@ -13,8 +13,11 @@ def setup_logging(log_level: str = "DEBUG") -> None:
     standard logging — compatible with uvicorn's --reload subprocess model
     and docker compose log capture.
     """
+    from app.shared.telemetry import add_trace_id
+
     shared_processors: list[structlog.types.Processor] = [
         structlog.contextvars.merge_contextvars,
+        add_trace_id,
         structlog.stdlib.add_logger_name,
         structlog.stdlib.add_log_level,
         structlog.processors.TimeStamper(fmt="iso"),

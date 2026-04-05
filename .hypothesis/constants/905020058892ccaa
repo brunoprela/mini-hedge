@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/alpha_engine/models.py
+# hypothesis_version: 6.151.10
+
+[100, 200, "'draft'", 'alpha_order_intents', 'alpha_scenario_runs', 'created_at', 'gen_random_uuid()', 'ix_intent_run', 'ix_intent_status', 'ix_opt_portfolio', 'ix_opt_time', 'ix_opt_weight_run', 'ix_scenario_time', 'optimization_run_id', 'portfolio_id', 'positions', 'schema', 'status']

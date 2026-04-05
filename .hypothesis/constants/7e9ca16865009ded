@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/cash_management/interface.py
+# hypothesis_version: 6.151.10
+
+['AU', 'CA', 'CH', 'DE', 'FR', 'GB', 'JP', 'KR', 'US', 'cancelled', 'credit', 'debit', 'dividend', 'failed', 'fee', 'interest', 'pending', 'redemption', 'settled', 'subscription', 'trade_settlement', 'transfer']

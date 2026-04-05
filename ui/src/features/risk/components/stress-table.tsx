@@ -1,8 +1,10 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { Download } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { useExportCSV } from "@/shared/hooks/use-export-csv";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { stressTestsQueryOptions } from "../api";
 import type { StressTestResult } from "../types";
@@ -23,6 +25,19 @@ function fmtPct(v: string) {
 export function StressTable({ portfolioId }: { portfolioId: string }) {
   const { fundSlug } = useFundContext();
   const { data: results, isLoading } = useQuery(stressTestsQueryOptions(fundSlug, portfolioId));
+  const exportCSV = useExportCSV();
+
+  const handleExport = () => {
+    if (!results || results.length === 0) return;
+    const exportData = results.map((r) => ({
+      scenario: r.scenario_name,
+      type: r.scenario_type,
+      pnl_impact: r.total_pnl_impact,
+      pct_change: r.total_pct_change,
+      calculated_at: r.calculated_at,
+    }));
+    exportCSV(exportData as unknown as Record<string, unknown>[], `stress-tests-${portfolioId}`);
+  };
 
   if (isLoading) {
     return <div className="text-sm text-[var(--muted-foreground)]">Loading stress tests...</div>;
@@ -35,33 +50,46 @@ export function StressTable({ portfolioId }: { portfolioId: string }) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
-            <th className="px-4 py-2 text-left font-medium text-[var(--muted-foreground)]">
-              Scenario
-            </th>
-            <th className="px-4 py-2 text-right font-medium text-[var(--muted-foreground)]">
-              PnL Impact
-            </th>
-            <th className="px-4 py-2 text-right font-medium text-[var(--muted-foreground)]">
-              % Change
-            </th>
-            <th className="w-10 px-4 py-2" />
-          </tr>
-        </thead>
-        <tbody>
-          {results.map((result) => (
-            <StressRow
-              key={result.scenario_name}
-              result={result}
-              fundSlug={fundSlug}
-              portfolioId={portfolioId}
-            />
-          ))}
-        </tbody>
-      </table>
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={handleExport}
+          title="Export to CSV"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+        >
+          <Download className="h-4 w-4" />
+          CSV
+        </button>
+      </div>
+      <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
+              <th className="px-4 py-2 text-left font-medium text-[var(--muted-foreground)]">
+                Scenario
+              </th>
+              <th className="px-4 py-2 text-right font-medium text-[var(--muted-foreground)]">
+                PnL Impact
+              </th>
+              <th className="px-4 py-2 text-right font-medium text-[var(--muted-foreground)]">
+                % Change
+              </th>
+              <th className="w-10 px-4 py-2" />
+            </tr>
+          </thead>
+          <tbody>
+            {results.map((result) => (
+              <StressRow
+                key={result.scenario_name}
+                result={result}
+                fundSlug={fundSlug}
+                portfolioId={portfolioId}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

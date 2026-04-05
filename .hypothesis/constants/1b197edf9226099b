@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/shared/adapters.py
+# hypothesis_version: 6.151.10
+
+[0.08, 0.25, 10.0, 'USD', 'action_id', 'action_type', 'amount', 'annual_drift', 'annual_volatility', 'asset_class', 'avg_fill_price', 'client_order_id', 'country', 'currency', 'ex_date', 'exchange', 'exchange_order_id', 'filled_quantity', 'industry', 'instrument_id', 'is_active', 'name', 'pay_date', 'received_at', 'record_date', 'sector', 'spread_bps', 'status', 'ticker']

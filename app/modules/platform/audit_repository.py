@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
@@ -21,17 +23,35 @@ if TYPE_CHECKING:
 logger = structlog.get_logger()
 
 
+def _compute_hash(payload_str: str, prev_hash: str) -> str:
+    """Compute SHA-256 hex digest of ``payload_str || prev_hash``."""
+    return hashlib.sha256((payload_str + prev_hash).encode()).hexdigest()
+
+
 class AuditLogRepository(BaseRepository):
+    async def _fetch_last_hash(self, session: AsyncSession) -> str:
+        """Return the ``entry_hash`` of the most recent audit record, or ``""``."""
+        stmt = select(AuditLogRecord.entry_hash).order_by(AuditLogRecord.created_at.desc()).limit(1)
+        result = await session.execute(stmt)
+        row = result.scalar_one_or_none()
+        return row or ""
+
     async def insert(self, event: BaseEvent, *, session: AsyncSession | None = None) -> None:
         """Persist an event to the audit log. Idempotent via unique event_id."""
         async with self._session(session) as session:
+            payload = _safe_payload(event)
+            prev_hash = await self._fetch_last_hash(session)
+            entry_hash = _compute_hash(json.dumps(payload, sort_keys=True), prev_hash)
+
             stmt = insert(AuditLogRecord).values(
                 event_id=event.event_id,
                 event_type=event.event_type,
                 actor_id=event.actor_id,
                 actor_type=event.actor_type,
                 fund_slug=event.fund_slug,
-                payload=_safe_payload(event),
+                payload=payload,
+                prev_hash=prev_hash or None,
+                entry_hash=entry_hash,
             )
             stmt = stmt.on_conflict_do_nothing(index_elements=["event_id"])
             await session.execute(stmt)
@@ -49,13 +69,19 @@ class AuditLogRepository(BaseRepository):
     ) -> None:
         """Insert an admin audit event directly (no BaseEvent required)."""
         async with self._session(session) as session:
+            effective_payload = payload or {}
+            prev_hash = await self._fetch_last_hash(session)
+            entry_hash = _compute_hash(json.dumps(effective_payload, sort_keys=True), prev_hash)
+
             record = AuditLogRecord(
                 event_id=f"admin-{uuid4().hex}",
                 event_type=event_type,
                 actor_id=actor_id,
                 actor_type=actor_type,
                 fund_slug=fund_slug,
-                payload=payload or {},
+                payload=effective_payload,
+                prev_hash=prev_hash or None,
+                entry_hash=entry_hash,
             )
             session.add(record)
             await session.commit()

@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/risk_engine/models.py
+# hypothesis_version: 6.151.10
+
+[100, 'calculated_at', 'gen_random_uuid()', 'ix_factor_snapshot', 'ix_risk_snap_time', 'ix_stress_portfolio', 'ix_stress_time', 'ix_var_portfolio', 'ix_var_time', 'portfolio_id', 'positions', 'risk_snapshots', 'risk_stress_results', 'risk_var_results', 'schema', 'snapshot_at', 'snapshot_id', 'stress_result_id', 'var_result_id']

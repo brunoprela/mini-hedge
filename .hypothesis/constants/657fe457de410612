@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/exposure/interface.py
+# hypothesis_version: 6.151.10
+
+['USD', 'asset_class', 'country', 'currency', 'instrument', 'long', 'sector', 'short']

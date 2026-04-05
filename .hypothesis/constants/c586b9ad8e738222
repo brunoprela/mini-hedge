@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/security_master/models.py
+# hypothesis_version: 6.151.10
+
+[128, 255, 'asset_class', 'equity_extensions', 'gen_random_uuid()', 'instruments', 'schema', 'security_master', 'ticker']

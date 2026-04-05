@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/positions/aggregate.py
+# hypothesis_version: 6.151.10
+
+['USD', 'lot', 'short']

@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/shared/metrics.py
+# hypothesis_version: 6.151.10
+
+['/', '500', 'Total HTTP requests', 'Total orders created', 'fund_slug', 'funds', 'http_requests_total', 'method', 'orders_total', 'path_template', 'status', 'status_code', 'topic', '{id}', '{slug}']

@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/cash_management/models.py
+# hypothesis_version: 6.151.10
+
+[200, "'pending'", '0', 'cash_balance_journal', 'cash_balances', 'cash_projections', 'cash_scheduled_flows', 'cash_settlements', 'created_at', 'currency', 'flow_date', 'gen_random_uuid()', 'ix_cash_journal_time', 'ix_proj_portfolio', 'ix_proj_time', 'ix_sched_date', 'ix_sched_portfolio', 'ix_settle_date', 'ix_settle_portfolio', 'ix_settle_status', 'portfolio_id', 'positions', 'projected_at', 'schema', 'settlement_date', 'status']

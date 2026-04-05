@@ -1,0 +1,4 @@
+# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/positions/interface.py
+# hypothesis_version: 6.151.10
+
+['USD', 'buy', 'pnl.mark_to_market', 'pnl.realized', 'position.changed', 'sell', 'trade.buy', 'trade.sell']

@@ -1,9 +1,11 @@
 "use client";
 
+import { Download } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Can } from "@/shared/components/can";
 import { SortableHeader, TablePagination, TableSearch } from "@/shared/components/table-controls";
+import { useExportCSV } from "@/shared/hooks/use-export-csv";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { useTableState } from "@/shared/hooks/use-table-state";
 import {
@@ -23,6 +25,21 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
   const { data: positions, isLoading } = usePositions(portfolioId);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [showTradeTicket, setShowTradeTicket] = useState(false);
+  const exportCSV = useExportCSV();
+
+  const handleExport = () => {
+    if (!positions || positions.length === 0) return;
+    const exportData = positions.map((p) => ({
+      instrument: p.instrument_id,
+      quantity: p.quantity,
+      avg_cost: p.avg_cost,
+      market_price: p.market_price,
+      market_value: p.market_value,
+      unrealized_pnl: p.unrealized_pnl,
+      last_updated: p.last_updated,
+    }));
+    exportCSV(exportData as unknown as Record<string, unknown>[], `positions-${portfolioId}`);
+  };
 
   const table = useTableState<Record<string, unknown>>({
     data: (positions ?? []) as unknown as Record<string, unknown>[],
@@ -43,15 +60,26 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
           onChange={table.setSearch}
           placeholder="Search instruments..."
         />
-        <Can permission={Permission.TRADES_EXECUTE}>
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setShowTradeTicket(true)}
-            className="rounded-md bg-[var(--foreground)] px-4 py-2 text-sm font-medium text-[var(--background)] transition-colors hover:opacity-90"
+            onClick={handleExport}
+            title="Export to CSV"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
           >
-            New Trade
+            <Download className="h-4 w-4" />
+            CSV
           </button>
-        </Can>
+          <Can permission={Permission.TRADES_EXECUTE}>
+            <button
+              type="button"
+              onClick={() => setShowTradeTicket(true)}
+              className="rounded-md bg-[var(--foreground)] px-4 py-2 text-sm font-medium text-[var(--background)] transition-colors hover:opacity-90"
+            >
+              New Trade
+            </button>
+          </Can>
+        </div>
       </div>
 
       {!positions || positions.length === 0 ? (

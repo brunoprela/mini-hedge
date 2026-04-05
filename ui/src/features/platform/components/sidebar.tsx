@@ -10,6 +10,7 @@ import {
   Lightbulb,
   PieChart,
   Search,
+  Settings,
   ShieldCheck,
   TrendingUp,
   Wallet,
@@ -36,6 +37,7 @@ const ICONS = {
   Wallet,
   PieChart,
   Lightbulb,
+  Settings,
 } as const;
 
 /* Group nav items by category for the collapsible sections */
@@ -51,6 +53,7 @@ function groupNavItems(items: NavItem[]): NavGroup[] {
   const riskCompliance = items.filter((i) => ["/compliance", "/risk"].includes(i.href));
   const operations = items.filter((i) => ["/cash", "/attribution", "/alpha"].includes(i.href));
   const reference = items.filter((i) => ["/instruments", "/market-data"].includes(i.href));
+  const settings = items.filter((i) => i.href === "/settings");
 
   return [
     { label: "", items: dashboard, defaultOpen: true },
@@ -58,6 +61,7 @@ function groupNavItems(items: NavItem[]): NavGroup[] {
     { label: "Risk & Compliance", items: riskCompliance, defaultOpen: true },
     { label: "Operations", items: operations, defaultOpen: true },
     { label: "Reference Data", items: reference, defaultOpen: true },
+    { label: "Settings", items: settings, defaultOpen: true },
   ].filter((g) => g.items.length > 0);
 }
 
