@@ -6,8 +6,9 @@ from typing import TYPE_CHECKING
 
 import structlog
 
-from app.modules.platform.interface import UserInfo, UserPage
+from app.modules.platform.interface import UpdateUserRequest, UserInfo, UserPage
 from app.modules.platform.models import UserRecord
+from app.shared.audit_events import AuditEventType
 from app.shared.errors import NotFoundError, ValidationError
 
 if TYPE_CHECKING:
@@ -59,7 +60,7 @@ class UserAdminService:
         record = UserRecord(email=email, name=name, is_active=True)
         await self._user_repo.insert(record, session=session)
         await self._audit_repo.insert_admin_event(
-            event_type="admin.user.created",
+            event_type=AuditEventType.ADMIN_USER_CREATED,
             actor_id=request_context.actor_id,
             actor_type=request_context.actor_type.value,
             payload={"email": email, "name": name, "user_id": record.id},
@@ -76,19 +77,19 @@ class UserAdminService:
     async def update_user(
         self,
         user_id: str,
+        updates: UpdateUserRequest,
         *,
         request_context: RequestContext,
         session: AsyncSession | None = None,
-        **fields: object,
     ) -> UserInfo:
-        record = await self._user_repo.update(user_id, session=session, **fields)
+        record = await self._user_repo.update(user_id, updates, session=session)
         if record is None:
             raise NotFoundError("User", user_id)
         await self._audit_repo.insert_admin_event(
-            event_type="admin.user.updated",
+            event_type=AuditEventType.ADMIN_USER_UPDATED,
             actor_id=request_context.actor_id,
             actor_type=request_context.actor_type.value,
-            payload={"user_id": user_id, "fields": {k: str(v) for k, v in fields.items()}},
+            payload={"user_id": user_id, "changes": updates.model_dump(exclude_none=True)},
             session=session,
         )
         return _user_to_info(record)

@@ -75,9 +75,8 @@ async def update_user(
     admin_service: AdminService = Depends(get_admin_service),
     session: AsyncSession = Depends(get_db),
 ) -> UserInfo:
-    fields = body.model_dump(exclude_none=True)
     return await admin_service.update_user(
-        user_id, request_context=request_context, session=session, **fields
+        user_id, body, request_context=request_context, session=session
     )
 
 
@@ -128,12 +127,7 @@ async def update_operator(
     session: AsyncSession = Depends(get_db),
 ) -> OperatorInfo:
     return await admin_service.update_operator(
-        operator_id,
-        request_context=request_context,
-        name=body.name,
-        is_active=body.is_active,
-        platform_role=body.platform_role,
-        session=session,
+        operator_id, body, request_context=request_context, session=session
     )
 
 
@@ -177,9 +171,8 @@ async def update_fund(
     admin_service: AdminService = Depends(get_admin_service),
     session: AsyncSession = Depends(get_db),
 ) -> FundDetail:
-    fields = body.model_dump(exclude_none=True)
     return await admin_service.update_fund(
-        fund_id, request_context=request_context, session=session, **fields
+        fund_id, body, request_context=request_context, session=session
     )
 
 

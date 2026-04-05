@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.security_master.dependencies import get_security_master_service
 from app.modules.security_master.interface import AssetClass, Instrument
-from app.modules.security_master.security_master_service import SecurityMasterService
+from app.modules.security_master.service import SecurityMasterService
 from app.shared.auth import Permission, require_permission
 from app.shared.database import get_db
 from app.shared.errors import NotFoundError

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -72,15 +73,25 @@ class OrderRepository(BaseRepository):
         order_id: UUID,
         state: str,
         *,
+        rejection_reason: str | None = None,
+        compliance_results: dict[str, object] | None = None,
+        filled_quantity: Decimal | None = None,
+        avg_fill_price: Decimal | None = None,
         session: AsyncSession | None = None,
-        **fields: object,
     ) -> OrderRecord | None:
         async with self._session(session) as session:
             values: dict[str, object] = {
                 "state": state,
                 "updated_at": datetime.now(UTC),
-                **fields,
             }
+            if rejection_reason is not None:
+                values["rejection_reason"] = rejection_reason
+            if compliance_results is not None:
+                values["compliance_results"] = compliance_results
+            if filled_quantity is not None:
+                values["filled_quantity"] = filled_quantity
+            if avg_fill_price is not None:
+                values["avg_fill_price"] = avg_fill_price
             stmt = update(OrderRecord).where(OrderRecord.id == str(order_id)).values(**values)
             await session.execute(stmt)
             await session.commit()

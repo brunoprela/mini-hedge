@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
@@ -64,10 +63,8 @@ class AttributionService:
         session: AsyncSession | None = None,
     ) -> BrinsonFachlerResult:
         """Calculate Brinson-Fachler attribution for a period."""
-        all_positions, instruments = await asyncio.gather(
-            self._position_service.get_by_portfolio(portfolio_id, session=session),
-            self._security_master_service.get_all_active(session=session),
-        )
+        all_positions = await self._position_service.get_by_portfolio(portfolio_id, session=session)
+        instruments = await self._security_master_service.get_all_active(session=session)
         positions = [p for p in all_positions if p.quantity != ZERO]
 
         if not positions:
@@ -137,10 +134,8 @@ class AttributionService:
         session: AsyncSession | None = None,
     ) -> RiskBasedResult:
         """Calculate risk-based P&L attribution."""
-        all_positions, instruments = await asyncio.gather(
-            self._position_service.get_by_portfolio(portfolio_id, session=session),
-            self._security_master_service.get_all_active(session=session),
-        )
+        all_positions = await self._position_service.get_by_portfolio(portfolio_id, session=session)
+        instruments = await self._security_master_service.get_all_active(session=session)
         positions = [p for p in all_positions if p.quantity != ZERO]
 
         if not positions:

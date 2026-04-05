@@ -15,6 +15,7 @@ from app.shared.repository import BaseRepository
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
+    from app.shared.audit_events import AuditEventType
     from app.shared.events import BaseEvent
 
 logger = structlog.get_logger()
@@ -39,7 +40,7 @@ class AuditLogRepository(BaseRepository):
     async def insert_admin_event(
         self,
         *,
-        event_type: str,
+        event_type: AuditEventType,
         actor_id: str,
         actor_type: str,
         fund_slug: str | None = None,

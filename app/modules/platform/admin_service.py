@@ -26,6 +26,9 @@ if TYPE_CHECKING:
         FundPage,
         OperatorInfo,
         OperatorPage,
+        UpdateFundRequest,
+        UpdateOperatorRequest,
+        UpdateUserRequest,
         UserInfo,
         UserPage,
     )
@@ -101,13 +104,13 @@ class AdminService:
     async def update_user(
         self,
         user_id: str,
+        updates: UpdateUserRequest,
         *,
         request_context: RequestContext,
         session: AsyncSession | None = None,
-        **fields: object,
     ) -> UserInfo:
         return await self._user_service.update_user(
-            user_id, request_context=request_context, session=session, **fields
+            user_id, updates, request_context=request_context, session=session
         )
 
     # ----- Operators -----
@@ -139,20 +142,13 @@ class AdminService:
     async def update_operator(
         self,
         operator_id: str,
+        updates: UpdateOperatorRequest,
         *,
         request_context: RequestContext,
-        name: str | None = None,
-        is_active: bool | None = None,
-        platform_role: str | None = None,
         session: AsyncSession | None = None,
     ) -> OperatorInfo:
         return await self._operator_service.update_operator(
-            operator_id,
-            request_context=request_context,
-            name=name,
-            is_active=is_active,
-            platform_role=platform_role,
-            session=session,
+            operator_id, updates, request_context=request_context, session=session
         )
 
     # ----- Funds -----
@@ -182,13 +178,13 @@ class AdminService:
     async def update_fund(
         self,
         fund_id: str,
+        updates: UpdateFundRequest,
         *,
         request_context: RequestContext,
         session: AsyncSession | None = None,
-        **fields: object,
     ) -> FundDetail:
         return await self._fund_service.update_fund(
-            fund_id, request_context=request_context, session=session, **fields
+            fund_id, updates, request_context=request_context, session=session
         )
 
     # ----- Fund access grants -----

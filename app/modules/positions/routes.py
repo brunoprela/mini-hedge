@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.positions.dependencies import get_position_service
 from app.modules.positions.interface import PortfolioSummary, Position, PositionLot, TradeRequest
-from app.modules.positions.position_service import PositionService
+from app.modules.positions.service import PositionService
 from app.shared.auth import Permission, require_permission
 from app.shared.database import get_db
 from app.shared.fga import ParamSource, require_access

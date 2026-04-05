@@ -11,7 +11,8 @@ from app.modules.platform.auth_service import AuthService
 from app.modules.platform.dependencies import get_audit_repo, get_auth_service, get_portfolio_repo
 from app.modules.platform.interface import FundInfo, PortfolioInfo
 from app.modules.platform.portfolio_repository import PortfolioRepository
-from app.shared.auth_service import (
+from app.shared.audit_events import AuditEventType
+from app.shared.auth import (
     Permission,
     get_actor_context,
     require_permission,
@@ -98,7 +99,7 @@ async def create_agent_token(
     )
 
     await audit_repo.insert_admin_event(
-        event_type="auth.agent_token.created",
+        event_type=AuditEventType.AUTH_AGENT_TOKEN_CREATED,
         actor_id=request_context.actor_id,
         actor_type=request_context.actor_type.value,
         fund_slug=request_context.fund_slug,

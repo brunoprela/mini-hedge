@@ -20,6 +20,7 @@ dependencies = [
     "psycopg2-binary>=2.9.0",
     "cachetools>=5.5.0",
     "aiokafka>=0.11.0",
+    "cramjam>=2.8.0",
     "fastavro>=1.9.0",
     "redis[hiredis]>=5.0.0",
 ]

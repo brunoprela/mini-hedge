@@ -133,6 +133,21 @@ class RemediationSuggestion(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Update requests
+# ---------------------------------------------------------------------------
+
+
+class UpdateRuleRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    name: str | None = None
+    rule_type: RuleType | None = None
+    severity: Severity | None = None
+    parameters: dict[str, object] | None = None
+    is_active: bool | None = None
+
+
 # Module protocol — the public interface for other modules
 # ---------------------------------------------------------------------------
 

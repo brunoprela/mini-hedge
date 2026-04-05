@@ -18,7 +18,7 @@ from app.modules.risk_engine.interface import (
     VaRMethod,
     VaRResult,
 )
-from app.modules.risk_engine.risk_service import RiskService
+from app.modules.risk_engine.service import RiskService
 from app.shared.auth import Permission, require_permission
 from app.shared.database import get_db
 from app.shared.fga import require_access

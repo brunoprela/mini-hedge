@@ -5,7 +5,6 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.cash_management.cash_management_service import CashManagementService
 from app.modules.cash_management.dependencies import get_cash_service
 from app.modules.cash_management.interface import (
     CashBalance,
@@ -13,6 +12,7 @@ from app.modules.cash_management.interface import (
     SettlementLadder,
     SettlementRecord,
 )
+from app.modules.cash_management.service import CashManagementService
 from app.shared.auth import Permission, require_permission
 from app.shared.database import get_db
 from app.shared.fga import require_access

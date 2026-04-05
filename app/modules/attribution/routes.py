@@ -6,13 +6,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.attribution.attribution_service import AttributionService
 from app.modules.attribution.dependencies import get_attribution_service
 from app.modules.attribution.interface import (
     BrinsonFachlerResult,
     CumulativeAttribution,
     RiskBasedResult,
 )
+from app.modules.attribution.service import AttributionService
 from app.shared.auth import Permission, require_permission
 from app.shared.database import get_db
 from app.shared.fga import require_access

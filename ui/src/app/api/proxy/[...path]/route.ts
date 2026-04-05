@@ -31,19 +31,24 @@ async function proxyRequest(req: NextRequest, { params }: { params: Promise<{ pa
     headers["Content-Type"] = contentType;
   }
 
-  const response = await fetch(url.toString(), {
-    method: req.method,
-    headers,
-    body: req.method !== "GET" && req.method !== "HEAD" ? await req.text() : undefined,
-  });
+  try {
+    const response = await fetch(url.toString(), {
+      method: req.method,
+      headers,
+      body: req.method !== "GET" && req.method !== "HEAD" ? await req.text() : undefined,
+    });
 
-  const data = await response.text();
-  return new NextResponse(data, {
-    status: response.status,
-    headers: {
-      "Content-Type": response.headers.get("content-type") ?? "application/json",
-    },
-  });
+    const data = await response.text();
+    return new NextResponse(data, {
+      status: response.status,
+      headers: {
+        "Content-Type": response.headers.get("content-type") ?? "application/json",
+      },
+    });
+  } catch (error) {
+    console.error(`[proxy] ${req.method} ${url.pathname} failed:`, error);
+    return NextResponse.json({ detail: "Backend unavailable" }, { status: 502 });
+  }
 }
 
 export const GET = proxyRequest;

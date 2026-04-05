@@ -1,10 +1,18 @@
 """Data access for user records."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from sqlalchemy import func, select, update
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.platform.models import UserRecord
 from app.shared.repository import BaseRepository
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.modules.platform.interface import UpdateUserRequest
 
 
 class UserRepository(BaseRepository):
@@ -105,12 +113,17 @@ class UserRepository(BaseRepository):
             return list(result.scalars().all()), total
 
     async def update(
-        self, user_id: str, *, session: AsyncSession | None = None, **fields: object
+        self,
+        user_id: str,
+        updates: UpdateUserRequest,
+        *,
+        session: AsyncSession | None = None,
     ) -> UserRecord | None:
         async with self._session(session) as session:
-            if fields:
+            values = updates.model_dump(exclude_none=True)
+            if values:
                 await session.execute(
-                    update(UserRecord).where(UserRecord.id == user_id).values(**fields)
+                    update(UserRecord).where(UserRecord.id == user_id).values(**values)
                 )
                 await session.commit()
             result = await session.execute(select(UserRecord).where(UserRecord.id == user_id))

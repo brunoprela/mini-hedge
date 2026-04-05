@@ -12,6 +12,8 @@ from app.shared.repository import BaseRepository
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
+    from app.modules.platform.interface import UpdateOperatorRequest
+
 
 class OperatorRepository(BaseRepository):
     async def get_by_id(
@@ -119,12 +121,18 @@ class OperatorRepository(BaseRepository):
             return list(result.scalars().all()), total
 
     async def update(
-        self, operator_id: str, *, session: AsyncSession | None = None, **fields: object
+        self,
+        operator_id: str,
+        updates: UpdateOperatorRequest,
+        *,
+        session: AsyncSession | None = None,
     ) -> OperatorRecord | None:
         async with self._session(session) as session:
-            if fields:
+            # platform_role is handled by FGA, not stored in the DB record
+            values = updates.model_dump(exclude_none=True, exclude={"platform_role"})
+            if values:
                 await session.execute(
-                    update(OperatorRecord).where(OperatorRecord.id == operator_id).values(**fields)
+                    update(OperatorRecord).where(OperatorRecord.id == operator_id).values(**values)
                 )
                 await session.commit()
             result = await session.execute(

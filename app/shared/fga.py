@@ -287,6 +287,10 @@ def require_access(
         if fga is None:
             # FGA not enabled — skip object-level check (RBAC still enforced)
             return
+        # API keys and agents are already fund-scoped via RBAC; they don't
+        # have FGA tuples, so skip the object-level check for them.
+        if request_context.actor_type in (ActorType.API_KEY, ActorType.AGENT):
+            return
         resource_id = await _extract_resource_id(request, param_name, source, request_context)
         # Use the correct FGA subject type based on actor type
         fga_prefix = "operator" if request_context.actor_type == ActorType.OPERATOR else "user"

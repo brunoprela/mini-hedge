@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
@@ -32,6 +31,7 @@ from app.modules.risk_engine.models import (
     VaRContributionRecord,
     VaRResultRecord,
 )
+from app.shared.audit_events import AuditEventType
 from app.shared.events import BaseEvent
 from app.shared.schema_registry import fund_topic
 
@@ -136,6 +136,19 @@ class RiskService:
             portfolio_id, session=session
         )
 
+        if returns_matrix.size == 0:
+            return VaRResult(
+                portfolio_id=portfolio_id,
+                method=method,
+                confidence_level=confidence,
+                horizon_days=horizon_days,
+                var_amount=ZERO,
+                var_pct=ZERO,
+                expected_shortfall=ZERO,
+                contributions=[],
+                calculated_at=datetime.now(UTC),
+            )
+
         if method == VaRMethod.HISTORICAL:
             result = calculate_historical_var(
                 portfolio_id,
@@ -230,12 +243,21 @@ class RiskService:
         session: AsyncSession | None = None,
     ) -> RiskSnapshot:
         """Calculate and persist a complete risk snapshot."""
-        # Run independent calculations concurrently
-        var_95, var_99, positions = await asyncio.gather(
-            self.calculate_var(portfolio_id, VaRMethod.HISTORICAL, 0.95, 1, session=session),
-            self.calculate_var(portfolio_id, VaRMethod.HISTORICAL, 0.99, 1, session=session),
-            self._position_service.get_by_portfolio(portfolio_id, session=session),
+        var_95 = await self.calculate_var(
+            portfolio_id,
+            VaRMethod.HISTORICAL,
+            0.95,
+            1,
+            session=session,
         )
+        var_99 = await self.calculate_var(
+            portfolio_id,
+            VaRMethod.HISTORICAL,
+            0.99,
+            1,
+            session=session,
+        )
+        positions = await self._position_service.get_by_portfolio(portfolio_id, session=session)
         nav = sum(
             (p.market_value for p in positions if p.market_value),
             ZERO,
@@ -365,7 +387,7 @@ class RiskService:
             return
 
         event = BaseEvent(
-            event_type="risk.updated",
+            event_type=AuditEventType.RISK_UPDATED,
             data={
                 "portfolio_id": record.portfolio_id,
                 "nav": str(record.nav),

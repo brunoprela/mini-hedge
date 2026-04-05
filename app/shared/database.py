@@ -24,8 +24,9 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
-from typing import TYPE_CHECKING, ClassVar
+from typing import ClassVar
 
+from fastapi import Request  # noqa: TC002 — must be runtime for FastAPI dependency injection
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -34,9 +35,6 @@ from sqlalchemy.ext.asyncio import (
 
 from app.config import get_settings
 from app.shared.fund_schema import fund_schema_name
-
-if TYPE_CHECKING:
-    from fastapi import Request
 
 # Schema name used in positions ORM models (__table_args__ schema key).
 # This is the key in schema_translate_map that gets rewritten per-fund.

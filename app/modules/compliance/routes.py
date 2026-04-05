@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.compliance.compliance_service import ComplianceService
 from app.modules.compliance.dependencies import (
     get_compliance_service,
 )
@@ -17,8 +16,10 @@ from app.modules.compliance.interface import (
     RuleType,
     Severity,
     TradeCheckRequest,
+    UpdateRuleRequest,
     Violation,
 )
+from app.modules.compliance.service import ComplianceService
 from app.shared.auth import Permission, require_permission
 from app.shared.database import get_db
 from app.shared.request_context import RequestContext
@@ -38,16 +39,6 @@ class CreateRuleBody(BaseModel):
     rule_type: RuleType
     severity: Severity
     parameters: dict[str, object] = {}
-
-
-class UpdateRuleBody(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    name: str | None = None
-    rule_type: RuleType | None = None
-    severity: Severity | None = None
-    parameters: dict[str, object] | None = None
-    is_active: bool | None = None
 
 
 class ResolveBody(BaseModel):
@@ -97,20 +88,19 @@ async def create_rule(
 @router.patch("/rules/{rule_id}", response_model=RuleDefinition)
 async def update_rule(
     rule_id: UUID,
-    body: UpdateRuleBody,
+    body: UpdateRuleRequest,
     request_context: RequestContext = require_permission(Permission.COMPLIANCE_WRITE),
     compliance_service: ComplianceService = Depends(get_compliance_service),
     session: AsyncSession = Depends(get_db),
 ) -> RuleDefinition:
-    fields = body.model_dump(exclude_none=True)
-    if not fields:
+    if not body.model_dump(exclude_none=True):
         raise HTTPException(
             status_code=400,
             detail="No fields to update",
         )
     try:
         return await compliance_service.update_rule(
-            rule_id, actor_id=request_context.actor_id, session=session, **fields
+            rule_id, body, actor_id=request_context.actor_id, session=session
         )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

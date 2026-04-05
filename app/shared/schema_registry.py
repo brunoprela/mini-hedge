@@ -113,23 +113,25 @@ def load_schemas() -> None:
     fastavro.parse_schema(_ENVELOPE_SCHEMA)
 
     # event_type → schema file mapping
+    from app.shared.audit_events import AuditEventType
+
     event_schemas = {
-        "price.updated": "prices/normalized-v1.avsc",
-        "position.changed": "positions/changed-v1.avsc",
-        "pnl.realized": "positions/pnl-realized-v1.avsc",
-        "pnl.mark_to_market": "positions/pnl-mtm-v1.avsc",
-        "trade.buy": "trades/executed-v1.avsc",
-        "trade.sell": "trades/executed-v1.avsc",
-        "trade.approved": "trades/executed-v1.avsc",
-        "trade.rejected": "trades/executed-v1.avsc",
-        "order.created": "orders/created-v1.avsc",
-        "order.filled": "orders/filled-v1.avsc",
-        "compliance.violation": "compliance/violation-v1.avsc",
-        "compliance.violation.resolved": "compliance/violation-v1.avsc",
-        "exposure.updated": "exposure/updated-v1.avsc",
-        "risk.updated": "risk/updated-v1.avsc",
-        "cash.settlement.created": "cash/settlement-v1.avsc",
-        "cash.settlement.settled": "cash/settlement-v1.avsc",
+        AuditEventType.PRICE_UPDATED: "prices/normalized-v1.avsc",
+        AuditEventType.POSITION_CHANGED: "positions/changed-v1.avsc",
+        AuditEventType.PNL_REALIZED: "positions/pnl-realized-v1.avsc",
+        AuditEventType.PNL_MARK_TO_MARKET: "positions/pnl-mtm-v1.avsc",
+        AuditEventType.TRADE_BUY: "trades/executed-v1.avsc",
+        AuditEventType.TRADE_SELL: "trades/executed-v1.avsc",
+        AuditEventType.TRADE_APPROVED: "trades/executed-v1.avsc",
+        AuditEventType.TRADE_REJECTED: "trades/executed-v1.avsc",
+        AuditEventType.ORDER_CREATED: "orders/created-v1.avsc",
+        AuditEventType.ORDER_FILLED: "orders/filled-v1.avsc",
+        AuditEventType.COMPLIANCE_VIOLATION: "compliance/violation-v1.avsc",
+        AuditEventType.COMPLIANCE_VIOLATION_RESOLVED: "compliance/violation-v1.avsc",
+        AuditEventType.EXPOSURE_UPDATED: "exposure/updated-v1.avsc",
+        AuditEventType.RISK_UPDATED: "risk/updated-v1.avsc",
+        AuditEventType.CASH_SETTLEMENT_CREATED: "cash/settlement-v1.avsc",
+        AuditEventType.CASH_SETTLEMENT_SETTLED: "cash/settlement-v1.avsc",
     }
     for event_type, schema_file in event_schemas.items():
         schema = _load_avsc(_SCHEMA_DIR / schema_file)

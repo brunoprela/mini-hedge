@@ -7,11 +7,11 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.exposure.dependencies import get_exposure_service
-from app.modules.exposure.exposure_service import ExposureService
 from app.modules.exposure.interface import (
     ExposureSnapshot,
     PortfolioExposure,
 )
+from app.modules.exposure.service import ExposureService
 from app.shared.auth import Permission, require_permission
 from app.shared.database import get_db
 from app.shared.fga import require_access

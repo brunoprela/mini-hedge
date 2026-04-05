@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.alpha_engine.alpha_service import AlphaService
 from app.modules.alpha_engine.dependencies import get_alpha_service
 from app.modules.alpha_engine.interface import (
     HypotheticalTrade,
@@ -17,6 +16,7 @@ from app.modules.alpha_engine.interface import (
     ScenarioRun,
     WhatIfResult,
 )
+from app.modules.alpha_engine.service import AlphaService
 from app.shared.auth import Permission, require_permission
 from app.shared.database import get_db
 from app.shared.fga import require_access

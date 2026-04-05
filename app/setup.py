@@ -343,7 +343,7 @@ async def setup_positions(
 
     admin_svc: AdminService | None = getattr(fastapi_app.state, "admin_service", None)
     if admin_svc is not None:
-        admin_svc._funds.register_on_fund_created(_on_fund_created)
+        admin_svc._fund_service.register_on_fund_created(_on_fund_created)
 
     async def get_fund_slugs() -> list[str]:
         funds = await fund_repo.get_all_active()

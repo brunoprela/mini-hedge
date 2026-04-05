@@ -8,6 +8,7 @@ from uuid import UUID
 
 from sqlalchemy import select, update
 
+from app.modules.compliance.interface import UpdateRuleRequest
 from app.modules.compliance.models import (
     ComplianceRuleRecord,
     ComplianceViolationRecord,
@@ -65,23 +66,29 @@ class RuleRepository(BaseRepository):
     async def update(
         self,
         rule_id: UUID,
+        updates: UpdateRuleRequest,
         *,
         session: AsyncSession | None = None,
-        **fields: object,
     ) -> ComplianceRuleRecord | None:
         async with self._session(session) as session:
-            fields["updated_at"] = datetime.now(UTC)
+            values = updates.model_dump(exclude_none=True)
+            # Normalise enum values to their string representations
+            if "rule_type" in values:
+                values["rule_type"] = str(values["rule_type"])
+            if "severity" in values:
+                values["severity"] = str(values["severity"])
+            values["updated_at"] = datetime.now(UTC)
             stmt = (
                 update(ComplianceRuleRecord)
                 .where(ComplianceRuleRecord.id == str(rule_id))
-                .values(**fields)
+                .values(**values)
             )
             await session.execute(stmt)
             await session.commit()
         return await self.get_by_id(rule_id)
 
     async def deactivate(self, rule_id: UUID, *, session: AsyncSession | None = None) -> None:
-        await self.update(rule_id, is_active=False, updated_at=datetime.now(UTC))
+        await self.update(rule_id, UpdateRuleRequest(is_active=False), session=session)
 
 
 # -------------------------------------------------------------------

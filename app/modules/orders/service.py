@@ -18,6 +18,7 @@ from app.modules.orders.interface import (
 )
 from app.modules.orders.models import OrderFillRecord, OrderRecord
 from app.modules.orders.state_machine import apply_transition
+from app.shared.audit_events import AuditEventType
 from app.shared.events import BaseEvent
 from app.shared.schema_registry import fund_topic
 
@@ -123,10 +124,10 @@ class OrderService:
                 order_id=order.id,
                 reason=reason,
             )
-            await self._publish_order_event(order, "order.created", fund_slug)
-            await self._publish_trade_decision(order, "trade.rejected", fund_slug)
+            await self._publish_order_event(order, AuditEventType.ORDER_CREATED, fund_slug)
+            await self._publish_trade_decision(order, AuditEventType.TRADE_REJECTED, fund_slug)
             await self._audit_event(
-                "order.rejected",
+                AuditEventType.ORDER_REJECTED,
                 actor_id=actor_id,
                 fund_slug=fund_slug,
                 order=order,
@@ -143,8 +144,8 @@ class OrderService:
             compliance_results=compliance_data,
             session=session,
         )
-        await self._publish_order_event(order, "order.created", fund_slug)
-        await self._publish_trade_decision(order, "trade.approved", fund_slug)
+        await self._publish_order_event(order, AuditEventType.ORDER_CREATED, fund_slug)
+        await self._publish_trade_decision(order, AuditEventType.TRADE_APPROVED, fund_slug)
 
         # 5. Transition to SENT and submit to broker
         apply_transition(OrderState(order.state), OrderState.SENT)
@@ -177,7 +178,7 @@ class OrderService:
                 fill_qty=str(fill_qty),
             )
             await self._audit_event(
-                "order.filled",
+                AuditEventType.ORDER_FILLED,
                 actor_id=actor_id,
                 fund_slug=fund_slug,
                 order=order,
@@ -270,7 +271,7 @@ class OrderService:
             state=order.state,
         )
         await self._audit_event(
-            "order.filled",
+            AuditEventType.ORDER_FILLED,
             actor_id="broker",
             fund_slug=fund_slug,
             order=order,
@@ -294,7 +295,7 @@ class OrderService:
             order_id, OrderState.CANCELLED.value, session=session
         )
         await self._audit_event(
-            "order.cancelled",
+            AuditEventType.ORDER_CANCELLED,
             actor_id=actor_id,
             fund_slug=order.fund_slug,
             order=order,
@@ -393,7 +394,7 @@ class OrderService:
         # compliance, cash) reacts to positions.changed / trades.executed.
         side = order.side
         event = BaseEvent(
-            event_type=("trade.buy" if side == "buy" else "trade.sell"),
+            event_type=(AuditEventType.TRADE_BUY if side == "buy" else AuditEventType.TRADE_SELL),
             data={
                 "portfolio_id": str(order.portfolio_id),
                 "instrument_id": order.instrument_id,
@@ -409,7 +410,7 @@ class OrderService:
 
         # Publish order fill event
         fill_event = BaseEvent(
-            event_type="order.filled",
+            event_type=AuditEventType.ORDER_FILLED,
             data={
                 "order_id": order.id,
                 "portfolio_id": str(order.portfolio_id),
@@ -467,7 +468,8 @@ class OrderService:
             },
             fund_slug=fund_slug,
         )
-        topic_base = "trades.approved" if event_type == "trade.approved" else "trades.rejected"
+        is_approved = event_type == AuditEventType.TRADE_APPROVED
+        topic_base = "trades.approved" if is_approved else "trades.rejected"
         await self._event_bus.publish(fund_topic(fund_slug, topic_base), event)
 
     async def _audit_event(

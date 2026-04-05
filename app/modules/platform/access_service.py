@@ -8,6 +8,7 @@ import structlog
 from openfga_sdk.client.models import ClientTuple
 
 from app.modules.platform.interface import AuditEntry, AuditPage, FundAccessGrant
+from app.shared.audit_events import AuditEventType
 from app.shared.errors import NotFoundError
 
 if TYPE_CHECKING:
@@ -156,7 +157,7 @@ class AccessGrantService:
             self._auth_service.invalidate_fga_cache(user_id, fund_id)
 
         await self._audit_repo.insert_admin_event(
-            event_type="admin.access.granted",
+            event_type=AuditEventType.ADMIN_ACCESS_GRANTED,
             actor_id=request_context.actor_id,
             actor_type=request_context.actor_type.value,
             fund_slug=fund.slug,
@@ -197,7 +198,7 @@ class AccessGrantService:
             self._auth_service.invalidate_fga_cache(user_id, fund_id)
 
         await self._audit_repo.insert_admin_event(
-            event_type="admin.access.revoked",
+            event_type=AuditEventType.ADMIN_ACCESS_REVOKED,
             actor_id=request_context.actor_id,
             actor_type=request_context.actor_type.value,
             fund_slug=fund.slug,

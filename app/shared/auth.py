@@ -15,7 +15,7 @@ from enum import StrEnum
 from typing import Any
 
 import structlog
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException
 
 from app.shared.jwt import (
     KeycloakClaims,
@@ -327,7 +327,7 @@ def resolve_permissions(roles: frozenset[str]) -> frozenset[str]:
 # ---------------------------------------------------------------------------
 
 
-def get_actor_context(request: Request) -> RequestContext:
+def get_actor_context() -> RequestContext:
     """FastAPI dependency — returns the authenticated RequestContext.
 
     Use directly when you need the actor's identity without a specific

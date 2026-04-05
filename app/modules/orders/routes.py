@@ -11,7 +11,7 @@ from app.modules.orders.interface import (
     FillDetail,
     OrderSummary,
 )
-from app.modules.orders.order_service import OrderService
+from app.modules.orders.service import OrderService
 from app.modules.orders.state_machine import InvalidTransitionError
 from app.shared.auth import Permission, require_permission
 from app.shared.database import get_db

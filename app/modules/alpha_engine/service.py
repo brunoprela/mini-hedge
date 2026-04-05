@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -241,10 +240,8 @@ class AlphaService:
         records = await self._alpha_repo.get_optimizations(portfolio_id, session=session)
         results = []
         for r in records:
-            weight_records, intent_records = await asyncio.gather(
-                self._alpha_repo.get_optimization_weights(r.id, session=session),
-                self._alpha_repo.get_intents_by_run(r.id, session=session),
-            )
+            weight_records = await self._alpha_repo.get_optimization_weights(r.id, session=session)
+            intent_records = await self._alpha_repo.get_intents_by_run(r.id, session=session)
 
             weights = [
                 OptimizationWeight(

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
@@ -17,6 +16,7 @@ from app.modules.exposure.interface import (
     PositionValue,
 )
 from app.modules.exposure.models import ExposureSnapshotRecord
+from app.shared.audit_events import AuditEventType
 from app.shared.events import BaseEvent
 from app.shared.schema_registry import fund_topic
 
@@ -55,10 +55,8 @@ class ExposureService:
         self, portfolio_id: UUID, *, session: AsyncSession | None = None
     ) -> PortfolioExposure:
         """Calculate current exposure from live positions."""
-        positions, instruments = await asyncio.gather(
-            self._position_service.get_by_portfolio(portfolio_id, session=session),
-            self._security_master_service.get_all_active(session=session),
-        )
+        positions = await self._position_service.get_by_portfolio(portfolio_id, session=session)
+        instruments = await self._security_master_service.get_all_active(session=session)
         instr_map = {i.ticker: i for i in instruments}
 
         position_values = []
@@ -160,7 +158,7 @@ class ExposureService:
             return
 
         event = BaseEvent(
-            event_type="exposure.updated",
+            event_type=AuditEventType.EXPOSURE_UPDATED,
             data={
                 "portfolio_id": str(exposure.portfolio_id),
                 "gross_exposure": str(exposure.gross_exposure),

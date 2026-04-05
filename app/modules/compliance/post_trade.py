@@ -29,6 +29,7 @@ from app.modules.compliance.interface import (
 )
 from app.modules.compliance.models import ComplianceViolationRecord
 from app.modules.positions.interface import Position
+from app.shared.audit_events import AuditEventType
 from app.shared.events import BaseEvent
 from app.shared.schema_registry import fund_topic
 
@@ -231,7 +232,7 @@ class PostTradeMonitor:
             return
 
         event = BaseEvent(
-            event_type="compliance.violation",
+            event_type=AuditEventType.COMPLIANCE_VIOLATION,
             data={
                 "violation_id": record.id,
                 "portfolio_id": str(portfolio_id),
@@ -262,7 +263,7 @@ class PostTradeMonitor:
             return
 
         event = BaseEvent(
-            event_type="compliance.violation.resolved",
+            event_type=AuditEventType.COMPLIANCE_VIOLATION_RESOLVED,
             data={
                 "violation_id": record.id,
                 "portfolio_id": str(portfolio_id),

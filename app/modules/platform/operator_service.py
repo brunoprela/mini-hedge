@@ -7,8 +7,9 @@ from typing import TYPE_CHECKING
 import structlog
 from openfga_sdk.client.models import ClientTuple
 
-from app.modules.platform.interface import OperatorInfo, OperatorPage
+from app.modules.platform.interface import OperatorInfo, OperatorPage, UpdateOperatorRequest
 from app.modules.platform.models import OperatorRecord
+from app.shared.audit_events import AuditEventType
 from app.shared.errors import NotFoundError, ValidationError
 
 if TYPE_CHECKING:
@@ -85,7 +86,7 @@ class OperatorAdminService:
             ]
         )
         await self._audit_repo.insert_admin_event(
-            event_type="admin.operator.created",
+            event_type=AuditEventType.ADMIN_OPERATOR_CREATED,
             actor_id=request_context.actor_id,
             actor_type=request_context.actor_type.value,
             payload={
@@ -101,30 +102,19 @@ class OperatorAdminService:
     async def update_operator(
         self,
         operator_id: str,
+        updates: UpdateOperatorRequest,
         *,
         request_context: RequestContext,
-        name: str | None = None,
-        is_active: bool | None = None,
-        platform_role: str | None = None,
         session: AsyncSession | None = None,
     ) -> OperatorInfo:
-        fields: dict[str, object] = {}
-        if name is not None:
-            fields["name"] = name
-        if is_active is not None:
-            fields["is_active"] = is_active
-        record = (
-            await self._operator_repo.update(operator_id, session=session, **fields)
-            if fields
-            else None
-        )
+        record = await self._operator_repo.update(operator_id, updates, session=session)
         if record is None:
             record = await self._operator_repo.get_by_id(operator_id, session=session)
         if record is None:
             raise NotFoundError("Operator", operator_id)
 
         # Update platform role if requested
-        if platform_role is not None:
+        if updates.platform_role is not None:
             # Remove old roles, add new one
             old_roles = await self._fga_client.list_relations(
                 user=f"operator:{operator_id}",
@@ -146,17 +136,17 @@ class OperatorAdminService:
                 [
                     ClientTuple(
                         user=f"operator:{operator_id}",
-                        relation=platform_role,
+                        relation=updates.platform_role,
                         object="platform:global",
                     )
                 ]
             )
 
         await self._audit_repo.insert_admin_event(
-            event_type="admin.operator.updated",
+            event_type=AuditEventType.ADMIN_OPERATOR_UPDATED,
             actor_id=request_context.actor_id,
             actor_type=request_context.actor_type.value,
-            payload={"operator_id": operator_id, "fields": {k: str(v) for k, v in fields.items()}},
+            payload={"operator_id": operator_id, "changes": updates.model_dump(exclude_none=True)},
             session=session,
         )
 

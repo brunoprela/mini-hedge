@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING
@@ -27,6 +26,7 @@ from app.modules.cash_management.models import (
     CashSettlementRecord,
 )
 from app.modules.cash_management.settlement import calculate_settlement_date
+from app.shared.audit_events import AuditEventType
 from app.shared.events import BaseEvent
 from app.shared.schema_registry import fund_topic
 
@@ -243,7 +243,7 @@ class CashManagementService:
         await self._balance_repo.upsert(balance_record, session=session)
 
         await self._publish_settlement_event(
-            "cash.settlement.created",
+            AuditEventType.CASH_SETTLEMENT_CREATED,
             portfolio_id,
             instrument_id,
             amount,
@@ -328,9 +328,15 @@ class CashManagementService:
         today = date.today()
         end = today + timedelta(days=horizon_days)
 
-        settlements, balances = await asyncio.gather(
-            self._settlement_repo.get_by_date_range(portfolio_id, today, end, session=session),
-            self._balance_repo.get_by_portfolio(portfolio_id, session=session),
+        settlements = await self._settlement_repo.get_by_date_range(
+            portfolio_id,
+            today,
+            end,
+            session=session,
+        )
+        balances = await self._balance_repo.get_by_portfolio(
+            portfolio_id,
+            session=session,
         )
 
         # Start with current available balance (simplified: USD only)
@@ -392,11 +398,21 @@ class CashManagementService:
         today = date.today()
         end = today + timedelta(days=horizon_days)
 
-        # Fetch settlements, scheduled flows, and balances in parallel
-        settlements, scheduled, balances = await asyncio.gather(
-            self._settlement_repo.get_by_date_range(portfolio_id, today, end, session=session),
-            self._scheduled_flow_repo.get_by_portfolio(portfolio_id, today, end, session=session),
-            self._balance_repo.get_by_portfolio(portfolio_id, session=session),
+        settlements = await self._settlement_repo.get_by_date_range(
+            portfolio_id,
+            today,
+            end,
+            session=session,
+        )
+        scheduled = await self._scheduled_flow_repo.get_by_portfolio(
+            portfolio_id,
+            today,
+            end,
+            session=session,
+        )
+        balances = await self._balance_repo.get_by_portfolio(
+            portfolio_id,
+            session=session,
         )
         current_balance = ZERO
         for b in balances:

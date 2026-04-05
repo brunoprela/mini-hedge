@@ -6,8 +6,9 @@ from typing import TYPE_CHECKING
 
 import structlog
 
-from app.modules.platform.interface import FundDetail, FundPage
+from app.modules.platform.interface import FundDetail, FundPage, UpdateFundRequest
 from app.modules.platform.models import FundRecord, FundStatus
+from app.shared.audit_events import AuditEventType
 from app.shared.errors import NotFoundError, ValidationError
 from app.shared.fund_schema import create_fund_kafka_topics, create_fund_schema
 from app.shared.schema_registry import fund_topic
@@ -103,7 +104,7 @@ class FundAdminService:
                 logger.exception("on_fund_created_hook_failed", fund_slug=slug)
 
         await self._audit_repo.insert_admin_event(
-            event_type="admin.fund.created",
+            event_type=AuditEventType.ADMIN_FUND_CREATED,
             actor_id=request_context.actor_id,
             actor_type=request_context.actor_type.value,
             fund_slug=slug,
@@ -115,20 +116,20 @@ class FundAdminService:
     async def update_fund(
         self,
         fund_id: str,
+        updates: UpdateFundRequest,
         *,
         request_context: RequestContext,
         session: AsyncSession | None = None,
-        **fields: object,
     ) -> FundDetail:
-        record = await self._fund_repo.update(fund_id, session=session, **fields)
+        record = await self._fund_repo.update(fund_id, updates, session=session)
         if record is None:
             raise NotFoundError("Fund", fund_id)
         await self._audit_repo.insert_admin_event(
-            event_type="admin.fund.updated",
+            event_type=AuditEventType.ADMIN_FUND_UPDATED,
             actor_id=request_context.actor_id,
             actor_type=request_context.actor_type.value,
             fund_slug=record.slug,
-            payload={"fund_id": fund_id, "fields": {k: str(v) for k, v in fields.items()}},
+            payload={"fund_id": fund_id, "changes": updates.model_dump(exclude_none=True)},
             session=session,
         )
         return _fund_to_detail(record)

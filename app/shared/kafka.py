@@ -56,6 +56,7 @@ class KafkaEventBus:
     async def _get_producer(self) -> AIOKafkaProducer:
         """Lazily start the producer on first use."""
         if self._producer is None:
+            logger.info("kafka_producer_starting", bootstrap_servers=self._bootstrap_servers)
             self._producer = AIOKafkaProducer(
                 bootstrap_servers=self._bootstrap_servers,
                 linger_ms=5,
@@ -65,7 +66,8 @@ class KafkaEventBus:
                 max_request_size=1048576,
                 request_timeout_ms=10000,
             )
-            await self._producer.start()
+            await asyncio.wait_for(self._producer.start(), timeout=30)
+            logger.info("kafka_producer_started")
         return self._producer
 
     async def publish(self, topic: str, event: BaseEvent) -> None:
@@ -115,7 +117,13 @@ class KafkaEventBus:
         # Ensure producer is ready
         await self._get_producer()
 
-        for topic, handlers in self._handlers.items():
+        topics = list(self._handlers.keys())
+        logger.info("kafka_starting_consumers", count=len(topics))
+
+        # Start all consumers concurrently — sequential startup takes ~3s per
+        # consumer for group coordination, which exceeds health-check timeouts
+        # when there are dozens of topics.
+        async def _start_consumer(topic: str, handlers: list[EventHandler]) -> None:
             consumer = AIOKafkaConsumer(
                 topic,
                 bootstrap_servers=self._bootstrap_servers,
@@ -127,7 +135,7 @@ class KafkaEventBus:
                 max_poll_interval_ms=60000,
                 fetch_max_wait_ms=100,
             )
-            await consumer.start()
+            await asyncio.wait_for(consumer.start(), timeout=30)
             self._consumers.append(consumer)
 
             task = asyncio.create_task(
@@ -136,10 +144,11 @@ class KafkaEventBus:
             )
             self._consumer_tasks.append(task)
 
-        logger.info(
-            "kafka_consumers_started",
-            topics=list(self._handlers.keys()),
+        await asyncio.gather(
+            *[_start_consumer(t, h) for t, h in self._handlers.items()],
         )
+
+        logger.info("kafka_consumers_started", count=len(topics))
 
     async def _consume_loop(
         self,
@@ -303,8 +312,10 @@ class KafkaEventBus:
         Called during startup to ensure all required topics are available.
         Uses the replication_factor and num_partitions from constructor config.
         """
+        logger.info("kafka_ensure_topics_starting", count=len(topics))
         admin = AIOKafkaAdminClient(bootstrap_servers=self._bootstrap_servers)
         await admin.start()
+        logger.info("kafka_admin_connected")
         try:
             new_topics = [
                 NewTopic(
@@ -319,5 +330,7 @@ class KafkaEventBus:
                 logger.info("kafka_topics_ensured", count=len(topics))
             except TopicAlreadyExistsError:
                 logger.debug("kafka_topics_already_exist")
+            except KafkaError:
+                logger.info("kafka_topics_already_exist_or_mixed")
         finally:
             await admin.close()

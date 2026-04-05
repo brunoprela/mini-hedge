@@ -127,6 +127,10 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     active_funds = await fund_repo.get_all_active()
     fund_slugs = [f.slug for f in active_funds]
     await ensure_all_fund_schemas(engine, fund_slugs)
+    # Re-apply structlog config — Alembic's fileConfig() in per-fund
+    # migrations resets the root logger, destroying structlog handlers.
+    setup_logging(settings.log_level)
+    logger.info("fund_schemas_ready", fund_count=len(fund_slugs))
 
     # Create Kafka topics — shared + per-fund + DLQ
     all_topics = shared_topics()
@@ -138,17 +142,20 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     sm_service: SecurityMasterService = fastapi_app.state.security_master_service
     setup_market_data(fastapi_app, session_factory, kafka_bus)
     await setup_positions(fastapi_app, session_factory, kafka_bus, fund_repo, sm_service)
+    logger.info("phase_1_modules_ready")
 
     # Phase 2 modules — depend on positions + security_master being wired
     await setup_exposure(fastapi_app, session_factory, kafka_bus, fund_repo)
     await setup_compliance(fastapi_app, session_factory, fund_repo, kafka_bus)
     await setup_orders(fastapi_app, session_factory, kafka_bus, broker_adapter)
+    logger.info("phase_2_modules_ready")
 
     # Phase 3 modules
     await setup_risk_engine(fastapi_app, session_factory, kafka_bus, fund_repo)
     await setup_cash_management(fastapi_app, session_factory, kafka_bus, fund_repo)
     await setup_attribution(fastapi_app, session_factory)
     await setup_alpha_engine(fastapi_app, session_factory)
+    logger.info("phase_3_modules_ready")
 
     # Audit bridge — persists ALL fund-scoped events for compliance trail
     audit_repo = AuditLogRepository(session_factory)
@@ -164,22 +171,28 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
         bridge.wire(kafka_bus, fund_slugs)
 
     # Start Kafka consumers (after all subscriptions are registered)
+    logger.info("kafka_consumers_starting")
     await kafka_bus.start()
+    logger.info("kafka_consumers_ready")
 
     # --- External market data adapter ---
     # Start the adapter's Kafka consumer that bridges vendor prices into
     # the internal event bus.
+    logger.info("market_data_adapter_starting")
     instruments = await sm_service.get_all_active()
     tickers = [i.ticker for i in instruments]
     await market_data_adapter.start_streaming(tickers)
+    logger.info("market_data_adapter_ready")
 
     # --- External broker fill consumer ---
     # When the broker is mock-exchange, start consuming execution reports
     # from the vendor's Kafka and forwarding fills to OrderService.
     if hasattr(broker_adapter, "start_fill_consumer"):
+        logger.info("broker_fill_consumer_starting")
         order_service = fastapi_app.state.order_service
         order_service._fund_slugs = fund_slugs
         await broker_adapter.start_fill_consumer(order_service.process_execution_report)
+        logger.info("broker_fill_consumer_ready")
 
     # Store references for health check
     fastapi_app.state.engine = engine

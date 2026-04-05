@@ -75,7 +75,9 @@ class RiskRepository(BaseRepository):
     ) -> None:
         async with self._session(session) as session:
             session.add(result_record)
+            await session.flush()
             for c in contributions:
+                c.var_result_id = result_record.id
                 session.add(c)
             await session.commit()
 
@@ -116,7 +118,9 @@ class RiskRepository(BaseRepository):
     ) -> None:
         async with self._session(session) as session:
             session.add(result_record)
+            await session.flush()
             for imp in impacts:
+                imp.stress_result_id = result_record.id
                 session.add(imp)
             await session.commit()
 

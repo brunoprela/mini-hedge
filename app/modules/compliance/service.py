@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -16,9 +15,11 @@ from app.modules.compliance.interface import (
     RuleType,
     Severity,
     TradeCheckRequest,
+    UpdateRuleRequest,
     Violation,
 )
 from app.modules.compliance.models import ComplianceRuleRecord, ComplianceViolationRecord
+from app.shared.audit_events import AuditEventType
 from app.shared.database import TenantSessionFactory
 
 if TYPE_CHECKING:
@@ -120,7 +121,7 @@ class ComplianceService:
         saved = await self._rule_repo.insert(record, session=session)
         rule = _to_rule(saved)
         await self._audit_event(
-            "compliance.rule.created",
+            AuditEventType.COMPLIANCE_RULE_CREATED,
             actor_id=actor_id,
             fund_slug=fund_slug,
             payload={"rule_id": str(rule.id), "name": name, "rule_type": rule_type.value},
@@ -131,25 +132,20 @@ class ComplianceService:
     async def update_rule(
         self,
         rule_id: UUID,
+        updates: UpdateRuleRequest,
+        *,
         actor_id: str = "system",
-        **fields: object,
+        session: AsyncSession | None = None,
     ) -> RuleDefinition:
-        session: AsyncSession | None = fields.pop("session", None)  # type: ignore[assignment]
-        # Normalise enum values if present
-        if "rule_type" in fields and isinstance(fields["rule_type"], RuleType):
-            fields["rule_type"] = fields["rule_type"].value
-        if "severity" in fields and isinstance(fields["severity"], Severity):
-            fields["severity"] = fields["severity"].value
-
-        record = await self._rule_repo.update(rule_id, session=session, **fields)
+        record = await self._rule_repo.update(rule_id, updates, session=session)
         if record is None:
             raise LookupError(f"Compliance rule {rule_id} not found")
         rule = _to_rule(record)
         await self._audit_event(
-            "compliance.rule.updated",
+            AuditEventType.COMPLIANCE_RULE_UPDATED,
             actor_id=actor_id,
             fund_slug=record.fund_slug,
-            payload={"rule_id": str(rule_id), "changes": {k: str(v) for k, v in fields.items()}},
+            payload={"rule_id": str(rule_id), "changes": updates.model_dump(exclude_none=True)},
             session=session,
         )
         return rule
@@ -187,7 +183,7 @@ class ComplianceService:
             raise LookupError(f"Violation {violation_id} not found")
         violation = _to_violation(record)
         await self._audit_event(
-            "compliance.violation.resolved",
+            AuditEventType.COMPLIANCE_VIOLATION_RESOLVED,
             actor_id=resolved_by,
             fund_slug=None,
             payload={
@@ -216,7 +212,7 @@ class ComplianceService:
             raise LookupError(f"Violation {violation_id} not found")
         violation = _to_violation(record)
         await self._audit_event(
-            "compliance.violation.waived",
+            AuditEventType.COMPLIANCE_VIOLATION_WAIVED,
             actor_id=waived_by,
             fund_slug=None,
             payload={
@@ -245,10 +241,11 @@ class ComplianceService:
         if self._position_service is None:
             return []
 
-        violations, positions = await asyncio.gather(
-            self._violation_repo.get_active_by_portfolio(portfolio_id, session=session),
-            self._position_service.get_by_portfolio(portfolio_id, session=session),
+        violations = await self._violation_repo.get_active_by_portfolio(
+            portfolio_id,
+            session=session,
         )
+        positions = await self._position_service.get_by_portfolio(portfolio_id, session=session)
         if not violations or not positions:
             return []
 

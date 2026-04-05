@@ -1,10 +1,18 @@
 """Data access for fund records."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from sqlalchemy import func, select, update
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.platform.models import FundRecord, FundStatus
 from app.shared.repository import BaseRepository
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.modules.platform.interface import UpdateFundRequest
 
 
 class FundRepository(BaseRepository):
@@ -50,12 +58,17 @@ class FundRepository(BaseRepository):
             await session.commit()
 
     async def update(
-        self, fund_id: str, *, session: AsyncSession | None = None, **fields: object
+        self,
+        fund_id: str,
+        updates: UpdateFundRequest,
+        *,
+        session: AsyncSession | None = None,
     ) -> FundRecord | None:
         async with self._session(session) as session:
-            if fields:
+            values = updates.model_dump(exclude_none=True)
+            if values:
                 await session.execute(
-                    update(FundRecord).where(FundRecord.id == fund_id).values(**fields)
+                    update(FundRecord).where(FundRecord.id == fund_id).values(**values)
                 )
                 await session.commit()
             result = await session.execute(select(FundRecord).where(FundRecord.id == fund_id))

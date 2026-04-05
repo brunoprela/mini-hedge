@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.market_data.dependencies import get_market_data_service
 from app.modules.market_data.interface import PriceSnapshot
-from app.modules.market_data.market_data_service import MarketDataService
+from app.modules.market_data.service import MarketDataService
 from app.shared.auth import Permission, require_permission
 from app.shared.database import get_db
 from app.shared.request_context import RequestContext
