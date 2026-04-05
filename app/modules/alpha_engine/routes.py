@@ -4,7 +4,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.modules.alpha_engine.dependencies import get_alpha_service
 from app.modules.alpha_engine.interface import (
@@ -30,6 +30,8 @@ router = APIRouter(prefix="/alpha", tags=["alpha"])
 
 
 class TradeInput(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     instrument_id: str
     side: str
     quantity: Decimal
@@ -37,11 +39,15 @@ class TradeInput(BaseModel):
 
 
 class WhatIfRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     scenario_name: str
     trades: list[TradeInput]
 
 
 class OptimizeRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     objective: OptimizationObjective = OptimizationObjective.MAX_SHARPE
 
 

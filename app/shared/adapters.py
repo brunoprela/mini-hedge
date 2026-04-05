@@ -20,7 +20,6 @@ if TYPE_CHECKING:
     from decimal import Decimal
 
 
-
 # ---------------------------------------------------------------------------
 #  Value objects returned by adapters (vendor-agnostic)
 # ---------------------------------------------------------------------------

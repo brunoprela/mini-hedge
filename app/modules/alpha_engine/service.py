@@ -274,9 +274,7 @@ class AlphaService:
         vol_map = {
             i.ticker: i.annual_volatility for i in instruments if i.annual_volatility is not None
         }
-        drift_map = {
-            i.ticker: i.annual_drift for i in instruments if i.annual_drift is not None
-        }
+        drift_map = {i.ticker: i.annual_drift for i in instruments if i.annual_drift is not None}
 
         n = len(instrument_ids)
         matrix = np.zeros((n_days, n))

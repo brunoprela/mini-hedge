@@ -79,6 +79,7 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
 
     # Database
     engine, session_factory = build_engine()
+    fastapi_app.state.session_factory = session_factory
 
     # Run migrations in thread pool (env.py uses sync psycopg2 to avoid
     # asyncio.run() conflicts with uvloop under uvicorn)
@@ -133,7 +134,7 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
 
     sm_service: SecurityMasterService = fastapi_app.state.security_master_service
     setup_market_data(fastapi_app, session_factory, kafka_bus)
-    setup_positions(fastapi_app, session_factory, kafka_bus, fund_repo, sm_service)
+    await setup_positions(fastapi_app, session_factory, kafka_bus, fund_repo, sm_service)
 
     # Phase 2 modules — depend on positions + security_master being wired
     await setup_exposure(fastapi_app, session_factory, kafka_bus, fund_repo)
@@ -174,6 +175,7 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     # from the vendor's Kafka and forwarding fills to OrderService.
     if hasattr(broker_adapter, "start_fill_consumer"):
         order_service = fastapi_app.state.order_service
+        order_service._fund_slugs = fund_slugs
         await broker_adapter.start_fill_consumer(order_service.process_execution_report)
 
     # Store references for health check

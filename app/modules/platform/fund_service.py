@@ -9,6 +9,8 @@ import structlog
 from app.modules.platform.interface import FundDetail, FundPage
 from app.modules.platform.models import FundRecord, FundStatus
 from app.shared.errors import NotFoundError, ValidationError
+from app.shared.fund_schema import create_fund_kafka_topics, create_fund_schema
+from app.shared.schema_registry import fund_topic
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
@@ -42,6 +44,11 @@ class FundAdminService:
         self._engine = engine
         self._event_bus = event_bus
         self._auth_service = auth_service
+        self._on_fund_created_hooks: list[object] = []  # Callable[[str], Awaitable[None]]
+
+    def register_on_fund_created(self, hook: object) -> None:
+        """Register a callback invoked with the fund slug after creation."""
+        self._on_fund_created_hooks.append(hook)
 
     async def list_funds(self, *, limit: int = 100, offset: int = 0) -> FundPage:
         records, total = await self._fund_repo.get_all_paginated(limit=limit, offset=offset)
@@ -73,20 +80,22 @@ class FundAdminService:
 
         # Provision fund infrastructure (schema + Kafka topics)
         if self._engine is not None:
-            from app.shared.fund_schema import create_fund_schema
-
             await create_fund_schema(self._engine, slug)
 
         if self._event_bus is not None:
-            from app.shared.fund_schema import create_fund_kafka_topics
-            from app.shared.schema_registry import fund_topic
-
             create_fund_kafka_topics(self._event_bus, slug)
             # Subscribe audit consumer for the new fund
             self._event_bus.subscribe(
                 fund_topic(slug, "trades.executed"),
                 self._audit.insert,
             )
+
+        # Notify modules that need per-fund subscriptions (positions, etc.)
+        for hook in self._on_fund_created_hooks:
+            try:
+                await hook(slug)  # type: ignore[misc]
+            except Exception:
+                logger.exception("on_fund_created_hook_failed", fund_slug=slug)
 
         await self._audit.insert_admin_event(
             event_type="admin.fund.created",

@@ -12,7 +12,6 @@ Key behaviors:
 
 from __future__ import annotations
 
-import logging
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING
@@ -29,15 +28,21 @@ from app.modules.compliance.interface import (
     Severity,
 )
 from app.modules.compliance.models import ComplianceViolationRecord
-
 from app.modules.positions.interface import Position
+from app.shared.events import BaseEvent
+from app.shared.schema_registry import fund_topic
 
 if TYPE_CHECKING:
+    from app.modules.cash_management.repository import CashBalanceRepository
+    from app.modules.compliance.repository import RuleRepository, ViolationRepository
+    from app.modules.positions.position_repository import CurrentPositionRepository
     from app.modules.security_master.service import SecurityMasterService
     from app.shared.database import TenantSessionFactory
-    from app.shared.events import BaseEvent, EventBus
+    from app.shared.events import EventBus
 
-logger = logging.getLogger(__name__)
+import structlog
+
+logger = structlog.get_logger()
 
 
 class PostTradeMonitor:
@@ -51,15 +56,22 @@ class PostTradeMonitor:
 
     def __init__(
         self,
+        *,
         session_factory: TenantSessionFactory,
-        position_service: object,
+        rule_repo: RuleRepository,
+        violation_repo: ViolationRepository,
+        position_repo: CurrentPositionRepository,
         security_master: SecurityMasterService | None = None,
         event_bus: EventBus | None = None,
+        cash_balance_repo: CashBalanceRepository | None = None,
     ) -> None:
         self._sf = session_factory
-        self._position_service = position_service
+        self._rule_repo = rule_repo
+        self._violation_repo = violation_repo
+        self._pos_repo = position_repo
         self._sm = security_master
         self._event_bus = event_bus
+        self._cash_repo = cash_balance_repo
 
     async def handle_position_changed(self, event: BaseEvent) -> None:
         """Event handler for ``positions.changed`` topic (trade-triggered)."""
@@ -71,11 +83,12 @@ class PostTradeMonitor:
                 return
 
             portfolio_id = UUID(str(portfolio_id_str))
-            await self._evaluate_portfolio(portfolio_id, fund_slug, is_passive=False)
+            async with self._sf.fund_scope(fund_slug):
+                await self._evaluate_portfolio(portfolio_id, fund_slug, is_passive=False)
         except Exception:
             logger.exception(
                 "post_trade_monitor_failed",
-                extra={"event_id": event.event_id},
+                event_id=event.event_id,
             )
 
     async def handle_mtm_update(self, event: BaseEvent) -> None:
@@ -92,11 +105,12 @@ class PostTradeMonitor:
                 return
 
             portfolio_id = UUID(str(portfolio_id_str))
-            await self._evaluate_portfolio(portfolio_id, fund_slug, is_passive=True)
+            async with self._sf.fund_scope(fund_slug):
+                await self._evaluate_portfolio(portfolio_id, fund_slug, is_passive=True)
         except Exception:
             logger.exception(
                 "post_trade_monitor_mtm_failed",
-                extra={"event_id": event.event_id},
+                event_id=event.event_id,
             )
 
     async def _evaluate_portfolio(
@@ -107,16 +121,8 @@ class PostTradeMonitor:
         is_passive: bool = False,
     ) -> None:
         """Load portfolio, evaluate rules, persist/resolve violations."""
-        from app.modules.compliance.repository import (
-            RuleRepository,
-            ViolationRepository,
-        )
-
-        rule_repo = RuleRepository(self._sf, fund_slug=fund_slug)
-        violation_repo = ViolationRepository(self._sf, fund_slug=fund_slug)
-
-        # Load active rules
-        rule_records = await rule_repo.get_active_by_fund(fund_slug)
+        # Load active rules (session is already fund-scoped)
+        rule_records = await self._rule_repo.get_active()
         if not rule_records:
             return
 
@@ -134,12 +140,8 @@ class PostTradeMonitor:
             for r in rule_records
         ]
 
-        # Load current positions (use fund-scoped repo, not the shared
-        # position_service, because we're running outside request context)
-        from app.modules.positions.position_repository import CurrentPositionRepository
-
-        pos_repo = CurrentPositionRepository(self._sf, fund_slug=fund_slug)
-        pos_records = await pos_repo.get_by_portfolio(portfolio_id)
+        # Load current positions
+        pos_records = await self._pos_repo.get_by_portfolio(portfolio_id)
         positions: list[Position] = [
             Position(
                 portfolio_id=UUID(r.portfolio_id),
@@ -162,10 +164,8 @@ class PostTradeMonitor:
         state = await self._build_actual_state(portfolio_id, positions)
 
         # Load existing active violations
-        existing = await violation_repo.get_active_by_portfolio(portfolio_id)
-        existing_by_rule_id: dict[str, ComplianceViolationRecord] = {
-            v.rule_id: v for v in existing
-        }
+        existing = await self._violation_repo.get_active_by_portfolio(portfolio_id)
+        existing_by_rule_id: dict[str, ComplianceViolationRecord] = {v.rule_id: v for v in existing}
 
         for rule in rules:
             evaluator = EVALUATOR_REGISTRY.get(RuleType(rule.rule_type))
@@ -193,7 +193,7 @@ class PostTradeMonitor:
                     breach_type=breach_type,
                     deadline_at=deadline_at,
                 )
-                await violation_repo.insert(record)
+                await self._violation_repo.insert(record)
                 await self._publish_violation(record, portfolio_id, fund_slug)
                 logger.info(
                     "compliance_violation_detected",
@@ -207,14 +207,12 @@ class PostTradeMonitor:
             elif result.passed and rule_id_str in existing_by_rule_id:
                 # Rule now passes — auto-resolve the existing violation
                 violation = existing_by_rule_id[rule_id_str]
-                await violation_repo.resolve(
+                await self._violation_repo.resolve(
                     UUID(violation.id),
                     resolved_by="system",
                     resolution_type="auto",
                 )
-                await self._publish_violation_resolved(
-                    violation, portfolio_id, fund_slug
-                )
+                await self._publish_violation_resolved(violation, portfolio_id, fund_slug)
                 logger.info(
                     "compliance_violation_auto_resolved",
                     portfolio_id=str(portfolio_id),
@@ -231,8 +229,6 @@ class PostTradeMonitor:
         """Publish a compliance violation event to Kafka."""
         if self._event_bus is None:
             return
-        from app.shared.events import BaseEvent
-        from app.shared.schema_registry import fund_topic
 
         event = BaseEvent(
             event_type="compliance.violation",
@@ -264,8 +260,6 @@ class PostTradeMonitor:
         """Publish a violation resolved event to Kafka."""
         if self._event_bus is None:
             return
-        from app.shared.events import BaseEvent
-        from app.shared.schema_registry import fund_topic
 
         event = BaseEvent(
             event_type="compliance.violation.resolved",
@@ -321,7 +315,12 @@ class PostTradeMonitor:
                 country=country,
             )
 
-        nav = sum(abs(p.market_value) for p in pos_map.values())
+        position_value = sum(abs(p.market_value) for p in pos_map.values())
+        cash = Decimal(0)
+        if self._cash_repo is not None:
+            balances = await self._cash_repo.get_by_portfolio(portfolio_id)
+            cash = sum(b.available_balance for b in balances)
+        nav = position_value + cash
 
         return PortfolioState(
             portfolio_id=portfolio_id,

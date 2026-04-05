@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
@@ -21,31 +19,15 @@ if TYPE_CHECKING:
 
 
 class CurrentPositionRepository:
-    def __init__(
-        self,
-        session_factory: TenantSessionFactory,
-        *,
-        fund_slug: str | None = None,
-    ) -> None:
-        self._session_factory = session_factory
-        self._fund_slug = fund_slug
-
-    @asynccontextmanager
-    async def _session(self) -> AsyncIterator[AsyncSession]:
-        """Get a session — uses explicit fund_slug if set, else request context."""
-        if self._fund_slug is not None:
-            async with self._session_factory.for_fund(self._fund_slug) as session:
-                yield session
-        else:
-            async with self._session_factory() as session:
-                yield session
+    def __init__(self, session_factory: TenantSessionFactory) -> None:
+        self._sf = session_factory
 
     async def get_position(
         self,
         portfolio_id: UUID,
         instrument_id: str,
     ) -> CurrentPositionRecord | None:
-        async with self._session() as session:
+        async with self._sf() as session:
             stmt = select(CurrentPositionRecord).where(
                 CurrentPositionRecord.portfolio_id == str(portfolio_id),
                 CurrentPositionRecord.instrument_id == instrument_id,
@@ -57,7 +39,7 @@ class CurrentPositionRepository:
         self,
         portfolio_id: UUID,
     ) -> list[CurrentPositionRecord]:
-        async with self._session() as session:
+        async with self._sf() as session:
             stmt = (
                 select(CurrentPositionRecord)
                 .where(CurrentPositionRecord.portfolio_id == str(portfolio_id))
@@ -109,7 +91,7 @@ class CurrentPositionRepository:
         if session is not None:
             await _upsert(session)
         else:
-            async with self._session() as s:
+            async with self._sf() as s:
                 await _upsert(s)
                 await s.commit()
 
@@ -121,7 +103,7 @@ class CurrentPositionRepository:
         market_value: Decimal,
         unrealized_pnl: Decimal,
     ) -> None:
-        async with self._session() as session:
+        async with self._sf() as session:
             stmt = select(CurrentPositionRecord).where(
                 CurrentPositionRecord.portfolio_id == str(portfolio_id),
                 CurrentPositionRecord.instrument_id == instrument_id,
@@ -136,7 +118,7 @@ class CurrentPositionRepository:
                 await session.commit()
 
     async def get_by_instrument(self, instrument_id: str) -> list[CurrentPositionRecord]:
-        async with self._session() as session:
+        async with self._sf() as session:
             stmt = select(CurrentPositionRecord).where(
                 CurrentPositionRecord.instrument_id == instrument_id
             )
@@ -148,7 +130,7 @@ class CurrentPositionRepository:
         portfolio_id: UUID,
     ) -> dict[str, object] | None:
         """Aggregate market value, cost basis, realized and unrealized P&L for a portfolio."""
-        async with self._session() as session:
+        async with self._sf() as session:
             stmt = select(
                 func.coalesce(func.sum(CurrentPositionRecord.market_value), Decimal(0)),
                 func.coalesce(func.sum(CurrentPositionRecord.cost_basis), Decimal(0)),
@@ -171,7 +153,7 @@ class CurrentPositionRepository:
         portfolio_id: UUID,
         instrument_id: str,
     ) -> list[LotRecord]:
-        async with self._session() as session:
+        async with self._sf() as session:
             stmt = (
                 select(LotRecord)
                 .where(

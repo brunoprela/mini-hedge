@@ -122,7 +122,7 @@ def upgrade() -> None:
         ),
         sa.Column("portfolio_id", PG_UUID(), nullable=False),
         sa.Column("order_id", PG_UUID(), nullable=True),
-        sa.Column("instrument_id", sa.String(20), nullable=False),
+        sa.Column("instrument_id", sa.String(32), nullable=False),
         sa.Column("currency", sa.String(3), nullable=False),
         sa.Column("settlement_amount", sa.Numeric(18, 4), nullable=False),
         sa.Column("trade_date", sa.Date(), nullable=False),

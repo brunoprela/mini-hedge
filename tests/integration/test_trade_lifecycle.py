@@ -32,64 +32,75 @@ class TestTradeLifecycle:
         event_store = EventStoreRepository(session_factory)
         position_repo = CurrentPositionRepository(session_factory)
         projector = PositionProjector(position_repo)
-        trade_handler = TradeHandler(session_factory, event_store, projector, event_bus)
-        service = PositionService(position_repo, trade_handler)
-
-        # Step 1: Buy 100 NFLX @ $200 (unique ticker for this test)
-        buy = make_trade(
-            instrument_id="NFLX",
-            side=TradeSide.BUY,
-            quantity=Decimal("100"),
-            price=Decimal("200.00"),
+        trade_handler = TradeHandler(
+            session_factory=session_factory,
+            event_store=event_store,
+            projector=projector,
+            event_bus=event_bus,
         )
-        pos = await service.execute_trade(buy, request_context)
-        assert pos.quantity == Decimal("100")
-        assert pos.cost_basis == Decimal("20000")
-        assert pos.avg_cost == Decimal("200")
+        service = PositionService(position_repo=position_repo, trade_handler=trade_handler)
 
-        # Step 2: Mark-to-market at $220
-        async def get_fund_slugs() -> list[str]:
-            return ["alpha"]
+        async with session_factory.fund_scope("alpha"):
+            # Step 1: Buy 100 NFLX @ $200 (unique ticker for this test)
+            buy = make_trade(
+                instrument_id="NFLX",
+                side=TradeSide.BUY,
+                quantity=Decimal("100"),
+                price=Decimal("200.00"),
+            )
+            pos = await service.execute_trade(buy, request_context)
+            assert pos.quantity == Decimal("100")
+            assert pos.cost_basis == Decimal("20000")
+            assert pos.avg_cost == Decimal("200")
 
-        async def get_asset_class(instrument_id: str) -> AssetClass | None:
-            return AssetClass.EQUITY
+            # Step 2: Mark-to-market at $220
+            async def get_fund_slugs() -> list[str]:
+                return ["alpha"]
 
-        mtm = MarkToMarketHandler(session_factory, event_bus, get_fund_slugs, get_asset_class)
-        price_event = BaseEvent(
-            event_type="price.updated",
-            data={"instrument_id": "NFLX", "mid": "220.00"},
-        )
-        await mtm.handle_price_update(price_event)
+            async def get_asset_class(instrument_id: str) -> AssetClass | None:
+                return AssetClass.EQUITY
 
-        # Verify MTM updated market_value and unrealized_pnl
-        pos = await service.get_position(DEFAULT_PORTFOLIO_ID, "NFLX")
-        assert pos is not None
-        assert pos.market_price == Decimal("220")
-        assert pos.market_value == Decimal("22000")  # 100 * 220
-        assert pos.unrealized_pnl == Decimal("2000")  # 22000 - 20000
+            mtm = MarkToMarketHandler(
+                session_factory=session_factory,
+                event_bus=event_bus,
+                get_fund_slugs=get_fund_slugs,
+                get_asset_class=get_asset_class,
+            )
+            price_event = BaseEvent(
+                event_type="price.updated",
+                data={"instrument_id": "NFLX", "mid": "220.00"},
+            )
+            await mtm.handle_price_update(price_event)
 
-        # Step 3: Partial sell — 60 shares @ $225
-        sell = make_trade(
-            instrument_id="NFLX",
-            side=TradeSide.SELL,
-            quantity=Decimal("60"),
-            price=Decimal("225.00"),
-        )
-        pos = await service.execute_trade(sell, request_context)
-        assert pos.quantity == Decimal("40")
-        # cost_basis after selling 60 from lot of 100 @ $200: 40 * 200 = 8000
-        assert pos.cost_basis == Decimal("8000")
+            # Verify MTM updated market_value and unrealized_pnl
+            pos = await service.get_position(DEFAULT_PORTFOLIO_ID, "NFLX")
+            assert pos is not None
+            assert pos.market_price == Decimal("220")
+            assert pos.market_value == Decimal("22000")  # 100 * 220
+            assert pos.unrealized_pnl == Decimal("2000")  # 22000 - 20000
 
-        # Realized P&L from the sell: 60 * (225 - 200) = 1500
-        record = await position_repo.get_position(DEFAULT_PORTFOLIO_ID, "NFLX")
-        assert record is not None
-        assert record.realized_pnl == Decimal("1500")
+            # Step 3: Partial sell — 60 shares @ $225
+            sell = make_trade(
+                instrument_id="NFLX",
+                side=TradeSide.SELL,
+                quantity=Decimal("60"),
+                price=Decimal("225.00"),
+            )
+            pos = await service.execute_trade(sell, request_context)
+            assert pos.quantity == Decimal("40")
+            # cost_basis after selling 60 from lot of 100 @ $200: 40 * 200 = 8000
+            assert pos.cost_basis == Decimal("8000")
 
-        # Step 4: Verify event store has 2 events (buy + sell)
-        events = await event_store.get_by_aggregate(f"{DEFAULT_PORTFOLIO_ID}:NFLX")
-        assert len(events) == 2
-        assert events[0].event_type == "trade.buy"
-        assert events[1].event_type == "trade.sell"
+            # Realized P&L from the sell: 60 * (225 - 200) = 1500
+            record = await position_repo.get_position(DEFAULT_PORTFOLIO_ID, "NFLX")
+            assert record is not None
+            assert record.realized_pnl == Decimal("1500")
+
+            # Step 4: Verify event store has 2 events (buy + sell)
+            events = await event_store.get_by_aggregate(f"{DEFAULT_PORTFOLIO_ID}:NFLX")
+            assert len(events) == 2
+            assert events[0].event_type == "trade.buy"
+            assert events[1].event_type == "trade.sell"
 
     @pytest.mark.asyncio
     async def test_short_sell_lifecycle(
@@ -102,26 +113,32 @@ class TestTradeLifecycle:
         event_store = EventStoreRepository(session_factory)
         position_repo = CurrentPositionRepository(session_factory)
         projector = PositionProjector(position_repo)
-        trade_handler = TradeHandler(session_factory, event_store, projector, event_bus)
-        service = PositionService(position_repo, trade_handler)
-
-        # Short 50 CRM @ $500 (unique ticker for this test)
-        short = make_trade(
-            instrument_id="CRM",
-            side=TradeSide.SELL,
-            quantity=Decimal("50"),
-            price=Decimal("500.00"),
+        trade_handler = TradeHandler(
+            session_factory=session_factory,
+            event_store=event_store,
+            projector=projector,
+            event_bus=event_bus,
         )
-        pos = await service.execute_trade(short, request_context)
-        assert pos.quantity == Decimal("-50")
-        assert pos.cost_basis == Decimal("25000")  # abs(-50) * 500
+        service = PositionService(position_repo=position_repo, trade_handler=trade_handler)
 
-        # Cover (buy back) at $480 — profit
-        cover = make_trade(
-            instrument_id="CRM",
-            side=TradeSide.BUY,
-            quantity=Decimal("50"),
-            price=Decimal("480.00"),
-        )
-        pos = await service.execute_trade(cover, request_context)
-        assert pos.quantity == Decimal("0")
+        async with session_factory.fund_scope("alpha"):
+            # Short 50 CRM @ $500 (unique ticker for this test)
+            short = make_trade(
+                instrument_id="CRM",
+                side=TradeSide.SELL,
+                quantity=Decimal("50"),
+                price=Decimal("500.00"),
+            )
+            pos = await service.execute_trade(short, request_context)
+            assert pos.quantity == Decimal("-50")
+            assert pos.cost_basis == Decimal("25000")  # abs(-50) * 500
+
+            # Cover (buy back) at $480 — profit
+            cover = make_trade(
+                instrument_id="CRM",
+                side=TradeSide.BUY,
+                quantity=Decimal("50"),
+                price=Decimal("480.00"),
+            )
+            pos = await service.execute_trade(cover, request_context)
+            assert pos.quantity == Decimal("0")

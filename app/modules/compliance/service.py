@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -16,7 +17,8 @@ from app.modules.compliance.interface import (
     TradeCheckRequest,
     Violation,
 )
-from app.modules.compliance.models import ComplianceRuleRecord
+from app.modules.compliance.models import ComplianceRuleRecord, ComplianceViolationRecord
+from app.shared.database import TenantSessionFactory
 
 if TYPE_CHECKING:
     from app.modules.compliance.pre_trade import PreTradeGate
@@ -25,6 +27,9 @@ if TYPE_CHECKING:
         ViolationRepository,
     )
     from app.modules.platform.audit_repository import AuditLogRepository
+    from app.modules.positions.interface import Position
+    from app.modules.positions.service import PositionService
+    from app.modules.security_master.service import SecurityMasterService
 
 
 def _to_rule(record: ComplianceRuleRecord) -> RuleDefinition:
@@ -40,12 +45,7 @@ def _to_rule(record: ComplianceRuleRecord) -> RuleDefinition:
     )
 
 
-def _to_violation(record: object) -> Violation:
-    from app.modules.compliance.models import (
-        ComplianceViolationRecord,
-    )
-
-    assert isinstance(record, ComplianceViolationRecord)
+def _to_violation(record: ComplianceViolationRecord) -> Violation:
     return Violation(
         id=UUID(record.id),
         portfolio_id=UUID(record.portfolio_id),
@@ -69,12 +69,13 @@ class ComplianceService:
 
     def __init__(
         self,
+        *,
         rule_repo: RuleRepository,
         violation_repo: ViolationRepository,
         pre_trade_gate: PreTradeGate,
         audit_repo: AuditLogRepository | None = None,
-        position_service: object | None = None,
-        security_master: object | None = None,
+        position_service: PositionService | None = None,
+        security_master: SecurityMasterService | None = None,
     ) -> None:
         self._rule_repo = rule_repo
         self._violation_repo = violation_repo
@@ -90,19 +91,19 @@ class ComplianceService:
 
     # ---- Rules -------------------------------------------------------
 
-    async def get_rules(self, fund_slug: str) -> list[RuleDefinition]:
-        records = await self._rule_repo.get_all_by_fund(fund_slug)
+    async def get_rules(self) -> list[RuleDefinition]:
+        records = await self._rule_repo.get_all()
         return [_to_rule(r) for r in records]
 
     async def create_rule(
         self,
-        fund_slug: str,
         name: str,
         rule_type: RuleType,
         severity: Severity,
         parameters: dict[str, object],
         actor_id: str = "system",
     ) -> RuleDefinition:
+        fund_slug = TenantSessionFactory.current_fund_slug() or ""
         record = ComplianceRuleRecord(
             fund_slug=fund_slug,
             name=name,
@@ -150,9 +151,8 @@ class ComplianceService:
     async def check_trade(
         self,
         request: TradeCheckRequest,
-        fund_slug: str,
     ) -> ComplianceDecision:
-        return await self._pre_trade_gate.check_trade(request, fund_slug)
+        return await self._pre_trade_gate.check_trade(request)
 
     # ---- Violations --------------------------------------------------
 
@@ -222,19 +222,17 @@ class ComplianceService:
         For each active concentration_limit violation, computes how many shares
         to sell to bring the position back under the limit with a 0.5% buffer.
         """
-        from decimal import Decimal
-
         violations = await self._violation_repo.get_active_by_portfolio(portfolio_id)
         if not violations or self._position_service is None:
             return []
 
         # Load current positions
-        positions = await self._position_service.get_by_portfolio(portfolio_id)  # type: ignore[attr-defined]
+        positions = await self._position_service.get_by_portfolio(portfolio_id)
         if not positions:
             return []
 
         # Build position map and NAV
-        pos_by_id: dict[str, object] = {}
+        pos_by_id: dict[str, Position] = {}
         nav = Decimal(0)
         for pos in positions:
             pos_by_id[pos.instrument_id] = pos
@@ -257,7 +255,7 @@ class ComplianceService:
                 continue
 
             pos = pos_by_id[instrument_id]
-            current_mv = abs(pos.market_value)  # type: ignore[attr-defined]
+            current_mv = abs(pos.market_value)
             current_pct = (current_mv / nav) * 100
             limit_pct = v.limit_value
 
@@ -271,10 +269,10 @@ class ComplianceService:
             if excess_mv <= 0:
                 continue
 
-            # Calculate shares to sell (use current price)
-            price = pos.last_price if hasattr(pos, "last_price") and pos.last_price else None  # type: ignore[attr-defined]
-            if price is None and pos.quantity != 0:  # type: ignore[attr-defined]
-                price = current_mv / abs(pos.quantity)  # type: ignore[attr-defined]
+            # Calculate shares to sell (use current market price)
+            price = pos.market_price if pos.market_price else None
+            if price is None and pos.quantity != 0:
+                price = current_mv / abs(pos.quantity)
             if price is None or price <= 0:
                 continue
 

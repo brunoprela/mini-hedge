@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
+from typing import ClassVar
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -22,7 +24,6 @@ from sqlalchemy.ext.asyncio import (
 
 from app.config import get_settings
 from app.shared.fund_schema import fund_schema_name
-from app.shared.request_context import get_request_context
 
 # Schema name used in positions ORM models (__table_args__ schema key).
 # This is the key in schema_translate_map that gets rewritten per-fund.
@@ -30,25 +31,32 @@ _POSITIONS_SCHEMA = "positions"
 
 
 class TenantSessionFactory:
-    """Creates per-request sessions with schema isolation.
+    """Creates sessions with per-fund schema isolation.
 
-    For authenticated requests the ``positions`` schema is translated to
-    ``fund_{slug}`` via ``schema_translate_map``.  For system operations
-    (no request context) no translation is applied — callers must use
-    :meth:`for_fund` to target a specific fund explicitly.
+    Schema resolution is driven by a single ``ContextVar`` set via
+    ``fund_scope()``.  Both HTTP middleware and Kafka handlers use
+    the same mechanism::
 
-    ``schema_translate_map`` is set on the engine wrapper, which reuses
-    the same connection pool.  There is no per-request overhead beyond
-    a lightweight Python dict copy.
+        async with sf.fund_scope("alpha"):
+            async with sf() as session:
+                ...  # session targets fund_alpha schema
+
+    When no fund scope is active, sessions target shared schemas only
+    (platform, security_master, market_data).
     """
+
+    # Task-local fund slug. ``contextvars`` are scoped to the current
+    # ``asyncio.Task``, so concurrent consumers for different funds
+    # don't interfere with each other.
+    _fund_slug_var: ClassVar[ContextVar[str | None]] = ContextVar("_fund_slug_var", default=None)
 
     def __init__(self, engine: AsyncEngine) -> None:
         self._engine = engine
 
     @asynccontextmanager
     async def __call__(self) -> AsyncIterator[AsyncSession]:
-        """Session scoped to the current request's fund schema."""
-        fund_slug = self._resolve_fund_slug()
+        """Session scoped to the active fund schema (if any)."""
+        fund_slug = self._fund_slug_var.get()
         engine = self._engine
         if fund_slug is not None:
             engine = engine.execution_options(
@@ -58,38 +66,25 @@ class TenantSessionFactory:
             yield session
 
     @asynccontextmanager
-    async def for_fund(self, fund_slug: str) -> AsyncIterator[AsyncSession]:
-        """Session targeting a specific fund schema (for system operations).
+    async def fund_scope(self, fund_slug: str) -> AsyncIterator[None]:
+        """Set the active fund for the current async task.
 
-        Use this from code that runs outside a request context, such as
-        the mark-to-market handler which must iterate over all funds.
+        Every ``self()`` call within this block will target
+        ``fund_{slug}``::
+
+            async with sf.fund_scope(event.fund_slug):
+                await some_service.do_work(portfolio_id)
         """
-        engine = self._engine.execution_options(
-            schema_translate_map={_POSITIONS_SCHEMA: fund_schema_name(fund_slug)},
-        )
-        async with AsyncSession(engine, expire_on_commit=False) as session:
-            yield session
-
-    @asynccontextmanager
-    async def unscoped(self) -> AsyncIterator[AsyncSession]:
-        """Session with no schema translation (for platform/shared queries)."""
-        async with AsyncSession(self._engine, expire_on_commit=False) as session:
-            yield session
-
-    @staticmethod
-    def _resolve_fund_slug() -> str | None:
-        """Read fund_slug from the current request context.
-
-        Returns ``None`` when no request context exists (system operations).
-        Unlike the RLS approach, a missing fund_slug on an existing context
-        is tolerated — it simply means no schema translation (e.g. the
-        ``/me/funds`` endpoint runs before fund selection).
-        """
+        token = self._fund_slug_var.set(fund_slug)
         try:
-            ctx = get_request_context()
-        except RuntimeError:
-            return None  # No request context → system operation
-        return ctx.fund_slug if ctx.fund_slug else None
+            yield
+        finally:
+            self._fund_slug_var.reset(token)
+
+    @classmethod
+    def current_fund_slug(cls) -> str | None:
+        """Return the active fund slug, or None."""
+        return cls._fund_slug_var.get()
 
 
 def build_engine(

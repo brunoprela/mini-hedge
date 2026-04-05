@@ -16,11 +16,9 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 
-
-class Base(DeclarativeBase):
-    pass
+from app.shared.models import Base
 
 
 class ScenarioRunRecord(Base):
@@ -92,7 +90,7 @@ class OptimizationWeightRecord(Base):
         server_default=text("gen_random_uuid()"),
     )
     optimization_run_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)
-    instrument_id: Mapped[str] = mapped_column(String(20), nullable=False)
+    instrument_id: Mapped[str] = mapped_column(String(32), nullable=False)
     current_weight: Mapped[Decimal] = mapped_column(Numeric(10, 6), nullable=False)
     target_weight: Mapped[Decimal] = mapped_column(Numeric(10, 6), nullable=False)
     delta_weight: Mapped[Decimal] = mapped_column(Numeric(10, 6), nullable=False)
@@ -117,7 +115,7 @@ class OrderIntentRecord(Base):
     )
     optimization_run_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)
     portfolio_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)
-    instrument_id: Mapped[str] = mapped_column(String(20), nullable=False)
+    instrument_id: Mapped[str] = mapped_column(String(32), nullable=False)
     side: Mapped[str] = mapped_column(String(4), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     estimated_value: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)

@@ -26,7 +26,7 @@ def _to_snapshot(record: PriceRecord) -> PriceSnapshot:
 class MarketDataService:
     """Implements MarketDataReader protocol."""
 
-    def __init__(self, repository: PriceRepository) -> None:
+    def __init__(self, *, repository: PriceRepository) -> None:
         self._repo = repository
         # In-memory latest prices cache (updated by simulator events)
         self._latest: dict[str, PriceSnapshot] = {}

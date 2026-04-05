@@ -3,6 +3,7 @@
 from decimal import Decimal
 
 import pytest
+import pytest_asyncio
 
 from app.modules.positions.event_store import EventStoreRepository
 from app.modules.positions.interface import TradeSide
@@ -16,6 +17,21 @@ from app.shared.request_context import RequestContext
 from tests.factories import DEFAULT_PORTFOLIO_ID, make_trade
 
 
+@pytest_asyncio.fixture
+async def position_service(session_factory: TenantSessionFactory) -> PositionService:
+    event_bus = InProcessEventBus()
+    event_store = EventStoreRepository(session_factory)
+    position_repo = CurrentPositionRepository(session_factory)
+    projector = PositionProjector(position_repo)
+    trade_handler = TradeHandler(
+        session_factory=session_factory,
+        event_store=event_store,
+        projector=projector,
+        event_bus=event_bus,
+    )
+    return PositionService(position_repo=position_repo, trade_handler=trade_handler)
+
+
 @pytest.mark.integration
 class TestPositionKeeping:
     @pytest.mark.asyncio
@@ -23,16 +39,11 @@ class TestPositionKeeping:
         self,
         session_factory: TenantSessionFactory,
         request_context: RequestContext,
+        position_service: PositionService,
     ) -> None:
-        event_bus = InProcessEventBus()
-        event_store = EventStoreRepository(session_factory)
-        position_repo = CurrentPositionRepository(session_factory)
-        projector = PositionProjector(position_repo)
-        trade_handler = TradeHandler(session_factory, event_store, projector, event_bus)
-        service = PositionService(position_repo, trade_handler)
-
-        trade = make_trade(instrument_id="AMZN", quantity=Decimal("100"), price=Decimal("150.00"))
-        position = await service.execute_trade(trade, request_context)
+        async with session_factory.fund_scope("alpha"):
+            trade = make_trade(instrument_id="V", quantity=Decimal("100"), price=Decimal("150.00"))
+            position = await position_service.execute_trade(trade, request_context)
 
         assert position.quantity == Decimal("100")
         assert position.avg_cost == Decimal("150.00")
@@ -43,62 +54,50 @@ class TestPositionKeeping:
         self,
         session_factory: TenantSessionFactory,
         request_context: RequestContext,
+        position_service: PositionService,
     ) -> None:
-        event_bus = InProcessEventBus()
-        event_store = EventStoreRepository(session_factory)
         position_repo = CurrentPositionRepository(session_factory)
-        projector = PositionProjector(position_repo)
-        trade_handler = TradeHandler(session_factory, event_store, projector, event_bus)
-        service = PositionService(position_repo, trade_handler)
 
-        # Buy
-        buy = make_trade(
-            instrument_id="JNJ",
-            side=TradeSide.BUY,
-            quantity=Decimal("50"),
-            price=Decimal("400.00"),
-        )
-        await service.execute_trade(buy, request_context)
+        async with session_factory.fund_scope("alpha"):
+            buy = make_trade(
+                instrument_id="JNJ",
+                side=TradeSide.BUY,
+                quantity=Decimal("50"),
+                price=Decimal("400.00"),
+            )
+            await position_service.execute_trade(buy, request_context)
 
-        # Sell at higher price
-        sell = make_trade(
-            instrument_id="JNJ",
-            side=TradeSide.SELL,
-            quantity=Decimal("50"),
-            price=Decimal("420.00"),
-        )
-        position = await service.execute_trade(sell, request_context)
+            sell = make_trade(
+                instrument_id="JNJ",
+                side=TradeSide.SELL,
+                quantity=Decimal("50"),
+                price=Decimal("420.00"),
+            )
+            position = await position_service.execute_trade(sell, request_context)
 
-        assert position.quantity == Decimal("0")
-        # Realized P&L: 50 * (420 - 400) = 1000 — stored in read model
-        record = await position_repo.get_position(buy.portfolio_id, "JNJ")
-        assert record is not None
-        assert record.realized_pnl == Decimal("1000")
+            assert position.quantity == Decimal("0")
+            record = await position_repo.get_position(buy.portfolio_id, "JNJ")
+            assert record is not None
+            assert record.realized_pnl == Decimal("1000")
 
     @pytest.mark.asyncio
     async def test_portfolio_positions(
         self,
         session_factory: TenantSessionFactory,
         request_context: RequestContext,
+        position_service: PositionService,
     ) -> None:
-        event_bus = InProcessEventBus()
-        event_store = EventStoreRepository(session_factory)
-        position_repo = CurrentPositionRepository(session_factory)
-        projector = PositionProjector(position_repo)
-        trade_handler = TradeHandler(session_factory, event_store, projector, event_bus)
-        service = PositionService(position_repo, trade_handler)
+        async with session_factory.fund_scope("alpha"):
+            await position_service.execute_trade(
+                make_trade(instrument_id="XOM", quantity=Decimal("10"), price=Decimal("175.00")),
+                request_context,
+            )
+            await position_service.execute_trade(
+                make_trade(instrument_id="BAC", quantity=Decimal("5"), price=Decimal("880.00")),
+                request_context,
+            )
 
-        # Buy two different instruments
-        await service.execute_trade(
-            make_trade(instrument_id="XOM", quantity=Decimal("10"), price=Decimal("175.00")),
-            request_context,
-        )
-        await service.execute_trade(
-            make_trade(instrument_id="BAC", quantity=Decimal("5"), price=Decimal("880.00")),
-            request_context,
-        )
-
-        positions = await service.get_by_portfolio(DEFAULT_PORTFOLIO_ID)
-        tickers = {p.instrument_id for p in positions}
-        assert "XOM" in tickers
-        assert "BAC" in tickers
+            positions = await position_service.get_by_portfolio(DEFAULT_PORTFOLIO_ID)
+            tickers = {p.instrument_id for p in positions}
+            assert "XOM" in tickers
+            assert "BAC" in tickers

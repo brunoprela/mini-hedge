@@ -40,36 +40,47 @@ class MarkToMarketHandler:
 
     def __init__(
         self,
+        *,
         session_factory: TenantSessionFactory,
         event_bus: EventBus,
         get_fund_slugs: Callable[[], Awaitable[list[str]]],
         get_asset_class: Callable[[str], Awaitable[AssetClass | None]],
     ) -> None:
-        self._session_factory = session_factory
+        self._sf = session_factory
         self._event_bus = event_bus
         self._get_fund_slugs = get_fund_slugs
         self._get_asset_class = get_asset_class
 
     async def handle_price_update(self, event: BaseEvent) -> None:
-        instrument_id = event.data["instrument_id"]
-        new_price = Decimal(event.data["mid"])
-
-        asset_class = await self._get_asset_class(instrument_id)
-        if asset_class is None:
-            logger.warning("mtm_unknown_instrument", instrument_id=instrument_id)
-            return
         try:
-            strategy = get_position_strategy(asset_class)
-        except KeyError:
-            logger.warning("mtm_no_strategy", instrument_id=instrument_id, asset_class=asset_class)
-            return
+            instrument_id = event.data["instrument_id"]
+            new_price = Decimal(event.data["mid"])
 
-        for slug in await self._get_fund_slugs():
-            await self._update_fund_positions(
-                slug,
-                instrument_id,
-                new_price,
-                strategy,
+            asset_class = await self._get_asset_class(instrument_id)
+            if asset_class is None:
+                logger.warning("mtm_unknown_instrument", instrument_id=instrument_id)
+                return
+            try:
+                strategy = get_position_strategy(asset_class)
+            except KeyError:
+                logger.warning(
+                    "mtm_no_strategy",
+                    instrument_id=instrument_id,
+                    asset_class=asset_class,
+                )
+                return
+
+            for slug in await self._get_fund_slugs():
+                await self._update_fund_positions(
+                    slug,
+                    instrument_id,
+                    new_price,
+                    strategy,
+                )
+        except Exception:
+            logger.exception(
+                "mtm_handler_failed",
+                event_id=event.event_id,
             )
 
     async def _update_fund_positions(
@@ -79,7 +90,22 @@ class MarkToMarketHandler:
         new_price: Decimal,
         strategy: PositionStrategy,
     ) -> None:
-        repo = CurrentPositionRepository(self._session_factory, fund_slug=fund_slug)
+        async with self._sf.fund_scope(fund_slug):
+            await self._update_positions_for_instrument(
+                fund_slug,
+                instrument_id,
+                new_price,
+                strategy,
+            )
+
+    async def _update_positions_for_instrument(
+        self,
+        fund_slug: str,
+        instrument_id: str,
+        new_price: Decimal,
+        strategy: PositionStrategy,
+    ) -> None:
+        repo = CurrentPositionRepository(self._sf)
         positions = await repo.get_by_instrument(instrument_id)
         for pos in positions:
             old_unrealized = pos.unrealized_pnl

@@ -10,7 +10,7 @@ from app.modules.market_data.service import MarketDataService
 from app.shared.auth import Permission, require_permission
 from app.shared.request_context import RequestContext
 
-router = APIRouter(prefix="/prices", tags=["market-data"])
+router = APIRouter(prefix="/prices", tags=["market_data"])
 
 
 @router.get("/latest/{instrument_id}", response_model=PriceSnapshot)

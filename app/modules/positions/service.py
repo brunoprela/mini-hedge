@@ -43,6 +43,7 @@ class PositionService:
 
     def __init__(
         self,
+        *,
         position_repo: CurrentPositionRepository,
         trade_handler: TradeHandler,
     ) -> None:

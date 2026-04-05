@@ -34,7 +34,7 @@ def _to_instrument(record: InstrumentRecord) -> Instrument:
 class SecurityMasterService:
     """Implements SecurityMasterReader protocol."""
 
-    def __init__(self, repository: InstrumentRepository) -> None:
+    def __init__(self, *, repository: InstrumentRepository) -> None:
         self._repo = repository
 
     async def get_by_id(self, instrument_id: UUID) -> Instrument:

@@ -4,7 +4,7 @@ from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.modules.risk_engine.dependencies import get_risk_service
 from app.modules.risk_engine.interface import (
@@ -32,12 +32,16 @@ router = APIRouter(prefix="/risk", tags=["risk"])
 
 
 class VaRRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     method: VaRMethod = VaRMethod.HISTORICAL
     confidence: float = 0.95
     horizon_days: int = 1
 
 
 class CustomStressRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     name: str
     shocks: dict[str, float]
     description: str = ""

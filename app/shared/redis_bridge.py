@@ -17,7 +17,7 @@ from app.shared.schema_registry import fund_topics_for_slug, shared_topics
 if TYPE_CHECKING:
     import redis.asyncio as aioredis
 
-    from app.shared.events import BaseEvent, EventBus
+    from app.shared.events import BaseEvent, EventBus, EventHandler
 
 logger = structlog.get_logger()
 
@@ -69,11 +69,18 @@ class RedisBridge:
             fund_slugs=fund_slugs,
         )
 
-    def _make_handler(self, channel: str):  # type: ignore[no-untyped-def]
+    def _make_handler(self, channel: str) -> EventHandler:
         """Create an event handler that publishes to the given Redis channel."""
 
         async def handler(event: BaseEvent) -> None:
-            payload = _event_to_json(event, channel)
-            await self._redis.publish(channel, payload)
+            try:
+                payload = _event_to_json(event, channel)
+                await self._redis.publish(channel, payload)
+            except Exception:
+                logger.exception(
+                    "redis_bridge_publish_failed",
+                    channel=channel,
+                    event_id=event.event_id,
+                )
 
         return handler

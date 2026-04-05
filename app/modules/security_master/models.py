@@ -1,5 +1,7 @@
 """SQLAlchemy models for the security_master schema."""
 
+from __future__ import annotations
+
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -16,11 +18,9 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 
-
-class Base(DeclarativeBase):
-    pass
+from app.shared.models import Base
 
 
 class InstrumentRecord(Base):

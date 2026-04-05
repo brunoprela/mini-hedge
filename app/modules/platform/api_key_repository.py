@@ -10,10 +10,10 @@ from app.shared.database import TenantSessionFactory
 
 class APIKeyRepository:
     def __init__(self, session_factory: TenantSessionFactory) -> None:
-        self._session_factory = session_factory
+        self._sf = session_factory
 
     async def get_by_hash(self, key_hash: str) -> APIKeyRecord | None:
-        async with self._session_factory() as session:
+        async with self._sf() as session:
             result = await session.execute(
                 select(APIKeyRecord).where(
                     APIKeyRecord.key_hash == key_hash,
@@ -26,6 +26,6 @@ class APIKeyRepository:
             return record
 
     async def insert(self, record: APIKeyRecord) -> None:
-        async with self._session_factory() as session:
+        async with self._sf() as session:
             session.add(record)
             await session.commit()

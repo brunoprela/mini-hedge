@@ -3,7 +3,7 @@
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.modules.platform.audit_repository import AuditLogRepository
 from app.modules.platform.auth_service import AuthService
@@ -22,11 +22,15 @@ router = APIRouter(tags=["platform"])
 
 
 class AgentTokenRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     agent_name: str
     roles: list[str] = ["viewer"]
 
 
 class AgentTokenResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     access_token: str
     token_type: str = "bearer"
     actor_type: str

@@ -16,11 +16,9 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 
-
-class Base(DeclarativeBase):
-    pass
+from app.shared.models import Base
 
 
 class CashBalanceRecord(Base):
@@ -109,7 +107,7 @@ class CashSettlementRecord(Base):
     )
     portfolio_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)
     order_id: Mapped[str | None] = mapped_column(PG_UUID(as_uuid=False), nullable=True)
-    instrument_id: Mapped[str] = mapped_column(String(20), nullable=False)
+    instrument_id: Mapped[str] = mapped_column(String(32), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     settlement_amount: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
     trade_date: Mapped[date] = mapped_column(Date, nullable=False)

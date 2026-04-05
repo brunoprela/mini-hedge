@@ -20,11 +20,11 @@ logger = structlog.get_logger()
 
 class AuditLogRepository:
     def __init__(self, session_factory: TenantSessionFactory) -> None:
-        self._session_factory = session_factory
+        self._sf = session_factory
 
     async def insert(self, event: BaseEvent) -> None:
         """Persist an event to the audit log. Idempotent via unique event_id."""
-        async with self._session_factory() as session:
+        async with self._sf() as session:
             stmt = insert(AuditLogRecord).values(
                 event_id=event.event_id,
                 event_type=event.event_type,
@@ -47,7 +47,7 @@ class AuditLogRepository:
         payload: dict[str, Any] | None = None,
     ) -> None:
         """Insert an admin audit event directly (no BaseEvent required)."""
-        async with self._session_factory() as session:
+        async with self._sf() as session:
             record = AuditLogRecord(
                 event_id=f"admin-{uuid4().hex}",
                 event_type=event_type,
@@ -71,7 +71,7 @@ class AuditLogRepository:
 
         Returns ``(records, total_count)`` for pagination.
         """
-        async with self._session_factory() as session:
+        async with self._sf() as session:
             # Base filter
             conditions = []
             if fund_slug:

@@ -1,4 +1,4 @@
-.PHONY: up down logs restart install run-local run-ui run-ops-ui migrate lint format typecheck tach-check test test-unit test-integration check db-reset kafka-reset redis-reset reset status mock-exchange-up mock-exchange-down mock-exchange-logs mock-exchange-status up-all down-all
+.PHONY: up down logs restart install run-local run-ui run-ops-ui migrate lint format typecheck tach-check test test-unit test-integration check db-reset kafka-reset redis-reset reset status mock-exchange-up mock-exchange-down mock-exchange-logs mock-exchange-status up-all down-all seed seed-trades seed-all
 
 # --- Platform Infrastructure ---
 
@@ -117,7 +117,11 @@ migrate:
 
 seed:
 	uv run python -m app.seed
+
+seed-trades:
 	uv run python -m app.seed_trades
+
+seed-all: seed seed-trades
 
 # --- Quality ---
 

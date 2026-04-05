@@ -15,7 +15,7 @@ from app.shared.schema_registry import fund_topics_for_slug
 
 if TYPE_CHECKING:
     from app.modules.platform.audit_repository import AuditLogRepository
-    from app.shared.events import BaseEvent, EventBus
+    from app.shared.events import BaseEvent, EventBus, EventHandler
 
 logger = structlog.get_logger()
 
@@ -37,7 +37,7 @@ class AuditBridge:
             fund_slugs=fund_slugs,
         )
 
-    def _make_handler(self):  # type: ignore[no-untyped-def]
+    def _make_handler(self) -> EventHandler:
         """Create an event handler that persists to the audit log."""
 
         async def handler(event: BaseEvent) -> None:

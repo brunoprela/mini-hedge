@@ -250,9 +250,7 @@ class AttributionService:
     ) -> list[float]:
         """Generate synthetic period returns from instrument reference data."""
         instruments = await self._sm.get_all_active()
-        drift_map = {
-            i.ticker: i.annual_drift for i in instruments if i.annual_drift is not None
-        }
+        drift_map = {i.ticker: i.annual_drift for i in instruments if i.annual_drift is not None}
         vol_map = {
             i.ticker: i.annual_volatility for i in instruments if i.annual_volatility is not None
         }
@@ -275,9 +273,7 @@ class AttributionService:
         vol_map = {
             i.ticker: i.annual_volatility for i in instruments if i.annual_volatility is not None
         }
-        drift_map = {
-            i.ticker: i.annual_drift for i in instruments if i.annual_drift is not None
-        }
+        drift_map = {i.ticker: i.annual_drift for i in instruments if i.annual_drift is not None}
 
         n = len(instrument_ids)
         matrix = np.zeros((n_days, n))

@@ -15,8 +15,8 @@ if TYPE_CHECKING:
 class ComplianceGateway:
     """Thin wrapper calling compliance module's PreTradeGate in-process."""
 
-    def __init__(self, pre_trade_gate: PreTradeGate) -> None:
+    def __init__(self, *, pre_trade_gate: PreTradeGate) -> None:
         self._gate = pre_trade_gate
 
-    async def check(self, request: TradeCheckRequest, fund_slug: str) -> ComplianceDecision:
-        return await self._gate.check_trade(request, fund_slug)
+    async def check(self, request: TradeCheckRequest) -> ComplianceDecision:
+        return await self._gate.check_trade(request)

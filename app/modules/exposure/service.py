@@ -16,6 +16,8 @@ from app.modules.exposure.interface import (
     PositionValue,
 )
 from app.modules.exposure.models import ExposureSnapshotRecord
+from app.shared.events import BaseEvent
+from app.shared.schema_registry import fund_topic
 
 if TYPE_CHECKING:
     from app.modules.exposure.repository import ExposureRepository
@@ -78,7 +80,7 @@ class ExposureService:
         portfolio_id: UUID,
         start: datetime,
         end: datetime,
-        fund_slug: str = "",
+        fund_slug: str | None = None,
     ) -> list[ExposureSnapshot]:
         """Return persisted exposure snapshots for a time range."""
         records = await self._repo.get_history(portfolio_id, start, end)
@@ -86,7 +88,7 @@ class ExposureService:
             ExposureSnapshot(
                 id=r.id,
                 portfolio_id=r.portfolio_id,
-                fund_slug=fund_slug,
+                fund_slug=fund_slug or "",
                 gross_exposure=r.gross_exposure,
                 net_exposure=r.net_exposure,
                 long_exposure=r.long_exposure,
@@ -147,8 +149,6 @@ class ExposureService:
         """Publish an exposure.updated event to Kafka."""
         if self._event_bus is None or not fund_slug:
             return
-        from app.shared.events import BaseEvent
-        from app.shared.schema_registry import fund_topic
 
         event = BaseEvent(
             event_type="exposure.updated",

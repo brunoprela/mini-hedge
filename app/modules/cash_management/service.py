@@ -26,6 +26,8 @@ from app.modules.cash_management.models import (
     CashSettlementRecord,
 )
 from app.modules.cash_management.settlement import calculate_settlement_date
+from app.shared.events import BaseEvent
+from app.shared.schema_registry import fund_topic
 
 if TYPE_CHECKING:
     from app.modules.cash_management.repository import (
@@ -36,6 +38,7 @@ if TYPE_CHECKING:
         SettlementRepository,
     )
     from app.modules.security_master.service import SecurityMasterService
+    from app.shared.database import TenantSessionFactory
     from app.shared.events import EventBus
 
 logger = structlog.get_logger()
@@ -50,6 +53,7 @@ class CashManagementService:
     def __init__(
         self,
         *,
+        session_factory: TenantSessionFactory,
         balance_repo: CashBalanceRepository,
         journal_repo: CashJournalRepository,
         settlement_repo: SettlementRepository,
@@ -58,6 +62,7 @@ class CashManagementService:
         security_master_service: SecurityMasterService,
         event_bus: EventBus | None = None,
     ) -> None:
+        self._sf = session_factory
         self._balances = balance_repo
         self._journal = journal_repo
         self._settlements = settlement_repo
@@ -435,36 +440,40 @@ class CashManagementService:
     # Event handler — called when trades.executed fires
     # ------------------------------------------------------------------
 
-    async def handle_trade_executed(self, event: object) -> None:
+    async def handle_trade_executed(self, event: BaseEvent) -> None:
         """Create settlement entries when a trade is executed."""
-        from app.shared.events import BaseEvent
+        try:
+            data = event.data
+            portfolio_id_str = data.get("portfolio_id")
+            if not portfolio_id_str:
+                return
 
-        if not isinstance(event, BaseEvent):
-            return
+            async with self._sf.fund_scope(event.fund_slug):
+                portfolio_id = UUID(portfolio_id_str)
+                instrument_id = data.get("instrument_id", "")
+                currency = data.get("currency", "USD")
+                side = data.get("side", "buy")
+                quantity = Decimal(str(data.get("quantity", "0")))
+                price = Decimal(str(data.get("price", "0")))
+                total_cost = quantity * price
 
-        data = event.data
-        portfolio_id_str = data.get("portfolio_id")
-        if not portfolio_id_str:
-            return
+                # Buy = cash outflow (negative), Sell = cash inflow (positive)
+                amount = -total_cost if side == "buy" else total_cost
 
-        portfolio_id = UUID(portfolio_id_str)
-        instrument_id = data.get("instrument_id", "")
-        currency = data.get("currency", "USD")
-        side = data.get("side", "buy")
-        total_cost = Decimal(str(data.get("total_cost", "0")))
-
-        # Buy = cash outflow (negative), Sell = cash inflow (positive)
-        amount = -total_cost if side == "buy" else total_cost
-
-        await self.create_settlement(
-            portfolio_id=portfolio_id,
-            order_id=UUID(data["order_id"]) if data.get("order_id") else None,
-            instrument_id=instrument_id,
-            currency=currency,
-            amount=amount,
-            trade_date=date.today(),
-            fund_slug=event.fund_slug,
-        )
+                await self.create_settlement(
+                    portfolio_id=portfolio_id,
+                    order_id=UUID(data["order_id"]) if data.get("order_id") else None,
+                    instrument_id=instrument_id,
+                    currency=currency,
+                    amount=amount,
+                    trade_date=date.today(),
+                    fund_slug=event.fund_slug,
+                )
+        except Exception:
+            logger.exception(
+                "cash_trade_handler_failed",
+                event_id=event.event_id,
+            )
 
     # ------------------------------------------------------------------
     # Internal
@@ -482,8 +491,6 @@ class CashManagementService:
         """Publish a cash settlement event to Kafka."""
         if self._event_bus is None or not fund_slug:
             return
-        from app.shared.events import BaseEvent
-        from app.shared.schema_registry import fund_topic
 
         status = "created" if "created" in event_type else "settled"
         topic_base = f"cash.settlement.{status}"

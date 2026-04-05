@@ -19,9 +19,7 @@ class SeedReferenceDataAdapter:
                 return self._to_external(entry)
         return None
 
-    async def get_all_instruments(
-        self, asset_class: str | None = None
-    ) -> list[ExternalInstrument]:
+    async def get_all_instruments(self, asset_class: str | None = None) -> list[ExternalInstrument]:
         result = []
         for entry in SEED_INSTRUMENTS:
             if asset_class and str(entry.get("asset_class", "")) != asset_class:

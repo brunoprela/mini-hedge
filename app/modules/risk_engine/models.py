@@ -17,11 +17,9 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 
-
-class Base(DeclarativeBase):
-    pass
+from app.shared.models import Base
 
 
 class RiskSnapshotRecord(Base):
@@ -97,7 +95,7 @@ class VaRContributionRecord(Base):
         server_default=text("gen_random_uuid()"),
     )
     var_result_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)
-    instrument_id: Mapped[str] = mapped_column(String(20), nullable=False)
+    instrument_id: Mapped[str] = mapped_column(String(32), nullable=False)
     weight: Mapped[Decimal] = mapped_column(Numeric(10, 6), nullable=False)
     marginal_var: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
     component_var: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
@@ -147,7 +145,7 @@ class StressPositionImpactRecord(Base):
         server_default=text("gen_random_uuid()"),
     )
     stress_result_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)
-    instrument_id: Mapped[str] = mapped_column(String(20), nullable=False)
+    instrument_id: Mapped[str] = mapped_column(String(32), nullable=False)
     current_value: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
     stressed_value: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
     pnl_impact: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)

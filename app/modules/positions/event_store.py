@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 class EventStoreRepository:
     def __init__(self, session_factory: TenantSessionFactory) -> None:
-        self._session_factory = session_factory
+        self._sf = session_factory
 
     async def get_by_aggregate(
         self, aggregate_id: str, *, session: AsyncSession | None = None
@@ -40,7 +40,7 @@ class EventStoreRepository:
 
         if session is not None:
             return await _query(session)
-        async with self._session_factory() as s:
+        async with self._sf() as s:
             return await _query(s)
 
     async def has_idempotency_key(
@@ -95,7 +95,7 @@ class EventStoreRepository:
         if session is not None:
             await _append(session)
         else:
-            async with self._session_factory() as s:
+            async with self._sf() as s:
                 await _append(s)
                 await s.commit()
 

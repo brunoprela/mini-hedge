@@ -1,14 +1,14 @@
 """SQLAlchemy models for the market_data schema."""
 
+from __future__ import annotations
+
 from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import DateTime, Index, Numeric, String
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 
-
-class Base(DeclarativeBase):
-    pass
+from app.shared.models import Base
 
 
 class PriceRecord(Base):

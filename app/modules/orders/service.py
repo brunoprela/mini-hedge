@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from app.modules.orders.repository import OrderRepository
     from app.modules.platform.audit_repository import AuditLogRepository
     from app.shared.adapters import BrokerAdapter
+    from app.shared.database import TenantSessionFactory
     from app.shared.events import EventBus
 
 logger = structlog.get_logger()
@@ -36,17 +37,21 @@ class OrderService:
 
     def __init__(
         self,
+        *,
+        session_factory: TenantSessionFactory,
         order_repo: OrderRepository,
         compliance_gateway: ComplianceGateway,
         broker: BrokerAdapter,
         event_bus: EventBus,
         audit_repo: AuditLogRepository | None = None,
     ) -> None:
+        self._sf = session_factory
         self._repo = order_repo
         self._compliance = compliance_gateway
         self._broker = broker
         self._event_bus = event_bus
         self._audit = audit_repo
+        self._fund_slugs: list[str] = []  # Set by setup code; used to locate orders across schemas
 
     async def create_order(
         self,
@@ -83,7 +88,7 @@ class OrderService:
             quantity=request.quantity,
             price=request.limit_price or Decimal("100.00"),
         )
-        decision = await self._compliance.check(check_request, fund_slug)
+        decision = await self._compliance.check(check_request)
 
         compliance_data = [
             {
@@ -201,14 +206,25 @@ class OrderService:
         """
         import asyncio
 
+        # Search across all fund schemas to find the order.
+        # This runs outside a request context, so we don't know which fund
+        # the order belongs to. The number of funds is small (<50).
         order = None
-        for delay in self._FILL_RETRY_DELAYS:
-            order = await self._repo.get_by_id(UUID(client_order_id))
+        fund_slug = None
+
+        for attempt_delay in self._FILL_RETRY_DELAYS:
+            for slug in self._fund_slugs:
+                async with self._sf.fund_scope(slug):
+                    found = await self._repo.get_by_id(UUID(client_order_id))
+                if found is not None:
+                    order = found
+                    fund_slug = slug
+                    break
             if order is not None:
                 break
-            await asyncio.sleep(delay)
+            await asyncio.sleep(attempt_delay)
 
-        if order is None:
+        if order is None or fund_slug is None:
             logger.warning(
                 "execution_report_unknown_order",
                 client_order_id=client_order_id,
@@ -223,10 +239,14 @@ class OrderService:
             )
             return
 
-        fund_slug = order.fund_slug
-        order = await self._process_fill(
-            order, fill_price, fill_quantity, fund_slug, filled_at=filled_at,
-        )
+        async with self._sf.fund_scope(fund_slug):
+            order = await self._process_fill(
+                order,
+                fill_price,
+                fill_quantity,
+                fund_slug,
+                filled_at=filled_at,
+            )
 
         logger.info(
             "order_filled_async",
@@ -339,7 +359,9 @@ class OrderService:
             avg_fill_price=avg_price,
         )
 
-        # Publish trade event so positions module picks it up
+        # Publish trade event — TradeHandler subscribes and creates the
+        # position (event-sourced).  Downstream cascade (exposure, risk,
+        # compliance, cash) reacts to positions.changed / trades.executed.
         side = order.side
         event = BaseEvent(
             event_type=("trade.buy" if side == "buy" else "trade.sell"),

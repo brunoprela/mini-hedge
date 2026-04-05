@@ -1,16 +1,16 @@
 """SQLAlchemy models for the platform schema."""
 
+from __future__ import annotations
+
 from datetime import datetime
 from enum import StrEnum
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, func, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 
-
-class Base(DeclarativeBase):
-    pass
+from app.shared.models import Base
 
 
 class FundStatus(StrEnum):

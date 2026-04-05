@@ -14,6 +14,7 @@ from app.shared.request_context import set_request_context
 
 if TYPE_CHECKING:
     from app.modules.platform.auth_service import AuthService
+    from app.shared.request_context import RequestContext
 
 logger = structlog.get_logger()
 
@@ -69,9 +70,18 @@ class AuthMiddleware(BaseHTTPMiddleware):
             )
 
         set_request_context(ctx)
+
+        # Set fund scope so TenantSessionFactory sessions target the
+        # correct per-fund schema for the duration of this request.
+        if ctx.fund_slug:
+            sf = getattr(request.app.state, "session_factory", None)
+            if sf is not None:
+                async with sf.fund_scope(ctx.fund_slug):
+                    return await call_next(request)
+
         return await call_next(request)
 
-    async def _resolve_context(self, request: Request, auth: AuthService):  # type: ignore[no-untyped-def]
+    async def _resolve_context(self, request: Request, auth: AuthService) -> RequestContext | None:
         auth_header = request.headers.get("authorization", "")
         fund_slug = request.headers.get("x-fund-slug")
 

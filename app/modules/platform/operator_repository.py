@@ -14,31 +14,31 @@ if TYPE_CHECKING:
 
 class OperatorRepository:
     def __init__(self, session_factory: TenantSessionFactory) -> None:
-        self._session_factory = session_factory
+        self._sf = session_factory
 
     async def get_by_id(self, operator_id: str) -> OperatorRecord | None:
-        async with self._session_factory() as session:
+        async with self._sf() as session:
             result = await session.execute(
                 select(OperatorRecord).where(OperatorRecord.id == operator_id)
             )
             return result.scalar_one_or_none()
 
     async def get_by_email(self, email: str) -> OperatorRecord | None:
-        async with self._session_factory() as session:
+        async with self._sf() as session:
             result = await session.execute(
                 select(OperatorRecord).where(OperatorRecord.email == email)
             )
             return result.scalar_one_or_none()
 
     async def get_by_keycloak_sub(self, keycloak_sub: str) -> OperatorRecord | None:
-        async with self._session_factory() as session:
+        async with self._sf() as session:
             result = await session.execute(
                 select(OperatorRecord).where(OperatorRecord.keycloak_sub == keycloak_sub)
             )
             return result.scalar_one_or_none()
 
     async def insert(self, record: OperatorRecord) -> None:
-        async with self._session_factory() as session:
+        async with self._sf() as session:
             session.add(record)
             await session.commit()
 
@@ -46,7 +46,7 @@ class OperatorRepository:
         self, *, keycloak_sub: str, email: str, name: str
     ) -> OperatorRecord:
         """JIT sync: create or update an operator from Keycloak claims."""
-        async with self._session_factory() as session:
+        async with self._sf() as session:
             result = await session.execute(
                 select(OperatorRecord).where(OperatorRecord.keycloak_sub == keycloak_sub)
             )
@@ -93,21 +93,21 @@ class OperatorRepository:
             return op
 
     async def get_all_active(self) -> list[OperatorRecord]:
-        async with self._session_factory() as session:
+        async with self._sf() as session:
             result = await session.execute(
                 select(OperatorRecord).where(OperatorRecord.is_active.is_(True))
             )
             return list(result.scalars().all())
 
     async def get_all(self) -> list[OperatorRecord]:
-        async with self._session_factory() as session:
+        async with self._sf() as session:
             result = await session.execute(select(OperatorRecord))
             return list(result.scalars().all())
 
     async def get_all_paginated(
         self, *, limit: int = 100, offset: int = 0
     ) -> tuple[list[OperatorRecord], int]:
-        async with self._session_factory() as session:
+        async with self._sf() as session:
             total = (await session.execute(select(func.count(OperatorRecord.id)))).scalar_one()
             result = await session.execute(
                 select(OperatorRecord).order_by(OperatorRecord.name).offset(offset).limit(limit)
@@ -115,7 +115,7 @@ class OperatorRepository:
             return list(result.scalars().all()), total
 
     async def update(self, operator_id: str, **fields: object) -> OperatorRecord | None:
-        async with self._session_factory() as session:
+        async with self._sf() as session:
             if fields:
                 await session.execute(
                     update(OperatorRecord).where(OperatorRecord.id == operator_id).values(**fields)

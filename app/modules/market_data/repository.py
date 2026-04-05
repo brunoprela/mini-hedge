@@ -11,10 +11,10 @@ from app.shared.database import TenantSessionFactory
 
 class PriceRepository:
     def __init__(self, session_factory: TenantSessionFactory) -> None:
-        self._session_factory = session_factory
+        self._sf = session_factory
 
     async def get_latest(self, instrument_id: str) -> PriceRecord | None:
-        async with self._session_factory() as session:
+        async with self._sf() as session:
             stmt = (
                 select(PriceRecord)
                 .where(PriceRecord.instrument_id == instrument_id)
@@ -30,7 +30,7 @@ class PriceRepository:
         start: datetime,
         end: datetime,
     ) -> list[PriceRecord]:
-        async with self._session_factory() as session:
+        async with self._sf() as session:
             stmt = (
                 select(PriceRecord)
                 .where(
@@ -44,7 +44,7 @@ class PriceRepository:
             return list(result.scalars().all())
 
     async def insert(self, record: PriceRecord) -> None:
-        async with self._session_factory() as session:
+        async with self._sf() as session:
             stmt = (
                 pg_insert(PriceRecord)
                 .values(

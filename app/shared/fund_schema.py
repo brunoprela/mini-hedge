@@ -17,6 +17,8 @@ from alembic import command as alembic_command
 from alembic.config import Config as AlembicConfig
 from sqlalchemy import text
 
+from app.shared.schema_registry import fund_topics_for_slug
+
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -95,8 +97,6 @@ def create_fund_kafka_topics(
     Accepts any object with an ``ensure_topics`` method (i.e. ``KafkaEventBus``)
     so this module doesn't depend on the Kafka implementation.
     """
-    from app.shared.schema_registry import fund_topics_for_slug
-
     topics = fund_topics_for_slug(fund_slug)
     kafka_bus.ensure_topics(topics)  # type: ignore[attr-defined]
     logger.info("fund_kafka_topics_created", fund_slug=fund_slug, topics=topics)

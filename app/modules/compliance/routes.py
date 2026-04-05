@@ -71,7 +71,7 @@ async def list_rules(
     ctx: RequestContext = require_permission(Permission.COMPLIANCE_READ),
     service: ComplianceService = Depends(get_compliance_service),
 ) -> list[RuleDefinition]:
-    return await service.get_rules(ctx.fund_slug)
+    return await service.get_rules()
 
 
 @router.post("/rules", response_model=RuleDefinition, status_code=201)
@@ -81,7 +81,6 @@ async def create_rule(
     service: ComplianceService = Depends(get_compliance_service),
 ) -> RuleDefinition:
     return await service.create_rule(
-        fund_slug=ctx.fund_slug,
         name=body.name,
         rule_type=body.rule_type,
         severity=body.severity,
@@ -115,7 +114,7 @@ async def check_trade(
     ctx: RequestContext = require_permission(Permission.COMPLIANCE_READ),
     service: ComplianceService = Depends(get_compliance_service),
 ) -> ComplianceDecision:
-    return await service.check_trade(body, ctx.fund_slug)
+    return await service.check_trade(body)
 
 
 @router.get("/violations", response_model=list[Violation])

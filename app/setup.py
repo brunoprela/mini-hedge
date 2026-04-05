@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from decimal import Decimal
 from typing import TYPE_CHECKING
+from uuid import UUID, uuid4
 
 import structlog
 from alembic import command as alembic_command
@@ -12,15 +13,39 @@ from alembic.config import Config as AlembicConfig
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
+    from sqlalchemy.ext.asyncio import AsyncEngine
 
+    from app.config import Settings
     from app.shared.adapters import BrokerAdapter, ExternalInstrument, ReferenceDataAdapter
     from app.shared.database import TenantSessionFactory
-    from app.shared.events import BaseEvent, EventBus
+    from app.shared.events import BaseEvent, EventBus, EventHandler
+    from app.shared.fga import FGAClient
     from app.shared.types import AssetClass
 
+from app.modules.alpha_engine.repository import AlphaRepository
+from app.modules.alpha_engine.service import AlphaService
+from app.modules.attribution.repository import AttributionRepository
+from app.modules.attribution.service import AttributionService
+from app.modules.cash_management.repository import (
+    CashBalanceRepository,
+    CashJournalRepository,
+    CashProjectionRepository,
+    ScheduledFlowRepository,
+    SettlementRepository,
+)
+from app.modules.cash_management.service import CashManagementService
+from app.modules.compliance.post_trade import PostTradeMonitor
+from app.modules.compliance.pre_trade import PreTradeGate
+from app.modules.compliance.repository import RuleRepository, ViolationRepository
+from app.modules.compliance.service import ComplianceService
+from app.modules.exposure.repository import ExposureRepository
+from app.modules.exposure.service import ExposureService
 from app.modules.market_data.interface import PriceSnapshot
 from app.modules.market_data.repository import PriceRepository
 from app.modules.market_data.service import MarketDataService
+from app.modules.orders.compliance_gateway import ComplianceGateway
+from app.modules.orders.repository import OrderRepository
+from app.modules.orders.service import OrderService
 from app.modules.platform.admin_service import AdminService
 from app.modules.platform.api_key_repository import APIKeyRepository
 from app.modules.platform.audit_repository import AuditLogRepository
@@ -32,7 +57,7 @@ from app.modules.platform.seed import (
     DEV_API_KEY,
     build_seed_api_keys,
     build_seed_funds,
-    build_seed_portfolios,
+    build_seed_operators,
     build_seed_users,
 )
 from app.modules.platform.user_repository import UserRepository
@@ -42,6 +67,8 @@ from app.modules.positions.position_projector import PositionProjector
 from app.modules.positions.position_repository import CurrentPositionRepository
 from app.modules.positions.service import PositionService
 from app.modules.positions.trade_handler import TradeHandler
+from app.modules.risk_engine.repository import RiskRepository
+from app.modules.risk_engine.service import RiskService
 from app.modules.security_master.models import EquityExtensionRecord, InstrumentRecord
 from app.modules.security_master.repository import InstrumentRepository
 from app.modules.security_master.seed import build_seed_records
@@ -97,8 +124,6 @@ def _convert_external_instruments(
     externals: list[ExternalInstrument],
 ) -> tuple[list[InstrumentRecord], list[EquityExtensionRecord]]:
     """Convert adapter ExternalInstrument objects to ORM records."""
-    from uuid import uuid4
-
     instruments: list[InstrumentRecord] = []
     extensions: list[EquityExtensionRecord] = []
     for ext in externals:
@@ -130,19 +155,18 @@ async def _seed_platform(
     operator_repo: OperatorRepository,
     api_key_repo: APIKeyRepository,
 ) -> None:
-    """Seed funds, portfolios, users, operators, and API keys."""
+    """Seed funds, users, operators, and API keys.
+
+    Portfolios and compliance rules are NOT seeded here — they are created
+    via the UI, API, or ``make seed``.  This keeps startup minimal: only
+    the data needed for authentication and fund discovery.
+    """
     existing_funds = await fund_repo.get_all_active()
     if not existing_funds:
         funds = build_seed_funds()
         for fund in funds:
             await fund_repo.insert(fund)
-        portfolios = build_seed_portfolios()
-        await portfolio_repo.insert_batch(portfolios)
-        logger.info(
-            "platform_seeded",
-            funds=len(funds),
-            portfolios=len(portfolios),
-        )
+        logger.info("funds_seeded", count=len(funds))
 
     existing_users = await user_repo.get_all_active()
     if not existing_users:
@@ -159,8 +183,6 @@ async def _seed_platform(
         )
 
     # Seed operators
-    from app.modules.platform.seed import build_seed_operators
-
     existing_operators = await operator_repo.get_all_active()
     if not existing_operators:
         operators = build_seed_operators()
@@ -177,10 +199,10 @@ async def _seed_platform(
 async def setup_platform(
     fastapi_app: FastAPI,
     session_factory: TenantSessionFactory,
-    settings: object,
-    fga_client: object | None = None,
-    engine: object | None = None,
-    event_bus: object | None = None,
+    settings: Settings,
+    fga_client: FGAClient | None = None,
+    engine: AsyncEngine | None = None,
+    event_bus: EventBus | None = None,
 ) -> tuple[AuthService, FundRepository]:
     """Wire platform module: repos, seeding, auth service."""
     fund_repo = FundRepository(session_factory)
@@ -196,16 +218,16 @@ async def setup_platform(
         fund_repo=fund_repo,
         operator_repo=operator_repo,
         api_key_repo=api_key_repo,
-        fga_client=fga_client,  # type: ignore[arg-type]
-        jwt_secret=settings.jwt_secret,  # type: ignore[attr-defined]
-        jwt_algorithm=settings.jwt_algorithm,  # type: ignore[attr-defined]
-        jwt_expiry_minutes=settings.jwt_expiry_minutes,  # type: ignore[attr-defined]
-        keycloak_url=settings.keycloak_url,  # type: ignore[attr-defined]
-        keycloak_browser_url=settings.keycloak_browser_url,  # type: ignore[attr-defined]
-        keycloak_realm=settings.keycloak_realm,  # type: ignore[attr-defined]
-        keycloak_client_id=settings.keycloak_client_id,  # type: ignore[attr-defined]
-        keycloak_ops_realm=settings.keycloak_ops_realm,  # type: ignore[attr-defined]
-        keycloak_ops_client_id=settings.keycloak_ops_client_id,  # type: ignore[attr-defined]
+        fga_client=fga_client,
+        jwt_secret=settings.jwt_secret,
+        jwt_algorithm=settings.jwt_algorithm,
+        jwt_expiry_minutes=settings.jwt_expiry_minutes,
+        keycloak_url=settings.keycloak_url,
+        keycloak_browser_url=settings.keycloak_browser_url,
+        keycloak_realm=settings.keycloak_realm,
+        keycloak_client_id=settings.keycloak_client_id,
+        keycloak_ops_realm=settings.keycloak_ops_realm,
+        keycloak_ops_client_id=settings.keycloak_ops_client_id,
     )
     fastapi_app.state.auth_service = auth_service
     fastapi_app.state.portfolio_repo = portfolio_repo
@@ -220,10 +242,10 @@ async def setup_platform(
             user_repo=user_repo,
             operator_repo=operator_repo,
             fund_repo=fund_repo,
-            fga_client=fga_client,  # type: ignore[arg-type]
+            fga_client=fga_client,
             audit_repo=audit_repo,
-            engine=engine,  # type: ignore[arg-type]
-            event_bus=event_bus,  # type: ignore[arg-type]
+            engine=engine,
+            event_bus=event_bus,
             auth_service=auth_service,
         )
         fastapi_app.state.admin_service = admin_service
@@ -231,9 +253,9 @@ async def setup_platform(
     return auth_service, fund_repo
 
 
-async def setup_fga(fastapi_app: FastAPI, settings: object) -> object | None:
+async def setup_fga(fastapi_app: FastAPI, settings: Settings) -> FGAClient | None:
     """Initialize OpenFGA if enabled. Returns the FGA client or None."""
-    if not settings.fga_enabled:  # type: ignore[attr-defined]
+    if not settings.fga_enabled:
         return None
 
     import app.shared.fga_resources  # noqa: F401 — triggers resource type registration
@@ -241,8 +263,8 @@ async def setup_fga(fastapi_app: FastAPI, settings: object) -> object | None:
     from app.shared.fga_startup import initialize_fga
 
     fga_client = await initialize_fga(
-        api_url=settings.fga_api_url,  # type: ignore[attr-defined]
-        store_name=settings.fga_store_name,  # type: ignore[attr-defined]
+        api_url=settings.fga_api_url,
+        store_name=settings.fga_store_name,
     )
     fastapi_app.state.fga = fga_client
     tuples = build_seed_fga_tuples()
@@ -259,7 +281,7 @@ async def setup_security_master(
 ) -> None:
     """Wire security master module: repo, service, seeding."""
     instrument_repo = InstrumentRepository(session_factory)
-    fastapi_app.state.security_master_service = SecurityMasterService(instrument_repo)
+    fastapi_app.state.security_master_service = SecurityMasterService(repository=instrument_repo)
     await _seed_instruments(instrument_repo, reference_adapter=reference_adapter)
 
 
@@ -270,26 +292,58 @@ def setup_market_data(
 ) -> MarketDataService:
     """Wire market data module: repo, service, price event handler."""
     price_repo = PriceRepository(session_factory)
-    market_data_service = MarketDataService(price_repo)
+    market_data_service = MarketDataService(repository=price_repo)
     fastapi_app.state.market_data_service = market_data_service
 
     event_bus.subscribe(shared_topic("prices.normalized"), _make_price_handler(market_data_service))
     return market_data_service
 
 
-def setup_positions(
+async def setup_positions(
     fastapi_app: FastAPI,
     session_factory: TenantSessionFactory,
     event_bus: EventBus,
     fund_repo: FundRepository,
     security_master_service: SecurityMasterService,
 ) -> None:
-    """Wire positions module: repos, projector, handlers, service, MTM subscription."""
+    """Wire positions module: repos, projector, handlers, service, MTM + trade subscriptions."""
     event_store_repo = EventStoreRepository(session_factory)
     position_repo = CurrentPositionRepository(session_factory)
     projector = PositionProjector(position_repo)
-    trade_handler = TradeHandler(session_factory, event_store_repo, projector, event_bus)
-    fastapi_app.state.position_service = PositionService(position_repo, trade_handler)
+    trade_handler = TradeHandler(
+        session_factory=session_factory,
+        event_store=event_store_repo,
+        projector=projector,
+        event_bus=event_bus,
+    )
+    fastapi_app.state.trade_handler = trade_handler
+    fastapi_app.state.position_service = PositionService(
+        position_repo=position_repo,
+        trade_handler=trade_handler,
+    )
+
+    # Subscribe trade handler to trades.executed per fund.
+    # When an order is filled, OrderService publishes trades.executed;
+    # TradeHandler picks it up here, creates the position, and publishes
+    # positions.changed — triggering the exposure/risk/compliance cascade.
+    active_funds = await fund_repo.get_all_active()
+    for fund in active_funds:
+        event_bus.subscribe(
+            fund_topic(fund.slug, "trades.executed"),
+            trade_handler.handle_trade_event,
+        )
+    logger.info("positions_subscribed_to_trades", fund_count=len(active_funds))
+
+    # Register hook so dynamically-created funds also get the subscription
+    async def _on_fund_created(slug: str) -> None:
+        event_bus.subscribe(
+            fund_topic(slug, "trades.executed"),
+            trade_handler.handle_trade_event,
+        )
+
+    admin_svc: AdminService | None = getattr(fastapi_app.state, "admin_service", None)
+    if admin_svc is not None:
+        admin_svc._funds.register_on_fund_created(_on_fund_created)
 
     async def get_fund_slugs() -> list[str]:
         funds = await fund_repo.get_all_active()
@@ -302,7 +356,12 @@ def setup_positions(
             return None
         return instrument.asset_class
 
-    mtm_handler = MarkToMarketHandler(session_factory, event_bus, get_fund_slugs, get_asset_class)
+    mtm_handler = MarkToMarketHandler(
+        session_factory=session_factory,
+        event_bus=event_bus,
+        get_fund_slugs=get_fund_slugs,
+        get_asset_class=get_asset_class,
+    )
     event_bus.subscribe(shared_topic("prices.normalized"), mtm_handler.handle_price_update)
 
 
@@ -313,9 +372,6 @@ async def setup_exposure(
     fund_repo: FundRepository | None = None,
 ) -> None:
     """Wire exposure module: repo, service, event subscriptions."""
-    from app.modules.exposure.repository import ExposureRepository
-    from app.modules.exposure.service import ExposureService
-
     exposure_repo = ExposureRepository(session_factory)
     position_service = fastapi_app.state.position_service
     sm_service = fastapi_app.state.security_master_service
@@ -332,13 +388,11 @@ async def setup_exposure(
         active_funds = await fund_repo.get_all_active()
         for fund in active_funds:
 
-            def _make_handler(slug: str):  # type: ignore[no-untyped-def]
+            def _make_handler(slug: str) -> EventHandler:
                 async def on_position_changed(event: BaseEvent) -> None:
                     pid_str = event.data.get("portfolio_id")
                     if not pid_str:
                         return
-                    from uuid import UUID
-
                     try:
                         await exposure_service.take_snapshot(
                             UUID(pid_str),
@@ -368,18 +422,15 @@ async def setup_compliance(
     fund_repo: FundRepository,
     event_bus: EventBus,
 ) -> None:
-    """Wire compliance module: repos, pre-trade gate, post-trade monitor, service, seeding."""
-    from app.modules.compliance.post_trade import PostTradeMonitor
-    from app.modules.compliance.pre_trade import PreTradeGate
-    from app.modules.compliance.repository import (
-        RuleRepository,
-        ViolationRepository,
-    )
-    from app.modules.compliance.seed import build_seed_compliance_rules
-    from app.modules.compliance.service import ComplianceService
+    """Wire compliance module: repos, pre-trade gate, post-trade monitor, service.
 
+    Compliance rules are NOT seeded on startup. They are created via the UI,
+    API, or ``make seed``. When no rules exist for a fund, the pre-trade gate
+    approves all trades (pass-through).
+    """
     rule_repo = RuleRepository(session_factory)
     violation_repo = ViolationRepository(session_factory)
+    cash_balance_repo = CashBalanceRepository(session_factory)
     position_service = fastapi_app.state.position_service
     security_master = fastapi_app.state.security_master_service
 
@@ -387,6 +438,7 @@ async def setup_compliance(
         rule_repo=rule_repo,
         position_service=position_service,
         security_master=security_master,
+        cash_balance_repo=cash_balance_repo,
     )
 
     audit_repo = fastapi_app.state.audit_repo
@@ -401,68 +453,23 @@ async def setup_compliance(
     fastapi_app.state.compliance_service = compliance_service
 
     # Post-trade monitor: subscribe to positions.changed for each fund
+    position_repo = CurrentPositionRepository(session_factory)
     post_trade_monitor = PostTradeMonitor(
         session_factory=session_factory,
-        position_service=position_service,
+        rule_repo=rule_repo,
+        violation_repo=violation_repo,
+        position_repo=position_repo,
         security_master=security_master,
         event_bus=event_bus,
+        cash_balance_repo=cash_balance_repo,
     )
     active_funds = await fund_repo.get_all_active()
     for fund in active_funds:
         topic = fund_topic(fund.slug, "positions.changed")
         event_bus.subscribe(topic, post_trade_monitor.handle_position_changed)
-        # Also subscribe to MTM events to detect passive breaches / auto-resolve
         pnl_topic = fund_topic(fund.slug, "pnl.updated")
         event_bus.subscribe(pnl_topic, post_trade_monitor.handle_mtm_update)
     logger.info("post_trade_monitor_subscribed", fund_count=len(active_funds))
-
-    # Seed default compliance rules for each fund (needs fund-scoped sessions)
-    for fund in active_funds:
-        fund_rule_repo = RuleRepository(session_factory, fund_slug=fund.slug)
-        existing = await fund_rule_repo.get_all_by_fund(fund.slug)
-        if not existing:
-            rules = build_seed_compliance_rules(fund.slug)
-            for rule in rules:
-                await fund_rule_repo.insert(rule)
-            logger.info(
-                "compliance_rules_seeded",
-                fund_slug=fund.slug,
-                count=len(rules),
-            )
-
-    # Startup compliance scan: resolve ALL existing violations, then
-    # re-evaluate every portfolio with current data.  This prevents stale
-    # violations from prior runs (created when positions were partially
-    # loaded or when the monitor had errors).
-    from uuid import UUID as _UUID
-
-    portfolio_repo: PortfolioRepository = fastapi_app.state.portfolio_repo
-    scanned = 0
-    for fund in active_funds:
-        fund_viol_repo = ViolationRepository(session_factory, fund_slug=fund.slug)
-        portfolios = await portfolio_repo.get_by_fund(str(fund.id))
-        for portfolio in portfolios:
-            pid = _UUID(portfolio.id)
-            # Clear all active violations so the scan starts fresh
-            stale = await fund_viol_repo.get_active_by_portfolio(pid)
-            for v in stale:
-                await fund_viol_repo.resolve(
-                    _UUID(v.id), resolved_by="system_startup", resolution_type="auto",
-                )
-            try:
-                # Re-evaluate — creates violations only for actual breaches
-                await post_trade_monitor._evaluate_portfolio(
-                    pid, fund.slug, is_passive=True,
-                )
-                scanned += 1
-            except Exception:
-                logger.warning(
-                    "compliance_startup_scan_portfolio_failed",
-                    portfolio_id=portfolio.id,
-                    fund_slug=fund.slug,
-                    exc_info=True,
-                )
-    logger.info("compliance_startup_scan_complete", portfolios_scanned=scanned)
 
 
 async def setup_risk_engine(
@@ -472,9 +479,6 @@ async def setup_risk_engine(
     fund_repo: FundRepository | None = None,
 ) -> None:
     """Wire risk engine module: repo, service, event subscriptions."""
-    from app.modules.risk_engine.repository import RiskRepository
-    from app.modules.risk_engine.service import RiskService
-
     risk_repo = RiskRepository(session_factory)
     position_service = fastapi_app.state.position_service
     market_data_service = fastapi_app.state.market_data_service
@@ -493,13 +497,11 @@ async def setup_risk_engine(
         active_funds = await fund_repo.get_all_active()
         for fund in active_funds:
 
-            def _make_handler(slug: str):  # type: ignore[no-untyped-def]
+            def _make_handler(slug: str) -> EventHandler:
                 async def on_position_changed(event: BaseEvent) -> None:
                     pid_str = event.data.get("portfolio_id")
                     if not pid_str:
                         return
-                    from uuid import UUID
-
                     try:
                         await risk_service.take_snapshot(
                             UUID(pid_str),
@@ -530,17 +532,9 @@ async def setup_cash_management(
     fund_repo: FundRepository,
 ) -> None:
     """Wire cash management module: repos, service, event subscriptions."""
-    from app.modules.cash_management.repository import (
-        CashBalanceRepository,
-        CashJournalRepository,
-        CashProjectionRepository,
-        ScheduledFlowRepository,
-        SettlementRepository,
-    )
-    from app.modules.cash_management.service import CashManagementService
-
     sm_service = fastapi_app.state.security_master_service
     cash_service = CashManagementService(
+        session_factory=session_factory,
         balance_repo=CashBalanceRepository(session_factory),
         journal_repo=CashJournalRepository(session_factory),
         settlement_repo=SettlementRepository(session_factory),
@@ -564,9 +558,6 @@ async def setup_attribution(
     session_factory: TenantSessionFactory,
 ) -> None:
     """Wire attribution module: repo, service."""
-    from app.modules.attribution.repository import AttributionRepository
-    from app.modules.attribution.service import AttributionService
-
     attribution_repo = AttributionRepository(session_factory)
     position_service = fastapi_app.state.position_service
     sm_service = fastapi_app.state.security_master_service
@@ -583,9 +574,6 @@ async def setup_alpha_engine(
     session_factory: TenantSessionFactory,
 ) -> None:
     """Wire alpha engine module: repo, service."""
-    from app.modules.alpha_engine.repository import AlphaRepository
-    from app.modules.alpha_engine.service import AlphaService
-
     alpha_repo = AlphaRepository(session_factory)
     position_service = fastapi_app.state.position_service
     sm_service = fastapi_app.state.security_master_service
@@ -604,15 +592,12 @@ async def setup_orders(
     broker: BrokerAdapter,
 ) -> None:
     """Wire orders module: repo, compliance gateway, broker, service."""
-    from app.modules.orders.compliance_gateway import ComplianceGateway
-    from app.modules.orders.repository import OrderRepository
-    from app.modules.orders.service import OrderService
-
     order_repo = OrderRepository(session_factory)
     compliance_service = fastapi_app.state.compliance_service
-    compliance_gateway = ComplianceGateway(compliance_service.pre_trade_gate)
+    compliance_gateway = ComplianceGateway(pre_trade_gate=compliance_service.pre_trade_gate)
     audit_repo = fastapi_app.state.audit_repo
     order_service = OrderService(
+        session_factory=session_factory,
         order_repo=order_repo,
         compliance_gateway=compliance_gateway,
         broker=broker,
@@ -627,7 +612,7 @@ async def setup_orders(
 # ---------------------------------------------------------------------------
 
 
-def _make_price_handler(market_data_service: MarketDataService):  # type: ignore[no-untyped-def]
+def _make_price_handler(market_data_service: MarketDataService) -> EventHandler:
     """Create a price event handler bound to the given service."""
 
     _required_fields = ("instrument_id", "bid", "ask", "mid", "source")

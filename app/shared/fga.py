@@ -11,10 +11,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import structlog
 from fastapi import Depends, HTTPException, Request
+from openfga_sdk import ReadRequestTupleKey
 from openfga_sdk.client.models import (
     ClientCheckRequest,
     ClientListObjectsRequest,
@@ -26,6 +27,7 @@ from openfga_sdk.client.models import (
 )
 
 from app.shared.auth import get_actor_context
+from app.shared.request_context import ActorType
 
 if TYPE_CHECKING:
     from openfga_sdk import OpenFgaClient
@@ -167,8 +169,6 @@ class FGAClient:
 
         Returns a list of ``(user, relation, object)`` triples.
         """
-        from openfga_sdk import ReadRequestTupleKey
-
         response = await self._client.read(
             body=ReadRequestTupleKey(object=object),
         )
@@ -227,12 +227,12 @@ async def _extract_resource_id(
     return str(value)
 
 
-def require_access(  # type: ignore[no-untyped-def]
+def require_access(
     resource_relation: ResourceRelation,
     *,
     param: str | None = None,
     source: ParamSource = ParamSource.PATH,
-):
+) -> Any:
     """Generic FastAPI dependency for FGA object-level access checks.
 
     Args:
@@ -265,8 +265,6 @@ def require_access(  # type: ignore[no-untyped-def]
             return
         resource_id = await _extract_resource_id(request, param_name, source, ctx)
         # Use the correct FGA subject type based on actor type
-        from app.shared.request_context import ActorType  # noqa: F811
-
         fga_prefix = "operator" if ctx.actor_type == ActorType.OPERATOR else "user"
         allowed = await fga.check(
             user=f"{fga_prefix}:{ctx.actor_id}",

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -13,34 +11,17 @@ from sqlalchemy import select, update
 from app.modules.orders.models import OrderFillRecord, OrderRecord
 
 if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
     from app.shared.database import TenantSessionFactory
 
 
 class OrderRepository:
     """CRUD for orders and fills."""
 
-    def __init__(
-        self,
-        session_factory: TenantSessionFactory,
-        *,
-        fund_slug: str | None = None,
-    ) -> None:
+    def __init__(self, session_factory: TenantSessionFactory) -> None:
         self._sf = session_factory
-        self._fund_slug = fund_slug
-
-    @asynccontextmanager
-    async def _session(self) -> AsyncIterator[AsyncSession]:
-        if self._fund_slug is not None:
-            async with self._sf.for_fund(self._fund_slug) as s:
-                yield s
-        else:
-            async with self._sf() as s:
-                yield s
 
     async def save(self, record: OrderRecord) -> OrderRecord:
-        async with self._session() as session:
+        async with self._sf() as session:
             session.add(record)
             await session.flush()
             await session.commit()
@@ -48,7 +29,7 @@ class OrderRepository:
             return record
 
     async def get_by_id(self, order_id: UUID) -> OrderRecord | None:
-        async with self._session() as session:
+        async with self._sf() as session:
             stmt = select(OrderRecord).where(OrderRecord.id == str(order_id))
             result = await session.execute(stmt)
             return result.scalar_one_or_none()
@@ -58,7 +39,7 @@ class OrderRepository:
         portfolio_id: UUID,
         state: str | None = None,
     ) -> list[OrderRecord]:
-        async with self._session() as session:
+        async with self._sf() as session:
             stmt = select(OrderRecord).where(OrderRecord.portfolio_id == str(portfolio_id))
             if state is not None:
                 stmt = stmt.where(OrderRecord.state == state)
@@ -68,7 +49,7 @@ class OrderRepository:
 
     async def get_open_orders(self, fund_slug: str) -> list[OrderRecord]:
         open_states = ["draft", "pending_compliance", "approved", "sent", "partially_filled"]
-        async with self._session() as session:
+        async with self._sf() as session:
             stmt = (
                 select(OrderRecord)
                 .where(
@@ -86,7 +67,7 @@ class OrderRepository:
         state: str,
         **fields: object,
     ) -> OrderRecord | None:
-        async with self._session() as session:
+        async with self._sf() as session:
             values: dict[str, object] = {
                 "state": state,
                 "updated_at": datetime.now(UTC),
@@ -98,7 +79,7 @@ class OrderRepository:
         return await self.get_by_id(order_id)
 
     async def save_fill(self, fill: OrderFillRecord) -> OrderFillRecord:
-        async with self._session() as session:
+        async with self._sf() as session:
             session.add(fill)
             await session.flush()
             await session.commit()
@@ -106,7 +87,7 @@ class OrderRepository:
             return fill
 
     async def get_fills(self, order_id: UUID) -> list[OrderFillRecord]:
-        async with self._session() as session:
+        async with self._sf() as session:
             stmt = (
                 select(OrderFillRecord)
                 .where(OrderFillRecord.order_id == str(order_id))

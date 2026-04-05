@@ -25,9 +25,7 @@ class MockExchangeReferenceDataAdapter:
             data = resp.json()
             return ExternalInstrument(**data)
 
-    async def get_all_instruments(
-        self, asset_class: str | None = None
-    ) -> list[ExternalInstrument]:
+    async def get_all_instruments(self, asset_class: str | None = None) -> list[ExternalInstrument]:
         params: dict[str, str] = {}
         if asset_class:
             params["asset_class"] = asset_class

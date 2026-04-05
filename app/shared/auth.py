@@ -12,6 +12,7 @@ Symbols are re-exported here for backwards compatibility.
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Any
 
 import structlog
 from fastapi import Depends, HTTPException, Request
@@ -341,7 +342,7 @@ def get_actor_context(request: Request) -> RequestContext:
     return ctx
 
 
-def require_permission(*perms: Permission):  # type: ignore[no-untyped-def]
+def require_permission(*perms: Permission) -> Any:
     """FastAPI dependency that checks the caller has all listed permissions."""
 
     async def _check(
@@ -358,7 +359,7 @@ def require_permission(*perms: Permission):  # type: ignore[no-untyped-def]
     return Depends(_check)
 
 
-def require_platform_permission(*perms: Permission):  # type: ignore[no-untyped-def]
+def require_platform_permission(*perms: Permission) -> Any:
     """FastAPI dependency — checks the caller is a platform operator with required perms."""
 
     async def _check(

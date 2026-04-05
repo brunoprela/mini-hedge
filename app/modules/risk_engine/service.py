@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
@@ -31,6 +32,8 @@ from app.modules.risk_engine.models import (
     VaRContributionRecord,
     VaRResultRecord,
 )
+from app.shared.events import BaseEvent
+from app.shared.schema_registry import fund_topic
 
 if TYPE_CHECKING:
     from app.modules.market_data.service import MarketDataService
@@ -201,8 +204,6 @@ class RiskService:
         fund_slug: str | None = None,
     ) -> RiskSnapshot:
         """Calculate and persist a complete risk snapshot."""
-        import asyncio
-
         # Run independent calculations concurrently
         var_95, var_99, positions = await asyncio.gather(
             self.calculate_var(portfolio_id, VaRMethod.HISTORICAL, 0.95, 1),
@@ -281,9 +282,7 @@ class RiskService:
         vol_map = {
             i.ticker: i.annual_volatility for i in instruments if i.annual_volatility is not None
         }
-        drift_map = {
-            i.ticker: i.annual_drift for i in instruments if i.annual_drift is not None
-        }
+        drift_map = {i.ticker: i.annual_drift for i in instruments if i.annual_drift is not None}
 
         n_days = DEFAULT_LOOKBACK
         daily_returns = np.zeros((n_days, n))
@@ -327,8 +326,6 @@ class RiskService:
         """Publish a risk.updated event to Kafka."""
         if self._event_bus is None or not fund_slug:
             return
-        from app.shared.events import BaseEvent
-        from app.shared.schema_registry import fund_topic
 
         event = BaseEvent(
             event_type="risk.updated",
