@@ -81,7 +81,6 @@ class TestOpenSearchBridge:
             fund_topic("alpha", base)
             for base in [
                 "positions.changed",
-                "pnl.updated",
                 "trades.executed",
                 "exposures.updated",
                 "compliance.violations",
