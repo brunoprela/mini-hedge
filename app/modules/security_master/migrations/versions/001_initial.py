@@ -110,4 +110,4 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_table("equity_extensions", schema="security_master")
     op.drop_table("instruments", schema="security_master")
-    op.execute("DROP SCHEMA IF EXISTS security_master")
+    op.execute("DROP SCHEMA IF EXISTS security_master CASCADE")

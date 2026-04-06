@@ -63,9 +63,19 @@ def base_topic_name(topic: str) -> str:
 
 def fund_topics_for_slug(fund_slug: str) -> list[str]:
     """Return all fund-scoped Kafka topics for a given fund slug."""
+    return fund_audit_topics_for_slug(fund_slug) + [
+        fund_topic(fund_slug, "pnl.updated"),
+    ]
+
+
+def fund_audit_topics_for_slug(fund_slug: str) -> list[str]:
+    """Return fund-scoped topics that should be persisted to audit stores.
+
+    Excludes high-frequency telemetry (pnl.updated) that would flood
+    PostgreSQL audit log, immudb, and OpenSearch.
+    """
     return [
         fund_topic(fund_slug, "positions.changed"),
-        fund_topic(fund_slug, "pnl.updated"),
         fund_topic(fund_slug, "trades.executed"),
         fund_topic(fund_slug, "exposures.updated"),
         fund_topic(fund_slug, "compliance.violations"),

@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 import structlog
 
-from app.shared.schema_registry import fund_topics_for_slug
+from app.shared.schema_registry import fund_audit_topics_for_slug
 
 if TYPE_CHECKING:
     from app.shared.events import BaseEvent, EventBus, EventHandler
@@ -39,7 +39,7 @@ class ImmudbBridge:
     def wire(self, event_bus: EventBus, fund_slugs: list[str]) -> None:
         """Subscribe to all fund-scoped topics for immudb persistence."""
         for slug in fund_slugs:
-            for topic in fund_topics_for_slug(slug):
+            for topic in fund_audit_topics_for_slug(slug):
                 event_bus.subscribe(topic, self._make_handler())
 
         logger.info(

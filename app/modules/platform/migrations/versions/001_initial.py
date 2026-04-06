@@ -112,4 +112,4 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_table("portfolios", schema="platform")
     op.drop_table("funds", schema="platform")
-    op.execute("DROP SCHEMA IF EXISTS platform")
+    op.execute("DROP SCHEMA IF EXISTS platform CASCADE")
