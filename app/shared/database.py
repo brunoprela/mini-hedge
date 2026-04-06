@@ -42,7 +42,7 @@ _POSITIONS_SCHEMA = "positions"
 
 
 class TenantSessionFactory:
-    """Creates sessions with per-fund schema isolation.
+    """Creates sessions with per-fund schema isolation and read/write routing.
 
     Schema resolution is driven by a single ``ContextVar`` set via
     ``fund_scope()``.  Both HTTP middleware and Kafka handlers use
@@ -54,6 +54,12 @@ class TenantSessionFactory:
 
     When no fund scope is active, sessions target shared schemas only
     (platform, security_master, market_data).
+
+    Read/write routing
+    ------------------
+    If a read engine is configured, ``read_session()`` returns a session
+    bound to the read replica for query-heavy paths (dashboards, reports).
+    The default ``__call__`` always uses the write engine.
     """
 
     # Task-local fund slug. ``contextvars`` are scoped to the current
@@ -61,18 +67,31 @@ class TenantSessionFactory:
     # don't interfere with each other.
     _fund_slug_var: ClassVar[ContextVar[str | None]] = ContextVar("_fund_slug_var", default=None)
 
-    def __init__(self, engine: AsyncEngine) -> None:
+    def __init__(self, engine: AsyncEngine, read_engine: AsyncEngine | None = None) -> None:
         self._engine = engine
+        self._read_engine = read_engine
+
+    def _resolve_engine(self, engine: AsyncEngine) -> AsyncEngine:
+        """Apply fund schema translation to the given engine."""
+        fund_slug = self._fund_slug_var.get()
+        if fund_slug is not None:
+            return engine.execution_options(
+                schema_translate_map={_POSITIONS_SCHEMA: fund_schema_name(fund_slug)},
+            )
+        return engine
 
     @asynccontextmanager
     async def __call__(self) -> AsyncIterator[AsyncSession]:
-        """Session scoped to the active fund schema (if any)."""
-        fund_slug = self._fund_slug_var.get()
-        engine = self._engine
-        if fund_slug is not None:
-            engine = engine.execution_options(
-                schema_translate_map={_POSITIONS_SCHEMA: fund_schema_name(fund_slug)},
-            )
+        """Write session scoped to the active fund schema (if any)."""
+        engine = self._resolve_engine(self._engine)
+        async with AsyncSession(engine, expire_on_commit=False) as session:
+            yield session
+
+    @asynccontextmanager
+    async def read_session(self) -> AsyncIterator[AsyncSession]:
+        """Read-only session routed to the replica (falls back to primary)."""
+        base = self._read_engine or self._engine
+        engine = self._resolve_engine(base)
         async with AsyncSession(engine, expire_on_commit=False) as session:
             yield session
 
@@ -97,6 +116,11 @@ class TenantSessionFactory:
         """Return the active fund slug, or None."""
         return cls._fund_slug_var.get()
 
+    @property
+    def has_read_replica(self) -> bool:
+        """Whether a separate read engine is configured."""
+        return self._read_engine is not None
+
 
 # ---------------------------------------------------------------------------
 # FastAPI session dependency
@@ -104,7 +128,7 @@ class TenantSessionFactory:
 
 
 async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
-    """FastAPI dependency — yields a single session for the entire request.
+    """FastAPI dependency — yields a write session for the entire request.
 
     Routes should ``Depends(get_db)`` and pass the session explicitly
     to services/repos::
@@ -122,6 +146,17 @@ async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
         yield session
 
 
+async def get_read_db(request: Request) -> AsyncIterator[AsyncSession]:
+    """FastAPI dependency — yields a read-only session routed to the replica.
+
+    Falls back to the primary if no read replica is configured.
+    Use for query-heavy endpoints (dashboards, reports, lists).
+    """
+    sf: TenantSessionFactory = request.app.state.session_factory
+    async with sf.read_session() as session:
+        yield session
+
+
 def build_engine(
     database_url: str | None = None,
 ) -> tuple[AsyncEngine, TenantSessionFactory]:
@@ -135,4 +170,17 @@ def build_engine(
         pool_recycle=1800,
         pool_timeout=settings.database_pool_timeout,
     )
-    return engine, TenantSessionFactory(engine)
+
+    # Read replica engine (optional — falls back to primary if not configured)
+    read_engine: AsyncEngine | None = None
+    if settings.database_read_url:
+        read_engine = create_async_engine(
+            settings.database_read_url,
+            pool_size=settings.database_pool_size,
+            max_overflow=settings.database_max_overflow,
+            pool_pre_ping=True,
+            pool_recycle=1800,
+            pool_timeout=settings.database_pool_timeout,
+        )
+
+    return engine, TenantSessionFactory(engine, read_engine=read_engine)

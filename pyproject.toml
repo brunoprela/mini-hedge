@@ -31,6 +31,12 @@ dependencies = [
     "opentelemetry-instrumentation-httpx>=0.45b0",
     "prometheus-client>=0.21.0",
     "slowapi>=0.1.9",
+    "immudb-py>=1.5.0",
+    "opensearch-py[async]>=2.4.0",
+    "minio>=7.2.0",
+    "pyarrow>=15.0.0",
+    "temporalio>=1.7.0",
+    "hvac>=2.3.0",
 ]
 
 [dependency-groups]

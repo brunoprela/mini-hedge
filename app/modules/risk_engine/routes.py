@@ -20,7 +20,7 @@ from app.modules.risk_engine.interface import (
 )
 from app.modules.risk_engine.service import RiskService
 from app.shared.auth import Permission, require_permission
-from app.shared.database import get_db
+from app.shared.database import get_db, get_read_db
 from app.shared.fga import require_access
 from app.shared.fga_resources import Portfolio
 from app.shared.request_context import RequestContext
@@ -60,7 +60,7 @@ async def get_risk_snapshot(
     request_context: RequestContext = require_permission(Permission.RISK_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
     risk_service: RiskService = Depends(get_risk_service),
-    session: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_read_db),
 ) -> RiskSnapshot | None:
     return await risk_service.get_latest_snapshot(portfolio_id, session=session)
 
@@ -76,7 +76,7 @@ async def get_risk_history(
     request_context: RequestContext = require_permission(Permission.RISK_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
     risk_service: RiskService = Depends(get_risk_service),
-    session: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_read_db),
 ) -> list[RiskSnapshot]:
     return await risk_service.get_snapshot_history(portfolio_id, start, end, session=session)
 
@@ -119,7 +119,7 @@ async def run_predefined_stress_tests(
     request_context: RequestContext = require_permission(Permission.RISK_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
     risk_service: RiskService = Depends(get_risk_service),
-    session: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_read_db),
 ) -> list[StressTestResult]:
     results = []
     for scenario in PREDEFINED_SCENARIOS:
@@ -158,7 +158,7 @@ async def get_factor_decomposition(
     request_context: RequestContext = require_permission(Permission.RISK_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
     risk_service: RiskService = Depends(get_risk_service),
-    session: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_read_db),
 ) -> FactorDecomposition:
     return await risk_service.calculate_factor_model(portfolio_id, session=session)
 

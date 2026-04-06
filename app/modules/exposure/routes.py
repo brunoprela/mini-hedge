@@ -13,7 +13,7 @@ from app.modules.exposure.interface import (
 )
 from app.modules.exposure.service import ExposureService
 from app.shared.auth import Permission, require_permission
-from app.shared.database import get_db
+from app.shared.database import get_read_db
 from app.shared.fga import require_access
 from app.shared.fga_resources import Portfolio
 from app.shared.request_context import RequestContext
@@ -27,7 +27,7 @@ async def get_portfolio_exposure(
     request_context: RequestContext = require_permission(Permission.EXPOSURE_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
     exposure_service: ExposureService = Depends(get_exposure_service),
-    session: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_read_db),
 ) -> PortfolioExposure:
     return await exposure_service.get_current(portfolio_id, session=session)
 
@@ -43,7 +43,7 @@ async def get_exposure_history(
     request_context: RequestContext = require_permission(Permission.EXPOSURE_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
     exposure_service: ExposureService = Depends(get_exposure_service),
-    session: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_read_db),
 ) -> list[ExposureSnapshot]:
     return await exposure_service.get_history(
         portfolio_id, start, end, fund_slug=request_context.fund_slug, session=session

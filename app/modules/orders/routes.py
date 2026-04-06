@@ -14,7 +14,7 @@ from app.modules.orders.interface import (
 from app.modules.orders.service import OrderService
 from app.modules.orders.state_machine import InvalidTransitionError
 from app.shared.auth import Permission, require_permission
-from app.shared.database import get_db
+from app.shared.database import get_db, get_read_db
 from app.shared.request_context import RequestContext
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -41,7 +41,7 @@ async def list_orders(
     state: str | None = Query(None),
     request_context: RequestContext = require_permission(Permission.ORDERS_READ),
     order_service: OrderService = Depends(get_order_service),
-    session: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_read_db),
 ) -> list[OrderSummary]:
     return await order_service.get_orders(portfolio_id, state=state, session=session)
 
@@ -51,7 +51,7 @@ async def get_order(
     order_id: UUID,
     request_context: RequestContext = require_permission(Permission.ORDERS_READ),
     order_service: OrderService = Depends(get_order_service),
-    session: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_read_db),
 ) -> OrderSummary:
     try:
         return await order_service.get_order(order_id, session=session)
@@ -64,7 +64,7 @@ async def get_fills(
     order_id: UUID,
     request_context: RequestContext = require_permission(Permission.ORDERS_READ),
     order_service: OrderService = Depends(get_order_service),
-    session: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_read_db),
 ) -> list[FillDetail]:
     return await order_service.get_fills(order_id, session=session)
 

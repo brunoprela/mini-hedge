@@ -61,12 +61,17 @@ from app.setup import (
 from app.shared.audit_bridge import AuditBridge
 from app.shared.cdc_audit_consumer import CdcAuditConsumer
 from app.shared.cdc_transformer import CdcTransformer
-from app.shared.database import build_engine
+from app.shared.database import TenantSessionFactory, build_engine
+from app.shared.dlq_manager import DlqManager
 from app.shared.fund_schema import ensure_all_fund_schemas
 from app.shared.idempotency import IdempotencyMiddleware
+from app.shared.immudb_bridge import ImmudbBridge
+from app.shared.immudb_client import ImmudbClient
 from app.shared.kafka import KafkaEventBus
 from app.shared.logging import setup_logging
 from app.shared.metrics import PrometheusMiddleware, metrics_route
+from app.shared.opensearch_bridge import OpenSearchBridge
+from app.shared.opensearch_client import OpenSearchClient
 from app.shared.redis import create_redis_client
 from app.shared.redis_bridge import RedisBridge
 from app.shared.schema_registry import (
@@ -178,6 +183,35 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     audit_bridge = AuditBridge(audit_repo)
     audit_bridge.wire(kafka_bus, fund_slugs)
 
+    # immudb — tamper-proof audit witness (parallel Kafka consumer)
+    immudb_client: ImmudbClient | None = None
+    if settings.immudb_enabled:
+        immudb_client = ImmudbClient(
+            host=settings.immudb_host,
+            port=settings.immudb_port,
+            username=settings.immudb_username,
+            password=settings.immudb_password,
+            database=settings.immudb_database,
+        )
+        await immudb_client.connect()
+        immudb_bridge = ImmudbBridge(immudb_client)
+        immudb_bridge.wire(kafka_bus, fund_slugs)
+        fastapi_app.state.immudb_client = immudb_client
+
+    # OpenSearch — audit log search index (parallel Kafka consumer)
+    opensearch_client: OpenSearchClient | None = None
+    if settings.opensearch_enabled:
+        opensearch_client = OpenSearchClient(
+            host=settings.opensearch_host,
+            port=settings.opensearch_port,
+            username=settings.opensearch_username,
+            password=settings.opensearch_password,
+        )
+        await opensearch_client.connect()
+        opensearch_bridge = OpenSearchBridge(opensearch_client)
+        opensearch_bridge.wire(kafka_bus, fund_slugs)
+        fastapi_app.state.opensearch_client = opensearch_client
+
     # Redis — bridge event bus to pub/sub for SSE streaming
     redis_client = None
     if settings.redis_enabled:
@@ -191,6 +225,9 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     logger.info("kafka_consumers_starting")
     await kafka_bus.start()
     logger.info("kafka_consumers_ready")
+
+    # DLQ manager — admin API for inspecting/replaying dead letter queues
+    fastapi_app.state.dlq_manager = DlqManager(settings.kafka_bootstrap_servers)
 
     # --- CDC transformer ---
     # Consumes Debezium CDC events from cdc.fund_* topics and re-publishes
@@ -247,6 +284,12 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     yield
 
     # Shutdown
+    if opensearch_client is not None:
+        await opensearch_client.close()
+
+    if immudb_client is not None:
+        await immudb_client.close()
+
     await cdc_audit.stop()
     await cdc_transformer.stop()
 
@@ -261,6 +304,10 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
 
     if fga_client is not None:
         await fga_client.close()
+
+    # Dispose read replica engine if configured
+    if session_factory.has_read_replica:
+        await session_factory._read_engine.dispose()  # type: ignore[union-attr]
 
     await engine.dispose()
     logger.info("app_stopped")
@@ -331,13 +378,23 @@ async def health_check() -> dict[str, object]:
     """Readiness probe — checks PostgreSQL, Redis, and Kafka connectivity."""
     components: dict[str, str] = {}
 
-    # PostgreSQL
+    # PostgreSQL (primary via PgBouncer)
     try:
         async with app.state.engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
         components["postgres"] = "healthy"
     except Exception as e:
         components["postgres"] = f"unhealthy: {e}"
+
+    # PostgreSQL read replica
+    sf: TenantSessionFactory = app.state.session_factory
+    if sf.has_read_replica:
+        try:
+            async with sf._read_engine.connect() as conn:  # type: ignore[union-attr]
+                await conn.execute(text("SELECT 1"))
+            components["postgres_replica"] = "healthy"
+        except Exception as e:
+            components["postgres_replica"] = f"unhealthy: {e}"
 
     # Redis (if enabled)
     redis = getattr(app.state, "redis", None)

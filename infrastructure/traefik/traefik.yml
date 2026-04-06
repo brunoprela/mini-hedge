@@ -1,0 +1,36 @@
+api:
+  dashboard: true
+  insecure: true  # Dashboard on port 8080 without auth (local dev only)
+
+ping: {}
+
+entryPoints:
+  web:
+    address: ":80"
+  websecure:
+    address: ":443"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: default
+
+log:
+  level: INFO
+  format: json
+
+accessLog:
+  format: json
+  fields:
+    headers:
+      defaultMode: drop
+      names:
+        X-Request-Id: keep
+        Authorization: redact
+
+# Self-signed TLS for local dev
+tls:
+  certificates:
+    - certFile: /certs/local.crt
+      keyFile: /certs/local.key

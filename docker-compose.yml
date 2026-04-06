@@ -13,12 +13,39 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./scripts/pg-hba-replication.sh:/docker-entrypoint-initdb.d/02-pg-hba.sh
     command: postgres -c wal_level=logical -c max_replication_slots=4 -c max_wal_senders=4
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U minihedge"]
       interval: 5s
       timeout: 3s
       retries: 5
+
+  postgres-replica:
+    image: timescale/timescaledb:latest-pg16
+    profiles: ["core"]
+    environment:
+      PRIMARY_HOST: postgres
+      PRIMARY_PORT: "5432"
+      REPLICATION_USER: replicator
+      REPLICATION_PASSWORD: minihedge
+      # Required by the image but unused — replica bootstraps via pg_basebackup
+      POSTGRES_PASSWORD: minihedge
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata-replica:/var/lib/postgresql/data
+      - ./scripts/init-replica.sh:/init-replica.sh:ro
+    entrypoint: ["/bin/bash", "/init-replica.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U minihedge"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
 
   openfga-migrate:
     image: openfga/openfga:latest
@@ -192,6 +219,37 @@ services:
       - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./infrastructure/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
 
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    profiles: ["core"]
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./infrastructure/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9093/-/healthy || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  loki:
+    image: grafana/loki:3.0.0
+    profiles: ["core"]
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./infrastructure/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3100/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
   grafana:
     image: grafana/grafana:10.4.0
     profiles: ["core"]
@@ -205,6 +263,8 @@ services:
       - ./infrastructure/grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
       - prometheus
+      - alertmanager
+      - loki
 
   # ---------------------------------------------------------------------------
   # Mock Exchange — external vendor simulation (own Kafka cluster)
@@ -287,9 +347,174 @@ services:
       retries: 5
       start_period: 15s
 
+  traefik:
+    image: traefik:v3.0
+    profiles: ["core"]
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8090:8080"   # Dashboard (8080 taken by OpenFGA)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./infrastructure/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./infrastructure/traefik/certs:/certs:ro
+    healthcheck:
+      test: ["CMD-SHELL", "traefik healthcheck || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    profiles: ["core"]
+    environment:
+      DATABASE_URL: "postgres://minihedge:minihedge@postgres:5432/minihedge"
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: "200"
+      DEFAULT_POOL_SIZE: "20"
+      MIN_POOL_SIZE: "5"
+      AUTH_TYPE: scram-sha-256
+    ports:
+      - "6432:5432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  vault:
+    image: hashicorp/vault:latest
+    profiles: ["core"]
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: "minihedge-dev-root-token"
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+    ports:
+      - "8200:8200"
+    volumes:
+      - ./infrastructure/vault:/vault/config:ro
+    cap_add:
+      - IPC_LOCK
+    healthcheck:
+      test: ["CMD-SHELL", "VAULT_ADDR=http://127.0.0.1:8200 vault status || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  opensearch:
+    image: opensearchproject/opensearch:2
+    profiles: ["core"]
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms256m -Xmx256m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2
+    profiles: ["core"]
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
+    ports:
+      - "5601:5601"
+    depends_on:
+      opensearch:
+        condition: service_healthy
+
+  temporal:
+    image: temporalio/auto-setup:latest
+    platform: linux/amd64
+    profiles: ["core"]
+    environment:
+      DB: postgres12_pgx
+      DB_PORT: "5432"
+      POSTGRES_USER: minihedge
+      POSTGRES_PWD: minihedge
+      POSTGRES_SEEDS: postgres
+      SKIP_DYNAMIC_CONFIG_UPDATE: "true"
+    ports:
+      - "7233:7233"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "tctl --address $(hostname -i):7233 cluster health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 15
+      start_period: 90s
+
+  temporal-ui:
+    image: temporalio/ui:latest
+    profiles: ["core"]
+    environment:
+      TEMPORAL_ADDRESS: "temporal:7233"
+    ports:
+      - "8088:8080"
+    depends_on:
+      temporal:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    profiles: ["core"]
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Console UI
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  immudb:
+    image: codenotary/immudb:latest
+    platform: linux/amd64
+    profiles: ["core"]
+    ports:
+      - "3322:3322"   # gRPC client
+      - "9497:9497"   # Prometheus metrics
+    volumes:
+      - immudb-data:/var/lib/immudb
+    healthcheck:
+      test: ["CMD", "immuadmin", "status", "--immudb-address", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
   app:
     build: .
     profiles: ["core"]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=PathPrefix(`/api`) || PathPrefix(`/health`) || PathPrefix(`/metrics`)"
+      - "traefik.http.routers.api.entrypoints=web"
+      - "traefik.http.services.api.loadbalancer.server.port=8000"
     command: >
       sh -c "uv sync --frozen && uv run uvicorn app.main:app
       --host 0.0.0.0
@@ -298,7 +523,8 @@ services:
       --reload-dir app"
     environment:
       PYTHONUNBUFFERED: "1"
-      DATABASE_URL: "postgresql+asyncpg://minihedge:minihedge@postgres:5432/minihedge"
+      DATABASE_URL: "postgresql+asyncpg://minihedge:minihedge@pgbouncer:5432/minihedge"
+      DATABASE_READ_URL: "postgresql+asyncpg://minihedge:minihedge@postgres-replica:5432/minihedge"
       FGA_API_URL: "http://openfga:8080"
       FGA_STORE_NAME: "minihedge"
       FGA_ENABLED: "true"
@@ -322,13 +548,28 @@ services:
       OTEL_ENABLED: "true"
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://jaeger:4317"
       OTEL_SERVICE_NAME: "minihedge"
+      IMMUDB_ENABLED: "true"
+      IMMUDB_HOST: "immudb"
+      IMMUDB_PORT: "3322"
+      OPENSEARCH_ENABLED: "true"
+      OPENSEARCH_HOST: "opensearch"
+      OPENSEARCH_PORT: "9200"
+      MINIO_ENABLED: "true"
+      MINIO_ENDPOINT: "minio:9000"
+      TEMPORAL_ENABLED: "true"
+      TEMPORAL_HOST: "temporal"
+      TEMPORAL_PORT: "7233"
+      VAULT_ADDR: "http://vault:8200"
+      VAULT_TOKEN: "minihedge-dev-root-token"
     ports:
       - "8000:8000"
     volumes:
       - .:/app
       - app-venv:/app/.venv
     depends_on:
-      postgres:
+      pgbouncer:
+        condition: service_healthy
+      postgres-replica:
         condition: service_healthy
       openfga:
         condition: service_healthy
@@ -341,6 +582,10 @@ services:
       schema-registry:
         condition: service_healthy
       mock-exchange:
+        condition: service_healthy
+      immudb:
+        condition: service_healthy
+      opensearch:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
@@ -411,6 +656,11 @@ services:
 
 volumes:
   pgdata:
+  pgdata-replica:
+  immudb-data:
+  opensearch-data:
+  minio-data:
+  loki-data:
   app-venv:
   mock-exchange-venv:
   ui-node-modules:

@@ -9,7 +9,7 @@ from app.modules.positions.dependencies import get_position_service
 from app.modules.positions.interface import PortfolioSummary, Position, PositionLot, TradeRequest
 from app.modules.positions.service import PositionService
 from app.shared.auth import Permission, require_permission
-from app.shared.database import get_db
+from app.shared.database import get_db, get_read_db
 from app.shared.fga import ParamSource, require_access
 from app.shared.fga_resources import Portfolio
 from app.shared.request_context import RequestContext
@@ -23,7 +23,7 @@ async def list_positions(
     request_context: RequestContext = require_permission(Permission.POSITIONS_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
     position_service: PositionService = Depends(get_position_service),
-    session: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_read_db),
 ) -> list[Position]:
     return await position_service.get_by_portfolio(portfolio_id, session=session)
 
@@ -38,7 +38,7 @@ async def get_position(
     request_context: RequestContext = require_permission(Permission.POSITIONS_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
     position_service: PositionService = Depends(get_position_service),
-    session: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_read_db),
 ) -> Position:
     position = await position_service.get_position(
         portfolio_id, instrument_id.upper(), session=session
@@ -61,7 +61,7 @@ async def get_lots(
     request_context: RequestContext = require_permission(Permission.POSITIONS_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
     position_service: PositionService = Depends(get_position_service),
-    session: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_read_db),
 ) -> list[PositionLot]:
     return await position_service.get_lots(portfolio_id, instrument_id.upper(), session=session)
 
@@ -72,7 +72,7 @@ async def get_portfolio_summary(
     request_context: RequestContext = require_permission(Permission.POSITIONS_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
     position_service: PositionService = Depends(get_position_service),
-    session: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_read_db),
 ) -> PortfolioSummary:
     return await position_service.get_portfolio_summary(portfolio_id, session=session)
 

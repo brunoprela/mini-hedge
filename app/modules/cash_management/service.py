@@ -25,7 +25,10 @@ from app.modules.cash_management.models import (
     CashJournalRecord,
     CashSettlementRecord,
 )
-from app.modules.cash_management.settlement import calculate_settlement_date
+from app.modules.cash_management.settlement import (
+    calculate_settlement_date,
+    snap_to_business_day,
+)
 from app.shared.audit_events import AuditEventType
 from app.shared.events import BaseEvent
 from app.shared.schema_registry import fund_topic
@@ -359,12 +362,12 @@ class CashManagementService:
 
         entries: list[SettlementLadderEntry] = []
         cumulative = current_balance
-        current = today
+        current = snap_to_business_day(today)
         while current <= end:
             inflow, outflow = by_date.get(current, (ZERO, ZERO))
             net = inflow - outflow
             cumulative += net
-            if inflow > ZERO or outflow > ZERO or current == today:
+            if inflow > ZERO or outflow > ZERO or current == snap_to_business_day(today):
                 entries.append(
                     SettlementLadderEntry(
                         settlement_date=current,
@@ -375,7 +378,9 @@ class CashManagementService:
                         cumulative_balance=cumulative,
                     )
                 )
+            # Skip to next business day
             current += timedelta(days=1)
+            current = snap_to_business_day(current)
 
         return SettlementLadder(
             portfolio_id=portfolio_id,
@@ -418,11 +423,11 @@ class CashManagementService:
         for b in balances:
             current_balance += b.available_balance
 
-        # Build daily projection
+        # Build daily projection (business days only)
         entries: list[CashProjectionEntry] = []
         running_balance = current_balance
 
-        current = today
+        current = snap_to_business_day(today)
         while current <= end:
             opening = running_balance
             inflows = ZERO
@@ -480,7 +485,9 @@ class CashManagementService:
                     flow_details=details,
                 )
             )
+            # Skip to next business day
             current += timedelta(days=1)
+            current = snap_to_business_day(current)
 
         return CashProjection(
             portfolio_id=portfolio_id,
@@ -520,7 +527,7 @@ class CashManagementService:
                     instrument_id=instrument_id,
                     currency=currency,
                     amount=amount,
-                    trade_date=date.today(),
+                    trade_date=snap_to_business_day(date.today()),
                     fund_slug=event.fund_slug,
                 )
         except Exception:

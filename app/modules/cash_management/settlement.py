@@ -29,6 +29,21 @@ def calculate_settlement_date(trade_date: date, country: str) -> date:
     return _add_business_days(trade_date, n)
 
 
+def snap_to_business_day(d: date) -> date:
+    """If *d* falls on a weekend, advance to the next Monday."""
+    wd = d.weekday()
+    if wd == 5:  # Saturday
+        return d + timedelta(days=2)
+    if wd == 6:  # Sunday
+        return d + timedelta(days=1)
+    return d
+
+
+def is_business_day(d: date) -> bool:
+    """Return True if *d* is a weekday (Mon-Fri)."""
+    return d.weekday() < 5
+
+
 def _add_business_days(start: date, days: int) -> date:
     """Add N business days to a date, skipping weekends."""
     current = start

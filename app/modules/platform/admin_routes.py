@@ -1,9 +1,11 @@
 """Admin API routes — platform operator endpoints for managing users, funds, and access."""
 
-from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
+from __future__ import annotations
 
-from app.modules.platform.admin_service import AdminService
+from typing import TYPE_CHECKING, Any
+
+from fastapi import APIRouter, Depends, Request
+
 from app.modules.platform.dependencies import get_admin_service
 from app.modules.platform.interface import (
     AccessGrantRequest,
@@ -24,8 +26,13 @@ from app.modules.platform.interface import (
     UserPage,
 )
 from app.shared.auth import Permission, require_platform_permission
-from app.shared.database import get_db
-from app.shared.request_context import RequestContext
+from app.shared.database import get_db, get_read_db
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.modules.platform.admin_service import AdminService
+    from app.shared.request_context import RequestContext
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -40,7 +47,7 @@ async def list_users(
     offset: int = 0,
     request_context: RequestContext = require_platform_permission(Permission.PLATFORM_USERS_READ),
     admin_service: AdminService = Depends(get_admin_service),
-    session: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_read_db),
 ) -> UserPage:
     return await admin_service.list_users(limit=limit, offset=offset, session=session)
 
@@ -62,7 +69,7 @@ async def get_user(
     user_id: str,
     request_context: RequestContext = require_platform_permission(Permission.PLATFORM_USERS_READ),
     admin_service: AdminService = Depends(get_admin_service),
-    session: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_read_db),
 ) -> UserInfo:
     return await admin_service.get_user(user_id, session=session)
 
@@ -93,7 +100,7 @@ async def list_operators(
         Permission.PLATFORM_OPERATORS_READ
     ),
     admin_service: AdminService = Depends(get_admin_service),
-    session: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_read_db),
 ) -> OperatorPage:
     return await admin_service.list_operators(limit=limit, offset=offset, session=session)
 
@@ -142,7 +149,7 @@ async def list_funds(
     offset: int = 0,
     request_context: RequestContext = require_platform_permission(Permission.PLATFORM_FUNDS_READ),
     admin_service: AdminService = Depends(get_admin_service),
-    session: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_read_db),
 ) -> FundPage:
     return await admin_service.list_funds(limit=limit, offset=offset, session=session)
 
@@ -186,7 +193,7 @@ async def list_fund_access(
     fund_id: str,
     request_context: RequestContext = require_platform_permission(Permission.PLATFORM_ACCESS_READ),
     admin_service: AdminService = Depends(get_admin_service),
-    session: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_read_db),
 ) -> list[FundAccessGrant]:
     return await admin_service.list_fund_access(fund_id, session=session)
 
@@ -240,7 +247,7 @@ async def list_audit(
     offset: int = 0,
     request_context: RequestContext = require_platform_permission(Permission.PLATFORM_AUDIT_READ),
     admin_service: AdminService = Depends(get_admin_service),
-    session: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_read_db),
 ) -> AuditPage:
     return await admin_service.list_audit(
         fund_slug=fund_slug,
@@ -249,3 +256,67 @@ async def list_audit(
         offset=offset,
         session=session,
     )
+
+
+# ---------------------------------------------------------------------------
+# DLQ Management
+# ---------------------------------------------------------------------------
+
+
+def _get_dlq_manager(request: Request) -> Any:
+    """Retrieve the DlqManager from app state."""
+    return request.app.state.dlq_manager
+
+
+@router.get("/dlq")
+async def list_dlq_topics(
+    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_AUDIT_READ),
+    dlq_manager: Any = Depends(_get_dlq_manager),
+) -> list[dict[str, Any]]:
+    """List all DLQ topics with message counts."""
+    topics = await dlq_manager.list_topics()
+    return [
+        {
+            "topic": t.topic,
+            "source_topic": t.source_topic,
+            "message_count": t.message_count,
+        }
+        for t in topics
+    ]
+
+
+@router.get("/dlq/{topic}")
+async def peek_dlq_topic(
+    topic: str,
+    limit: int = 10,
+    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_AUDIT_READ),
+    dlq_manager: Any = Depends(_get_dlq_manager),
+) -> list[dict[str, Any]]:
+    """Peek at messages in a DLQ topic without consuming them."""
+    messages = await dlq_manager.peek(topic, limit=limit)
+    return [
+        {
+            "offset": m.offset,
+            "timestamp": m.timestamp,
+            "key": m.key,
+            "value": m.value,
+        }
+        for m in messages
+    ]
+
+
+@router.post("/dlq/{topic}/replay")
+async def replay_dlq_topic(
+    topic: str,
+    limit: int = 100,
+    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_AUDIT_READ),
+    dlq_manager: Any = Depends(_get_dlq_manager),
+) -> dict[str, Any]:
+    """Replay DLQ messages back to the source topic."""
+    result = await dlq_manager.replay(topic, limit=limit)
+    return {
+        "topic": result.topic,
+        "source_topic": result.source_topic,
+        "replayed": result.replayed,
+        "failed": result.failed,
+    }

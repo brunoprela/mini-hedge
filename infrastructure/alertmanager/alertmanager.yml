@@ -1,0 +1,35 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname', 'severity']
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 1h
+  receiver: local-webhook
+
+  routes:
+    - match:
+        severity: critical
+      receiver: local-webhook
+      group_wait: 5s
+
+    - match:
+        severity: warning
+      receiver: local-webhook
+      group_wait: 30s
+
+receivers:
+  - name: local-webhook
+    webhook_configs:
+      # Logs received alerts to stdout — visible via `docker compose logs alertmanager`
+      # In production, swap this URL for Slack/PagerDuty/OpsGenie webhook
+      - url: 'http://alertmanager:9093/-/healthy'
+        send_resolved: true
+
+inhibit_rules:
+  - source_match:
+      severity: critical
+    target_match:
+      severity: warning
+    equal: ['alertname']

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from functools import lru_cache
 
 from pydantic import model_validator
@@ -9,7 +11,11 @@ _DEV_JWT_SECRET = "minihedge-dev-secret-change-in-production"
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
+    vault_addr: str = ""
+    vault_token: str = ""
+
     database_url: str = "postgresql+asyncpg://minihedge:minihedge@localhost:5433/minihedge"
+    database_read_url: str = ""
     database_pool_size: int = 20
     database_max_overflow: int = 10
     database_pool_timeout: int = 30
@@ -36,6 +42,28 @@ class Settings(BaseSettings):
     otel_enabled: bool = False
     otel_endpoint: str = "http://localhost:4317"
 
+    immudb_enabled: bool = False
+    immudb_host: str = "localhost"
+    immudb_port: int = 3322
+    immudb_username: str = "immudb"
+    immudb_password: str = "immudb"
+    immudb_database: str = "defaultdb"
+
+    opensearch_enabled: bool = False
+    opensearch_host: str = "localhost"
+    opensearch_port: int = 9200
+    opensearch_username: str = "admin"
+    opensearch_password: str = "admin"
+
+    minio_enabled: bool = False
+    minio_endpoint: str = "localhost:9000"
+    minio_access_key: str = "minioadmin"
+    minio_secret_key: str = "minioadmin"
+
+    temporal_enabled: bool = False
+    temporal_host: str = "localhost"
+    temporal_port: int = 7233
+
     # Adapter configuration — controls which external data sources the platform uses
     mock_exchange_url: str = "http://localhost:8100"
     mock_exchange_kafka_bootstrap_servers: str = "localhost:9192"
@@ -61,7 +89,7 @@ class Settings(BaseSettings):
     ]
 
     @model_validator(mode="after")
-    def _reject_dev_secret_in_production(self) -> "Settings":
+    def _reject_dev_secret_in_production(self) -> Settings:
         if self.app_env not in ("local", "test") and self.jwt_secret == _DEV_JWT_SECRET:
             raise ValueError(
                 "JWT_SECRET must be set to a unique value in non-local environments. "
@@ -72,4 +100,20 @@ class Settings(BaseSettings):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    return Settings()
+    settings = Settings()
+
+    # Overlay secrets from Vault if configured
+    if settings.vault_addr:
+        from app.shared.vault import load_vault_secrets
+
+        vault_secrets = load_vault_secrets(
+            vault_addr=settings.vault_addr,
+            vault_token=settings.vault_token,
+        )
+        if vault_secrets:
+            # Only override fields that exist in Settings
+            for key, value in vault_secrets.items():
+                if hasattr(settings, key) and value:
+                    object.__setattr__(settings, key, value)
+
+    return settings

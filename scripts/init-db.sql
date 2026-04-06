@@ -10,6 +10,9 @@ CREATE SCHEMA IF NOT EXISTS keycloak;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS timescaledb;
 
+-- Streaming replication role (used by read replica)
+CREATE ROLE replicator WITH REPLICATION LOGIN PASSWORD 'minihedge';
+
 -- Debezium CDC replication role
 CREATE ROLE debezium_replication WITH REPLICATION LOGIN PASSWORD 'minihedge';
 GRANT CONNECT ON DATABASE minihedge TO debezium_replication;
