@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
@@ -120,6 +121,68 @@ class AuditLogRepository(BaseRepository):
             stmt = stmt.offset(offset).limit(limit)
             result = await session.execute(stmt)
             return list(result.scalars().all()), total
+
+
+    async def get_records_for_period(
+        self,
+        *,
+        start: datetime,
+        end: datetime,
+        fund_slug: str | None = None,
+        batch_size: int = 5000,
+        session: AsyncSession | None = None,
+    ) -> list[dict[str, Any]]:
+        """Fetch audit records in a date range as plain dicts (for archival).
+
+        Returns records ordered by created_at ascending. Used by the archival
+        service to extract a completed month's records for Parquet export.
+        """
+        async with self._session(session) as session:
+            stmt = (
+                select(AuditLogRecord)
+                .where(
+                    AuditLogRecord.created_at >= start,
+                    AuditLogRecord.created_at < end,
+                )
+                .order_by(AuditLogRecord.created_at.asc())
+                .limit(batch_size)
+            )
+            if fund_slug:
+                stmt = stmt.where(AuditLogRecord.fund_slug == fund_slug)
+
+            result = await session.execute(stmt)
+            records = result.scalars().all()
+
+            return [
+                {
+                    "event_id": r.event_id,
+                    "event_type": r.event_type,
+                    "actor_id": r.actor_id,
+                    "actor_type": r.actor_type,
+                    "fund_slug": r.fund_slug,
+                    "payload": r.payload,
+                    "created_at": r.created_at,
+                }
+                for r in records
+            ]
+
+    async def count_for_period(
+        self,
+        *,
+        start: datetime,
+        end: datetime,
+        fund_slug: str | None = None,
+        session: AsyncSession | None = None,
+    ) -> int:
+        """Count audit records in a date range."""
+        async with self._session(session) as session:
+            stmt = select(func.count(AuditLogRecord.id)).where(
+                AuditLogRecord.created_at >= start,
+                AuditLogRecord.created_at < end,
+            )
+            if fund_slug:
+                stmt = stmt.where(AuditLogRecord.fund_slug == fund_slug)
+            return (await session.execute(stmt)).scalar_one()
 
 
 def _safe_payload(event: BaseEvent) -> dict[str, Any]:

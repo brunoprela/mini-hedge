@@ -58,6 +58,8 @@ from app.setup import (
     setup_risk_engine,
     setup_security_master,
 )
+from app.shared.archival import MinioArchiver
+from app.shared.archival_service import ArchivalService
 from app.shared.audit_bridge import AuditBridge
 from app.shared.cdc_audit_consumer import CdcAuditConsumer
 from app.shared.cdc_transformer import CdcTransformer
@@ -182,6 +184,23 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     audit_repo = AuditLogRepository(session_factory)
     audit_bridge = AuditBridge(audit_repo)
     audit_bridge.wire(kafka_bus, fund_slugs)
+
+    # MinIO — cold-tier audit archival (S3-compatible Parquet export)
+    if settings.minio_enabled:
+        archiver = MinioArchiver(
+            endpoint=settings.minio_endpoint,
+            access_key=settings.minio_access_key,
+            secret_key=settings.minio_secret_key,
+        )
+        archiver.connect()
+        archival_service = ArchivalService(
+            archiver=archiver,
+            audit_repo=audit_repo,
+            fund_repo=fund_repo,
+            session_factory=session_factory,
+        )
+        fastapi_app.state.archival_service = archival_service
+        logger.info("minio_archival_ready", endpoint=settings.minio_endpoint)
 
     # immudb — tamper-proof audit witness (parallel Kafka consumer)
     immudb_client: ImmudbClient | None = None

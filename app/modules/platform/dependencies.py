@@ -7,6 +7,7 @@ from app.modules.platform.audit_repository import AuditLogRepository
 from app.modules.platform.audit_verifier import AuditIntegrityVerifier
 from app.modules.platform.auth_service import AuthService
 from app.modules.platform.portfolio_repository import PortfolioRepository
+from app.shared.archival_service import ArchivalService
 
 
 def get_auth_service(request: Request) -> AuthService:
@@ -42,3 +43,10 @@ def get_audit_verifier(request: Request) -> AuditIntegrityVerifier:
     if verifier is None:
         raise HTTPException(status_code=503, detail="AuditIntegrityVerifier not initialized")
     return verifier
+
+
+def get_archival_service(request: Request) -> ArchivalService:
+    service: ArchivalService | None = getattr(request.app.state, "archival_service", None)
+    if service is None:
+        raise HTTPException(status_code=503, detail="ArchivalService not initialized")
+    return service
