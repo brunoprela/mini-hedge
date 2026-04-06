@@ -41,4 +41,4 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("prices", schema="market_data")
-    op.execute("DROP SCHEMA IF EXISTS market_data CASCADE")
+    # Leave the schema in place — alembic_version lives here.
