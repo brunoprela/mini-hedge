@@ -1,4 +1,0 @@
-# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/fee_accounting/calculator.py
-# hypothesis_version: 6.151.10
-
-[100, 365, 10000, '0.01', 'annual', 'quarterly']

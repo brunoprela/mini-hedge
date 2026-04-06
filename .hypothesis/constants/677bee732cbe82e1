@@ -1,4 +1,0 @@
-# file: /Users/bruno/Developer/mono/mini-hedge/app/middleware/rate_limit.py
-# hypothesis_version: 6.151.10
-
-[429, '100/minute', 'Bearer ', 'Retry-After', 'authorization', 'detail', 'fixed-window', 'memory://', 'retry_after', 'x-api-key']

@@ -1,4 +1,0 @@
-# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/corporate_actions/interface.py
-# hypothesis_version: 6.151.10
-
-['dividend', 'failed', 'pending', 'processed', 'reverse_split', 'skipped', 'spinoff', 'stock_split']

@@ -1,4 +1,0 @@
-# file: /Users/bruno/Developer/mono/mini-hedge/app/modules/compliance/repository.py
-# hypothesis_version: 6.151.10
-
-['manual', 'rule_type', 'severity', 'updated_at']
