@@ -6,8 +6,11 @@ from alembic import context
 from sqlalchemy import create_engine, pool, text
 
 from app.modules.security_master.models import Base
+from app.shared.alembic_plugins import setup_plugins
 
 SCHEMA = "security_master"
+
+setup_plugins()
 
 config = context.config
 if config.config_file_name is not None:

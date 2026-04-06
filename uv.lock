@@ -160,6 +160,35 @@ wheels = [
 ]
 
 [[package]]
+name = "alembic-postgresql-enum"
+version = "1.10.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "alembic" },
+    { name = "sqlalchemy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/63/cf/b5147b926441e7cdc12f306465dac488ff22364b1467a09a5d43743b8cfc/alembic_postgresql_enum-1.10.0.tar.gz", hash = "sha256:ea23481de3d6a00d68d369f92a46ff4fa27b2575e39c583145f1e23ea9c7511d", size = 18557, upload-time = "2026-02-23T16:15:04.148Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/58/8a/4db3821584824ac68df00a6ca27331d3f41f40105f22a8dc1b30b1ec83af/alembic_postgresql_enum-1.10.0-py3-none-any.whl", hash = "sha256:39297cb5dc0e71a3e08df1feeab9ffcc1b6aac0be02bf578748d74c442cd3fbf", size = 27774, upload-time = "2026-02-23T16:15:02.789Z" },
+]
+
+[[package]]
+name = "alembic-utils"
+version = "0.8.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "alembic" },
+    { name = "flupy" },
+    { name = "parse" },
+    { name = "sqlalchemy" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ec/7a/eae622a97ba1721fd7e420c60060a74852b800ac1fecbaa2e67a35941d6d/alembic_utils-0.8.8.tar.gz", hash = "sha256:99de5d13194f26536bc0322f0c1660020a305015700d8447ccfc20e7d1494e5b", size = 21638, upload-time = "2025-04-10T18:58:13.212Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/dd/01/d55bd80997df2ec1ff2fd40cd3eeadec93c4b3c5492df3c6852b29f9e393/alembic_utils-0.8.8-py3-none-any.whl", hash = "sha256:2c2545dc545833c5deb63bce2c3cde01c1807bf99da5efab2497bc8d817cb86e", size = 31044, upload-time = "2025-04-10T18:58:12.247Z" },
+]
+
+[[package]]
 name = "annotated-doc"
 version = "0.0.4"
 source = { registry = "https://pypi.org/simple" }
@@ -716,6 +745,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/a7/1c/6dfd082a205be4510543221b734b1191299e6a1810c452b6bc76dfa6968e/fastavro-1.12.1-cp314-cp314t-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:b6a3462934b20a74f9ece1daa49c2e4e749bd9a35fa2657b53bf62898fba80f5", size = 3433972, upload-time = "2025-10-10T15:42:14.485Z" },
     { url = "https://files.pythonhosted.org/packages/24/90/9de694625a1a4b727b1ad0958d220cab25a9b6cf7f16a5c7faa9ea7b2261/fastavro-1.12.1-cp314-cp314t-musllinux_1_2_aarch64.whl", hash = "sha256:1f81011d54dd47b12437b51dd93a70a9aa17b61307abf26542fc3c13efbc6c51", size = 3368752, upload-time = "2025-10-10T15:42:16.618Z" },
     { url = "https://files.pythonhosted.org/packages/fa/93/b44f67589e4d439913dab6720f7e3507b0fa8b8e56d06f6fc875ced26afb/fastavro-1.12.1-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:43ded16b3f4a9f1a42f5970c2aa618acb23ea59c4fcaa06680bdf470b255e5a8", size = 3386636, upload-time = "2025-10-10T15:42:18.974Z" },
+]
+
+[[package]]
+name = "flupy"
+version = "1.2.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/fd/a5/15fe839297d761e04c4578b11013ed46353e63b44b5e42b59c2078602fa1/flupy-1.2.3.tar.gz", hash = "sha256:220b6d40dea238cd2d66784c0d4d2a5483447a48acd343385768e0c740af9609", size = 12327, upload-time = "2025-07-15T14:08:21.14Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7c/26/d4d1629f846ae2913e88f74955a3c3f41f3863e74c5fbc1cb79af9550717/flupy-1.2.3-py3-none-any.whl", hash = "sha256:be0f5a393bad2b3534697fbab17081993cd3f5817169dd3a61e8b2e0887612e6", size = 12512, upload-time = "2025-07-18T20:15:21.384Z" },
 ]
 
 [[package]]
@@ -1515,6 +1556,8 @@ source = { editable = "." }
 dependencies = [
     { name = "aiokafka" },
     { name = "alembic" },
+    { name = "alembic-postgresql-enum" },
+    { name = "alembic-utils" },
     { name = "asyncpg" },
     { name = "cachetools" },
     { name = "cramjam" },
@@ -1553,6 +1596,7 @@ dev = [
     { name = "httpx" },
     { name = "mypy" },
     { name = "pytest" },
+    { name = "pytest-alembic" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
     { name = "schemathesis" },
@@ -1564,6 +1608,8 @@ dev = [
 requires-dist = [
     { name = "aiokafka", specifier = ">=0.11.0" },
     { name = "alembic", specifier = ">=1.14.0" },
+    { name = "alembic-postgresql-enum", specifier = ">=1.10.0" },
+    { name = "alembic-utils", specifier = ">=0.8.8" },
     { name = "asyncpg", specifier = ">=0.30.0" },
     { name = "cachetools", specifier = ">=5.5.0" },
     { name = "cramjam", specifier = ">=2.8.0" },
@@ -1602,6 +1648,7 @@ dev = [
     { name = "httpx", specifier = ">=0.28.0" },
     { name = "mypy", specifier = ">=1.13.0" },
     { name = "pytest", specifier = ">=8.3.0" },
+    { name = "pytest-alembic", specifier = ">=0.12.1" },
     { name = "pytest-asyncio", specifier = ">=0.24.0" },
     { name = "ruff", specifier = ">=0.8.0" },
     { name = "schemathesis", specifier = ">=3.25.0" },
@@ -2118,6 +2165,15 @@ wheels = [
 ]
 
 [[package]]
+name = "parse"
+version = "1.21.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fd/18/0bea374e5ec3c8ba15365570002187f3fef9d7265ffbc2f649529878cc80/parse-1.21.1.tar.gz", hash = "sha256:825e1a88e9d9fb481b8d2ca709c6195558b6eaa97c559ad3a9a20aa2d12815a3", size = 29105, upload-time = "2026-02-19T02:20:07.645Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c3/13/114daf766c33aec6c5a3954e7ea653f8a7ade9602c5c5a2228281698c490/parse-1.21.1-py2.py3-none-any.whl", hash = "sha256:55339ca698019815df3b8e8b550e5933933527e623b0cdf1ca2f404da35ffb47", size = 19693, upload-time = "2026-02-19T02:20:06.575Z" },
+]
+
+[[package]]
 name = "pathspec"
 version = "1.0.4"
 source = { registry = "https://pypi.org/simple" }
@@ -2583,6 +2639,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/d1/db/7ef3487e0fb0049ddb5ce41d3a49c235bf9ad299b6a25d5780a89f19230f/pytest-9.0.2.tar.gz", hash = "sha256:75186651a92bd89611d1d9fc20f0b4345fd827c41ccd5c299a868a05d70edf11", size = 1568901, upload-time = "2025-12-06T21:30:51.014Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3b/ab/b3226f0bd7cdcf710fbede2b3548584366da3b19b5021e74f5bde2a8fa3f/pytest-9.0.2-py3-none-any.whl", hash = "sha256:711ffd45bf766d5264d487b917733b453d917afd2b0ad65223959f59089f875b", size = 374801, upload-time = "2025-12-06T21:30:49.154Z" },
+]
+
+[[package]]
+name = "pytest-alembic"
+version = "0.12.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "alembic" },
+    { name = "pytest" },
+    { name = "sqlalchemy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f9/37/ad095d92242fe5c6b4b793191240375c01f6508960f31179de7f0e22cb96/pytest_alembic-0.12.1.tar.gz", hash = "sha256:4e2b477d93464d0cfe80487fdf63922bfd22f29153ca980c1bccf1dbf833cf12", size = 30635, upload-time = "2025-05-27T14:15:29.85Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8b/f4/ded73992f972360adf84781b7e58729a3778e4358d482e1fe375c83948b4/pytest_alembic-0.12.1-py3-none-any.whl", hash = "sha256:d0d6be79f1c597278fbeda08c5558e7b8770af099521b0aa164e0df4aed945da", size = 36571, upload-time = "2025-05-27T14:15:28.817Z" },
 ]
 
 [[package]]

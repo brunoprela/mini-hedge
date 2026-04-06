@@ -410,6 +410,7 @@ services:
       discovery.type: single-node
       DISABLE_SECURITY_PLUGIN: "true"
       OPENSEARCH_JAVA_OPTS: "-Xms256m -Xmx256m"
+      cluster.routing.allocation.disk.threshold_enabled: "false"
     ports:
       - "9200:9200"
     volumes:

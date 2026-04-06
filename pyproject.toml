@@ -37,6 +37,8 @@ dependencies = [
     "pyarrow>=15.0.0",
     "temporalio>=1.7.0",
     "hvac>=2.3.0",
+    "alembic-utils>=0.8.8",
+    "alembic-postgresql-enum>=1.10.0",
 ]
 
 [dependency-groups]
@@ -49,6 +51,7 @@ dev = [
     "mypy>=1.13.0",
     "tach>=0.16.0",
     "schemathesis>=3.25.0",
+    "pytest-alembic>=0.12.1",
 ]
 
 [build-system]

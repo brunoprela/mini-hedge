@@ -12,8 +12,11 @@ from alembic import context
 from sqlalchemy import create_engine, pool, text
 
 from app.modules.exposure.models import Base
+from app.shared.alembic_plugins import setup_plugins
 
 DEFAULT_SCHEMA = "positions"
+
+setup_plugins()
 
 config = context.config
 if config.config_file_name is not None:

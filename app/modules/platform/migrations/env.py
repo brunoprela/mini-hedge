@@ -3,11 +3,16 @@
 from logging.config import fileConfig
 
 from alembic import context
+from alembic_utils.replaceable_entity import register_entities
 from sqlalchemy import create_engine, pool, text
 
-from app.modules.platform.models import Base
+from app.modules.platform.models import PLATFORM_ENTITIES, Base
+from app.shared.alembic_plugins import setup_plugins
 
 SCHEMA = "platform"
+
+setup_plugins()
+register_entities(PLATFORM_ENTITIES)
 
 config = context.config
 if config.config_file_name is not None:

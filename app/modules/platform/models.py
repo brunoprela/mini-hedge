@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 from enum import StrEnum
 
+from alembic_utils.pg_function import PGFunction
+from alembic_utils.pg_trigger import PGTrigger
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, func, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -168,3 +170,65 @@ class AuditLogRecord(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+# ---------------------------------------------------------------------------
+# PostgreSQL entities — audit log immutability triggers
+# Managed by alembic_utils: autogenerate detects drift vs. live database.
+# ---------------------------------------------------------------------------
+
+audit_log_immutable_fn = PGFunction(
+    schema="platform",
+    signature="audit_log_immutable()",
+    definition="""
+        RETURNS TRIGGER AS $$
+        BEGIN
+            RAISE EXCEPTION 'audit_log is immutable: % operations are not permitted', TG_OP;
+            RETURN NULL;
+        END;
+        $$ LANGUAGE plpgsql
+    """,
+)
+
+audit_log_no_update = PGTrigger(
+    schema="platform",
+    signature="audit_log_no_update",
+    on_entity="platform.audit_log",
+    is_constraint=False,
+    definition="""
+        BEFORE UPDATE ON platform.audit_log
+        FOR EACH ROW
+        EXECUTE FUNCTION platform.audit_log_immutable()
+    """,
+)
+
+audit_log_no_delete = PGTrigger(
+    schema="platform",
+    signature="audit_log_no_delete",
+    on_entity="platform.audit_log",
+    is_constraint=False,
+    definition="""
+        BEFORE DELETE ON platform.audit_log
+        FOR EACH ROW
+        EXECUTE FUNCTION platform.audit_log_immutable()
+    """,
+)
+
+audit_log_no_truncate = PGTrigger(
+    schema="platform",
+    signature="audit_log_no_truncate",
+    on_entity="platform.audit_log",
+    is_constraint=False,
+    definition="""
+        BEFORE TRUNCATE ON platform.audit_log
+        FOR EACH STATEMENT
+        EXECUTE FUNCTION platform.audit_log_immutable()
+    """,
+)
+
+PLATFORM_ENTITIES = [
+    audit_log_immutable_fn,
+    audit_log_no_update,
+    audit_log_no_delete,
+    audit_log_no_truncate,
+]

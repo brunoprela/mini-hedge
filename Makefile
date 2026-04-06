@@ -171,6 +171,9 @@ test-unit:
 test-integration:
 	uv run pytest -m integration
 
+lint-migrations:
+	uv run python scripts/dump_migration_sql.py | npx squawk-cli --stdin-filepath=migrations.sql
+
 check: lint typecheck tach-check test
 
 # ---------------------------------------------------------------------------
