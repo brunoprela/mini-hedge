@@ -80,7 +80,7 @@ def register_resource_type(rt: ResourceType) -> ResourceType:
     return rt
 
 
-def validate_resource_registry(model_json: dict) -> None:
+def validate_resource_registry(model_json: dict[str, Any]) -> None:
     """Validate that all registered ResourceTypes match the FGA model JSON.
 
     Call during app startup after loading the model. Raises ``ValueError``
@@ -136,14 +136,14 @@ class FGAClient:
     async def check(self, *, user: str, relation: str, object: str) -> bool:
         """Check if *user* has *relation* on *object*. Results cached for 30s."""
         cache_key = (user, relation, object)
-        cached = self._check_cache.get(cache_key)
+        cached: bool | None = self._check_cache.get(cache_key)
         if cached is not None:
             return cached
 
         response = await self._client.check(
             body=ClientCheckRequest(user=user, relation=relation, object=object),
         )
-        result = bool(response.allowed)
+        result: bool = bool(response.allowed)
         self._check_cache[cache_key] = result
         return result
 
@@ -156,7 +156,7 @@ class FGAClient:
         await self._client.write(
             body=ClientWriteRequest(writes=tuples),
             options={
-                "conflict": ConflictOptions(
+                "conflict": ConflictOptions(  # type: ignore[dict-item]
                     on_duplicate_writes=ClientWriteRequestOnDuplicateWrites.IGNORE,
                 ),
             },
@@ -184,7 +184,7 @@ class FGAClient:
 
     async def list_relations(self, *, user: str, object: str, relations: list[str]) -> list[str]:
         """Return which of *relations* the *user* has on *object*."""
-        return await self._client.list_relations(
+        return await self._client.list_relations(  # type: ignore[no-any-return]
             body=ClientListRelationsRequest(user=user, object=object, relations=relations),
         )
 
@@ -194,13 +194,13 @@ class FGAClient:
         Returns a list of ``(user, relation, object)`` triples.
         """
         response = await self._client.read(
-            body=ReadRequestTupleKey(object=object),
+            body=ReadRequestTupleKey(object=object),  # type: ignore[no-untyped-call]
         )
         return [(t.key.user, t.key.relation, t.key.object) for t in (response.tuples or [])]
 
     async def close(self) -> None:
         """Close the underlying HTTP client."""
-        await self._client.close()
+        await self._client.close()  # type: ignore[no-untyped-call]
 
 
 # ---------------------------------------------------------------------------

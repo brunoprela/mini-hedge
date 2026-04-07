@@ -28,7 +28,7 @@ def _get_schema() -> str:
     schema = getattr(alembic_ctx.config.attributes, "target_schema", None)
     if schema is None:
         schema = alembic_ctx.config.attributes.get("target_schema", "positions")
-    return schema
+    return str(schema)
 
 
 def upgrade() -> None:

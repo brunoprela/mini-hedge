@@ -7,8 +7,8 @@ import { runWhatIf } from "@/features/alpha/api";
 import type { WhatIfResult } from "@/features/alpha/types";
 import { instrumentSearchQueryOptions } from "@/features/instruments/api";
 import { latestPriceQueryOptions } from "@/features/market-data/api";
-import { createOrder } from "@/features/orders/api";
-import type { OrderSummary } from "@/features/orders/types";
+import { createAlgoOrder, createOrder } from "@/features/orders/api";
+import type { AlgoType, OrderSummary } from "@/features/orders/types";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 
 interface TradeTicketProps {
@@ -31,6 +31,13 @@ export function TradeTicket({ portfolioId, onClose }: TradeTicketProps) {
   const [impactLoading, setImpactLoading] = useState(false);
   const [showImpact, setShowImpact] = useState(true);
 
+  // Algo order state
+  const [useAlgo, setUseAlgo] = useState(false);
+  const [algoType, setAlgoType] = useState<AlgoType>("twap");
+  const [algoDuration, setAlgoDuration] = useState("3600");
+  const [algoSlices, setAlgoSlices] = useState("100");
+  const [algoVisibleQty, setAlgoVisibleQty] = useState("");
+
   const { data: searchResults } = useQuery(instrumentSearchQueryOptions(fundSlug, search));
 
   const { data: latestPrice } = useQuery({
@@ -39,8 +46,27 @@ export function TradeTicket({ portfolioId, onClose }: TradeTicketProps) {
   });
 
   const mutation = useMutation({
-    mutationFn: () =>
-      createOrder(fundSlug, {
+    mutationFn: () => {
+      if (useAlgo) {
+        return createAlgoOrder(fundSlug, {
+          portfolio_id: portfolioId,
+          instrument_id: instrumentId,
+          side,
+          order_type: "limit",
+          quantity,
+          limit_price: price,
+          time_in_force: "day",
+          algo_type: algoType,
+          algo_params: {
+            duration_seconds: parseInt(algoDuration, 10) || 3600,
+            num_slices: parseInt(algoSlices, 10) || 100,
+            ...(algoType === "iceberg" && algoVisibleQty
+              ? { visible_quantity: algoVisibleQty }
+              : {}),
+          },
+        });
+      }
+      return createOrder(fundSlug, {
         portfolio_id: portfolioId,
         instrument_id: instrumentId,
         side,
@@ -48,7 +74,8 @@ export function TradeTicket({ portfolioId, onClose }: TradeTicketProps) {
         quantity,
         limit_price: price,
         time_in_force: "day",
-      }),
+      });
+    },
     onSuccess: (order) => {
       queryClient.invalidateQueries({ queryKey: ["positions"] });
       queryClient.invalidateQueries({ queryKey: ["portfolio-summary"] });
@@ -272,6 +299,112 @@ export function TradeTicket({ portfolioId, onClose }: TradeTicketProps) {
           />
         </div>
 
+        {/* Algo toggle */}
+        <div className="mb-4">
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={useAlgo}
+              onChange={(e) => setUseAlgo(e.target.checked)}
+              className="h-4 w-4 rounded border-[var(--border)]"
+            />
+            <span className="text-[var(--muted-foreground)]">Algo execution</span>
+          </label>
+        </div>
+
+        {/* Algo params */}
+        {useAlgo && (
+          <div className="mb-4 space-y-3 rounded-md border border-[var(--border)] bg-[var(--muted)] p-3">
+            <div>
+              <span className="mb-1.5 block text-xs font-medium text-[var(--muted-foreground)]">
+                Algorithm
+              </span>
+              <div className="flex gap-1.5">
+                {(["twap", "vwap", "iceberg"] as const).map((t) => (
+                  <button
+                    type="button"
+                    key={t}
+                    onClick={() => setAlgoType(t)}
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                      algoType === t
+                        ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                        : "border border-[var(--border)] bg-[var(--background)] text-[var(--muted-foreground)]"
+                    }`}
+                  >
+                    {t.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {algoType !== "iceberg" && (
+              <>
+                <div>
+                  <label
+                    htmlFor="algo-duration"
+                    className="mb-1 block text-xs text-[var(--muted-foreground)]"
+                  >
+                    Duration (seconds)
+                  </label>
+                  <input
+                    id="algo-duration"
+                    type="number"
+                    min="60"
+                    step="60"
+                    value={algoDuration}
+                    onChange={(e) => setAlgoDuration(e.target.value)}
+                    className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 font-mono text-sm"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="algo-slices"
+                    className="mb-1 block text-xs text-[var(--muted-foreground)]"
+                  >
+                    Number of slices
+                  </label>
+                  <input
+                    id="algo-slices"
+                    type="number"
+                    min="2"
+                    step="1"
+                    value={algoSlices}
+                    onChange={(e) => setAlgoSlices(e.target.value)}
+                    className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 font-mono text-sm"
+                  />
+                </div>
+              </>
+            )}
+
+            {algoType === "iceberg" && (
+              <div>
+                <label
+                  htmlFor="algo-visible"
+                  className="mb-1 block text-xs text-[var(--muted-foreground)]"
+                >
+                  Visible quantity (leave empty for auto)
+                </label>
+                <input
+                  id="algo-visible"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={algoVisibleQty}
+                  onChange={(e) => setAlgoVisibleQty(e.target.value)}
+                  placeholder="Auto (total / 10)"
+                  className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 font-mono text-sm"
+                />
+              </div>
+            )}
+
+            <p className="text-[10px] text-[var(--muted-foreground)]">
+              {algoType === "twap" && "Splits order evenly across the time window."}
+              {algoType === "vwap" && "Splits order proportional to historical volume."}
+              {algoType === "iceberg" && "Shows only the visible quantity; replenishes on fill."}
+            </p>
+          </div>
+        )}
+
         {/* Notional */}
         {Number(quantity) > 0 && Number(price) > 0 && (
           <p className="mb-4 text-sm text-[var(--muted-foreground)]">
@@ -356,7 +489,7 @@ export function TradeTicket({ portfolioId, onClose }: TradeTicketProps) {
           >
             {mutation.isPending
               ? "Submitting..."
-              : `${side === "buy" ? "Buy" : "Sell"} ${instrumentId || "..."}`}
+              : `${side === "buy" ? "Buy" : "Sell"} ${instrumentId || "..."}${useAlgo ? ` (${algoType.toUpperCase()})` : ""}`}
           </button>
         </div>
       </div>

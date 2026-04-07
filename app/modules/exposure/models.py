@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import (
     DateTime,
@@ -17,7 +18,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.shared.models import Base
+from app.shared.models import Base as Base
 
 
 class ExposureSnapshotRecord(Base):
@@ -40,9 +41,7 @@ class ExposureSnapshotRecord(Base):
     short_exposure: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
     long_count: Mapped[int] = mapped_column(Integer, nullable=False)
     short_count: Mapped[int] = mapped_column(Integer, nullable=False)
-    breakdowns: Mapped[dict] = mapped_column(  # type: ignore[type-arg]
-        JSONB, nullable=False, default=dict
-    )
+    breakdowns: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     snapshot_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

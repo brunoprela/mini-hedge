@@ -127,10 +127,14 @@ async def create_agent_token(
             detail=f"Cannot delegate permissions you don't hold: {', '.join(escalated)}",
         )
 
+    if not request_context.fund_slug:
+        raise HTTPException(status_code=400, detail="Fund context required for agent tokens")
+    fund_slug = request_context.fund_slug
+
     agent_id = str(uuid4())
     token = auth_service.issue_agent_token(
         agent_id=agent_id,
-        fund_slug=request_context.fund_slug,
+        fund_slug=fund_slug,
         fund_id=request_context.fund_id,
         roles=body.roles,
         delegated_by=request_context.actor_id,
@@ -152,7 +156,7 @@ async def create_agent_token(
     return AgentTokenResponse(
         access_token=token,
         actor_type=ActorType.AGENT,
-        fund_slug=request_context.fund_slug,
+        fund_slug=fund_slug,
         roles=body.roles,
     )
 

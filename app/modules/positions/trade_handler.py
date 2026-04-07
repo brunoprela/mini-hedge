@@ -152,6 +152,8 @@ class TradeHandler:
             side = TradeSide.BUY if side_str == "buy" else TradeSide.SELL
             trade_id = UUID(data["trade_id"]) if "trade_id" in data else uuid4()
 
+            if not fund_slug:
+                return
             async with self._session_factory.fund_scope(fund_slug):
                 downstream = await self._apply_trade(
                     fund_slug=fund_slug,

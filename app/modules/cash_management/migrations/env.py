@@ -8,7 +8,7 @@ that schema instead of the default ``positions``.
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import create_engine, pool, text
+from sqlalchemy import Connection, create_engine, pool, text
 
 from app.modules.cash_management.models import Base
 from app.shared.alembic_plugins import setup_plugins
@@ -25,8 +25,9 @@ target_metadata = Base.metadata
 
 
 def _get_target_schema() -> str:
-    return getattr(config.attributes, "target_schema", None) or config.attributes.get(
-        "target_schema", DEFAULT_SCHEMA
+    return str(
+        getattr(config.attributes, "target_schema", None)
+        or config.attributes.get("target_schema", DEFAULT_SCHEMA)
     )
 
 
@@ -49,13 +50,13 @@ def run_migrations_offline() -> None:
         dialect_opts={"paramstyle": "named"},
         version_table="alembic_version_cash_management",
         version_table_schema=schema,
-        include_schemas=[schema],
+        include_schemas=[schema],  # type: ignore[arg-type]
     )
     with context.begin_transaction():
         context.run_migrations()
 
 
-def do_run_migrations(connection, schema: str) -> None:  # type: ignore[no-untyped-def]
+def do_run_migrations(connection: Connection, schema: str) -> None:
     if schema != DEFAULT_SCHEMA:
         connection = connection.execution_options(
             schema_translate_map={DEFAULT_SCHEMA: schema},
@@ -65,7 +66,7 @@ def do_run_migrations(connection, schema: str) -> None:  # type: ignore[no-untyp
         target_metadata=target_metadata,
         version_table="alembic_version_cash_management",
         version_table_schema=schema,
-        include_schemas=[schema],
+        include_schemas=[schema],  # type: ignore[arg-type]
     )
     with context.begin_transaction():
         context.run_migrations()

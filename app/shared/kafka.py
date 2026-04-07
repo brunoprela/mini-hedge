@@ -13,9 +13,9 @@ from datetime import datetime
 from typing import Any
 
 import structlog
-from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
-from aiokafka.admin import AIOKafkaAdminClient, NewTopic
-from aiokafka.errors import KafkaError, TopicAlreadyExistsError
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer  # type: ignore[import-untyped]
+from aiokafka.admin import AIOKafkaAdminClient, NewTopic  # type: ignore[import-untyped]
+from aiokafka.errors import KafkaError, TopicAlreadyExistsError  # type: ignore[import-untyped]
 
 from app.shared.events import BaseEvent, EventHandler
 from app.shared.schema_registry import deserialize_event, serialize_event

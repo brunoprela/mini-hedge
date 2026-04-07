@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.modules.exposure.repository import ExposureRepository
+    from app.modules.market_data.fx import FXConverter
     from app.modules.positions.service import PositionService
     from app.modules.security_master.service import (
         SecurityMasterService,
@@ -45,11 +46,15 @@ class ExposureService:
         position_service: PositionService,
         security_master_service: SecurityMasterService,
         event_bus: EventBus | None = None,
+        fx_converter: FXConverter | None = None,
+        base_currency: str = "USD",
     ) -> None:
         self._exposure_repo = exposure_repo
         self._position_service = position_service
         self._security_master_service = security_master_service
         self._event_bus = event_bus
+        self._fx = fx_converter
+        self._base_currency = base_currency
 
     async def get_current(
         self, portfolio_id: UUID, *, session: AsyncSession | None = None
@@ -64,12 +69,18 @@ class ExposureService:
             if pos.quantity == ZERO:
                 continue
             instrument = instr_map.get(pos.instrument_id)
+            mv = pos.market_value
+            # Convert to base currency if FX converter is available
+            if self._fx is not None and pos.currency != self._base_currency and mv is not None:
+                converted = self._fx.convert(mv, pos.currency, self._base_currency)
+                if converted is not None:
+                    mv = converted
             position_values.append(
                 PositionValue(
                     instrument_id=pos.instrument_id,
                     quantity=pos.quantity,
                     market_price=pos.market_price,
-                    market_value=pos.market_value,
+                    market_value=mv,
                     asset_class=instrument.asset_class if instrument else None,
                     sector=getattr(instrument, "sector", None) if instrument else None,
                     country=getattr(instrument, "country", None) if instrument else None,
@@ -91,8 +102,8 @@ class ExposureService:
         records = await self._exposure_repo.get_history(portfolio_id, start, end, session=session)
         return [
             ExposureSnapshot(
-                id=r.id,
-                portfolio_id=r.portfolio_id,
+                id=UUID(r.id),
+                portfolio_id=UUID(r.portfolio_id),
                 fund_slug=fund_slug or "",
                 gross_exposure=r.gross_exposure,
                 net_exposure=r.net_exposure,

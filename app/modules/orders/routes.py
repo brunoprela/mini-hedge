@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.orders.dependencies import get_order_service
 from app.modules.orders.interface import (
+    CreateAlgoOrderRequest,
     CreateOrderRequest,
     FillDetail,
     OrderSummary,
@@ -27,6 +28,7 @@ async def create_order(
     order_service: OrderService = Depends(get_order_service),
     session: AsyncSession = Depends(get_db),
 ) -> OrderSummary:
+    assert request_context.fund_slug is not None, "fund_slug is required"
     return await order_service.create_order(
         request=body,
         fund_slug=request_context.fund_slug,
@@ -67,6 +69,32 @@ async def get_fills(
     session: AsyncSession = Depends(get_read_db),
 ) -> list[FillDetail]:
     return await order_service.get_fills(order_id, session=session)
+
+
+@router.post("/algo", response_model=OrderSummary, status_code=201)
+async def create_algo_order(
+    body: CreateAlgoOrderRequest,
+    request_context: RequestContext = require_permission(Permission.ORDERS_CREATE),
+    order_service: OrderService = Depends(get_order_service),
+    session: AsyncSession = Depends(get_db),
+) -> OrderSummary:
+    assert request_context.fund_slug is not None, "fund_slug is required"
+    return await order_service.create_algo_order(
+        request=body,
+        fund_slug=request_context.fund_slug,
+        actor_id=request_context.actor_id,
+        session=session,
+    )
+
+
+@router.get("/{order_id}/children", response_model=list[OrderSummary])
+async def get_children(
+    order_id: UUID,
+    request_context: RequestContext = require_permission(Permission.ORDERS_READ),
+    order_service: OrderService = Depends(get_order_service),
+    session: AsyncSession = Depends(get_read_db),
+) -> list[OrderSummary]:
+    return await order_service.get_children(order_id, session=session)
 
 
 @router.post("/{order_id}/cancel", response_model=OrderSummary)

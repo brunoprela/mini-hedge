@@ -68,3 +68,8 @@ class AuditEventType(StrEnum):
     # -- Cash Management ---------------------------------------------------
     CASH_SETTLEMENT_CREATED = "cash.settlement.created"
     CASH_SETTLEMENT_SETTLED = "cash.settlement.settled"
+
+    # -- Capital Accounts --------------------------------------------------
+    CAPITAL_SUBSCRIPTION = "capital.subscription"
+    CAPITAL_REDEMPTION = "capital.redemption"
+    CAPITAL_ALLOCATION = "capital.allocation"

@@ -17,7 +17,7 @@ import json
 from typing import TYPE_CHECKING, Any
 
 import structlog
-from aiokafka import AIOKafkaConsumer
+from aiokafka import AIOKafkaConsumer  # type: ignore[import-untyped]
 
 if TYPE_CHECKING:
     from app.modules.platform.audit_repository import AuditLogRepository
@@ -149,7 +149,7 @@ class CdcAuditConsumer:
             payload["changes"] = _compute_diff(before, after)
 
         try:
-            await self._audit_repo.insert_admin_event(
+            await self._audit_repo.insert_cdc_event(
                 event_type=f"cdc.{table}.{_OP_NAMES.get(operation, operation).lower()}",
                 actor_id="debezium",
                 actor_type="system",

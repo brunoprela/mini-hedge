@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import (
     Date,
@@ -18,7 +19,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.shared.models import Base
+from app.shared.models import Base as Base
 
 
 class CashBalanceRecord(Base):
@@ -168,7 +169,7 @@ class CashProjectionRecord(Base):
     portfolio_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)
     base_currency: Mapped[str] = mapped_column(String(3), nullable=False)
     horizon_days: Mapped[int] = mapped_column(nullable=False)
-    entries: Mapped[dict] = mapped_column(JSONB, nullable=False)  # type: ignore[type-arg]
+    entries: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     projected_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

@@ -90,7 +90,7 @@ class CashManagementService:
         records = await self._balance_repo.get_by_portfolio(portfolio_id, session=session)
         return [
             CashBalance(
-                portfolio_id=r.portfolio_id,
+                portfolio_id=UUID(r.portfolio_id),
                 currency=r.currency,
                 available_balance=r.available_balance,
                 pending_inflows=r.pending_inflows,
@@ -509,6 +509,8 @@ class CashManagementService:
             if not portfolio_id_str:
                 return
 
+            if not event.fund_slug:
+                return
             async with self._session_factory.fund_scope(event.fund_slug):
                 portfolio_id = UUID(portfolio_id_str)
                 instrument_id = data.get("instrument_id", "")
@@ -542,7 +544,7 @@ class CashManagementService:
 
     async def _publish_settlement_event(
         self,
-        event_type: str,
+        event_type: AuditEventType,
         portfolio_id: UUID,
         instrument_id: str,
         amount: Decimal,
@@ -571,9 +573,9 @@ class CashManagementService:
     @staticmethod
     def _to_settlement_record(r: CashSettlementRecord) -> SettlementRecord:
         return SettlementRecord(
-            id=r.id,
-            portfolio_id=r.portfolio_id,
-            order_id=r.order_id,
+            id=UUID(r.id),
+            portfolio_id=UUID(r.portfolio_id),
+            order_id=UUID(r.order_id) if r.order_id else None,
             instrument_id=r.instrument_id,
             currency=r.currency,
             settlement_amount=r.settlement_amount,

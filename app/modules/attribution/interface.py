@@ -111,6 +111,37 @@ class CumulativeAttribution(BaseModel):
     calculated_at: datetime
 
 
+class PositionFXAttribution(BaseModel):
+    """FX attribution for a single position."""
+
+    model_config = ConfigDict(frozen=True)
+
+    instrument_id: str
+    currency: str
+    local_return: Decimal
+    fx_return: Decimal
+    interaction: Decimal
+    base_currency_return: Decimal
+    market_value_base: Decimal
+
+
+class FXAttributionResult(BaseModel):
+    """Aggregate FX attribution for a portfolio."""
+
+    model_config = ConfigDict(frozen=True)
+
+    portfolio_id: UUID
+    period_start: date
+    period_end: date
+    base_currency: str
+    total_local_return: Decimal
+    total_fx_return: Decimal
+    total_interaction: Decimal
+    total_base_return: Decimal
+    positions: list[PositionFXAttribution] = []
+    calculated_at: datetime
+
+
 # ---------------------------------------------------------------------------
 # Module protocol
 # ---------------------------------------------------------------------------

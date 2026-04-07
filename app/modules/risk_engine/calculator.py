@@ -43,7 +43,7 @@ def _to_dec(v: float) -> Decimal:
 def calculate_historical_var(
     portfolio_id: UUID,
     weights: dict[str, float],
-    returns_matrix: np.ndarray,  # type: ignore[type-arg]
+    returns_matrix: np.ndarray,
     instrument_ids: list[str],
     confidence: float = 0.95,
     horizon_days: int = 1,
@@ -102,7 +102,7 @@ def calculate_historical_var(
 def calculate_parametric_var(
     portfolio_id: UUID,
     weights: dict[str, float],
-    returns_matrix: np.ndarray,  # type: ignore[type-arg]
+    returns_matrix: np.ndarray,
     instrument_ids: list[str],
     confidence: float = 0.95,
     horizon_days: int = 1,
@@ -156,8 +156,8 @@ def calculate_parametric_var(
 
 
 def _component_var(
-    weights: np.ndarray,  # type: ignore[type-arg]
-    returns_matrix: np.ndarray,  # type: ignore[type-arg]
+    weights: np.ndarray,
+    returns_matrix: np.ndarray,
     instrument_ids: list[str],
     portfolio_var_pct: float,
     nav: float,
@@ -284,15 +284,18 @@ def _resolve_shock(
 def calculate_factor_decomposition(
     portfolio_id: UUID,
     weights: dict[str, float],
-    returns_matrix: np.ndarray,  # type: ignore[type-arg]
+    returns_matrix: np.ndarray,
     instrument_ids: list[str],
     sector_map: dict[str, str],
     nav: float,
+    currency_map: dict[str, str] | None = None,
+    base_currency: str = "USD",
 ) -> FactorDecomposition:
-    """Decompose portfolio risk into market, sector, and idiosyncratic factors.
+    """Decompose portfolio risk into market, sector, currency, and idiosyncratic.
 
     Uses a simple factor model:
-    r_i = beta_market * r_market + beta_sector * r_sector + epsilon_i
+    r_i = beta_market * r_market + beta_sector * r_sector
+          + beta_ccy * r_ccy + epsilon_i
     """
     n_days, n_instruments = returns_matrix.shape
     w = np.array([weights.get(iid, 0.0) for iid in instrument_ids])
@@ -359,7 +362,40 @@ def calculate_factor_decomposition(
             )
         )
 
-    total_systematic = max(systematic_var_market + sector_systematic_var, 0.0)
+    # Currency factors — one per non-base currency
+    currency_exposures: list[FactorExposure] = []
+    currency_systematic_var = 0.0
+
+    if currency_map:
+        currencies = sorted({ccy for ccy in currency_map.values() if ccy != base_currency})
+        for ccy in currencies:
+            ccy_ids = [iid for iid in instrument_ids if currency_map.get(iid) == ccy]
+            if not ccy_ids:
+                continue
+            ccy_indices = [instrument_ids.index(iid) for iid in ccy_ids]
+            # Currency factor return = average return of positions in that currency
+            ccy_returns = returns_matrix[:, ccy_indices].mean(axis=1)
+            c_var = float(np.var(ccy_returns))
+            if c_var < 1e-12:
+                continue
+            c_cov = float(np.cov(port_returns, ccy_returns)[0, 1])
+            c_beta = c_cov / c_var
+            c_contrib = c_beta**2 * c_var
+            currency_systematic_var += c_contrib
+
+            currency_exposures.append(
+                FactorExposure(
+                    factor=RiskFactor.CURRENCY,
+                    factor_name=ccy,
+                    beta=_to_dec(c_beta),
+                    exposure_value=_to_dec(c_beta * nav * np.sqrt(c_var) * np.sqrt(252)),
+                    pct_of_total=_to_dec(c_contrib / port_var) if port_var > 1e-12 else ZERO,
+                )
+            )
+
+    total_systematic = max(
+        systematic_var_market + sector_systematic_var + currency_systematic_var, 0.0
+    )
     idiosyncratic_var = max(port_var - total_systematic, 0.0)
 
     total_risk = _to_dec(np.sqrt(port_var) * np.sqrt(252) * nav)
@@ -376,6 +412,7 @@ def calculate_factor_decomposition(
             pct_of_total=_to_dec(systematic_var_market / port_var) if port_var > 1e-12 else ZERO,
         ),
         *sector_exposures,
+        *currency_exposures,
         FactorExposure(
             factor=RiskFactor.IDIOSYNCRATIC,
             factor_name="Idiosyncratic",

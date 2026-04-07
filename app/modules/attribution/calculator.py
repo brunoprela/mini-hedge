@@ -7,6 +7,7 @@ Carino geometric linking for multi-period returns.
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID
@@ -16,6 +17,8 @@ import numpy as np
 from app.modules.attribution.interface import (
     BrinsonFachlerResult,
     CumulativeAttribution,
+    FXAttributionResult,
+    PositionFXAttribution,
     RiskBasedResult,
     RiskFactorAttribution,
     SectorAttribution,
@@ -154,7 +157,7 @@ def calculate_risk_based_attribution(
     period_start: date,
     period_end: date,
     weights: dict[str, float],
-    returns_matrix: np.ndarray,  # type: ignore[type-arg]
+    returns_matrix: np.ndarray,
     instrument_ids: list[str],
     sector_map: dict[str, str],
     nav: float,
@@ -329,5 +332,97 @@ def link_multi_period(
         cumulative_selection=_to_dec6(cum_selection),
         cumulative_interaction=_to_dec6(cum_interaction),
         periods=period_results,
+        calculated_at=datetime.now(UTC),
+    )
+
+
+# ---------------------------------------------------------------------------
+# FX attribution
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class PositionFXData:
+    """Input data for FX attribution per position."""
+
+    instrument_id: str
+    currency: str
+    market_value_local: float
+    local_return: float  # asset return in local currency
+
+
+def calculate_fx_attribution(
+    portfolio_id: UUID,
+    period_start: date,
+    period_end: date,
+    positions: list[PositionFXData],
+    fx_rates_start: dict[str, float],  # ccy -> 1 ccy = X base
+    fx_rates_end: dict[str, float],
+    base_currency: str,
+) -> FXAttributionResult:
+    """Decompose portfolio return into local asset, FX, and interaction.
+
+    For each position:
+      base_return = (1 + local_return) * (1 + fx_return) - 1
+      interaction = base_return - local_return - fx_return
+
+    FX return = (end_rate / start_rate) - 1  for non-base currencies.
+    """
+    pos_results: list[PositionFXAttribution] = []
+    total_mv = sum(abs(p.market_value_local) for p in positions)
+    if total_mv < 1e-12:
+        total_mv = 1.0
+
+    agg_local = 0.0
+    agg_fx = 0.0
+    agg_interaction = 0.0
+    agg_base = 0.0
+
+    for p in positions:
+        weight = abs(p.market_value_local) / total_mv
+
+        if p.currency == base_currency:
+            fx_ret = 0.0
+        else:
+            start_rate = fx_rates_start.get(p.currency, 1.0)
+            end_rate = fx_rates_end.get(p.currency, 1.0)
+            fx_ret = (end_rate / start_rate - 1.0) if abs(start_rate) > 1e-12 else 0.0
+
+        base_ret = (1 + p.local_return) * (1 + fx_ret) - 1
+        interaction = base_ret - p.local_return - fx_ret
+
+        agg_local += weight * p.local_return
+        agg_fx += weight * fx_ret
+        agg_interaction += weight * interaction
+        agg_base += weight * base_ret
+
+        # market_value in base currency at end
+        if p.currency != base_currency:
+            mv_base = p.market_value_local * fx_rates_end.get(p.currency, 1.0)
+        else:
+            mv_base = p.market_value_local
+
+        pos_results.append(
+            PositionFXAttribution(
+                instrument_id=p.instrument_id,
+                currency=p.currency,
+                local_return=_to_dec6(p.local_return),
+                fx_return=_to_dec6(fx_ret),
+                interaction=_to_dec6(interaction),
+                base_currency_return=_to_dec6(base_ret),
+                market_value_base=_to_dec4(mv_base),
+            )
+        )
+
+    return FXAttributionResult(
+        portfolio_id=portfolio_id,
+        period_start=period_start,
+        period_end=period_end,
+        base_currency=base_currency,
+        total_local_return=_to_dec6(agg_local),
+        total_fx_return=_to_dec6(agg_fx),
+        total_interaction=_to_dec6(agg_interaction),
+        total_base_return=_to_dec6(agg_base),
+        positions=pos_results,
         calculated_at=datetime.now(UTC),
     )

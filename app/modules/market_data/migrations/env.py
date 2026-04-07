@@ -3,7 +3,7 @@
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import create_engine, pool, text
+from sqlalchemy import Connection, create_engine, pool, text
 
 from app.modules.market_data.models import Base
 from app.shared.alembic_plugins import setup_plugins
@@ -40,18 +40,18 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         version_table_schema=SCHEMA,
-        include_schemas=[SCHEMA],
+        include_schemas=[SCHEMA],  # type: ignore[arg-type]
     )
     with context.begin_transaction():
         context.run_migrations()
 
 
-def do_run_migrations(connection) -> None:  # type: ignore[no-untyped-def]
+def do_run_migrations(connection: Connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
         version_table_schema=SCHEMA,
-        include_schemas=[SCHEMA],
+        include_schemas=[SCHEMA],  # type: ignore[arg-type]
     )
     with context.begin_transaction():
         context.run_migrations()

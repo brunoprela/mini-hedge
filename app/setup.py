@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
@@ -22,7 +23,13 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
 
     from app.config import Settings
-    from app.shared.adapters import BrokerAdapter, ExternalInstrument, ReferenceDataAdapter
+    from app.modules.orders.broker_registry import BrokerRegistry
+    from app.shared.adapters import (
+        BrokerAdapter,
+        ExternalInstrument,
+        FundAdminAdapter,
+        ReferenceDataAdapter,
+    )
     from app.shared.database import TenantSessionFactory
     from app.shared.events import BaseEvent, EventBus, EventHandler
     from app.shared.fga import FGAClient
@@ -46,8 +53,8 @@ from app.modules.compliance.repository import RuleRepository, ViolationRepositor
 from app.modules.compliance.service import ComplianceService
 from app.modules.exposure.repository import ExposureRepository
 from app.modules.exposure.service import ExposureService
-from app.modules.market_data.interface import PriceSnapshot
-from app.modules.market_data.repository import PriceRepository
+from app.modules.market_data.interface import FXRateSnapshot, PriceSnapshot
+from app.modules.market_data.repository import FXRateRepository, PriceRepository
 from app.modules.market_data.service import MarketDataService
 from app.modules.orders.compliance_gateway import ComplianceGateway
 from app.modules.orders.repository import OrderRepository
@@ -61,8 +68,10 @@ from app.modules.platform.operator_repository import OperatorRepository
 from app.modules.platform.portfolio_repository import PortfolioRepository
 from app.modules.platform.seed import (
     DEV_API_KEY,
+    SEED_SUBSCRIPTIONS,
     build_seed_api_keys,
     build_seed_funds,
+    build_seed_investors,
     build_seed_operators,
     build_seed_users,
 )
@@ -327,9 +336,10 @@ def setup_market_data(
     session_factory: TenantSessionFactory,
     event_bus: EventBus,
 ) -> MarketDataService:
-    """Wire market data module: repo, service, price event handler."""
+    """Wire market data module: repo, service, price + FX event handler."""
     price_repo = PriceRepository(session_factory)
-    market_data_service = MarketDataService(repository=price_repo)
+    fx_repo = FXRateRepository(session_factory)
+    market_data_service = MarketDataService(repository=price_repo, fx_repository=fx_repo)
     fastapi_app.state.market_data_service = market_data_service
 
     event_bus.subscribe(shared_topic("prices.normalized"), _make_price_handler(market_data_service))
@@ -412,11 +422,13 @@ async def setup_exposure(
     exposure_repo = ExposureRepository(session_factory)
     position_service = fastapi_app.state.position_service
     sm_service = fastapi_app.state.security_master_service
+    market_data_service: MarketDataService = fastapi_app.state.market_data_service
     exposure_service = ExposureService(
         exposure_repo=exposure_repo,
         position_service=position_service,
         security_master_service=sm_service,
         event_bus=event_bus,
+        fx_converter=market_data_service.fx_converter,
     )
     fastapi_app.state.exposure_service = exposure_service
 
@@ -526,6 +538,7 @@ async def setup_risk_engine(
         market_data_service=market_data_service,
         security_master_service=sm_service,
         event_bus=event_bus,
+        fx_converter=market_data_service.fx_converter,
     )
     fastapi_app.state.risk_service = risk_service
 
@@ -598,10 +611,12 @@ async def setup_attribution(
     attribution_repo = AttributionRepository(session_factory)
     position_service = fastapi_app.state.position_service
     sm_service = fastapi_app.state.security_master_service
+    market_data_service: MarketDataService = fastapi_app.state.market_data_service
     attribution_service = AttributionService(
         attribution_repo=attribution_repo,
         position_service=position_service,
         security_master_service=sm_service,
+        fx_converter=market_data_service.fx_converter,
     )
     fastapi_app.state.attribution_service = attribution_service
 
@@ -627,12 +642,54 @@ async def setup_orders(
     session_factory: TenantSessionFactory,
     event_bus: EventBus,
     broker: BrokerAdapter,
+    broker_registry: BrokerRegistry | None = None,
 ) -> None:
-    """Wire orders module: repo, compliance gateway, broker, service."""
+    """Wire orders module: repo, compliance gateway, broker, service, algo engine, TCA."""
+    from app.modules.orders.algo.engine import AlgoEngine
+    from app.modules.orders.allocation_repository import AllocationRepository
+    from app.modules.orders.allocation_service import AllocationService
+    from app.modules.orders.best_execution import BestExecutionService
+    from app.modules.orders.routing_engine import RoutingEngine
+    from app.modules.orders.routing_repository import RoutingRepository
+    from app.modules.orders.scorecard_repository import ScorecardRepository
+    from app.modules.orders.scorecard_service import ScorecardService
+    from app.modules.orders.tca.repository import TCARepository
+    from app.modules.orders.tca.service import TCAService
+    from app.modules.orders.tca.vwap import VWAPCalculator
+
     order_repo = OrderRepository(session_factory)
     compliance_service = fastapi_app.state.compliance_service
     compliance_gateway = ComplianceGateway(pre_trade_gate=compliance_service.pre_trade_gate)
     audit_repo = fastapi_app.state.audit_repo
+    market_data_service: MarketDataService = fastapi_app.state.market_data_service
+
+    # Multi-broker routing
+    scorecard_repo = ScorecardRepository(session_factory)
+    scorecard_service = ScorecardService(
+        scorecard_repo=scorecard_repo,
+        session_factory=session_factory,
+    )
+
+    routing_engine: RoutingEngine | None = None
+    if broker_registry is not None and not broker_registry.is_single_broker:
+        routing_repo = RoutingRepository(session_factory)
+        routing_engine = RoutingEngine(
+            broker_registry=broker_registry,
+            scorecard_service=scorecard_service,
+            routing_repo=routing_repo,
+        )
+        fastapi_app.state.routing_repo = routing_repo
+
+    # TCA
+    tca_repo = TCARepository(session_factory)
+    vwap_calculator = VWAPCalculator(market_data_service)
+    tca_service = TCAService(
+        tca_repo=tca_repo,
+        order_repo=order_repo,
+        vwap_calculator=vwap_calculator,
+        scorecard_service=scorecard_service,
+    )
+
     order_service = OrderService(
         session_factory=session_factory,
         order_repo=order_repo,
@@ -640,14 +697,159 @@ async def setup_orders(
         broker=broker,
         event_bus=event_bus,
         audit_repo=audit_repo,
+        broker_registry=broker_registry,
+        routing_engine=routing_engine,
+        scorecard_service=scorecard_service,
+        market_data_service=market_data_service,
+        tca_service=tca_service,
     )
+
+    # Wire algo engine (circular dep resolved via callback injection)
+    algo_engine = AlgoEngine(order_repo=order_repo)
+    algo_engine.set_submit_child(order_service.create_child_order)
+    order_service._algo_engine = algo_engine
+
     fastapi_app.state.order_service = order_service
+    fastapi_app.state.algo_engine = algo_engine
+    fastapi_app.state.tca_service = tca_service
+    fastapi_app.state.scorecard_service = scorecard_service
+    if broker_registry is not None:
+        fastapi_app.state.broker_registry = broker_registry
+
+    # Best execution service
+    best_execution_service = BestExecutionService(
+        routing_repo=RoutingRepository(session_factory),
+        scorecard_service=scorecard_service,
+    )
+    fastapi_app.state.best_execution_service = best_execution_service
+
+    # Wire allocation service
+    allocation_repo = AllocationRepository(session_factory)
+    allocation_service = AllocationService(
+        session_factory=session_factory,
+        allocation_repo=allocation_repo,
+        order_service=order_service,
+        order_repo=order_repo,
+        compliance_gateway=compliance_gateway,
+        event_bus=event_bus,
+    )
+    fastapi_app.state.allocation_service = allocation_service
+
+
+async def setup_capital_accounts(
+    fastapi_app: FastAPI,
+    session_factory: TenantSessionFactory,
+) -> None:
+    """Wire capital accounts module: repos, service."""
+    from app.modules.capital_accounts.repository import (
+        CapitalAccountRepository,
+        CapitalTransactionRepository,
+        InvestorRepository,
+    )
+    from app.modules.capital_accounts.service import CapitalAccountService
+
+    investor_repo = InvestorRepository(session_factory)
+    account_repo = CapitalAccountRepository(session_factory)
+    transaction_repo = CapitalTransactionRepository(session_factory)
+
+    capital_service = CapitalAccountService(
+        investor_repo=investor_repo,
+        account_repo=account_repo,
+        transaction_repo=transaction_repo,
+    )
+    fastapi_app.state.capital_account_service = capital_service
+    fastapi_app.state.investor_repo = investor_repo
+
+    # Seed investors + initial subscriptions in local environment
+    if _is_local_env():
+        existing = await investor_repo.get_all_active()
+        if not existing:
+            investors = build_seed_investors()
+            await investor_repo.insert_batch(investors)
+            logger.info("investors_seeded", count=len(investors))
+
+        # Seed initial subscriptions per fund (capital accounts are fund-scoped)
+        fund_repo: FundRepository = fastapi_app.state.fund_repo
+        active_funds = await fund_repo.get_all_active()
+        for fund in active_funds:
+            async with session_factory.fund_scope(fund.slug), session_factory() as session:
+                existing_accounts = await account_repo.get_latest_by_fund(
+                    session=session,
+                )
+                if not existing_accounts:
+                    for inv_id, amount, nav in SEED_SUBSCRIPTIONS:
+                        await capital_service.process_subscription(
+                            investor_id=inv_id,
+                            amount=Decimal(amount),
+                            nav_per_share=Decimal(nav),
+                            business_date=date.today(),
+                            session=session,
+                        )
+                    logger.info(
+                        "capital_subscriptions_seeded",
+                        fund=fund.slug,
+                        count=len(SEED_SUBSCRIPTIONS),
+                    )
+
+    logger.info("capital_accounts_module_ready")
+
+
+async def setup_corporate_actions(
+    fastapi_app: FastAPI,
+    session_factory: TenantSessionFactory,
+    event_bus: EventBus,
+    settings: Settings,
+) -> None:
+    """Wire corporate actions module: repo, adapter, service."""
+    from app.adapters.factory import build_corporate_actions_adapter
+    from app.modules.corporate_actions.repository import CorporateActionsRepository
+    from app.modules.corporate_actions.service import CorporateActionsService
+
+    repo = CorporateActionsRepository(session_factory)
+    adapter = build_corporate_actions_adapter(settings)
+
+    service = CorporateActionsService(
+        session_factory=session_factory,
+        repo=repo,
+        corporate_actions_adapter=adapter,
+        event_bus=event_bus,
+    )
+    fastapi_app.state.corporate_actions_service = service
+    logger.info("corporate_actions_module_ready")
+
+
+async def setup_fee_accounting(
+    fastapi_app: FastAPI,
+    session_factory: TenantSessionFactory,
+) -> None:
+    """Wire fee accounting module: repos, service."""
+    from app.modules.fee_accounting.repository import (
+        FeeAccrualRepository,
+        FeeScheduleRepository,
+        HighWaterMarkRepository,
+    )
+    from app.modules.fee_accounting.service import FeeAccountingService
+
+    schedule_repo = FeeScheduleRepository(session_factory)
+    accrual_repo = FeeAccrualRepository(session_factory)
+    hwm_repo = HighWaterMarkRepository(session_factory)
+
+    fee_service = FeeAccountingService(
+        session_factory=session_factory,
+        schedule_repo=schedule_repo,
+        accrual_repo=accrual_repo,
+        hwm_repo=hwm_repo,
+    )
+    fastapi_app.state.fee_accounting_service = fee_service
+    fastapi_app.state.fee_schedule_repo = schedule_repo
+    logger.info("fee_accounting_module_ready")
 
 
 async def setup_eod(
     fastapi_app: FastAPI,
     session_factory: TenantSessionFactory,
     broker: BrokerAdapter,
+    fund_admin: FundAdminAdapter | None = None,
 ) -> None:
     """Wire EOD processing module: orchestrator, services, repositories."""
     from app.modules.eod.nav_calculator import NAVCalculator
@@ -676,25 +878,35 @@ async def setup_eod(
     risk_service = fastapi_app.state.risk_service
     fund_repo = fastapi_app.state.fund_repo
     portfolio_repo = fastapi_app.state.portfolio_repo
+    fee_service = getattr(fastapi_app.state, "fee_accounting_service", None)
+    capital_service = getattr(fastapi_app.state, "capital_account_service", None)
 
     price_service = PriceFinalizationService(
         price_repo=price_repo,
         market_data_service=market_data_service,
         security_master_service=sm_service,
     )
+    fx_converter = market_data_service.fx_converter
+
     nav_calculator = NAVCalculator(
         position_service=position_service,
         cash_service=cash_service,
         nav_repo=nav_repo,
+        fee_service=fee_service,
+        capital_service=capital_service,
+        fx_converter=fx_converter,
     )
     pnl_service = PnLSnapshotService(
         position_service=position_service,
         pnl_repo=pnl_repo,
+        fx_converter=fx_converter,
     )
     reconciler = PositionReconciler(
         position_service=position_service,
         broker_adapter=broker,
         recon_repo=recon_repo,
+        fund_admin_adapter=fund_admin,
+        cash_service=cash_service,
     )
 
     orchestrator = EODOrchestrator(
@@ -706,6 +918,8 @@ async def setup_eod(
         pnl_service=pnl_service,
         reconciler=reconciler,
         risk_service=risk_service,
+        fee_service=fee_service,
+        capital_service=capital_service,
     )
     fastapi_app.state.eod_orchestrator = orchestrator
     logger.info("eod_module_ready")
@@ -717,13 +931,42 @@ async def setup_eod(
 
 
 def _make_price_handler(market_data_service: MarketDataService) -> EventHandler:
-    """Create a price event handler bound to the given service."""
+    """Create a price event handler bound to the given service.
+
+    Routes FX ticks (instrument_id starting with ``FX:``) to the FX rate
+    path; everything else goes through the equity price path.
+    """
 
     _required_fields = ("instrument_id", "bid", "ask", "mid", "source")
 
     async def on_price_event(event: BaseEvent) -> None:
         try:
             data = event.data
+            instrument_id: str = data.get("instrument_id", "")
+
+            # ── FX rate event (e.g. instrument_id="FX:USD/GBP") ──
+            if instrument_id.startswith("FX:"):
+                pair = instrument_id[3:]  # "USD/GBP"
+                parts = pair.split("/")
+                if len(parts) != 2:
+                    logger.warning("fx_event_bad_pair", pair=pair)
+                    return
+                rate_str = data.get("mid") or data.get("rate")
+                if rate_str is None:
+                    logger.warning("fx_event_missing_rate", pair=pair)
+                    return
+                fx_snapshot = FXRateSnapshot(
+                    base_currency=parts[0],
+                    quote_currency=parts[1],
+                    rate=Decimal(rate_str),
+                    timestamp=event.timestamp,
+                    source=data.get("source", "mock-exchange"),
+                )
+                market_data_service.update_fx_rate(fx_snapshot)
+                await market_data_service.store_fx_rate(fx_snapshot)
+                return
+
+            # ── Equity / standard price event ──
             if not all(k in data for k in _required_fields):
                 logger.warning(
                     "price_event_missing_fields",
@@ -733,7 +976,7 @@ def _make_price_handler(market_data_service: MarketDataService) -> EventHandler:
                 return
             raw_volume = data.get("volume")
             snapshot = PriceSnapshot(
-                instrument_id=data["instrument_id"],
+                instrument_id=instrument_id,
                 bid=Decimal(data["bid"]),
                 ask=Decimal(data["ask"]),
                 mid=Decimal(data["mid"]),

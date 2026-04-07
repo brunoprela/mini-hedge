@@ -47,7 +47,7 @@ class FeatureFlagService:
             return
 
         try:
-            from flagsmith import Flagsmith
+            from flagsmith import Flagsmith  # type: ignore[import-not-found]
 
             self._client = Flagsmith(
                 environment_key=self._flagsmith_key,
@@ -64,7 +64,7 @@ class FeatureFlagService:
         if self._client is not None:
             try:
                 flags = self._client.get_environment_flags()
-                return flags.is_feature_enabled(flag_name)
+                return bool(flags.is_feature_enabled(flag_name))
             except Exception:
                 logger.warning("feature_flag_eval_failed", flag=flag_name)
 

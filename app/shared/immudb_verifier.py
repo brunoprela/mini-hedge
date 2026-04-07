@@ -50,7 +50,7 @@ async def verify_audit_batch(
     """
     result = VerificationResult()
 
-    records = await audit_repo.query(
+    records, _total = await audit_repo.query(
         fund_slug=fund_slug,
         limit=limit,
         offset=offset,

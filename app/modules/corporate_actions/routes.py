@@ -39,6 +39,10 @@ async def process_corporate_actions(
     service: CorporateActionsService = Depends(get_corporate_actions_service),
     session: AsyncSession = Depends(get_db),
 ) -> list[ProcessedAction]:
+    if not request_context.fund_slug:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=400, detail="Fund context required")
     return await service.fetch_and_process(
         fund_slug=request_context.fund_slug,
         portfolio_id=portfolio_id,

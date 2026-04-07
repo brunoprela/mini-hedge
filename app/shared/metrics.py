@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from prometheus_client import (
     CONTENT_TYPE_LATEST,
@@ -107,13 +107,13 @@ def _normalise_path(path: str) -> str:
 class PrometheusMiddleware(BaseHTTPMiddleware):
     """Instrument every HTTP request with Prometheus counters/histograms."""
 
-    async def dispatch(self, request: Request, call_next):  # noqa: ANN001
+    async def dispatch(self, request: Request, call_next: Any) -> Response:  # noqa: ANN001
         method = request.method
         http_requests_in_progress.labels(method=method).inc()
         start = time.perf_counter()
 
         try:
-            response = await call_next(request)
+            response: Response = await call_next(request)
         except Exception:
             # If the downstream handler raises, record a 500
             duration = time.perf_counter() - start

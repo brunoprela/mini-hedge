@@ -9,10 +9,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from app.config import Settings
+    from app.modules.orders.broker_registry import BrokerRegistry
     from app.shared.adapters import (
         BrokerAdapter,
         CorporateActionsAdapter,
+        FundAdminAdapter,
         MarketDataAdapter,
         ReferenceDataAdapter,
     )
@@ -53,6 +57,49 @@ def _build_mock_exchange_broker(
     )
 
 
+def build_broker_registry(
+    config: Settings,
+) -> BrokerRegistry:
+    """Build a BrokerRegistry with one adapter per configured broker_id.
+
+    ``config.broker_adapters`` is a comma-separated list of
+    ``BROKER_ID:adapter_type`` pairs (e.g. ``"GS:mock-exchange,JPM:mock-exchange"``).
+    A single value without a colon means "one broker using that adapter type"
+    (backward compat with ``broker_adapter = "in-process"``).
+    """
+    from app.modules.orders.broker_registry import BrokerRegistry
+
+    registry = BrokerRegistry()
+    raw = config.broker_adapters.strip()
+
+    if ":" not in raw:
+        # Legacy single-adapter mode — use broker_adapter field
+        adapter = build_broker_adapter(config)
+        registry.register("DEFAULT", adapter)
+        return registry
+
+    for entry in raw.split(","):
+        entry = entry.strip()
+        if not entry:
+            continue
+        broker_id, adapter_type = entry.split(":", 1)
+        broker_id = broker_id.strip()
+        adapter_type = adapter_type.strip()
+
+        factory_fn = _BROKER_REGISTRY.get(adapter_type)
+        if factory_fn is None:
+            msg = f"Unknown adapter type {adapter_type!r} for broker {broker_id}"
+            raise ValueError(msg)
+
+        adapter = factory_fn(config)
+        # Set broker_id on mock-exchange adapters
+        if hasattr(adapter, "_broker_id"):
+            adapter._broker_id = broker_id
+        registry.register(broker_id, adapter)
+
+    return registry
+
+
 def _build_in_process_broker(cfg: Settings, **_kwargs: object) -> BrokerAdapter:
     from app.adapters.in_process_broker import InProcessBrokerAdapter
 
@@ -83,15 +130,24 @@ def _build_mock_exchange_corporate_actions(
     return MockExchangeCorporateActionsAdapter(base_url=cfg.mock_exchange_url)
 
 
+def _build_mock_exchange_fund_admin(
+    cfg: Settings,
+    **_kwargs: object,
+) -> FundAdminAdapter:
+    from app.adapters.mock_exchange_fund_admin import MockExchangeFundAdminAdapter
+
+    return MockExchangeFundAdminAdapter(base_url=cfg.mock_exchange_url)
+
+
 # ---------------------------------------------------------------------------
 #  Registries — one per adapter type
 # ---------------------------------------------------------------------------
 
-_MARKET_DATA_REGISTRY: dict[str, type[object] | object] = {
+_MARKET_DATA_REGISTRY: dict[str, Callable[..., MarketDataAdapter]] = {
     "mock-exchange": _build_mock_exchange_market_data,
 }
 
-_BROKER_REGISTRY: dict[str, type[object] | object] = {
+_BROKER_REGISTRY: dict[str, Callable[..., BrokerAdapter]] = {
     "mock-exchange": _build_mock_exchange_broker,
     "in-process": _build_in_process_broker,
     # Future: "fix": _build_fix_broker,
@@ -99,13 +155,17 @@ _BROKER_REGISTRY: dict[str, type[object] | object] = {
     # Future: "ib": _build_ib_broker,
 }
 
-_REFERENCE_DATA_REGISTRY: dict[str, type[object] | object] = {
+_REFERENCE_DATA_REGISTRY: dict[str, Callable[..., ReferenceDataAdapter]] = {
     "mock-exchange": _build_mock_exchange_reference_data,
     "seed": _build_seed_reference_data,
 }
 
-_CORPORATE_ACTIONS_REGISTRY: dict[str, type[object] | object] = {
+_CORPORATE_ACTIONS_REGISTRY: dict[str, Callable[..., CorporateActionsAdapter]] = {
     "mock-exchange": _build_mock_exchange_corporate_actions,
+}
+
+_FUND_ADMIN_REGISTRY: dict[str, Callable[..., FundAdminAdapter]] = {
+    "mock-exchange": _build_mock_exchange_fund_admin,
 }
 
 
@@ -126,7 +186,7 @@ def build_market_data_adapter(
             f"Available: {sorted(_MARKET_DATA_REGISTRY)}"
         )
         raise ValueError(msg)
-    return factory(config, event_bus=event_bus)  # type: ignore[operator]
+    return factory(config, event_bus=event_bus)
 
 
 def build_broker_adapter(config: Settings) -> BrokerAdapter:
@@ -137,7 +197,7 @@ def build_broker_adapter(config: Settings) -> BrokerAdapter:
             f"Available: {sorted(_BROKER_REGISTRY)}"
         )
         raise ValueError(msg)
-    return factory(config)  # type: ignore[operator]
+    return factory(config)
 
 
 def build_reference_data_adapter(config: Settings) -> ReferenceDataAdapter:
@@ -148,7 +208,16 @@ def build_reference_data_adapter(config: Settings) -> ReferenceDataAdapter:
             f"Available: {sorted(_REFERENCE_DATA_REGISTRY)}"
         )
         raise ValueError(msg)
-    return factory(config)  # type: ignore[operator]
+    return factory(config)
+
+
+def build_fund_admin_adapter(config: Settings) -> FundAdminAdapter:
+    source = getattr(config, "fund_admin_source", "mock-exchange")
+    factory = _FUND_ADMIN_REGISTRY.get(source)
+    if factory is None:
+        msg = f"Unknown fund_admin_source: {source!r}. Available: {sorted(_FUND_ADMIN_REGISTRY)}"
+        raise ValueError(msg)
+    return factory(config)
 
 
 def build_corporate_actions_adapter(
@@ -162,4 +231,4 @@ def build_corporate_actions_adapter(
             f"Available: {sorted(_CORPORATE_ACTIONS_REGISTRY)}"
         )
         raise ValueError(msg)
-    return factory(config)  # type: ignore[operator]
+    return factory(config)

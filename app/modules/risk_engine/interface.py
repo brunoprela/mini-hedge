@@ -29,6 +29,7 @@ class StressScenarioType(StrEnum):
 class RiskFactor(StrEnum):
     MARKET = "market"
     SECTOR = "sector"
+    CURRENCY = "currency"
     IDIOSYNCRATIC = "idiosyncratic"
 
 

@@ -28,7 +28,7 @@ def load_vault_secrets(
     Returns an empty dict if Vault is unreachable (allows graceful fallback).
     """
     try:
-        import hvac
+        import hvac  # type: ignore[import-untyped]
 
         client = hvac.Client(url=vault_addr, token=vault_token)
 

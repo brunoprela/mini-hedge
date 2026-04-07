@@ -212,7 +212,7 @@ class PreTradeGate:
         cash = Decimal(0)
         if self._cash_balance_repo is not None:
             balances = await self._cash_balance_repo.get_by_portfolio(request.portfolio_id)
-            cash = sum(b.available_balance for b in balances)
+            cash = Decimal(sum(b.available_balance for b in balances))
         nav = position_value + cash
 
         return PortfolioState(

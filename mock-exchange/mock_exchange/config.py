@@ -10,6 +10,16 @@ class Settings(BaseSettings):
     simulator_enabled: bool = True
     simulator_interval_ms: int = 1000
 
+    # Ambient flow — generates synthetic market activity for realistic volume
+    ambient_flow_enabled: bool = True
+    ambient_flow_interval_ms: int = 1000
+
+    # Market impact model calibration
+    market_impact_eta: float = 0.6
+
+    # Trading hours enforcement — reject orders outside exchange hours
+    trading_hours_enabled: bool = True
+
     log_level: str = "DEBUG"
 
 

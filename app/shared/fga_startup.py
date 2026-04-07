@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from typing import Any
 
 import structlog
 from openfga_sdk import (
@@ -30,18 +31,19 @@ logger = structlog.get_logger()
 MODEL_PATH = Path(__file__).resolve().parent.parent / "modules" / "platform" / "fga_model.json"
 
 
-def _load_model_json() -> dict:
+def _load_model_json() -> dict[str, Any]:
     """Load the authorization model from the version-controlled JSON file."""
-    return json.loads(MODEL_PATH.read_text())
+    model: dict[str, Any] = json.loads(MODEL_PATH.read_text())
+    return model
 
 
-def _model_hash(model_json: dict) -> str:
+def _model_hash(model_json: dict[str, Any]) -> str:
     """Stable hash of the model for change detection."""
     canonical = json.dumps(model_json, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode()).hexdigest()[:16]
 
 
-async def _get_latest_model_types(client: OpenFgaClient) -> list[dict] | None:
+async def _get_latest_model_types(client: OpenFgaClient) -> list[dict[str, Any]] | None:
     """Read the latest authorization model's type_definitions, or None if none exists."""
     response = await client.read_latest_authorization_model()
     model = getattr(response, "authorization_model", None)
@@ -64,12 +66,12 @@ async def _find_or_create_store(client: OpenFgaClient, store_name: str) -> str:
     stores_response = await client.list_stores()
     for store in stores_response.stores or []:
         if store.name == store_name:
-            return store.id
+            return store.id  # type: ignore[no-any-return]
 
     create_response = await client.create_store(
-        body=CreateStoreRequest(name=store_name),
+        body=CreateStoreRequest(name=store_name),  # type: ignore[no-untyped-call]
     )
-    return create_response.id
+    return create_response.id  # type: ignore[no-any-return]
 
 
 async def initialize_fga(*, api_url: str, store_name: str) -> FGAClient:
@@ -83,7 +85,7 @@ async def initialize_fga(*, api_url: str, store_name: str) -> FGAClient:
     bootstrap_client = OpenFgaClient(bootstrap_config)
 
     store_id = await _find_or_create_store(bootstrap_client, store_name)
-    await bootstrap_client.close()
+    await bootstrap_client.close()  # type: ignore[no-untyped-call]
 
     # Client with store_id to read/write model
     store_config = ClientConfiguration(api_url=api_url, store_id=store_id)
@@ -102,13 +104,13 @@ async def initialize_fga(*, api_url: str, store_name: str) -> FGAClient:
         model_id = response.authorization_model.id
         logger.info("fga_model_unchanged", store_id=store_id, model_id=model_id)
     else:
-        model_request = WriteAuthorizationModelRequest(**model_json)
+        model_request = WriteAuthorizationModelRequest(**model_json)  # type: ignore[no-untyped-call]
         model_response = await store_client.write_authorization_model(body=model_request)
         model_id = model_response.authorization_model_id
         local_hash = _model_hash(model_json)
         logger.info("fga_model_written", store_id=store_id, model_id=model_id, hash=local_hash)
 
-    await store_client.close()
+    await store_client.close()  # type: ignore[no-untyped-call]
 
     # Validate Python resource declarations match the JSON model
     validate_resource_registry(model_json)

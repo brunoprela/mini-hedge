@@ -1,4 +1,4 @@
-.PHONY: up down logs restart install run-local run-ui run-ops-ui dev dev-stop migrate lint format typecheck tach-check test test-unit test-integration check db-reset kafka-reset redis-reset reset status mock-exchange-up mock-exchange-down mock-exchange-logs mock-exchange-status up-all down-all seed seed-trades seed-all backup restore load-test load-test-headless
+.PHONY: up down logs restart install run-local run-ui run-ops-ui dev dev-stop migrate lint format gen-types typecheck tach-check test test-unit test-integration check db-reset kafka-reset redis-reset reset status mock-exchange-up mock-exchange-down mock-exchange-logs mock-exchange-status up-all down-all seed seed-trades seed-all backup restore load-test load-test-headless
 
 # --- Platform Infrastructure ---
 
@@ -95,8 +95,7 @@ reset:
 
 install:
 	uv sync
-	cd ui && pnpm install
-	cd ops-ui && pnpm install
+	pnpm install
 	cd mock-exchange && uv sync
 
 run-local:
@@ -153,6 +152,13 @@ format:
 	cd mock-exchange && uv run ruff check --fix mock_exchange/
 	cd ui && pnpm lint:fix
 	cd ops-ui && pnpm lint:fix
+
+gen-types:
+	@echo "Exporting OpenAPI schema from FastAPI..."
+	uv run python packages/api-types/scripts/export_schema.py
+	@echo "Generating TypeScript types..."
+	cd packages/api-types && npx openapi-typescript generated/openapi.json -o generated/openapi.d.ts
+	@echo "Types generated at packages/api-types/generated/"
 
 typecheck:
 	uv run mypy app/

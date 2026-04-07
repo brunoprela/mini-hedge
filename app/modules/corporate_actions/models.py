@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (
     DateTime,
@@ -16,7 +17,7 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import Date
 
-from app.shared.models import Base
+from app.shared.models import Base as Base
 
 
 class ProcessedCorporateActionRecord(Base):
@@ -38,9 +39,7 @@ class ProcessedCorporateActionRecord(Base):
     action_type: Mapped[str] = mapped_column(String(32), nullable=False)
     ex_date: Mapped[datetime] = mapped_column(Date, nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False)
-    adjustments: Mapped[dict | None] = mapped_column(  # type: ignore[type-arg]
-        JSONB, nullable=True
-    )
+    adjustments: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     error_message: Mapped[str | None] = mapped_column(String(512), nullable=True)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

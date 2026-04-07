@@ -109,7 +109,8 @@ _ENVELOPE_SCHEMA: dict[str, Any] | None = None
 def _load_avsc(path: Path) -> dict[str, Any]:
     """Load and parse an Avro schema from a .avsc JSON file."""
     with path.open() as f:
-        return json.load(f)
+        schema: dict[str, Any] = json.load(f)
+        return schema
 
 
 def load_schemas() -> None:
@@ -161,7 +162,8 @@ def _avro_encode(schema: dict[str, Any], record: dict[str, Any]) -> bytes:
 def _avro_decode(schema: dict[str, Any], data: bytes) -> dict[str, Any]:
     """Decode Avro binary back to a dict using fastavro."""
     buf = io.BytesIO(data)
-    return fastavro.schemaless_reader(buf, schema)
+    result: dict[str, Any] = fastavro.schemaless_reader(buf, schema, None)  # type: ignore[assignment]
+    return result
 
 
 def serialize_event(
@@ -230,7 +232,7 @@ def register_schemas(registry_url: str) -> None:
             timeout=10.0,
         )
         resp.raise_for_status()
-        return resp.json()["id"]
+        return int(resp.json()["id"])
 
     # Register envelope schema
     if _ENVELOPE_SCHEMA is not None:

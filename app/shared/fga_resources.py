@@ -58,6 +58,9 @@ Fund = register_resource_type(
                 "can_read_attribution",
                 "can_read_alpha",
                 "can_write_alpha",
+                # Capital accounts
+                "can_read_capital",
+                "can_write_capital",
             }
         ),
     )

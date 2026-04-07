@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import (
     DateTime,
@@ -18,7 +19,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.shared.models import Base
+from app.shared.models import Base as Base
 
 
 class ScenarioRunRecord(Base):
@@ -38,8 +39,8 @@ class ScenarioRunRecord(Base):
     )
     portfolio_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)
     scenario_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    trades: Mapped[dict] = mapped_column(JSONB, nullable=False)  # type: ignore[type-arg]
-    result_summary: Mapped[dict] = mapped_column(JSONB, nullable=False)  # type: ignore[type-arg]
+    trades: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    result_summary: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

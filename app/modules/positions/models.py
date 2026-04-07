@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import (
     BigInteger,
@@ -19,7 +20,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.shared.models import Base
+from app.shared.models import Base as Base
 
 # --- Event Store (append-only, source of truth) ---
 
@@ -41,8 +42,8 @@ class PositionEventRecord(Base):
     sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
     event_type: Mapped[str] = mapped_column(String(64), nullable=False)
     event_version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
-    event_data: Mapped[dict] = mapped_column(JSONB, nullable=False)  # type: ignore[type-arg]
-    metadata_: Mapped[dict] = mapped_column(  # type: ignore[type-arg]
+    event_data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    metadata_: Mapped[dict[str, Any]] = mapped_column(
         "metadata", JSONB, nullable=False, default=dict
     )
     created_at: Mapped[datetime] = mapped_column(

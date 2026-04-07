@@ -41,8 +41,8 @@ class ArchivalResult:
 
 def _to_parquet_buffer(records: list[dict[str, Any]]) -> io.BytesIO:
     """Convert a list of audit record dicts to a Parquet-encoded buffer."""
-    import pyarrow as pa
-    import pyarrow.parquet as pq
+    import pyarrow as pa  # type: ignore[import-untyped]
+    import pyarrow.parquet as pq  # type: ignore[import-untyped]
 
     # Flatten: serialize payload to JSON string for Parquet compatibility
     rows = []

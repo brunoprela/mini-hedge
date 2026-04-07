@@ -15,6 +15,6 @@ async def create_redis_client(redis_url: str) -> aioredis.Redis:
         decode_responses=True,
         max_connections=20,
     )
-    await client.ping()
+    await client.ping()  # type: ignore[misc,unused-ignore]  # redis stubs type ping() as Awaitable[bool] | bool
     logger.info("redis_connected", url=redis_url)
     return client

@@ -48,7 +48,7 @@ class TokenRevocationService:
     async def is_revoked(self, jti: str) -> bool:
         """Check whether a specific token JTI has been revoked."""
         key = f"{_JTI_PREFIX}{jti}"
-        return await self._redis.exists(key) > 0
+        return int(await self._redis.exists(key)) > 0
 
     async def revoke_user_tokens(self, user_id: str) -> None:
         """Revoke all tokens for a user by recording the current timestamp.

@@ -27,7 +27,7 @@ def _schema() -> str:
     """Return the real target schema for this migration run."""
     conn = op.get_bind()
     stm = getattr(conn, "_execution_options", {}).get("schema_translate_map", {})
-    return stm.get(_LOGICAL_SCHEMA, _LOGICAL_SCHEMA)
+    return str(stm.get(_LOGICAL_SCHEMA, _LOGICAL_SCHEMA))
 
 
 def upgrade() -> None:

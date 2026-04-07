@@ -94,9 +94,9 @@ class AccessGrantService:
             if record:
                 names[f"user:{uid}"] = record.name
         for oid in operator_ids:
-            record = await self._operator_repo.get_by_id(oid, session=session)
-            if record:
-                names[f"operator:{oid}"] = record.name
+            op_record = await self._operator_repo.get_by_id(oid, session=session)
+            if op_record:
+                names[f"operator:{oid}"] = op_record.name
 
         permission_set = set(_FUND_USER_PERMISSIONS)
         grants: list[FundAccessGrant] = []

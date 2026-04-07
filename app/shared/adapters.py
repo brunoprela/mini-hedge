@@ -41,6 +41,10 @@ class ExternalInstrument:
         "annual_volatility",
         "spread_bps",
         "is_active",
+        "avg_daily_volume",
+        "market_cap_usd",
+        "lot_size",
+        "tick_size",
     )
 
     def __init__(
@@ -58,6 +62,10 @@ class ExternalInstrument:
         annual_volatility: float = 0.25,
         spread_bps: float = 10.0,
         is_active: bool = True,
+        avg_daily_volume: int = 0,
+        market_cap_usd: float = 0.0,
+        lot_size: int = 1,
+        tick_size: float = 0.01,
     ) -> None:
         self.ticker = ticker
         self.name = name
@@ -71,6 +79,10 @@ class ExternalInstrument:
         self.annual_volatility = annual_volatility
         self.spread_bps = spread_bps
         self.is_active = is_active
+        self.avg_daily_volume = avg_daily_volume
+        self.market_cap_usd = market_cap_usd
+        self.lot_size = lot_size
+        self.tick_size = tick_size
 
 
 class OrderAcknowledgement:
@@ -226,3 +238,22 @@ class CorporateActionsAdapter(Protocol):
         start: date | None = None,
         end: date | None = None,
     ) -> list[CorporateAction]: ...
+
+
+class FundAdminAdapter(Protocol):
+    """Vendor-agnostic fund administrator interface.
+
+    The fund admin independently tracks positions, cash, and NAV from
+    trade confirmations.  Used in three-way reconciliation:
+    internal vs broker vs administrator.
+
+    Implementations: mock-exchange fund admin, Citco, SS&C.
+    """
+
+    async def get_positions(self) -> dict[str, Decimal]:
+        """Return instrument_id -> quantity from the admin's books."""
+        ...
+
+    async def get_cash_balances(self) -> dict[str, Decimal]:
+        """Return currency -> cash balance from the admin's books."""
+        ...

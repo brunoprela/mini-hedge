@@ -371,7 +371,12 @@ async def main() -> None:
     event_store = EventStoreRepository(session_factory)
     position_repo = CurrentPositionRepository(session_factory)
     projector = PositionProjector(position_repo)
-    trade_handler = TradeHandler(session_factory, event_store, projector, event_bus)
+    trade_handler = TradeHandler(
+        session_factory=session_factory,
+        event_store=event_store,
+        projector=projector,
+        event_bus=event_bus,
+    )
 
     # Check if trades already exist (idempotent)
     request_context = RequestContext(

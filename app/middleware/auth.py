@@ -31,7 +31,10 @@ PUBLIC_PATHS = {"/health", "/metrics", "/docs", "/openapi.json", "/redoc"}
 _QUERY_TOKEN_PATHS = {"/api/v1/stream/events"}
 
 
-def _json_response(status: int, body: dict) -> tuple[int, bytes, list[tuple[bytes, bytes]]]:
+_Headers = list[tuple[bytes, bytes]]
+
+
+def _json_response(status: int, body: dict[str, str]) -> tuple[int, bytes, _Headers]:
     data = json.dumps(body).encode()
     headers = [
         (b"content-type", b"application/json"),
@@ -176,7 +179,7 @@ class AuthMiddleware:
         return False
 
     @staticmethod
-    async def _send_json(send: Send, status: int, body: dict) -> None:
+    async def _send_json(send: Send, status: int, body: dict[str, str]) -> None:
         data = json.dumps(body).encode()
         await send(
             {

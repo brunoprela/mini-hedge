@@ -96,6 +96,9 @@ _FUND_SCOPED_MODULES = [
     "cash_management",
     "attribution",
     "alpha_engine",
+    "fee_accounting",
+    "capital_accounts",
+    "corporate_actions",
 ]
 
 

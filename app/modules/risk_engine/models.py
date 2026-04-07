@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import (
     DateTime,
@@ -19,7 +20,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.shared.models import Base
+from app.shared.models import Base as Base
 
 
 class RiskSnapshotRecord(Base):
@@ -120,7 +121,7 @@ class StressTestResultRecord(Base):
     portfolio_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)
     scenario_name: Mapped[str] = mapped_column(String(100), nullable=False)
     scenario_type: Mapped[str] = mapped_column(String(20), nullable=False)
-    shocks: Mapped[dict] = mapped_column(JSONB, nullable=False)  # type: ignore[type-arg]
+    shocks: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     total_pnl_impact: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
     total_pct_change: Mapped[Decimal] = mapped_column(Numeric(10, 6), nullable=False)
     calculated_at: Mapped[datetime] = mapped_column(

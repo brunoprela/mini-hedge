@@ -43,7 +43,7 @@ class ImmudbClient:
 
     async def connect(self) -> None:
         """Establish connection and authenticate with immudb."""
-        from immudb import ImmudbClient as _SyncClient
+        from immudb import ImmudbClient as _SyncClient  # type: ignore[import-untyped]
 
         def _connect() -> Any:
             client = _SyncClient(f"{self._host}:{self._port}")
@@ -81,7 +81,8 @@ class ImmudbClient:
 
         try:
             result = await asyncio.to_thread(self._client.verifiedGet, key.encode("utf-8"))
-            return json.loads(result.value.decode("utf-8"))  # type: ignore[union-attr]
+            parsed: dict[str, Any] | None = json.loads(result.value.decode("utf-8"))
+            return parsed
         except Exception:
             return None
 

@@ -70,10 +70,10 @@ export function FactorBreakdown({ portfolioId }: { portfolioId: string }) {
                 >
                   <td className="px-4 py-2 font-medium">{f.factor}</td>
                   <td className="px-4 py-2 text-right font-mono">
-                    {parseFloat(f.exposure).toFixed(4)}
+                    {parseFloat(f.exposure_value).toFixed(4)}
                   </td>
                   <td className="px-4 py-2 text-right font-mono">
-                    {parseFloat(f.contribution).toFixed(4)}
+                    {parseFloat(f.beta).toFixed(4)}
                   </td>
                   <td className="px-4 py-2 text-right font-mono">
                     {parseFloat(f.pct_of_total).toFixed(1)}%

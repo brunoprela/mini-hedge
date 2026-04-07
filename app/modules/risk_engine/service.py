@@ -38,6 +38,7 @@ from app.shared.schema_registry import fund_topic
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
+    from app.modules.market_data.fx import FXConverter
     from app.modules.market_data.service import MarketDataService
     from app.modules.positions.service import PositionService
     from app.modules.risk_engine.repository import RiskRepository
@@ -64,12 +65,16 @@ class RiskService:
         market_data_service: MarketDataService,
         security_master_service: SecurityMasterService,
         event_bus: EventBus | None = None,
+        fx_converter: FXConverter | None = None,
+        base_currency: str = "USD",
     ) -> None:
         self._risk_repo = risk_repo
         self._position_service = position_service
         self._market_data_service = market_data_service
         self._security_master_service = security_master_service
         self._event_bus = event_bus
+        self._fx = fx_converter
+        self._base_currency = base_currency
 
     # ------------------------------------------------------------------
     # Public API
@@ -85,8 +90,8 @@ class RiskService:
         if record is None:
             return None
         return RiskSnapshot(
-            id=record.id,
-            portfolio_id=record.portfolio_id,
+            id=UUID(record.id),
+            portfolio_id=UUID(record.portfolio_id),
             nav=record.nav,
             var_95_1d=record.var_95_1d,
             var_99_1d=record.var_99_1d,
@@ -109,8 +114,8 @@ class RiskService:
         )
         return [
             RiskSnapshot(
-                id=r.id,
-                portfolio_id=r.portfolio_id,
+                id=UUID(r.id),
+                portfolio_id=UUID(r.portfolio_id),
                 nav=r.nav,
                 var_95_1d=r.var_95_1d,
                 var_99_1d=r.var_99_1d,
@@ -219,6 +224,10 @@ class RiskService:
         sector_lookup = {i.ticker: i.sector or "Unknown" for i in instruments}
         sector_map = {iid: sector_lookup.get(iid, "Unknown") for iid in instrument_ids}
 
+        # Build currency map from positions
+        positions = await self._position_service.get_by_portfolio(portfolio_id, session=session)
+        currency_map = {p.instrument_id: p.currency for p in positions}
+
         result = calculate_factor_decomposition(
             portfolio_id,
             weights,
@@ -226,6 +235,8 @@ class RiskService:
             instrument_ids,
             sector_map,
             nav,
+            currency_map=currency_map,
+            base_currency=self._base_currency,
         )
 
         logger.info(
@@ -276,8 +287,8 @@ class RiskService:
         await self._publish_risk_event(record, fund_slug)
 
         return RiskSnapshot(
-            id=record.id,
-            portfolio_id=record.portfolio_id,
+            id=UUID(record.id),
+            portfolio_id=UUID(record.portfolio_id),
             nav=record.nav,
             var_95_1d=record.var_95_1d,
             var_99_1d=record.var_99_1d,
@@ -296,25 +307,40 @@ class RiskService:
         portfolio_id: UUID,
         *,
         session: AsyncSession | None = None,
-    ) -> tuple[dict[str, float], np.ndarray, list[str], float]:  # type: ignore[type-arg]
-        """Build weights, returns matrix, instrument list, and NAV."""
+    ) -> tuple[dict[str, float], np.ndarray, list[str], float]:
+        """Build weights, returns matrix, instrument list, and NAV.
+
+        Market values are converted to base currency via FXConverter when
+        available, ensuring weights and NAV reflect a single currency.
+        """
         positions = await self._position_service.get_by_portfolio(portfolio_id, session=session)
         positions = [p for p in positions if p.quantity != ZERO]
 
         if not positions:
             return {}, np.empty((0, 0)), [], 0.0
 
-        nav = float(sum((p.market_value for p in positions if p.market_value), ZERO))
+        # Convert market values to base currency
+        base_values: dict[str, float] = {}
+        for p in positions:
+            mv = p.market_value or ZERO
+            if self._fx is not None and p.currency != self._base_currency:
+                converted = self._fx.convert(mv, p.currency, self._base_currency)
+                if converted is not None:
+                    mv = converted
+            base_values[p.instrument_id] = float(mv)
+
+        nav = sum(base_values.values())
         if nav == 0:
             return {}, np.empty((0, 0)), [], 0.0
 
         instrument_ids = [p.instrument_id for p in positions]
-        weights = {
-            p.instrument_id: float(p.market_value) / nav for p in positions if p.market_value
-        }
+        weights = {iid: base_values[iid] / nav for iid in instrument_ids}
 
-        # Build returns matrix from price history
-        returns_matrix = await self._build_returns_matrix(instrument_ids, session=session)
+        # Build returns matrix — FX-adjusted when converter is available
+        currency_map = {p.instrument_id: p.currency for p in positions}
+        returns_matrix = await self._build_returns_matrix(
+            instrument_ids, currency_map=currency_map, session=session
+        )
 
         return weights, returns_matrix, instrument_ids, nav
 
@@ -322,12 +348,17 @@ class RiskService:
         self,
         instrument_ids: list[str],
         *,
+        currency_map: dict[str, str] | None = None,
         session: AsyncSession | None = None,
-    ) -> np.ndarray:  # type: ignore[type-arg]
+    ) -> np.ndarray:
         """Build a (n_days, n_instruments) returns matrix.
 
         Uses synthetic returns based on instrument reference data (annual_drift,
         annual_volatility) until real price history is available.
+
+        When *currency_map* and *fx_converter* are available, local-currency
+        returns are adjusted to base-currency returns:
+          base_return = (1 + local_return) * (1 + fx_return) - 1
         """
         n = len(instrument_ids)
         if n == 0:
@@ -348,7 +379,17 @@ class RiskService:
             annual_drift = drift_map.get(iid, 0.08)
             daily_vol = annual_vol / np.sqrt(252)
             daily_drift = annual_drift / 252
-            daily_returns[:, i] = np.random.normal(daily_drift, daily_vol, n_days)
+            local_returns = np.random.normal(daily_drift, daily_vol, n_days)
+
+            # Apply FX adjustment for non-base-currency positions
+            ccy = currency_map.get(iid) if currency_map else None
+            if ccy and ccy != self._base_currency and self._fx is not None:
+                # Simulate FX return series (zero drift, ~8% annual vol)
+                fx_daily_vol = 0.08 / np.sqrt(252)
+                fx_returns = np.random.normal(0.0, fx_daily_vol, n_days)
+                daily_returns[:, i] = (1 + local_returns) * (1 + fx_returns) - 1
+            else:
+                daily_returns[:, i] = local_returns
 
         return daily_returns
 

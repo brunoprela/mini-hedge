@@ -101,7 +101,14 @@ class PositionService:
                 total_unrealized_pnl=Decimal(0),
                 position_count=0,
             )
-        return PortfolioSummary(portfolio_id=portfolio_id, **summary)
+        return PortfolioSummary(
+            portfolio_id=portfolio_id,
+            total_market_value=Decimal(str(summary["total_market_value"])),
+            total_cost_basis=Decimal(str(summary["total_cost_basis"])),
+            total_realized_pnl=Decimal(str(summary["total_realized_pnl"])),
+            total_unrealized_pnl=Decimal(str(summary["total_unrealized_pnl"])),
+            position_count=int(str(summary["position_count"])),
+        )
 
     async def execute_trade(
         self,

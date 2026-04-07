@@ -6,7 +6,8 @@ via the OTEL_ENABLED environment variable.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from collections.abc import MutableMapping
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
@@ -18,7 +19,9 @@ logger = structlog.get_logger()
 _otel_initialized = False
 
 
-def add_trace_id(logger: object, method: str, event_dict: dict[str, object]) -> dict[str, object]:
+def add_trace_id(
+    logger: Any, method: str, event_dict: MutableMapping[str, Any]
+) -> MutableMapping[str, Any]:
     """Structlog processor that injects the current OTel trace_id, if active."""
     if not _otel_initialized:
         return event_dict

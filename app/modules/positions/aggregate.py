@@ -118,7 +118,7 @@ class PositionAggregate:
             )
 
         self.quantity -= qty
-        self.cost_basis = sum(abs(lot.quantity) * lot.price for lot in self.lots)
+        self.cost_basis = Decimal(sum(abs(lot.quantity) * lot.price for lot in self.lots))
         self.realized_pnl += realized
 
         self.version += 1

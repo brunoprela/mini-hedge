@@ -11,13 +11,16 @@ import numpy as np
 import structlog
 
 from app.modules.attribution.calculator import (
+    PositionFXData,
     calculate_brinson_fachler,
+    calculate_fx_attribution,
     calculate_risk_based_attribution,
     link_multi_period,
 )
 from app.modules.attribution.interface import (
     BrinsonFachlerResult,
     CumulativeAttribution,
+    FXAttributionResult,
     RiskBasedResult,
     SectorAttribution,
 )
@@ -32,6 +35,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.modules.attribution.repository import AttributionRepository
+    from app.modules.market_data.fx import FXConverter
     from app.modules.positions.service import PositionService
     from app.modules.security_master.service import SecurityMasterService
 
@@ -49,10 +53,12 @@ class AttributionService:
         attribution_repo: AttributionRepository,
         position_service: PositionService,
         security_master_service: SecurityMasterService,
+        fx_converter: FXConverter | None = None,
     ) -> None:
         self._attribution_repo = attribution_repo
         self._position_service = position_service
         self._security_master_service = security_master_service
+        self._fx = fx_converter
 
     async def calculate_brinson_fachler(
         self,
@@ -219,8 +225,8 @@ class AttributionService:
             ]
             period_results.append(
                 BrinsonFachlerResult(
-                    id=r.id,
-                    portfolio_id=r.portfolio_id,
+                    id=UUID(r.id),
+                    portfolio_id=UUID(r.portfolio_id),
                     period_start=r.period_start,
                     period_end=r.period_end,
                     portfolio_return=r.portfolio_return,
@@ -247,6 +253,87 @@ class AttributionService:
             "cumulative_attribution_calculated",
             portfolio_id=str(portfolio_id),
             periods=len(period_results),
+        )
+        return result
+
+    async def calculate_fx(
+        self,
+        portfolio_id: UUID,
+        period_start: date,
+        period_end: date,
+        *,
+        base_currency: str = "USD",
+        session: AsyncSession | None = None,
+    ) -> FXAttributionResult:
+        """Decompose portfolio return into local asset, FX, and interaction."""
+        all_positions = await self._position_service.get_by_portfolio(portfolio_id, session=session)
+        positions = [p for p in all_positions if p.quantity != ZERO]
+
+        if not positions:
+            from datetime import UTC, datetime
+
+            return FXAttributionResult(
+                portfolio_id=portfolio_id,
+                period_start=period_start,
+                period_end=period_end,
+                base_currency=base_currency,
+                total_local_return=ZERO,
+                total_fx_return=ZERO,
+                total_interaction=ZERO,
+                total_base_return=ZERO,
+                positions=[],
+                calculated_at=datetime.now(UTC),
+            )
+
+        # Build FX rate snapshots (start and end)
+        # Use current FX converter rates as "end" rates; approximate start
+        # rates by using the same rates (until we have historical FX data).
+        fx_rates_end: dict[str, float] = {}
+        fx_rates_start: dict[str, float] = {}
+        currencies = {p.currency for p in positions if p.currency != base_currency}
+
+        if self._fx is not None:
+            for ccy in currencies:
+                rate = self._fx.get_rate(ccy, base_currency)
+                if rate is not None:
+                    fx_rates_end[ccy] = float(rate)
+                    # Approximate start rate with a small perturbation
+                    # (until real historical rates are available)
+                    fx_rates_start[ccy] = float(rate) * 0.998
+                else:
+                    fx_rates_end[ccy] = 1.0
+                    fx_rates_start[ccy] = 1.0
+
+        # Build synthetic local returns from instrument reference data
+        instrument_ids = [p.instrument_id for p in positions]
+        local_returns = await self._generate_synthetic_returns(instrument_ids, session=session)
+        return_map = dict(zip(instrument_ids, local_returns, strict=True))
+
+        fx_positions = [
+            PositionFXData(
+                instrument_id=p.instrument_id,
+                currency=p.currency,
+                market_value_local=float(p.market_value or ZERO),
+                local_return=return_map.get(p.instrument_id, 0.0),
+            )
+            for p in positions
+        ]
+
+        result = calculate_fx_attribution(
+            portfolio_id,
+            period_start,
+            period_end,
+            fx_positions,
+            fx_rates_start,
+            fx_rates_end,
+            base_currency,
+        )
+
+        logger.info(
+            "fx_attribution_calculated",
+            portfolio_id=str(portfolio_id),
+            base_currency=base_currency,
+            fx_return=str(result.total_fx_return),
         )
         return result
 
@@ -281,7 +368,7 @@ class AttributionService:
         n_days: int = 252,
         *,
         session: AsyncSession | None = None,
-    ) -> np.ndarray:  # type: ignore[type-arg]
+    ) -> np.ndarray:
         """Build synthetic returns matrix from instrument reference data."""
         instruments = await self._security_master_service.get_all_active(session=session)
         vol_map = {

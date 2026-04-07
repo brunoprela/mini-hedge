@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import (
     Boolean,
@@ -21,7 +22,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.shared.models import Base
+from app.shared.models import Base as Base
 
 SCHEMA = "eod"
 
@@ -66,7 +67,7 @@ class EODRunStepRecord(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    details: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
 
 class FinalizedPriceRecord(Base):
@@ -121,7 +122,7 @@ class PnLSnapshotRecord(Base):
     total_unrealized_pnl: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     total_pnl: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     position_count: Mapped[int] = mapped_column(nullable=False)
-    details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    details: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     computed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -138,7 +139,7 @@ class ReconciliationRecord(Base):
     total_positions: Mapped[int] = mapped_column(nullable=False)
     matched_positions: Mapped[int] = mapped_column(nullable=False)
     is_clean: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    breaks: Mapped[dict] = mapped_column(JSONB, nullable=False, default=list)
+    breaks: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=list)
     reconciled_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

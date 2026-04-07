@@ -5,6 +5,7 @@ import Link from "next/link";
 import { brinsonFachlerQueryOptions } from "@/features/attribution/api";
 import { cashBalancesQueryOptions } from "@/features/cash/api";
 import { violationsQueryOptions } from "@/features/compliance/api";
+import { capitalOverviewQueryOptions } from "@/features/investors/api";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
 import { riskSnapshotQueryOptions } from "@/features/risk/api";
 import { InfoTooltip } from "@/shared/components/table-controls";
@@ -26,6 +27,7 @@ export function DashboardSummaryCards() {
       {can(Permission.CASH_READ) && <CashCard portfolioId={firstPortfolioId} />}
       {can(Permission.ATTRIBUTION_READ) && <AttributionCard portfolioId={firstPortfolioId} />}
       {can(Permission.COMPLIANCE_READ) && <ComplianceCard portfolioId={firstPortfolioId} />}
+      {can(Permission.CAPITAL_READ) && <InvestorCard />}
     </div>
   );
 }
@@ -140,6 +142,36 @@ function ComplianceCard({ portfolioId }: { portfolioId: string }) {
       ]}
       accentColor="var(--destructive)"
       accentBg="var(--destructive-muted)"
+    />
+  );
+}
+
+function InvestorCard() {
+  const { fundSlug } = useFundContext();
+  const { data } = useQuery(capitalOverviewQueryOptions(fundSlug));
+
+  return (
+    <SummaryCard
+      title="Investors"
+      href={`/${fundSlug}/investors`}
+      items={
+        data
+          ? [
+              {
+                label: "Total AUM",
+                value: fmt(data.total_aum),
+                info: "Total assets under management across all investors",
+              },
+              {
+                label: "Investors",
+                value: String(data.total_investors),
+                info: "Number of active investors in this fund",
+              },
+            ]
+          : [{ label: "Status", value: "No data" }]
+      }
+      accentColor="var(--accent-green)"
+      accentBg="var(--accent-green-muted)"
     />
   );
 }

@@ -25,7 +25,7 @@ import re
 from typing import Any
 
 import structlog
-from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer  # type: ignore[import-untyped]
 
 logger = structlog.get_logger()
 

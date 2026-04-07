@@ -1,7 +1,16 @@
-"""Position reconciliation — compares internal positions against broker statement.
+"""Position reconciliation — three-way match: internal vs broker vs fund admin.
 
-For mock-exchange, the "broker file" is an HTTP call to the mock-exchange API.
-In production this would parse a CSV/FIX file from the prime broker.
+The reconciler compares positions across three independent sources:
+  1. Internal positions (platform database)
+  2. Broker/prime broker statement (mock-exchange execution engine)
+  3. Fund administrator statement (mock-exchange fund admin service)
+
+For mock-exchange, both external sources are HTTP calls. In production,
+the broker file would be a CSV/FIX file from the prime broker and the
+admin file would come from the fund administrator (Citco, SS&C, etc.).
+
+Cash reconciliation compares internal cash balances against the fund
+administrator's independently computed cash.
 """
 
 from __future__ import annotations
@@ -15,6 +24,7 @@ import structlog
 
 from app.modules.eod.interface import (
     BreakType,
+    CashBreak,
     ReconciliationBreak,
     ReconciliationResult,
 )
@@ -22,17 +32,20 @@ from app.modules.eod.interface import (
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
+    from app.modules.cash_management.service import CashManagementService
     from app.modules.eod.repository import ReconciliationRepository
     from app.modules.positions.service import PositionService
-    from app.shared.adapters import BrokerAdapter
+    from app.shared.adapters import BrokerAdapter, FundAdminAdapter
 
 logger = structlog.get_logger()
 
+ZERO = Decimal(0)
 MATERIAL_THRESHOLD = Decimal("0.01")
+CASH_MATERIAL_THRESHOLD = Decimal("1.00")
 
 
 class PositionReconciler:
-    """Compares internal positions against the broker's EOD statement."""
+    """Three-way position and cash reconciliation."""
 
     def __init__(
         self,
@@ -40,10 +53,14 @@ class PositionReconciler:
         position_service: PositionService,
         broker_adapter: BrokerAdapter,
         recon_repo: ReconciliationRepository,
+        fund_admin_adapter: FundAdminAdapter | None = None,
+        cash_service: CashManagementService | None = None,
     ) -> None:
         self._positions = position_service
         self._broker = broker_adapter
         self._recon_repo = recon_repo
+        self._admin = fund_admin_adapter
+        self._cash = cash_service
 
     async def reconcile(
         self,
@@ -52,60 +69,29 @@ class PositionReconciler:
         *,
         session: AsyncSession | None = None,
     ) -> ReconciliationResult:
-        """Run position reconciliation against broker.
-
-        For mock-exchange, uses the internal view as a placeholder.
-        A real implementation would parse the broker's EOD position file.
-        """
+        """Run three-way position reconciliation + cash reconciliation."""
+        # 1. Gather all three position views
         internal_positions = await self._positions.get_by_portfolio(portfolio_id, session=session)
         internal_map = {p.instrument_id: p.quantity for p in internal_positions}
-
         broker_map = await self._broker.get_eod_positions(str(portfolio_id), business_date)
 
-        all_instruments = set(internal_map.keys()) | set(broker_map.keys())
-        breaks: list[ReconciliationBreak] = []
+        admin_map: dict[str, Decimal] | None = None
+        if self._admin is not None:
+            try:
+                admin_map = await self._admin.get_positions()
+            except Exception:
+                logger.warning("admin_positions_unavailable")
 
-        for instrument_id in all_instruments:
-            internal_qty = internal_map.get(instrument_id, Decimal(0))
-            broker_qty = broker_map.get(instrument_id, Decimal(0))
+        # 2. Three-way position matching
+        breaks = self._match_positions(internal_map, broker_map, admin_map)
 
-            if internal_qty == Decimal(0) and broker_qty != Decimal(0):
-                breaks.append(
-                    ReconciliationBreak(
-                        instrument_id=instrument_id,
-                        break_type=BreakType.MISSING_INTERNAL,
-                        internal_quantity=internal_qty,
-                        broker_quantity=broker_qty,
-                        difference=-broker_qty,
-                        is_material=abs(broker_qty) > MATERIAL_THRESHOLD,
-                    )
-                )
-            elif broker_qty == Decimal(0) and internal_qty != Decimal(0):
-                breaks.append(
-                    ReconciliationBreak(
-                        instrument_id=instrument_id,
-                        break_type=BreakType.MISSING_BROKER,
-                        internal_quantity=internal_qty,
-                        broker_quantity=broker_qty,
-                        difference=internal_qty,
-                        is_material=abs(internal_qty) > MATERIAL_THRESHOLD,
-                    )
-                )
-            elif internal_qty != broker_qty:
-                diff = internal_qty - broker_qty
-                breaks.append(
-                    ReconciliationBreak(
-                        instrument_id=instrument_id,
-                        break_type=BreakType.QUANTITY_MISMATCH,
-                        internal_quantity=internal_qty,
-                        broker_quantity=broker_qty,
-                        difference=diff,
-                        is_material=abs(diff) > MATERIAL_THRESHOLD,
-                    )
-                )
+        # 3. Cash reconciliation
+        cash_breaks = await self._reconcile_cash(portfolio_id, session=session)
 
-        is_clean = len(breaks) == 0
+        all_instruments = set(internal_map) | set(broker_map) | set(admin_map or {})
+        is_clean = len(breaks) == 0 and len(cash_breaks) == 0
 
+        # Persist
         await self._recon_repo.upsert(
             portfolio_id=str(portfolio_id),
             business_date=business_date,
@@ -122,6 +108,7 @@ class PositionReconciler:
             total_positions=len(all_instruments),
             matched_positions=len(all_instruments) - len(breaks),
             breaks=breaks,
+            cash_breaks=cash_breaks,
             is_clean=is_clean,
             reconciled_at=datetime.now(UTC),
         )
@@ -131,6 +118,173 @@ class PositionReconciler:
             portfolio_id=str(portfolio_id),
             business_date=str(business_date),
             total=result.total_positions,
-            breaks=len(breaks),
+            position_breaks=len(breaks),
+            cash_breaks=len(cash_breaks),
+            three_way=admin_map is not None,
         )
         return result
+
+    def _match_positions(
+        self,
+        internal: dict[str, Decimal],
+        broker: dict[str, Decimal],
+        admin: dict[str, Decimal] | None,
+    ) -> list[ReconciliationBreak]:
+        """Compare positions across all available sources."""
+        all_instruments = set(internal) | set(broker) | set(admin or {})
+        breaks: list[ReconciliationBreak] = []
+
+        for iid in all_instruments:
+            int_qty = internal.get(iid, ZERO)
+            brk_qty = broker.get(iid, ZERO)
+            adm_qty = admin.get(iid, ZERO) if admin is not None else None
+
+            # Internal vs broker
+            if int_qty == ZERO and brk_qty != ZERO:
+                breaks.append(
+                    self._break(
+                        iid,
+                        BreakType.MISSING_INTERNAL,
+                        int_qty,
+                        brk_qty,
+                        adm_qty,
+                    )
+                )
+            elif brk_qty == ZERO and int_qty != ZERO:
+                breaks.append(
+                    self._break(
+                        iid,
+                        BreakType.MISSING_BROKER,
+                        int_qty,
+                        brk_qty,
+                        adm_qty,
+                    )
+                )
+            elif int_qty != brk_qty:
+                breaks.append(
+                    self._break(
+                        iid,
+                        BreakType.QUANTITY_MISMATCH,
+                        int_qty,
+                        brk_qty,
+                        adm_qty,
+                    )
+                )
+            elif admin is not None:
+                # Internal and broker agree — check admin
+                assert adm_qty is not None
+                if adm_qty == ZERO and int_qty != ZERO:
+                    breaks.append(
+                        self._break(
+                            iid,
+                            BreakType.MISSING_ADMIN,
+                            int_qty,
+                            brk_qty,
+                            adm_qty,
+                        )
+                    )
+                elif adm_qty != int_qty:
+                    breaks.append(
+                        self._break(
+                            iid,
+                            BreakType.INTERNAL_ADMIN_MISMATCH,
+                            int_qty,
+                            brk_qty,
+                            adm_qty,
+                        )
+                    )
+
+            # Broker vs admin (when both disagree but we haven't flagged yet)
+            if (
+                admin is not None
+                and adm_qty is not None
+                and brk_qty != adm_qty
+                and int_qty == brk_qty
+                and int_qty != ZERO
+            ):
+                # Already caught above as INTERNAL_ADMIN_MISMATCH or
+                # MISSING_ADMIN, so skip to avoid duplicates
+                pass
+            elif (
+                admin is not None
+                and adm_qty is not None
+                and brk_qty != adm_qty
+                and int_qty != brk_qty
+                and brk_qty != ZERO
+                and adm_qty != ZERO
+            ):
+                # All three disagree — the QUANTITY_MISMATCH above covers
+                # internal vs broker; add broker vs admin break
+                breaks.append(
+                    ReconciliationBreak(
+                        instrument_id=iid,
+                        break_type=BreakType.BROKER_ADMIN_MISMATCH,
+                        internal_quantity=int_qty,
+                        broker_quantity=brk_qty,
+                        admin_quantity=adm_qty,
+                        difference=brk_qty - adm_qty,
+                        is_material=abs(brk_qty - adm_qty) > MATERIAL_THRESHOLD,
+                    )
+                )
+
+        return breaks
+
+    def _break(
+        self,
+        iid: str,
+        break_type: BreakType,
+        int_qty: Decimal,
+        brk_qty: Decimal,
+        adm_qty: Decimal | None,
+    ) -> ReconciliationBreak:
+        diff = int_qty - brk_qty
+        return ReconciliationBreak(
+            instrument_id=iid,
+            break_type=break_type,
+            internal_quantity=int_qty,
+            broker_quantity=brk_qty,
+            admin_quantity=adm_qty,
+            difference=diff,
+            is_material=abs(diff) > MATERIAL_THRESHOLD,
+        )
+
+    async def _reconcile_cash(
+        self,
+        portfolio_id: UUID,
+        *,
+        session: AsyncSession | None = None,
+    ) -> list[CashBreak]:
+        """Compare internal cash balances against the admin's cash view."""
+        if self._admin is None or self._cash is None:
+            return []
+
+        try:
+            admin_cash = await self._admin.get_cash_balances()
+        except Exception:
+            logger.warning("admin_cash_unavailable")
+            return []
+
+        internal_balances = await self._cash.get_balances(portfolio_id, session=session)
+        internal_cash: dict[str, Decimal] = {}
+        for b in internal_balances:
+            internal_cash[b.currency] = internal_cash.get(b.currency, ZERO) + b.total_balance
+
+        all_currencies = set(internal_cash) | set(admin_cash)
+        breaks: list[CashBreak] = []
+
+        for ccy in all_currencies:
+            int_bal = internal_cash.get(ccy, ZERO)
+            adm_bal = admin_cash.get(ccy, ZERO)
+            diff = int_bal - adm_bal
+            if abs(diff) > CASH_MATERIAL_THRESHOLD:
+                breaks.append(
+                    CashBreak(
+                        currency=ccy,
+                        internal_balance=int_bal,
+                        admin_balance=adm_bal,
+                        difference=diff,
+                        is_material=True,
+                    )
+                )
+
+        return breaks

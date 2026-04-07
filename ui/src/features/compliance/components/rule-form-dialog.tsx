@@ -111,8 +111,8 @@ export function RuleFormDialog({ rule, onClose }: RuleFormDialogProps) {
   const queryClient = useQueryClient();
 
   const [name, setName] = useState(rule?.name ?? "");
-  const [ruleType, setRuleType] = useState(rule?.rule_type ?? "concentration_limit");
-  const [severity, setSeverity] = useState(rule?.severity ?? "warning");
+  const [ruleType, setRuleType] = useState<string>(rule?.rule_type ?? "concentration_limit");
+  const [severity, setSeverity] = useState<string>(rule?.severity ?? "warning");
 
   const parsed = rule ? parseParameters(rule.rule_type, rule.parameters) : undefined;
   const [maxPct, setMaxPct] = useState(parsed?.maxPct ?? "");

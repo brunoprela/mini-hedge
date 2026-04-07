@@ -3,7 +3,7 @@
 from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -47,6 +47,8 @@ async def trigger_eod_run(
     session: AsyncSession = Depends(get_db),
 ) -> EODRunResult:
     """Trigger an EOD run for the authenticated user's fund."""
+    if not request_context.fund_slug:
+        raise HTTPException(status_code=400, detail="Fund context required")
     return await orchestrator.run_eod(
         request_context.fund_slug,
         body.business_date,
@@ -62,6 +64,8 @@ async def get_eod_status(
     session: AsyncSession = Depends(get_db),
 ) -> EODRunResult | None:
     """Get the status of the latest EOD run for a business date."""
+    if not request_context.fund_slug:
+        raise HTTPException(status_code=400, detail="Fund context required")
     run_repo = orchestrator._run_repo
     run = await run_repo.get_latest_run(business_date, request_context.fund_slug)
     if run is None:
@@ -97,6 +101,8 @@ async def get_eod_history(
     offset: int = Query(0, ge=0),
 ) -> list[EODRunSummary]:
     """List past EOD runs for the fund."""
+    if not request_context.fund_slug:
+        raise HTTPException(status_code=400, detail="Fund context required")
     run_repo = orchestrator._run_repo
     runs = await run_repo.get_run_history(request_context.fund_slug, limit=limit, offset=offset)
 

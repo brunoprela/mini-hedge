@@ -134,7 +134,7 @@ def optimize_portfolio(
     portfolio_id: UUID,
     objective: OptimizationObjective,
     current_weights: dict[str, float],
-    returns_matrix: np.ndarray,  # type: ignore[type-arg]
+    returns_matrix: np.ndarray,
     instrument_ids: list[str],
     prices: dict[str, float],
     nav: float,
@@ -217,8 +217,8 @@ def optimize_portfolio(
 
 def _min_variance(
     cov: np.ndarray,
-    n: int,  # type: ignore[type-arg]
-) -> np.ndarray:  # type: ignore[type-arg]
+    n: int,
+) -> np.ndarray:
     """Analytical minimum variance portfolio (long-only)."""
     try:
         inv_cov = np.linalg.inv(cov)
@@ -236,11 +236,11 @@ def _min_variance(
 
 
 def _max_sharpe(
-    mu: np.ndarray,  # type: ignore[type-arg]
-    cov: np.ndarray,  # type: ignore[type-arg]
+    mu: np.ndarray,
+    cov: np.ndarray,
     n: int,
     risk_free: float = 0.04,
-) -> np.ndarray:  # type: ignore[type-arg]
+) -> np.ndarray:
     """Analytical maximum Sharpe ratio portfolio (long-only)."""
     try:
         inv_cov = np.linalg.inv(cov)
@@ -256,13 +256,13 @@ def _max_sharpe(
 
 def _risk_parity(
     cov: np.ndarray,
-    n: int,  # type: ignore[type-arg]
-) -> np.ndarray:  # type: ignore[type-arg]
+    n: int,
+) -> np.ndarray:
     """Naive risk parity: weight inversely proportional to volatility."""
     vols = np.sqrt(np.diag(cov))
     vols = np.maximum(vols, 1e-10)
     inv_vol = 1.0 / vols
-    w = inv_vol / inv_vol.sum()
+    w: np.ndarray = inv_vol / inv_vol.sum()
     return w
 
 

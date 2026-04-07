@@ -10,6 +10,16 @@ from app.shared.circuit_breaker import CircuitBreaker
 
 logger = structlog.get_logger()
 
+# Fields accepted by ExternalInstrument — filter incoming JSON to this set
+# so the adapter doesn't break when the upstream API adds new fields.
+_KNOWN_FIELDS = frozenset(ExternalInstrument.__slots__)
+
+
+def _parse_instrument(data: dict[str, object]) -> ExternalInstrument:
+    """Build an ExternalInstrument, dropping any unknown keys from *data*."""
+    filtered = {k: v for k, v in data.items() if k in _KNOWN_FIELDS}
+    return ExternalInstrument(**filtered)  # type: ignore[arg-type]
+
 
 class MockExchangeReferenceDataAdapter:
     """ReferenceDataAdapter backed by the mock-exchange service."""
@@ -28,8 +38,7 @@ class MockExchangeReferenceDataAdapter:
                 if resp.status_code == 404:
                     return None
                 resp.raise_for_status()
-            data = resp.json()
-            return ExternalInstrument(**data)
+            return _parse_instrument(resp.json())
 
     async def get_all_instruments(self, asset_class: str | None = None) -> list[ExternalInstrument]:
         params: dict[str, str] = {}
@@ -39,4 +48,4 @@ class MockExchangeReferenceDataAdapter:
             async with self._circuit():
                 resp = await client.get("/api/v1/instruments", params=params)
                 resp.raise_for_status()
-            return [ExternalInstrument(**item) for item in resp.json()]
+            return [_parse_instrument(item) for item in resp.json()]

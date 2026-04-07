@@ -16,6 +16,8 @@ import numpy as np
 import structlog
 
 if TYPE_CHECKING:
+    from mock_exchange.market_data.order_book import SimulatedOrderBook
+    from mock_exchange.market_data.trade_tape import TradeTape
     from mock_exchange.shared.kafka import MockExchangeProducer
 
 logger = structlog.get_logger()
@@ -98,6 +100,33 @@ DEFAULT_UNIVERSE: list[InstrumentConfig] = [
     InstrumentConfig("VALE3", 14.0, 0.05, 0.35, 15.0),    # 41
 ]
 
+@dataclass
+class FXPairConfig:
+    """FX pair configuration — rates expressed as 1 USD = X quote currency."""
+
+    base: str  # always "USD"
+    quote: str  # "GBP", "EUR", etc.
+    initial_rate: float  # 1 USD = X quote
+    annual_volatility: float  # FX vol (typically 5-12%)
+
+
+# FX universe — covers all non-USD currencies in the equity universe.
+# Rates are USD-based: 1 USD = X units of quote currency.
+FX_UNIVERSE: list[FXPairConfig] = [
+    FXPairConfig("USD", "GBP", 0.79, 0.08),   # British Pound
+    FXPairConfig("USD", "EUR", 0.92, 0.08),   # Euro
+    FXPairConfig("USD", "JPY", 154.5, 0.10),  # Japanese Yen
+    FXPairConfig("USD", "CHF", 0.88, 0.09),   # Swiss Franc
+    FXPairConfig("USD", "DKK", 6.88, 0.08),   # Danish Krone (pegged to EUR)
+    FXPairConfig("USD", "KRW", 1380.0, 0.10), # South Korean Won
+    FXPairConfig("USD", "TWD", 32.5, 0.06),   # Taiwan Dollar
+    FXPairConfig("USD", "HKD", 7.81, 0.005),  # Hong Kong Dollar (pegged)
+    FXPairConfig("USD", "AUD", 1.55, 0.10),   # Australian Dollar
+    FXPairConfig("USD", "CAD", 1.37, 0.07),   # Canadian Dollar
+    FXPairConfig("USD", "BRL", 5.05, 0.15),   # Brazilian Real
+]
+
+
 SECTOR_GROUPS = [
     [0, 1, 2, 3, 4, 25, 29, 32, 36, 37, 38],  # Technology
     [5, 6, 7, 27, 31],                          # Consumer Discretionary
@@ -129,8 +158,12 @@ class GBMSimulator:
 
     producer: MockExchangeProducer
     universe: list[InstrumentConfig] = field(default_factory=lambda: list(DEFAULT_UNIVERSE))
+    fx_universe: list[FXPairConfig] = field(default_factory=lambda: list(FX_UNIVERSE))
     interval_ms: int = 1000
+    order_books: dict[str, SimulatedOrderBook] = field(default_factory=dict)
+    trade_tape: TradeTape | None = None
     _prices: dict[str, float] = field(default_factory=dict, init=False)
+    _fx_rates: dict[str, float] = field(default_factory=dict, init=False)
     _cholesky: np.ndarray | None = field(default=None, init=False)  # type: ignore[type-arg]
     _running: bool = field(default=False, init=False)
 
@@ -142,6 +175,8 @@ class GBMSimulator:
     def __post_init__(self) -> None:
         for cfg in self.universe:
             self._prices[cfg.ticker] = cfg.initial_price
+        for fx in self.fx_universe:
+            self._fx_rates[f"FX:{fx.base}/{fx.quote}"] = fx.initial_rate
         self._rebuild_cholesky()
 
     def _rebuild_cholesky(self) -> None:
@@ -193,17 +228,48 @@ class GBMSimulator:
             new_prices[cfg.ticker] = new_price
         return new_prices
 
+    def _generate_fx_tick(self) -> dict[str, float]:
+        """Generate FX rate ticks via independent GBM (zero drift)."""
+        dt = self.interval_ms / (252 * 6.5 * 3600 * 1000)
+        new_rates: dict[str, float] = {}
+        for fx in self.fx_universe:
+            pair_id = f"FX:{fx.base}/{fx.quote}"
+            rate = self._fx_rates[pair_id]
+            vol = fx.annual_volatility * self.volatility_multiplier
+            z = np.random.standard_normal()
+            new_rate = rate * (1 + vol * np.sqrt(dt) * z)
+            new_rate = max(new_rate, 0.0001)
+            self._fx_rates[pair_id] = new_rate
+            new_rates[pair_id] = new_rate
+        return new_rates
+
     def _publish_prices(self, prices: dict[str, float]) -> None:
         now = datetime.now(UTC)
         _q = Decimal("0.0001")
         for cfg in self.universe:
             price = prices[cfg.ticker]
-            spread = price * cfg.spread_bps / 10_000
-            half_spread = spread / 2
             mid = Decimal(str(price)).quantize(_q, rounding=ROUND_HALF_UP)
-            bid = Decimal(str(price - half_spread)).quantize(_q, rounding=ROUND_HALF_UP)
-            ask = Decimal(str(price + half_spread)).quantize(_q, rounding=ROUND_HALF_UP)
-            volume = int(np.random.exponential(scale=10_000 / max(price, 1)))
+
+            # Update order book mid and derive bid/ask from book
+            book = self.order_books.get(cfg.ticker)
+            if book:
+                book.update_mid(mid)
+                bb = book.best_bid
+                ba = book.best_ask
+                bid = bb.quantize(_q) if bb else mid
+                ask = ba.quantize(_q) if ba else mid
+            else:
+                spread = price * cfg.spread_bps / 10_000
+                half_spread = spread / 2
+                bid = Decimal(str(price - half_spread)).quantize(_q, rounding=ROUND_HALF_UP)
+                ask = Decimal(str(price + half_spread)).quantize(_q, rounding=ROUND_HALF_UP)
+
+            # Volume from trade tape (real data) instead of random
+            volume = 0
+            if self.trade_tape:
+                volume = self.trade_tape.daily_volume(cfg.ticker)
+            if volume == 0:
+                volume = int(np.random.exponential(scale=10_000 / max(price, 1)))
 
             self.producer.produce(
                 topic=PRICES_TOPIC,
@@ -218,6 +284,25 @@ class GBMSimulator:
                     "source": "mock-exchange",
                 },
             )
+
+        # Publish FX rates on the same topic
+        fx_rates = self._generate_fx_tick()
+        _q6 = Decimal("0.000001")
+        for pair_id, rate in fx_rates.items():
+            mid = Decimal(str(rate)).quantize(_q6, rounding=ROUND_HALF_UP)
+            self.producer.produce(
+                topic=PRICES_TOPIC,
+                event_type="fx_rate.updated",
+                data={
+                    "instrument_id": pair_id,
+                    "bid": str(mid),
+                    "ask": str(mid),
+                    "mid": str(mid),
+                    "timestamp": now.isoformat(),
+                    "source": "mock-exchange",
+                },
+            )
+
         self.producer.flush(timeout=0.5)
 
     async def run(self) -> None:

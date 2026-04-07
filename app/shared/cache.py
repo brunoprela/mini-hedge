@@ -44,7 +44,8 @@ class CacheService:
         raw = await self._redis.get(key)
         if raw is None:
             return None
-        return json.loads(raw)
+        result: dict[str, Any] | None = json.loads(raw)
+        return result
 
     async def set(self, key: str, value: dict[str, Any], ttl: int) -> None:
         """Store a value with a TTL in seconds."""
@@ -60,7 +61,7 @@ class CacheService:
         async for key in self._redis.scan_iter(match=pattern, count=100):
             keys.append(key)
         if keys:
-            return await self._redis.delete(*keys)
+            return int(await self._redis.delete(*keys))
         return 0
 
     # -----------------------------------------------------------------------

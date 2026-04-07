@@ -17,6 +17,8 @@ class EODStepName(StrEnum):
     NAV_CALCULATION = "nav_calculation"
     PNL_SNAPSHOT = "pnl_snapshot"
     EOD_RISK = "eod_risk"
+    FEE_ACCRUAL = "fee_accrual"
+    CAPITAL_ALLOCATION = "capital_allocation"
     PERFORMANCE_ATTRIBUTION = "performance_attribution"
 
 
@@ -94,6 +96,10 @@ class BreakType(StrEnum):
     QUANTITY_MISMATCH = "quantity_mismatch"
     MISSING_INTERNAL = "missing_internal"
     MISSING_BROKER = "missing_broker"
+    MISSING_ADMIN = "missing_admin"
+    BROKER_ADMIN_MISMATCH = "broker_admin_mismatch"
+    INTERNAL_ADMIN_MISMATCH = "internal_admin_mismatch"
+    CASH_MISMATCH = "cash_mismatch"
 
 
 class ReconciliationBreak(BaseModel):
@@ -103,6 +109,19 @@ class ReconciliationBreak(BaseModel):
     break_type: BreakType
     internal_quantity: Decimal
     broker_quantity: Decimal
+    admin_quantity: Decimal | None = None
+    difference: Decimal
+    is_material: bool
+
+
+class CashBreak(BaseModel):
+    """Cash reconciliation break between internal and admin cash."""
+
+    model_config = ConfigDict(frozen=True)
+
+    currency: str
+    internal_balance: Decimal
+    admin_balance: Decimal
     difference: Decimal
     is_material: bool
 
@@ -115,6 +134,7 @@ class ReconciliationResult(BaseModel):
     total_positions: int
     matched_positions: int
     breaks: list[ReconciliationBreak]
+    cash_breaks: list[CashBreak] = []
     is_clean: bool
     reconciled_at: datetime
 
@@ -130,7 +150,7 @@ class EODStepResult(BaseModel):
     started_at: datetime
     completed_at: datetime | None = None
     error_message: str | None = None
-    details: dict | None = None
+    details: dict[str, object] | None = None
 
 
 class EODRunResult(BaseModel):

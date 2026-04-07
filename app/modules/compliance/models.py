@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import (
     Boolean,
@@ -19,7 +20,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.shared.models import Base
+from app.shared.models import Base as Base
 
 
 class ComplianceRuleRecord(Base):
@@ -39,9 +40,7 @@ class ComplianceRuleRecord(Base):
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     rule_type: Mapped[str] = mapped_column(String(32), nullable=False)
     severity: Mapped[str] = mapped_column(String(16), nullable=False)
-    parameters: Mapped[dict] = mapped_column(  # type: ignore[type-arg]
-        JSONB, nullable=False, default=dict
-    )
+    parameters: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     grace_period_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -109,9 +108,7 @@ class TradeDecisionRecord(Base):
     quantity: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
     price: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
     approved: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    results: Mapped[dict] = mapped_column(  # type: ignore[type-arg]
-        JSONB, nullable=False, default=dict
-    )
+    results: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     decided_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

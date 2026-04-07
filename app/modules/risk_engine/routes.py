@@ -163,10 +163,10 @@ async def get_factor_decomposition(
     return await risk_service.calculate_factor_model(portfolio_id, session=session)
 
 
-@router.get("/scenarios", response_model=list[dict])
+@router.get("/scenarios", response_model=list[dict[str, object]])
 async def list_predefined_scenarios(
     request_context: RequestContext = require_permission(Permission.RISK_READ),
-) -> list[dict]:
+) -> list[dict[str, object]]:
     """List available predefined stress scenarios."""
     return [
         {

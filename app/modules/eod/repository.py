@@ -124,7 +124,7 @@ class EODRunRepository(BaseRepository):
                 details=details,
             )
             stmt = stmt.on_conflict_do_update(
-                constraint=EODRunStepRecord.__table__.primary_key,
+                constraint=EODRunStepRecord.__table__.primary_key,  # type: ignore[arg-type]
                 set_={
                     "status": stmt.excluded.status,
                     "completed_at": stmt.excluded.completed_at,
@@ -166,7 +166,7 @@ class FinalizedPriceRepository(BaseRepository):
                 finalized_by=finalized_by,
             )
             stmt = stmt.on_conflict_do_update(
-                constraint=FinalizedPriceRecord.__table__.primary_key,
+                constraint=FinalizedPriceRecord.__table__.primary_key,  # type: ignore[arg-type]
                 set_={
                     "close_price": stmt.excluded.close_price,
                     "source": stmt.excluded.source,
@@ -218,7 +218,7 @@ class NAVSnapshotRepository(BaseRepository):
                 currency=currency,
             )
             stmt = stmt.on_conflict_do_update(
-                constraint=NAVSnapshotRecord.__table__.primary_key,
+                constraint=NAVSnapshotRecord.__table__.primary_key,  # type: ignore[arg-type]
                 set_={
                     "nav": stmt.excluded.nav,
                     "net_market_value": stmt.excluded.net_market_value,
@@ -259,7 +259,7 @@ class PnLSnapshotRepository(BaseRepository):
                 details=details,
             )
             stmt = stmt.on_conflict_do_update(
-                constraint=PnLSnapshotRecord.__table__.primary_key,
+                constraint=PnLSnapshotRecord.__table__.primary_key,  # type: ignore[arg-type]
                 set_={
                     "total_realized_pnl": stmt.excluded.total_realized_pnl,
                     "total_unrealized_pnl": stmt.excluded.total_unrealized_pnl,
@@ -296,7 +296,7 @@ class ReconciliationRepository(BaseRepository):
                 breaks=breaks,
             )
             stmt = stmt.on_conflict_do_update(
-                constraint=ReconciliationRecord.__table__.primary_key,
+                constraint=ReconciliationRecord.__table__.primary_key,  # type: ignore[arg-type]
                 set_={
                     "total_positions": stmt.excluded.total_positions,
                     "matched_positions": stmt.excluded.matched_positions,

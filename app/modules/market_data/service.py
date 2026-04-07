@@ -5,9 +5,10 @@ from datetime import datetime
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.market_data.interface import PriceSnapshot
-from app.modules.market_data.models import PriceRecord
-from app.modules.market_data.repository import PriceRepository
+from app.modules.market_data.fx import FXConverter
+from app.modules.market_data.interface import FXRateSnapshot, PriceSnapshot
+from app.modules.market_data.models import FXRateRecord, PriceRecord
+from app.modules.market_data.repository import FXRateRepository, PriceRepository
 
 logger = structlog.get_logger()
 
@@ -24,11 +25,28 @@ def _to_snapshot(record: PriceRecord) -> PriceSnapshot:
     )
 
 
+def _to_fx_snapshot(record: FXRateRecord) -> FXRateSnapshot:
+    return FXRateSnapshot(
+        base_currency=record.base_currency,
+        quote_currency=record.quote_currency,
+        rate=record.rate,
+        timestamp=record.timestamp,
+        source=record.source,
+    )
+
+
 class MarketDataService:
     """Implements MarketDataReader protocol."""
 
-    def __init__(self, *, repository: PriceRepository) -> None:
+    def __init__(
+        self,
+        *,
+        repository: PriceRepository,
+        fx_repository: FXRateRepository,
+    ) -> None:
         self._price_repo = repository
+        self._fx_repo = fx_repository
+        self._fx_converter = FXConverter()
         # In-memory latest prices cache (updated by simulator events)
         self._latest: dict[str, PriceSnapshot] = {}
 
@@ -74,3 +92,54 @@ class MarketDataService:
             source=snapshot.source,
         )
         await self._price_repo.insert(record, session=session)
+
+    # ── FX rates ──────────────────────────────────────────────
+
+    def update_fx_rate(self, snapshot: FXRateSnapshot) -> None:
+        """Update the in-memory FX converter cache."""
+        self._fx_converter.update_rate(
+            snapshot.base_currency, snapshot.quote_currency, snapshot.rate
+        )
+        logger.debug(
+            "fx_rate_updated",
+            pair=f"{snapshot.base_currency}/{snapshot.quote_currency}",
+            rate=str(snapshot.rate),
+        )
+
+    async def store_fx_rate(
+        self, snapshot: FXRateSnapshot, *, session: AsyncSession | None = None
+    ) -> None:
+        """Persist an FX rate snapshot to the database."""
+        record = FXRateRecord(
+            timestamp=snapshot.timestamp,
+            base_currency=snapshot.base_currency,
+            quote_currency=snapshot.quote_currency,
+            rate=snapshot.rate,
+            source=snapshot.source,
+        )
+        await self._fx_repo.insert(record, session=session)
+
+    async def get_fx_rate(
+        self,
+        base_currency: str,
+        quote_currency: str,
+        *,
+        session: AsyncSession | None = None,
+    ) -> FXRateSnapshot | None:
+        """Get the latest FX rate for a currency pair."""
+        record = await self._fx_repo.get_latest(base_currency, quote_currency, session=session)
+        if record is None:
+            return None
+        return _to_fx_snapshot(record)
+
+    async def get_all_fx_rates(
+        self, *, session: AsyncSession | None = None
+    ) -> list[FXRateSnapshot]:
+        """Get the latest rate for every stored currency pair."""
+        records = await self._fx_repo.get_latest_all(session=session)
+        return [_to_fx_snapshot(r) for r in records]
+
+    @property
+    def fx_converter(self) -> FXConverter:
+        """Expose the in-memory FX converter for downstream consumers."""
+        return self._fx_converter

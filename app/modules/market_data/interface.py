@@ -37,6 +37,18 @@ class MarketDataReader(Protocol):
     ) -> list[PriceSnapshot]: ...
 
 
+class FXRateSnapshot(BaseModel):
+    """Immutable snapshot of a single FX rate."""
+
+    model_config = ConfigDict(frozen=True)
+
+    base_currency: str  # e.g. "USD"
+    quote_currency: str  # e.g. "GBP"
+    rate: Decimal  # 1 base = rate quote
+    timestamp: datetime
+    source: str
+
+
 class PriceWriter(Protocol):
     """Write interface for price ingestion (simulator, feeds)."""
 

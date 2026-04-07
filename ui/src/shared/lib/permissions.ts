@@ -30,6 +30,8 @@ export const Permission = {
   ATTRIBUTION_READ: "attribution:read",
   ALPHA_READ: "alpha:read",
   ALPHA_WRITE: "alpha:write",
+  CAPITAL_READ: "capital:read",
+  CAPITAL_WRITE: "capital:write",
 } as const;
 
 export type Permission = (typeof Permission)[keyof typeof Permission];
@@ -56,6 +58,8 @@ export const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     Permission.ATTRIBUTION_READ,
     Permission.ALPHA_READ,
     Permission.ALPHA_WRITE,
+    Permission.CAPITAL_READ,
+    Permission.CAPITAL_WRITE,
   ]),
   [Role.ANALYST]: new Set([
     Permission.INSTRUMENTS_READ,
@@ -68,6 +72,7 @@ export const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     Permission.CASH_READ,
     Permission.ATTRIBUTION_READ,
     Permission.ALPHA_READ,
+    Permission.CAPITAL_READ,
   ]),
   [Role.RISK_MANAGER]: new Set([
     Permission.INSTRUMENTS_READ,
@@ -80,6 +85,7 @@ export const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     Permission.RISK_READ,
     Permission.CASH_READ,
     Permission.ATTRIBUTION_READ,
+    Permission.CAPITAL_READ,
   ]),
   [Role.COMPLIANCE_OFFICER]: new Set([
     Permission.INSTRUMENTS_READ,
@@ -93,6 +99,7 @@ export const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     Permission.RISK_READ,
     Permission.CASH_READ,
     Permission.ATTRIBUTION_READ,
+    Permission.CAPITAL_READ,
   ]),
   [Role.VIEWER]: new Set([
     Permission.INSTRUMENTS_READ,

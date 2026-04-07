@@ -16,11 +16,13 @@ Flow:
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
 if TYPE_CHECKING:
+    from collections.abc import MutableMapping
+
     from redis.asyncio import Redis
     from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -118,7 +120,8 @@ def _get_header(scope: Scope, name: bytes) -> str | None:
     """Return the value of a header (case-insensitive) or None."""
     for key, value in scope.get("headers", []):
         if key.lower() == name:
-            return value.decode("utf-8")
+            decoded: str = value.decode("utf-8")
+            return decoded
     return None
 
 
@@ -150,7 +153,7 @@ class _ResponseCapture:
         self.content_type: str = "application/json"
         self.body_text: str = ""
 
-    async def __call__(self, message: dict) -> None:  # type: ignore[override]
+    async def __call__(self, message: MutableMapping[str, Any]) -> None:
         if message["type"] == "http.response.start":
             self.status_code = message.get("status", 200)
             for key, value in message.get("headers", []):

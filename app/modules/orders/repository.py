@@ -55,7 +55,14 @@ class OrderRepository(BaseRepository):
     async def get_open_orders(
         self, fund_slug: str, *, session: AsyncSession | None = None
     ) -> list[OrderRecord]:
-        open_states = ["draft", "pending_compliance", "approved", "sent", "partially_filled"]
+        open_states = [
+            "draft",
+            "pending_compliance",
+            "approved",
+            "sent",
+            "working",
+            "partially_filled",
+        ]
         async with self._session(session) as session:
             stmt = (
                 select(OrderRecord)
@@ -74,11 +81,12 @@ class OrderRepository(BaseRepository):
         state: str,
         *,
         rejection_reason: str | None = None,
-        compliance_results: dict[str, object] | None = None,
+        compliance_results: dict[str, object] | list[dict[str, object]] | None = None,
         filled_quantity: Decimal | None = None,
         avg_fill_price: Decimal | None = None,
+        broker_id: str | None = None,
         session: AsyncSession | None = None,
-    ) -> OrderRecord | None:
+    ) -> OrderRecord:
         async with self._session(session) as session:
             values: dict[str, object] = {
                 "state": state,
@@ -92,10 +100,62 @@ class OrderRepository(BaseRepository):
                 values["filled_quantity"] = filled_quantity
             if avg_fill_price is not None:
                 values["avg_fill_price"] = avg_fill_price
+            if broker_id is not None:
+                values["broker_id"] = broker_id
             stmt = update(OrderRecord).where(OrderRecord.id == str(order_id)).values(**values)
             await session.execute(stmt)
             await session.commit()
-        return await self.get_by_id(order_id)
+        result = await self.get_by_id(order_id)
+        assert result is not None, f"Order {order_id} not found after update"
+        return result
+
+    async def get_children(
+        self,
+        parent_order_id: UUID,
+        *,
+        session: AsyncSession | None = None,
+    ) -> list[OrderRecord]:
+        async with self._session(session) as session:
+            stmt = (
+                select(OrderRecord)
+                .where(OrderRecord.parent_order_id == str(parent_order_id))
+                .order_by(OrderRecord.created_at)
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
+
+    async def get_active_children(
+        self,
+        parent_order_id: UUID,
+        *,
+        session: AsyncSession | None = None,
+    ) -> list[OrderRecord]:
+        active_states = ["draft", "approved", "sent", "partially_filled"]
+        async with self._session(session) as session:
+            stmt = (
+                select(OrderRecord)
+                .where(
+                    OrderRecord.parent_order_id == str(parent_order_id),
+                    OrderRecord.state.in_(active_states),
+                )
+                .order_by(OrderRecord.created_at)
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
+
+    async def get_working_parents(
+        self,
+        *,
+        session: AsyncSession | None = None,
+    ) -> list[OrderRecord]:
+        """Find all parent orders in WORKING state (for crash recovery)."""
+        async with self._session(session) as session:
+            stmt = select(OrderRecord).where(
+                OrderRecord.is_parent.is_(True),
+                OrderRecord.state == "working",
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
 
     async def save_fill(
         self, fill: OrderFillRecord, *, session: AsyncSession | None = None

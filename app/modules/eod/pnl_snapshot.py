@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.modules.eod.repository import PnLSnapshotRepository
+    from app.modules.market_data.fx import FXConverter
     from app.modules.positions.service import PositionService
 
 logger = structlog.get_logger()
@@ -34,22 +35,27 @@ class PnLSnapshotService:
         *,
         position_service: PositionService,
         pnl_repo: PnLSnapshotRepository,
+        fx_converter: FXConverter | None = None,
     ) -> None:
         self._positions = position_service
         self._pnl_repo = pnl_repo
+        self._fx = fx_converter
 
     async def snapshot_pnl(
         self,
         portfolio_id: UUID,
         business_date: date,
         *,
+        base_currency: str = "USD",
         session: AsyncSession | None = None,
     ) -> PnLSnapshot:
         """Freeze daily P&L from current position state."""
         positions = await self._positions.get_by_portfolio(portfolio_id, session=session)
 
-        total_unrealized = sum(p.unrealized_pnl for p in positions) if positions else ZERO
+        total_unrealized = ZERO
         total_realized = ZERO
+        for p in positions:
+            total_unrealized += self._to_base(p.unrealized_pnl, p.currency, base_currency)
         total_pnl = total_realized + total_unrealized
 
         details = [
@@ -59,6 +65,7 @@ class PnLSnapshotService:
                 "market_value": str(p.market_value),
                 "unrealized_pnl": str(p.unrealized_pnl),
                 "cost_basis": str(p.cost_basis),
+                "currency": p.currency,
             }
             for p in positions
         ]
@@ -70,7 +77,7 @@ class PnLSnapshotService:
             total_unrealized_pnl=total_unrealized,
             total_pnl=total_pnl,
             position_count=len(positions),
-            details=details,
+            details={"positions": details},
             session=session,
         )
 
@@ -91,3 +98,17 @@ class PnLSnapshotService:
             total_pnl=str(total_pnl),
         )
         return result
+
+    def _to_base(self, amount: Decimal, from_ccy: str, base_ccy: str) -> Decimal:
+        """Convert amount to base currency, falling back to unconverted."""
+        if from_ccy == base_ccy or self._fx is None:
+            return amount
+        converted = self._fx.convert(amount, from_ccy, base_ccy)
+        if converted is None:
+            logger.warning(
+                "pnl_fx_conversion_fallback",
+                from_ccy=from_ccy,
+                base_ccy=base_ccy,
+            )
+            return amount
+        return converted

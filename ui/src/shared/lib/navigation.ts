@@ -15,6 +15,7 @@ export interface NavItem {
     | "Wallet"
     | "PieChart"
     | "Lightbulb"
+    | "Users"
     | "Settings";
   permission?: Permission;
 }
@@ -68,6 +69,12 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/alpha",
     icon: "Lightbulb",
     permission: Permission.ALPHA_READ,
+  },
+  {
+    label: "Investors",
+    href: "/investors",
+    icon: "Users",
+    permission: Permission.CAPITAL_READ,
   },
   {
     label: "Instruments",

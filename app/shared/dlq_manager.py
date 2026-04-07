@@ -14,7 +14,11 @@ from dataclasses import dataclass
 from typing import Any
 
 import structlog
-from aiokafka import AIOKafkaConsumer, AIOKafkaProducer, TopicPartition
+from aiokafka import (  # type: ignore[import-untyped]
+    AIOKafkaConsumer,
+    AIOKafkaProducer,
+    TopicPartition,
+)
 
 logger = structlog.get_logger()
 

@@ -5,6 +5,9 @@ The platform fetches instruments from here via the ReferenceDataAdapter.
 
 Drift, volatility, and spread parameters are sourced from the GBM simulator config
 so the platform can use them for risk/attribution/alpha calculations.
+
+ADV and market cap are approximate values for realistic volume simulation
+and participation rate calculations.
 """
 
 from __future__ import annotations
@@ -18,30 +21,35 @@ INSTRUMENT_UNIVERSE: list[InstrumentInfo] = [
         currency="USD", exchange="NASDAQ", country="US",
         sector="Technology", industry="Consumer Electronics",
         annual_drift=0.12, annual_volatility=0.25, spread_bps=8.0,
+        avg_daily_volume=50_000_000, market_cap_usd=3_000_000_000_000.0,
     ),
     InstrumentInfo(
         ticker="MSFT", name="Microsoft Corporation", asset_class="equity",
         currency="USD", exchange="NASDAQ", country="US",
         sector="Technology", industry="Software",
         annual_drift=0.10, annual_volatility=0.22, spread_bps=6.0,
+        avg_daily_volume=25_000_000, market_cap_usd=3_100_000_000_000.0,
     ),
     InstrumentInfo(
         ticker="GOOGL", name="Alphabet Inc.", asset_class="equity",
         currency="USD", exchange="NASDAQ", country="US",
         sector="Technology", industry="Internet Services",
         annual_drift=0.08, annual_volatility=0.28, spread_bps=10.0,
+        avg_daily_volume=20_000_000, market_cap_usd=2_100_000_000_000.0,
     ),
     InstrumentInfo(
         ticker="NVDA", name="NVIDIA Corporation", asset_class="equity",
         currency="USD", exchange="NASDAQ", country="US",
         sector="Technology", industry="Semiconductors",
         annual_drift=0.15, annual_volatility=0.45, spread_bps=15.0,
+        avg_daily_volume=40_000_000, market_cap_usd=2_200_000_000_000.0,
     ),
     InstrumentInfo(
         ticker="META", name="Meta Platforms Inc.", asset_class="equity",
         currency="USD", exchange="NASDAQ", country="US",
         sector="Technology", industry="Social Media",
         annual_drift=0.11, annual_volatility=0.35, spread_bps=12.0,
+        avg_daily_volume=15_000_000, market_cap_usd=1_200_000_000_000.0,
     ),
     # --- US Consumer Discretionary ---
     InstrumentInfo(
@@ -49,18 +57,21 @@ INSTRUMENT_UNIVERSE: list[InstrumentInfo] = [
         currency="USD", exchange="NASDAQ", country="US",
         sector="Consumer Discretionary", industry="E-Commerce",
         annual_drift=0.10, annual_volatility=0.30, spread_bps=10.0,
+        avg_daily_volume=35_000_000, market_cap_usd=1_900_000_000_000.0,
     ),
     InstrumentInfo(
         ticker="TSLA", name="Tesla Inc.", asset_class="equity",
         currency="USD", exchange="NASDAQ", country="US",
         sector="Consumer Discretionary", industry="Automobiles",
         annual_drift=0.05, annual_volatility=0.55, spread_bps=25.0,
+        avg_daily_volume=80_000_000, market_cap_usd=700_000_000_000.0,
     ),
     InstrumentInfo(
         ticker="DIS", name="Walt Disney Company", asset_class="equity",
         currency="USD", exchange="NYSE", country="US",
         sector="Consumer Discretionary", industry="Entertainment",
         annual_drift=0.04, annual_volatility=0.30, spread_bps=12.0,
+        avg_daily_volume=8_000_000, market_cap_usd=200_000_000_000.0,
     ),
     # --- US Financials ---
     InstrumentInfo(
@@ -68,24 +79,28 @@ INSTRUMENT_UNIVERSE: list[InstrumentInfo] = [
         currency="USD", exchange="NYSE", country="US",
         sector="Financials", industry="Banking",
         annual_drift=0.08, annual_volatility=0.20, spread_bps=6.0,
+        avg_daily_volume=10_000_000, market_cap_usd=580_000_000_000.0,
     ),
     InstrumentInfo(
         ticker="GS", name="Goldman Sachs Group Inc.", asset_class="equity",
         currency="USD", exchange="NYSE", country="US",
         sector="Financials", industry="Investment Banking",
         annual_drift=0.07, annual_volatility=0.22, spread_bps=8.0,
+        avg_daily_volume=3_000_000, market_cap_usd=160_000_000_000.0,
     ),
     InstrumentInfo(
         ticker="BRK.B", name="Berkshire Hathaway Inc.", asset_class="equity",
         currency="USD", exchange="NYSE", country="US",
         sector="Financials", industry="Diversified Holdings",
         annual_drift=0.07, annual_volatility=0.15, spread_bps=5.0,
+        avg_daily_volume=3_500_000, market_cap_usd=850_000_000_000.0,
     ),
     InstrumentInfo(
         ticker="V", name="Visa Inc.", asset_class="equity",
         currency="USD", exchange="NYSE", country="US",
         sector="Financials", industry="Payment Processing",
         annual_drift=0.09, annual_volatility=0.20, spread_bps=6.0,
+        avg_daily_volume=7_000_000, market_cap_usd=550_000_000_000.0,
     ),
     # --- US Healthcare ---
     InstrumentInfo(
@@ -93,18 +108,21 @@ INSTRUMENT_UNIVERSE: list[InstrumentInfo] = [
         currency="USD", exchange="NYSE", country="US",
         sector="Healthcare", industry="Pharmaceuticals",
         annual_drift=0.05, annual_volatility=0.15, spread_bps=5.0,
+        avg_daily_volume=6_000_000, market_cap_usd=380_000_000_000.0,
     ),
     InstrumentInfo(
         ticker="UNH", name="UnitedHealth Group Inc.", asset_class="equity",
         currency="USD", exchange="NYSE", country="US",
         sector="Healthcare", industry="Managed Healthcare",
         annual_drift=0.09, annual_volatility=0.20, spread_bps=6.0,
+        avg_daily_volume=4_000_000, market_cap_usd=480_000_000_000.0,
     ),
     InstrumentInfo(
         ticker="PFE", name="Pfizer Inc.", asset_class="equity",
         currency="USD", exchange="NYSE", country="US",
         sector="Healthcare", industry="Pharmaceuticals",
         annual_drift=0.03, annual_volatility=0.25, spread_bps=10.0,
+        avg_daily_volume=25_000_000, market_cap_usd=160_000_000_000.0,
     ),
     # --- US Energy ---
     InstrumentInfo(
@@ -112,12 +130,14 @@ INSTRUMENT_UNIVERSE: list[InstrumentInfo] = [
         currency="USD", exchange="NYSE", country="US",
         sector="Energy", industry="Oil & Gas",
         annual_drift=0.06, annual_volatility=0.25, spread_bps=8.0,
+        avg_daily_volume=15_000_000, market_cap_usd=450_000_000_000.0,
     ),
     InstrumentInfo(
         ticker="CVX", name="Chevron Corporation", asset_class="equity",
         currency="USD", exchange="NYSE", country="US",
         sector="Energy", industry="Oil & Gas",
         annual_drift=0.06, annual_volatility=0.24, spread_bps=8.0,
+        avg_daily_volume=8_000_000, market_cap_usd=300_000_000_000.0,
     ),
     # --- US Consumer Staples ---
     InstrumentInfo(
@@ -125,12 +145,14 @@ INSTRUMENT_UNIVERSE: list[InstrumentInfo] = [
         currency="USD", exchange="NYSE", country="US",
         sector="Consumer Staples", industry="Household Products",
         annual_drift=0.04, annual_volatility=0.12, spread_bps=5.0,
+        avg_daily_volume=6_000_000, market_cap_usd=370_000_000_000.0,
     ),
     InstrumentInfo(
         ticker="KO", name="Coca-Cola Company", asset_class="equity",
         currency="USD", exchange="NYSE", country="US",
         sector="Consumer Staples", industry="Beverages",
         annual_drift=0.03, annual_volatility=0.14, spread_bps=5.0,
+        avg_daily_volume=10_000_000, market_cap_usd=260_000_000_000.0,
     ),
     # --- UK ---
     InstrumentInfo(
@@ -138,36 +160,42 @@ INSTRUMENT_UNIVERSE: list[InstrumentInfo] = [
         currency="GBP", exchange="LSE", country="GB",
         sector="Healthcare", industry="Pharmaceuticals",
         annual_drift=0.07, annual_volatility=0.20, spread_bps=8.0,
+        avg_daily_volume=3_000_000, market_cap_usd=220_000_000_000.0,
     ),
     InstrumentInfo(
         ticker="HSBA", name="HSBC Holdings PLC", asset_class="equity",
         currency="GBP", exchange="LSE", country="GB",
         sector="Financials", industry="Banking",
         annual_drift=0.04, annual_volatility=0.18, spread_bps=10.0,
+        avg_daily_volume=15_000_000, market_cap_usd=160_000_000_000.0,
     ),
     InstrumentInfo(
         ticker="SHEL", name="Shell PLC", asset_class="equity",
         currency="GBP", exchange="LSE", country="GB",
         sector="Energy", industry="Oil & Gas",
         annual_drift=0.05, annual_volatility=0.22, spread_bps=8.0,
+        avg_daily_volume=8_000_000, market_cap_usd=210_000_000_000.0,
     ),
     InstrumentInfo(
         ticker="ULVR", name="Unilever PLC", asset_class="equity",
         currency="GBP", exchange="LSE", country="GB",
         sector="Consumer Staples", industry="Personal Products",
         annual_drift=0.03, annual_volatility=0.15, spread_bps=6.0,
+        avg_daily_volume=3_000_000, market_cap_usd=130_000_000_000.0,
     ),
     InstrumentInfo(
         ticker="RIO", name="Rio Tinto PLC", asset_class="equity",
         currency="GBP", exchange="LSE", country="GB",
         sector="Materials", industry="Mining",
         annual_drift=0.05, annual_volatility=0.28, spread_bps=10.0,
+        avg_daily_volume=4_000_000, market_cap_usd=100_000_000_000.0,
     ),
     InstrumentInfo(
         ticker="BP", name="BP PLC", asset_class="equity",
         currency="GBP", exchange="LSE", country="GB",
         sector="Energy", industry="Oil & Gas",
         annual_drift=0.04, annual_volatility=0.24, spread_bps=10.0,
+        avg_daily_volume=20_000_000, market_cap_usd=100_000_000_000.0,
     ),
     # --- Germany ---
     InstrumentInfo(
@@ -175,12 +203,14 @@ INSTRUMENT_UNIVERSE: list[InstrumentInfo] = [
         currency="EUR", exchange="XETRA", country="DE",
         sector="Technology", industry="Enterprise Software",
         annual_drift=0.10, annual_volatility=0.25, spread_bps=8.0,
+        avg_daily_volume=3_000_000, market_cap_usd=250_000_000_000.0,
     ),
     InstrumentInfo(
         ticker="SIE", name="Siemens AG", asset_class="equity",
         currency="EUR", exchange="XETRA", country="DE",
         sector="Industrials", industry="Industrial Conglomerates",
         annual_drift=0.06, annual_volatility=0.22, spread_bps=8.0,
+        avg_daily_volume=2_000_000, market_cap_usd=150_000_000_000.0,
     ),
     # --- France ---
     InstrumentInfo(
@@ -188,12 +218,14 @@ INSTRUMENT_UNIVERSE: list[InstrumentInfo] = [
         currency="EUR", exchange="EURONEXT", country="FR",
         sector="Consumer Discretionary", industry="Luxury Goods",
         annual_drift=0.08, annual_volatility=0.28, spread_bps=10.0,
+        avg_daily_volume=1_500_000, market_cap_usd=350_000_000_000.0,
     ),
     InstrumentInfo(
         ticker="TTE", name="TotalEnergies SE", asset_class="equity",
         currency="EUR", exchange="EURONEXT", country="FR",
         sector="Energy", industry="Oil & Gas",
         annual_drift=0.05, annual_volatility=0.22, spread_bps=8.0,
+        avg_daily_volume=4_000_000, market_cap_usd=150_000_000_000.0,
     ),
     # --- Netherlands ---
     InstrumentInfo(
@@ -201,6 +233,7 @@ INSTRUMENT_UNIVERSE: list[InstrumentInfo] = [
         currency="EUR", exchange="EURONEXT", country="NL",
         sector="Technology", industry="Semiconductors",
         annual_drift=0.12, annual_volatility=0.35, spread_bps=10.0,
+        avg_daily_volume=2_000_000, market_cap_usd=350_000_000_000.0,
     ),
     # --- Denmark ---
     InstrumentInfo(
@@ -208,6 +241,7 @@ INSTRUMENT_UNIVERSE: list[InstrumentInfo] = [
         currency="DKK", exchange="CPH", country="DK",
         sector="Healthcare", industry="Pharmaceuticals",
         annual_drift=0.10, annual_volatility=0.28, spread_bps=8.0,
+        avg_daily_volume=5_000_000, market_cap_usd=400_000_000_000.0,
     ),
     # --- Japan ---
     InstrumentInfo(
@@ -215,12 +249,14 @@ INSTRUMENT_UNIVERSE: list[InstrumentInfo] = [
         currency="JPY", exchange="TSE", country="JP",
         sector="Consumer Discretionary", industry="Automobiles",
         annual_drift=0.04, annual_volatility=0.20, spread_bps=10.0,
+        avg_daily_volume=8_000_000, market_cap_usd=300_000_000_000.0,
     ),
     InstrumentInfo(
         ticker="6758", name="Sony Group Corporation", asset_class="equity",
         currency="JPY", exchange="TSE", country="JP",
         sector="Technology", industry="Consumer Electronics",
         annual_drift=0.06, annual_volatility=0.30, spread_bps=12.0,
+        avg_daily_volume=5_000_000, market_cap_usd=130_000_000_000.0,
     ),
     # --- Switzerland ---
     InstrumentInfo(
@@ -228,18 +264,21 @@ INSTRUMENT_UNIVERSE: list[InstrumentInfo] = [
         currency="CHF", exchange="SIX", country="CH",
         sector="Consumer Staples", industry="Food Products",
         annual_drift=0.03, annual_volatility=0.12, spread_bps=5.0,
+        avg_daily_volume=4_000_000, market_cap_usd=250_000_000_000.0,
     ),
     InstrumentInfo(
         ticker="NOVN", name="Novartis AG", asset_class="equity",
         currency="CHF", exchange="SIX", country="CH",
         sector="Healthcare", industry="Pharmaceuticals",
         annual_drift=0.05, annual_volatility=0.18, spread_bps=6.0,
+        avg_daily_volume=5_000_000, market_cap_usd=200_000_000_000.0,
     ),
     InstrumentInfo(
         ticker="ROG", name="Roche Holding AG", asset_class="equity",
         currency="CHF", exchange="SIX", country="CH",
         sector="Healthcare", industry="Pharmaceuticals",
         annual_drift=0.04, annual_volatility=0.16, spread_bps=6.0,
+        avg_daily_volume=3_000_000, market_cap_usd=210_000_000_000.0,
     ),
     # --- South Korea ---
     InstrumentInfo(
@@ -247,6 +286,7 @@ INSTRUMENT_UNIVERSE: list[InstrumentInfo] = [
         currency="KRW", exchange="KRX", country="KR",
         sector="Technology", industry="Semiconductors",
         annual_drift=0.08, annual_volatility=0.30, spread_bps=15.0,
+        avg_daily_volume=10_000_000, market_cap_usd=350_000_000_000.0,
     ),
     # --- Taiwan ---
     InstrumentInfo(
@@ -254,6 +294,7 @@ INSTRUMENT_UNIVERSE: list[InstrumentInfo] = [
         currency="TWD", exchange="TWSE", country="TW",
         sector="Technology", industry="Semiconductors",
         annual_drift=0.10, annual_volatility=0.32, spread_bps=12.0,
+        avg_daily_volume=15_000_000, market_cap_usd=700_000_000_000.0,
     ),
     # --- China/HK ---
     InstrumentInfo(
@@ -261,6 +302,7 @@ INSTRUMENT_UNIVERSE: list[InstrumentInfo] = [
         currency="HKD", exchange="HKEX", country="CN",
         sector="Technology", industry="E-Commerce",
         annual_drift=0.06, annual_volatility=0.40, spread_bps=18.0,
+        avg_daily_volume=12_000_000, market_cap_usd=200_000_000_000.0,
     ),
     # --- Australia ---
     InstrumentInfo(
@@ -268,6 +310,7 @@ INSTRUMENT_UNIVERSE: list[InstrumentInfo] = [
         currency="AUD", exchange="ASX", country="AU",
         sector="Materials", industry="Mining",
         annual_drift=0.06, annual_volatility=0.25, spread_bps=10.0,
+        avg_daily_volume=6_000_000, market_cap_usd=150_000_000_000.0,
     ),
     # --- Canada ---
     InstrumentInfo(
@@ -275,6 +318,7 @@ INSTRUMENT_UNIVERSE: list[InstrumentInfo] = [
         currency="CAD", exchange="TSX", country="CA",
         sector="Financials", industry="Banking",
         annual_drift=0.05, annual_volatility=0.16, spread_bps=6.0,
+        avg_daily_volume=3_000_000, market_cap_usd=170_000_000_000.0,
     ),
     # --- Brazil ---
     InstrumentInfo(
@@ -282,6 +326,7 @@ INSTRUMENT_UNIVERSE: list[InstrumentInfo] = [
         currency="BRL", exchange="B3", country="BR",
         sector="Materials", industry="Mining",
         annual_drift=0.05, annual_volatility=0.35, spread_bps=15.0,
+        avg_daily_volume=20_000_000, market_cap_usd=70_000_000_000.0,
     ),
 ]
 

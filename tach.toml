@@ -44,7 +44,7 @@ depends_on = ["app.shared", "app.modules.positions"]
 
 [[modules]]
 path = "app.modules.orders"
-depends_on = ["app.shared", "app.modules.compliance"]
+depends_on = ["app.shared", "app.modules.compliance", "app.modules.market_data"]
 
 [[modules]]
 path = "app.modules.risk_engine"

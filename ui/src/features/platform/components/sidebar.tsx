@@ -13,6 +13,7 @@ import {
   Settings,
   ShieldCheck,
   TrendingUp,
+  Users,
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
@@ -37,6 +38,7 @@ const ICONS = {
   Wallet,
   PieChart,
   Lightbulb,
+  Users,
   Settings,
 } as const;
 
@@ -51,7 +53,9 @@ function groupNavItems(items: NavItem[]): NavGroup[] {
   const dashboard = items.filter((i) => i.href === "");
   const portfolio = items.filter((i) => ["/portfolio", "/orders", "/exposure"].includes(i.href));
   const riskCompliance = items.filter((i) => ["/compliance", "/risk"].includes(i.href));
-  const operations = items.filter((i) => ["/cash", "/attribution", "/alpha"].includes(i.href));
+  const operations = items.filter((i) =>
+    ["/cash", "/attribution", "/alpha", "/investors"].includes(i.href),
+  );
   const reference = items.filter((i) => ["/instruments", "/market-data"].includes(i.href));
   const settings = items.filter((i) => i.href === "/settings");
 

@@ -11,7 +11,7 @@ import { usePermission } from "@/shared/hooks/use-permission";
 import { useTableState } from "@/shared/hooks/use-table-state";
 import { Permission } from "@/shared/lib/permissions";
 import { cancelOrder, ordersQueryOptions } from "../api";
-import { OrderStateBadge } from "./order-state-badge";
+import { AlgoTypeBadge, OrderStateBadge } from "./order-state-badge";
 
 type StatusFilter = "all" | "open" | "filled" | "cancelled" | "rejected";
 
@@ -28,10 +28,9 @@ const CANCELLABLE_STATES = new Set([
   "draft",
   "pending_compliance",
   "approved",
-  "new",
   "sent",
+  "working",
   "partially_filled",
-  "pending_approval",
 ]);
 
 export function OrderBlotter({ portfolioId }: { portfolioId: string }) {
@@ -64,7 +63,12 @@ export function OrderBlotter({ portfolioId }: { portfolioId: string }) {
       case "open":
         return orders.filter(
           (o) =>
-            o.state === "new" || o.state === "partially_filled" || o.state === "pending_approval",
+            o.state === "draft" ||
+            o.state === "pending_compliance" ||
+            o.state === "approved" ||
+            o.state === "sent" ||
+            o.state === "working" ||
+            o.state === "partially_filled",
         );
       case "filled":
         return orders.filter((o) => o.state === "filled");
@@ -232,7 +236,22 @@ export function OrderBlotter({ portfolioId }: { portfolioId: string }) {
                   key={order.id as string}
                   className="border-b border-[var(--table-border)] last:border-0 hover:bg-[var(--table-row-hover)]"
                 >
-                  <td className="px-3 py-2 pr-4 font-medium">{order.instrument_id as string}</td>
+                  <td className="px-3 py-2 pr-4 font-medium">
+                    <span className="flex items-center gap-1.5">
+                      {order.parent_order_id ? (
+                        <span
+                          className="text-[10px] text-[var(--muted-foreground)]"
+                          title={`Child of ${order.parent_order_id as string}`}
+                        >
+                          ↳
+                        </span>
+                      ) : null}
+                      {order.instrument_id as string}
+                      {order.algo_type ? (
+                        <AlgoTypeBadge algoType={order.algo_type as string} />
+                      ) : null}
+                    </span>
+                  </td>
                   <td className="px-3 py-2 pr-4">
                     <span
                       className={
@@ -250,6 +269,11 @@ export function OrderBlotter({ portfolioId }: { portfolioId: string }) {
                   </td>
                   <td className="px-3 py-2 pr-4 text-right">
                     {parseFloat(order.filled_quantity as string).toLocaleString()}
+                    {order.is_parent && Number(order.children_count) > 0 ? (
+                      <span className="ml-1 text-[10px] text-[var(--muted-foreground)]">
+                        ({Number(order.children_filled)}/{Number(order.children_count)} slices)
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-3 py-2 pr-4 text-right">
                     {order.avg_fill_price

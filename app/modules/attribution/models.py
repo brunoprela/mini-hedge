@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import (
     Date,
@@ -18,7 +19,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.shared.models import Base
+from app.shared.models import Base as Base
 
 
 class BrinsonFachlerRecord(Base):
@@ -152,7 +153,7 @@ class CumulativeAttributionRecord(Base):
     cumulative_allocation: Mapped[Decimal] = mapped_column(Numeric(10, 6), nullable=False)
     cumulative_selection: Mapped[Decimal] = mapped_column(Numeric(10, 6), nullable=False)
     cumulative_interaction: Mapped[Decimal] = mapped_column(Numeric(10, 6), nullable=False)
-    periods: Mapped[dict] = mapped_column(JSONB, nullable=False)  # type: ignore[type-arg]
+    periods: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     calculated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

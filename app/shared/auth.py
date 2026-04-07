@@ -103,6 +103,10 @@ class Permission(StrEnum):
     ALPHA_READ = "alpha:read"
     ALPHA_WRITE = "alpha:write"
 
+    # Capital Accounts
+    CAPITAL_READ = "capital:read"
+    CAPITAL_WRITE = "capital:write"
+
     # Platform-level permissions (for operators)
     PLATFORM_USERS_READ = "platform:users.read"
     PLATFORM_USERS_WRITE = "platform:users.write"
@@ -169,6 +173,8 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.ATTRIBUTION_READ,
             Permission.ALPHA_READ,
             Permission.ALPHA_WRITE,
+            Permission.CAPITAL_READ,
+            Permission.CAPITAL_WRITE,
         }
     ),
     Role.PORTFOLIO_MANAGER: frozenset(
@@ -190,6 +196,8 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.ATTRIBUTION_READ,
             Permission.ALPHA_READ,
             Permission.ALPHA_WRITE,
+            Permission.CAPITAL_READ,
+            Permission.CAPITAL_WRITE,
         }
     ),
     Role.ANALYST: frozenset(
@@ -204,6 +212,7 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.CASH_READ,
             Permission.ATTRIBUTION_READ,
             Permission.ALPHA_READ,
+            Permission.CAPITAL_READ,
         }
     ),
     Role.RISK_MANAGER: frozenset(
@@ -219,6 +228,7 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.CASH_READ,
             Permission.ATTRIBUTION_READ,
             Permission.ALPHA_READ,
+            Permission.CAPITAL_READ,
         }
     ),
     Role.COMPLIANCE_OFFICER: frozenset(
@@ -235,6 +245,7 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.CASH_READ,
             Permission.ATTRIBUTION_READ,
             Permission.ALPHA_READ,
+            Permission.CAPITAL_READ,
         }
     ),
     Role.VIEWER: frozenset(
@@ -273,6 +284,8 @@ FGA_FUND_PERMISSIONS = [
     "can_read_attribution",
     "can_read_alpha",
     "can_write_alpha",
+    "can_read_capital",
+    "can_write_capital",
 ]
 
 # Map FGA permission relation name → Permission enum value
@@ -297,6 +310,8 @@ FGA_PERMISSION_MAP: dict[str, str] = {
     "can_read_attribution": Permission.ATTRIBUTION_READ,
     "can_read_alpha": Permission.ALPHA_READ,
     "can_write_alpha": Permission.ALPHA_WRITE,
+    "can_read_capital": Permission.CAPITAL_READ,
+    "can_write_capital": Permission.CAPITAL_WRITE,
 }
 
 # Reverse map: Permission enum value → FGA relation name

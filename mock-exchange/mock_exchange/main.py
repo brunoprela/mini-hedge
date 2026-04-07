@@ -14,10 +14,15 @@ from fastapi import FastAPI
 from mock_exchange.config import settings
 from mock_exchange.corporate_actions.engine import CorporateActionsEngine
 from mock_exchange.corporate_actions.routes import router as corporate_actions_router
+from mock_exchange.execution.brokers import DEFAULT_BROKERS
 from mock_exchange.execution.engine import ExecutionEngine
+from mock_exchange.execution.impact import MarketImpactModel
 from mock_exchange.execution.routes import router as execution_router
+from mock_exchange.fund_admin.routes import router as fund_admin_router
+from mock_exchange.fund_admin.service import FundAdminService
 from mock_exchange.market_data.routes import router as market_data_router
 from mock_exchange.market_data.service import MarketDataService
+from mock_exchange.reference_data.instruments import INSTRUMENT_UNIVERSE
 from mock_exchange.reference_data.routes import router as reference_data_router
 from mock_exchange.scenarios.engine import ScenarioEngine
 from mock_exchange.scenarios.routes import router as scenarios_router
@@ -45,13 +50,30 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Kafka producer for execution reports + price publishing
     producer = MockExchangeProducer(bootstrap_servers=settings.kafka_bootstrap_servers)
 
-    # Execution engine for order fill simulation
-    execution_engine = ExecutionEngine(producer=producer, market_data=market_data_service)
+    # Build instrument lookup
+    instruments = {i.ticker: i for i in INSTRUMENT_UNIVERSE}
+
+    # Market impact model
+    impact_model = MarketImpactModel(eta=settings.market_impact_eta)
+
+    # Execution engine — wired with order books after simulator starts
+    execution_engine = ExecutionEngine(
+        producer=producer,
+        market_data=market_data_service,
+        impact_model=impact_model,
+        instruments=instruments,
+        brokers=dict(DEFAULT_BROKERS),
+    )
+    execution_engine.config.trading_hours_enabled = settings.trading_hours_enabled
     app.state.execution_engine = execution_engine
 
     # Corporate actions engine
     corporate_actions_engine = CorporateActionsEngine(producer=producer)
     app.state.corporate_actions_engine = corporate_actions_engine
+
+    # Fund administrator simulation
+    fund_admin_service = FundAdminService(execution_engine)
+    app.state.fund_admin_service = fund_admin_service
 
     # Scenario engine for market regime control
     scenario_engine = ScenarioEngine(
@@ -65,8 +87,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             interval_ms=settings.simulator_interval_ms,
             kafka_bootstrap_servers=settings.kafka_bootstrap_servers,
             schema_registry_url=settings.kafka_schema_registry_url,
+            ambient_flow_enabled=settings.ambient_flow_enabled,
+            ambient_flow_interval_ms=settings.ambient_flow_interval_ms,
         )
         scenario_engine.simulator = market_data_service.simulator
+
+        # Wire order books and trade tape into execution engine
+        execution_engine._order_books = market_data_service.order_books
+        execution_engine._trade_tape = market_data_service.trade_tape
 
     logger.info("mock_exchange_started")
     yield
@@ -88,6 +116,7 @@ app.include_router(reference_data_router, prefix="/api/v1")
 app.include_router(execution_router, prefix="/api/v1")
 app.include_router(scenarios_router, prefix="/api/v1")
 app.include_router(corporate_actions_router, prefix="/api/v1")
+app.include_router(fund_admin_router, prefix="/api/v1")
 
 
 @app.get("/health")

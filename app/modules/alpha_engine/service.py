@@ -188,10 +188,10 @@ class AlphaService:
         records = await self._alpha_repo.get_scenarios(portfolio_id, session=session)
         return [
             ScenarioRun(
-                id=r.id,
-                portfolio_id=r.portfolio_id,
+                id=UUID(r.id),
+                portfolio_id=UUID(r.portfolio_id),
                 scenario_name=r.scenario_name,
-                trades=r.trades,
+                trades=r.trades if isinstance(r.trades, list) else [],
                 result_summary=r.result_summary,
                 status=ScenarioStatus(r.status),
                 created_at=r.created_at,
@@ -268,8 +268,8 @@ class AlphaService:
 
             results.append(
                 OptimizationResult(
-                    id=r.id,
-                    portfolio_id=r.portfolio_id,
+                    id=UUID(r.id) if r.id else None,
+                    portfolio_id=UUID(r.portfolio_id),
                     objective=OptimizationObjective(r.objective),
                     expected_return=r.expected_return,
                     expected_risk=r.expected_risk,
@@ -291,7 +291,7 @@ class AlphaService:
         n_days: int = 252,
         *,
         session: AsyncSession | None = None,
-    ) -> np.ndarray:  # type: ignore[type-arg]
+    ) -> np.ndarray:
         """Build synthetic returns matrix from instrument reference data."""
         instruments = await self._security_master_service.get_all_active(session=session)
         vol_map = {

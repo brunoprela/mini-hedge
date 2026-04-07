@@ -15,13 +15,13 @@ import asyncio
 import contextlib
 import json
 from collections.abc import Awaitable, Callable
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 import httpx
 import structlog
-from aiokafka import AIOKafkaConsumer
-from aiokafka.errors import KafkaError
+from aiokafka import AIOKafkaConsumer  # type: ignore[import-untyped]
+from aiokafka.errors import KafkaError  # type: ignore[import-untyped]
 
 from app.shared.adapters import OrderAcknowledgement, OrderStatusReport
 from app.shared.circuit_breaker import CircuitBreaker
@@ -31,8 +31,8 @@ logger = structlog.get_logger()
 # Topic on the external vendor's Kafka cluster
 _EXTERNAL_EXECUTION_REPORTS_TOPIC = "shared.execution-reports"
 
-# Callback type: (client_order_id, fill_price, fill_quantity, filled_at) -> None
-FillCallback = Callable[[str, Decimal, Decimal, datetime | None], Awaitable[None]]
+# Callback type: (client_order_id, fill_price, fill_quantity, filled_at, broker_id) -> None
+FillCallback = Callable[[str, Decimal, Decimal, datetime | None, str | None], Awaitable[None]]
 
 
 class MockExchangeBrokerAdapter:
@@ -47,9 +47,11 @@ class MockExchangeBrokerAdapter:
         *,
         base_url: str,
         kafka_bootstrap_servers: str,
+        broker_id: str = "GS",
     ) -> None:
         self._base_url = base_url
         self._kafka_servers = kafka_bootstrap_servers
+        self._broker_id = broker_id
         self._running = False
         self._task: asyncio.Task[None] | None = None
         self._circuit = CircuitBreaker(
@@ -76,6 +78,7 @@ class MockExchangeBrokerAdapter:
             "side": side,
             "quantity": str(quantity),
             "order_type": order_type,
+            "broker_id": self._broker_id,
         }
         if limit_price is not None:
             body["limit_price"] = str(limit_price)
@@ -114,9 +117,7 @@ class MockExchangeBrokerAdapter:
             avg_fill_price=Decimal(data["avg_fill_price"]) if data.get("avg_fill_price") else None,
         )
 
-    async def get_eod_positions(
-        self, portfolio_id: str, business_date: datetime | None = None
-    ) -> dict[str, Decimal]:
+    async def get_eod_positions(self, portfolio_id: str, business_date: date) -> dict[str, Decimal]:
         """Aggregate filled orders from mock-exchange into EOD positions.
 
         The mock-exchange tracks all fills. We query all orders for the given
@@ -220,7 +221,14 @@ class MockExchangeBrokerAdapter:
                                 datetime.fromisoformat(raw_filled_at) if raw_filled_at else None
                             )
 
-                            await callback(client_order_id, fill_price, fill_quantity, filled_at)
+                            broker_id = data.get("broker_id")
+                            await callback(
+                                client_order_id,
+                                fill_price,
+                                fill_quantity,
+                                filled_at,
+                                broker_id,
+                            )
 
                             logger.debug(
                                 "execution_report_bridged",

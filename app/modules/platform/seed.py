@@ -14,6 +14,7 @@ from app.modules.platform.models import (
     APIKeyRecord,
     FundRecord,
     FundStatus,
+    InvestorRecord,
     OperatorRecord,
     PortfolioRecord,
     UserRecord,
@@ -64,6 +65,13 @@ API_KEY_GAMMA_ID = "40000000-0000-0000-0000-000000000003"
 DEV_API_KEY = "mh_dev_00000000000000000000000000000001"
 DEV_API_KEY_BETA = "mh_dev_00000000000000000000000000000002"
 DEV_API_KEY_GAMMA = "mh_dev_00000000000000000000000000000003"
+
+# Investors (platform-scoped — can invest across funds)
+INVESTOR_SOVEREIGN_WEALTH_ID = "60000000-0000-0000-0000-000000000001"
+INVESTOR_PENSION_FUND_ID = "60000000-0000-0000-0000-000000000002"
+INVESTOR_FAMILY_OFFICE_ID = "60000000-0000-0000-0000-000000000003"
+INVESTOR_ENDOWMENT_ID = "60000000-0000-0000-0000-000000000004"
+INVESTOR_FOUNDER_ID = "60000000-0000-0000-0000-000000000005"
 
 # Backwards-compatible aliases
 DEFAULT_FUND_ID = FUND_ALPHA_ID
@@ -271,6 +279,68 @@ def build_seed_api_keys() -> list[APIKeyRecord]:
             roles=[Role.PORTFOLIO_MANAGER],
         ),
     ]
+
+
+# ---------------------------------------------------------------------------
+# Investors (platform-scoped)
+# ---------------------------------------------------------------------------
+
+
+def build_seed_investors() -> list[InvestorRecord]:
+    """Institutional + individual investors typical of a hedge fund platform."""
+    return [
+        InvestorRecord(
+            id=INVESTOR_SOVEREIGN_WEALTH_ID,
+            name="Abu Dhabi Investment Authority",
+            entity_type="institution",
+            tax_jurisdiction="AE",
+            contact_email="allocations@adia.dev",
+            is_active=True,
+        ),
+        InvestorRecord(
+            id=INVESTOR_PENSION_FUND_ID,
+            name="CalPERS",
+            entity_type="institution",
+            tax_jurisdiction="US",
+            contact_email="alternatives@calpers.dev",
+            is_active=True,
+        ),
+        InvestorRecord(
+            id=INVESTOR_FAMILY_OFFICE_ID,
+            name="Walton Family Office",
+            entity_type="fund_of_funds",
+            tax_jurisdiction="US",
+            contact_email="investments@walton.dev",
+            is_active=True,
+        ),
+        InvestorRecord(
+            id=INVESTOR_ENDOWMENT_ID,
+            name="Harvard Management Company",
+            entity_type="institution",
+            tax_jurisdiction="US",
+            contact_email="alternatives@hmc.dev",
+            is_active=True,
+        ),
+        InvestorRecord(
+            id=INVESTOR_FOUNDER_ID,
+            name="James Chen (GP)",
+            entity_type="individual",
+            tax_jurisdiction="US",
+            contact_email="james.chen@alphacap.dev",
+            is_active=True,
+        ),
+    ]
+
+
+# Seed subscriptions: (investor_id, amount_usd, nav_per_share)
+# Realistic AUM distribution for a $500M hedge fund
+SEED_SUBSCRIPTIONS: list[tuple[str, str, str]] = [
+    (INVESTOR_SOVEREIGN_WEALTH_ID, "150000000", "1000"),  # $150M — 30%
+    (INVESTOR_PENSION_FUND_ID, "125000000", "1000"),  # $125M — 25%
+    (INVESTOR_FAMILY_OFFICE_ID, "100000000", "1000"),  # $100M — 20%
+    (INVESTOR_ENDOWMENT_ID, "75000000", "1000"),  # $75M — 15%
+    (INVESTOR_FOUNDER_ID, "50000000", "1000"),  # $50M — 10% (GP co-invest)
+]
 
 
 # ---------------------------------------------------------------------------

@@ -221,8 +221,9 @@ class RestrictedListEvaluator(RuleEvaluator):
         state: PortfolioState,
         rule: RuleDefinition,
     ) -> EvaluationResult:
-        restricted: list[str] = list(
-            rule.parameters.get("restricted_instruments", [])  # type: ignore[arg-type]
+        restricted_raw = rule.parameters.get("restricted_instruments", [])
+        restricted: list[str] = (
+            list(restricted_raw) if isinstance(restricted_raw, (list, tuple)) else []
         )
         restricted_set = {r.upper() for r in restricted}
 

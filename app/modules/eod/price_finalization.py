@@ -53,26 +53,24 @@ class PriceFinalizationService:
         missing: list[str] = []
 
         for inst in instruments:
-            price_snap = await self._market_data.get_latest_price(
-                inst.instrument_id, session=session
-            )
-            if price_snap is None or price_snap.mid_price is None:
+            price_snap = await self._market_data.get_latest_price(inst.ticker, session=session)
+            if price_snap is None or price_snap.mid is None:
                 missing.append(inst.ticker)
                 continue
 
             await self._price_repo.upsert_price(
-                instrument_id=inst.instrument_id,
+                instrument_id=inst.ticker,
                 business_date=business_date,
-                close_price=price_snap.mid_price,
+                close_price=price_snap.mid,
                 source="market_data",
                 finalized_by="eod_orchestrator",
                 session=session,
             )
             finalized.append(
                 FinalizedPrice(
-                    instrument_id=inst.instrument_id,
+                    instrument_id=inst.ticker,
                     business_date=business_date,
-                    close_price=price_snap.mid_price,
+                    close_price=price_snap.mid,
                     source="market_data",
                     finalized_at=datetime.now(UTC),
                     finalized_by="eod_orchestrator",

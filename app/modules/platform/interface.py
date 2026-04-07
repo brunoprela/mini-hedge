@@ -211,7 +211,7 @@ class AuditEntry(BaseModel):
     actor_id: str | None
     actor_type: str | None
     fund_slug: str | None
-    payload: dict
+    payload: dict[str, object]
     created_at: str
 
 

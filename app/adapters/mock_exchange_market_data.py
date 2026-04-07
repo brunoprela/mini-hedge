@@ -17,8 +17,8 @@ import json
 from typing import TYPE_CHECKING
 
 import structlog
-from aiokafka import AIOKafkaConsumer
-from aiokafka.errors import KafkaError
+from aiokafka import AIOKafkaConsumer  # type: ignore[import-untyped]
+from aiokafka.errors import KafkaError  # type: ignore[import-untyped]
 
 from app.shared.events import BaseEvent
 from app.shared.schema_registry import shared_topic

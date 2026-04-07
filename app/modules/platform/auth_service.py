@@ -42,6 +42,7 @@ from app.shared.request_context import ActorType, RequestContext
 if TYPE_CHECKING:
     from app.modules.platform.api_key_repository import APIKeyRepository
     from app.modules.platform.fund_repository import FundRepository
+    from app.modules.platform.models import FundRecord, UserRecord
     from app.modules.platform.operator_repository import OperatorRepository
     from app.modules.platform.user_repository import UserRepository
     from app.shared.fga import FGAClient
@@ -115,11 +116,11 @@ class AuthService:
             maxsize=_FGA_CACHE_MAX, ttl=_FGA_CACHE_TTL
         )
         # keycloak_sub → UserRecord (avoid upsert DB queries on every request)
-        self._user_cache: TTLCache[str, object] = TTLCache(
+        self._user_cache: TTLCache[str, UserRecord] = TTLCache(
             maxsize=_USER_CACHE_MAX, ttl=_USER_CACHE_TTL
         )
         # fund_slug → FundRecord (avoid fund lookup DB query on every request)
-        self._fund_cache: TTLCache[str, object] = TTLCache(
+        self._fund_cache: TTLCache[str, FundRecord] = TTLCache(
             maxsize=_FUND_CACHE_MAX, ttl=_FUND_CACHE_TTL
         )
         # (token_hash, fund_slug) → RequestContext — skip ALL downstream calls
@@ -141,7 +142,7 @@ class AuthService:
         """
         # Fast path: return cached context for repeated requests with same token
         ctx_key = (self._token_hash(token), fund_slug)
-        cached_ctx = self._ctx_cache.get(ctx_key)
+        cached_ctx: RequestContext | None = self._ctx_cache.get(ctx_key)
         if cached_ctx is not None:
             return cached_ctx
 
@@ -321,7 +322,7 @@ class AuthService:
         FGA computes the union: permissions granted by role + direct grants.
         """
         cache_key = (user_id, fund_id)
-        cached = self._fga_cache.get(cache_key)
+        cached: tuple[list[str], frozenset[str]] | None = self._fga_cache.get(cache_key)
         if cached is not None:
             return cached
 

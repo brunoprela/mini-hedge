@@ -1,12 +1,12 @@
-"""In-process broker adapter — wraps existing MockBrokerAdapter for backward compat."""
+"""In-process broker adapter — immediate fills with random slippage for dev/test."""
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import random
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import uuid4
 
-from app.modules.orders.mock_broker import MockBrokerAdapter
 from app.shared.adapters import OrderAcknowledgement, OrderStatusReport
 
 
@@ -20,14 +20,12 @@ class _FillRecord:
 
 
 class InProcessBrokerAdapter:
-    """BrokerAdapter that delegates to the existing MockBrokerAdapter.
+    """BrokerAdapter that fills immediately with small random slippage.
 
-    Used when BROKER_ADAPTER=in-process to preserve the current
-    synchronous-fill behavior without requiring mock-exchange.
+    Used when BROKER_ADAPTER=in-process for local dev without mock-exchange.
     """
 
     def __init__(self) -> None:
-        self._broker = MockBrokerAdapter()
         self._fills: dict[str, _FillRecord] = {}
 
     async def submit_order(
@@ -39,14 +37,12 @@ class InProcessBrokerAdapter:
         order_type: str,
         limit_price: Decimal | None = None,
     ) -> OrderAcknowledgement:
-        fill_price, fill_qty = await self._broker.submit_order(
-            instrument_id=instrument_id,
-            side=side,
-            quantity=quantity,
-            price=limit_price,
-        )
+        base_price = limit_price or Decimal("100.00")
+        slippage = Decimal(str(random.uniform(-0.001, 0.001)))
+        fill_price = (base_price * (1 + slippage)).quantize(Decimal("0.01"))
+
         exchange_order_id = str(uuid4())
-        self._fills[exchange_order_id] = _FillRecord(client_order_id, fill_price, fill_qty)
+        self._fills[exchange_order_id] = _FillRecord(client_order_id, fill_price, quantity)
         return OrderAcknowledgement(
             exchange_order_id=exchange_order_id,
             client_order_id=client_order_id,
@@ -74,3 +70,7 @@ class InProcessBrokerAdapter:
             filled_quantity=fill.fill_qty,
             avg_fill_price=fill.fill_price,
         )
+
+    async def get_eod_positions(self, portfolio_id: str, business_date: date) -> dict[str, Decimal]:
+        """In-process broker has no persistent state; return empty positions."""
+        return {}

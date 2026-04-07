@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 
 import structlog
@@ -45,9 +46,9 @@ class FundAdminService:
         self._engine = engine
         self._event_bus = event_bus
         self._auth_service = auth_service
-        self._on_fund_created_hooks: list[object] = []  # Callable[[str], Awaitable[None]]
+        self._on_fund_created_hooks: list[Callable[[str], Awaitable[None]]] = []
 
-    def register_on_fund_created(self, hook: object) -> None:
+    def register_on_fund_created(self, hook: Callable[[str], Awaitable[None]]) -> None:
         """Register a callback invoked with the fund slug after creation."""
         self._on_fund_created_hooks.append(hook)
 
@@ -99,7 +100,7 @@ class FundAdminService:
         # Notify modules that need per-fund subscriptions (positions, etc.)
         for hook in self._on_fund_created_hooks:
             try:
-                await hook(slug)  # type: ignore[misc]
+                await hook(slug)
             except Exception:
                 logger.exception("on_fund_created_hook_failed", fund_slug=slug)
 

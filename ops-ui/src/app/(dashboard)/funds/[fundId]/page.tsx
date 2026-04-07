@@ -45,7 +45,7 @@ export default function FundAccessPage({ params }: { params: Promise<{ fundId: s
         const entry: GroupedAccess = {
           user_type: g.user_type,
           user_id: g.user_id,
-          display_name: g.display_name,
+          display_name: g.display_name ?? null,
           roles: new Set(),
           directPermissions: new Set(),
         };

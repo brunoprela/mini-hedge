@@ -9,7 +9,7 @@ own ``alembic_version`` table so migrations are tracked independently.
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import create_engine, pool, text
+from sqlalchemy import Connection, create_engine, pool, text
 
 from app.modules.exposure.models import Base
 from app.shared.alembic_plugins import setup_plugins
@@ -27,8 +27,9 @@ target_metadata = Base.metadata
 
 def _get_target_schema() -> str:
     """Resolve the target schema: explicit override or default."""
-    return getattr(config.attributes, "target_schema", None) or config.attributes.get(
-        "target_schema", DEFAULT_SCHEMA
+    return str(
+        getattr(config.attributes, "target_schema", None)
+        or config.attributes.get("target_schema", DEFAULT_SCHEMA)
     )
 
 
@@ -55,13 +56,13 @@ def run_migrations_offline() -> None:
         dialect_opts={"paramstyle": "named"},
         version_table="alembic_version_exposure",
         version_table_schema=schema,
-        include_schemas=[schema],
+        include_schemas=[schema],  # type: ignore[arg-type]
     )
     with context.begin_transaction():
         context.run_migrations()
 
 
-def do_run_migrations(connection, schema: str) -> None:  # type: ignore[no-untyped-def]
+def do_run_migrations(connection: Connection, schema: str) -> None:
     # Apply schema_translate_map so migration ops target the right schema
     if schema != DEFAULT_SCHEMA:
         connection = connection.execution_options(
@@ -72,7 +73,7 @@ def do_run_migrations(connection, schema: str) -> None:  # type: ignore[no-untyp
         target_metadata=target_metadata,
         version_table="alembic_version_exposure",
         version_table_schema=schema,
-        include_schemas=[schema],
+        include_schemas=[schema],  # type: ignore[arg-type]
     )
     with context.begin_transaction():
         context.run_migrations()

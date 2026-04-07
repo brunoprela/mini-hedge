@@ -87,6 +87,40 @@ class AuditLogRepository(BaseRepository):
             session.add(record)
             await session.commit()
 
+    async def insert_cdc_event(
+        self,
+        *,
+        event_type: str,
+        actor_id: str,
+        actor_type: str,
+        fund_slug: str | None = None,
+        payload: dict[str, Any] | None = None,
+        session: AsyncSession | None = None,
+    ) -> None:
+        """Insert a CDC audit event with a free-form event_type string.
+
+        CDC event types are dynamically derived from table names and operations
+        (e.g. ``cdc.orders.insert``) and intentionally bypass the
+        :class:`~app.shared.audit_events.AuditEventType` enum.
+        """
+        async with self._session(session) as session:
+            effective_payload = payload or {}
+            prev_hash = await self._fetch_last_hash(session)
+            entry_hash = _compute_hash(json.dumps(effective_payload, sort_keys=True), prev_hash)
+
+            record = AuditLogRecord(
+                event_id=f"cdc-{uuid4().hex}",
+                event_type=event_type,
+                actor_id=actor_id,
+                actor_type=actor_type,
+                fund_slug=fund_slug,
+                payload=effective_payload,
+                prev_hash=prev_hash or None,
+                entry_hash=entry_hash,
+            )
+            session.add(record)
+            await session.commit()
+
     async def query(
         self,
         *,
@@ -121,7 +155,6 @@ class AuditLogRepository(BaseRepository):
             stmt = stmt.offset(offset).limit(limit)
             result = await session.execute(stmt)
             return list(result.scalars().all()), total
-
 
     async def get_records_for_period(
         self,

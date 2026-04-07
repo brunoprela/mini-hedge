@@ -19,6 +19,8 @@ from starlette.routing import Route
 
 from app.adapters.factory import (
     build_broker_adapter,
+    build_broker_registry,
+    build_fund_admin_adapter,
     build_market_data_adapter,
     build_reference_data_adapter,
 )
@@ -29,12 +31,19 @@ from app.middleware.rate_limit import build_limiter, rate_limit_exceeded_handler
 from app.middleware.timeout import TimeoutMiddleware
 from app.modules.alpha_engine.routes import router as alpha_router
 from app.modules.attribution.routes import router as attribution_router
+from app.modules.capital_accounts.routes import router as capital_router
 from app.modules.cash_management.routes import router as cash_router
 from app.modules.compliance.routes import router as compliance_router
+from app.modules.corporate_actions.routes import router as corporate_actions_router
 from app.modules.eod.routes import router as eod_router
 from app.modules.exposure.routes import router as exposure_router
+from app.modules.fee_accounting.routes import router as fee_router
+from app.modules.market_data.routes import fx_router
 from app.modules.market_data.routes import router as market_data_router
+from app.modules.orders.allocation_routes import router as allocation_router
+from app.modules.orders.broker_routes import router as broker_router
 from app.modules.orders.routes import router as orders_router
+from app.modules.orders.tca.routes import router as tca_router
 from app.modules.platform.admin_routes import router as admin_router
 from app.modules.platform.audit_repository import AuditLogRepository
 from app.modules.platform.routes import router as platform_router
@@ -46,10 +55,13 @@ from app.setup import (
     _run_migrations,
     setup_alpha_engine,
     setup_attribution,
+    setup_capital_accounts,
     setup_cash_management,
     setup_compliance,
+    setup_corporate_actions,
     setup_eod,
     setup_exposure,
+    setup_fee_accounting,
     setup_fga,
     setup_market_data,
     setup_orders,
@@ -125,8 +137,10 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
 
     # --- Build adapters from config ---
     broker_adapter = build_broker_adapter(settings)
+    broker_registry = build_broker_registry(settings) if settings.broker_adapters else None
     reference_adapter = build_reference_data_adapter(settings)
     market_data_adapter = build_market_data_adapter(settings, event_bus=kafka_bus)
+    fund_admin_adapter = build_fund_admin_adapter(settings)
 
     # --- Module setup ---
     # FGA must init before platform (AuthService depends on FGAClient)
@@ -169,7 +183,13 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     # Phase 2 modules — depend on positions + security_master being wired
     await setup_exposure(fastapi_app, session_factory, kafka_bus, fund_repo)
     await setup_compliance(fastapi_app, session_factory, fund_repo, kafka_bus)
-    await setup_orders(fastapi_app, session_factory, kafka_bus, broker_adapter)
+    await setup_orders(
+        fastapi_app,
+        session_factory,
+        kafka_bus,
+        broker_adapter,
+        broker_registry=broker_registry,
+    )
     logger.info("phase_2_modules_ready")
 
     # Phase 3 modules
@@ -177,7 +197,10 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     await setup_cash_management(fastapi_app, session_factory, kafka_bus, fund_repo)
     await setup_attribution(fastapi_app, session_factory)
     await setup_alpha_engine(fastapi_app, session_factory)
-    await setup_eod(fastapi_app, session_factory, broker_adapter)
+    await setup_fee_accounting(fastapi_app, session_factory)
+    await setup_capital_accounts(fastapi_app, session_factory)
+    await setup_corporate_actions(fastapi_app, session_factory, kafka_bus, settings)
+    await setup_eod(fastapi_app, session_factory, broker_adapter, fund_admin=fund_admin_adapter)
     logger.info("phase_3_modules_ready")
 
     # Audit bridge — persists ALL fund-scoped events for compliance trail
@@ -276,10 +299,21 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     # --- External broker fill consumer ---
     # When the broker is mock-exchange, start consuming execution reports
     # from the vendor's Kafka and forwarding fills to OrderService.
-    if hasattr(broker_adapter, "start_fill_consumer"):
+    order_service = fastapi_app.state.order_service
+    order_service._fund_slugs = fund_slugs
+
+    if broker_registry is not None:
+        # Multi-broker: start fill consumers for each broker adapter
+        for bid in broker_registry.list_broker_ids():
+            adapter = broker_registry.get(bid)
+            start_fn = getattr(adapter, "start_fill_consumer", None)
+            if start_fn is not None and not broker_registry.has_fill_consumer(bid):
+                logger.info("broker_fill_consumer_starting", broker_id=bid)
+                await start_fn(order_service.process_execution_report)
+                broker_registry.mark_fill_consumer(bid)
+                logger.info("broker_fill_consumer_ready", broker_id=bid)
+    elif hasattr(broker_adapter, "start_fill_consumer"):
         logger.info("broker_fill_consumer_starting")
-        order_service = fastapi_app.state.order_service
-        order_service._fund_slugs = fund_slugs
         await broker_adapter.start_fill_consumer(order_service.process_execution_report)
         logger.info("broker_fill_consumer_ready")
 
@@ -313,7 +347,13 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     await cdc_transformer.stop()
 
     await market_data_adapter.stop_streaming()
-    if hasattr(broker_adapter, "stop_fill_consumer"):
+    if broker_registry is not None:
+        for bid in broker_registry.list_broker_ids():
+            adapter = broker_registry.get(bid)
+            stop_fn = getattr(adapter, "stop_fill_consumer", None)
+            if stop_fn is not None and broker_registry.has_fill_consumer(bid):
+                await stop_fn()
+    elif hasattr(broker_adapter, "stop_fill_consumer"):
         await broker_adapter.stop_fill_consumer()
 
     await kafka_bus.stop()
@@ -377,6 +417,7 @@ app.include_router(platform_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1")
 app.include_router(security_master_router, prefix="/api/v1")
 app.include_router(market_data_router, prefix="/api/v1")
+app.include_router(fx_router, prefix="/api/v1")
 app.include_router(positions_router, prefix="/api/v1")
 app.include_router(realtime_router, prefix="/api/v1")
 app.include_router(exposure_router, prefix="/api/v1")
@@ -387,6 +428,12 @@ app.include_router(cash_router, prefix="/api/v1")
 app.include_router(attribution_router, prefix="/api/v1")
 app.include_router(alpha_router, prefix="/api/v1")
 app.include_router(eod_router, prefix="/api/v1")
+app.include_router(fee_router, prefix="/api/v1")
+app.include_router(capital_router, prefix="/api/v1")
+app.include_router(corporate_actions_router, prefix="/api/v1")
+app.include_router(allocation_router, prefix="/api/v1")
+app.include_router(broker_router, prefix="/api/v1")
+app.include_router(tca_router, prefix="/api/v1")
 
 # Prometheus metrics endpoint — plain Starlette route (bypasses auth via PUBLIC_PATHS)
 app.routes.append(Route("/metrics", metrics_route))

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -51,10 +51,10 @@ class EventStoreRepository(BaseRepository):
         self,
         aggregate_id: str,
         event_type: str,
-        event_data: dict,
+        event_data: dict[str, Any],
         *,
         session: AsyncSession | None = None,
-        metadata: dict | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Append an event with an atomically generated sequence number.
 
@@ -107,7 +107,7 @@ class EventStoreRepository(BaseRepository):
         )
 
     @staticmethod
-    def serialize(event: TradeEvent) -> dict:
+    def serialize(event: TradeEvent) -> dict[str, Any]:
         """Convert a typed domain event into a JSONB-safe dict for storage."""
         return {
             "portfolio_id": str(event.data.portfolio_id),

@@ -10,6 +10,7 @@ from app.modules.attribution.dependencies import get_attribution_service
 from app.modules.attribution.interface import (
     BrinsonFachlerResult,
     CumulativeAttribution,
+    FXAttributionResult,
     RiskBasedResult,
 )
 from app.modules.attribution.service import AttributionService
@@ -70,3 +71,22 @@ async def get_cumulative_attribution(
     session: AsyncSession = Depends(get_db),
 ) -> CumulativeAttribution:
     return await attribution_service.calculate_cumulative(portfolio_id, start, end, session=session)
+
+
+@router.get(
+    "/{portfolio_id}/fx",
+    response_model=FXAttributionResult,
+)
+async def get_fx_attribution(
+    portfolio_id: UUID,
+    start: date = Query(...),
+    end: date = Query(...),
+    base_currency: str = Query("USD"),
+    request_context: RequestContext = require_permission(Permission.ATTRIBUTION_READ),
+    _access: None = require_access(Portfolio.relation("can_view")),
+    attribution_service: AttributionService = Depends(get_attribution_service),
+    session: AsyncSession = Depends(get_db),
+) -> FXAttributionResult:
+    return await attribution_service.calculate_fx(
+        portfolio_id, start, end, base_currency=base_currency, session=session
+    )

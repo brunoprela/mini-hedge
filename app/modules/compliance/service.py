@@ -315,7 +315,7 @@ class ComplianceService:
 
     async def _audit_event(
         self,
-        event_type: str,
+        event_type: AuditEventType,
         *,
         actor_id: str,
         fund_slug: str | None,
