@@ -48,10 +48,10 @@ class TradeTape:
 
         # Publish real order ticks always; ambient only if configured
         if self._producer and (not tick.is_ambient or self._publish_ambient):
-            self._producer.send(
+            self._producer.produce(
                 TRADES_TOPIC,
-                key=tick.instrument_id,
-                value={
+                event_type="trade.tick",
+                data={
                     "instrument_id": tick.instrument_id,
                     "price": str(tick.price),
                     "quantity": tick.quantity,

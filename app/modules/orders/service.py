@@ -247,6 +247,21 @@ class OrderService:
                 },
                 session=session,
             )
+        elif ack.status == "rejected":
+            # Broker rejected the order (e.g., market closed, invalid instrument)
+            apply_transition(OrderState(order.state), OrderState.CANCELLED)
+            order = await self._order_repo.update_state(
+                UUID(order.id),
+                OrderState.CANCELLED.value,
+                rejection_reason=f"Broker rejected: {ack.status}",
+                session=session,
+            )
+            logger.warning(
+                "order_rejected_by_broker",
+                order_id=order.id,
+                exchange_order_id=ack.exchange_order_id,
+                broker_id=broker_id,
+            )
         else:
             # Async fill (mock-exchange, FIX, etc.) — order stays in SENT state.
             # Fills arrive later via execution report callback.

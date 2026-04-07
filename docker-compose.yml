@@ -329,6 +329,7 @@ services:
       KAFKA_SCHEMA_REGISTRY_URL: "http://mock-exchange-sr:8181"
       SIMULATOR_ENABLED: "true"
       SIMULATOR_INTERVAL_MS: "1000"
+      TRADING_HOURS_ENABLED: "false"
       LOG_LEVEL: "DEBUG"
     ports:
       - "8100:8100"
