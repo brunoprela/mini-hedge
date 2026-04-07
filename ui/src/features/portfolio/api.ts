@@ -49,3 +49,14 @@ export async function executeTrade(fundSlug: string, trade: TradeRequest): Promi
     body: trade,
   });
 }
+
+export async function createPortfolio(
+  fundSlug: string,
+  data: { name: string; strategy?: string; base_currency?: string },
+): Promise<PortfolioInfo> {
+  return clientFetch<PortfolioInfo>("/portfolios", {
+    fundSlug,
+    method: "POST",
+    body: data,
+  });
+}

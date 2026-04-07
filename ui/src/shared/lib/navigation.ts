@@ -19,7 +19,9 @@ export interface NavItem {
     | "Settings"
     | "ArrowLeftRight"
     | "Calendar"
-    | "Receipt";
+    | "Receipt"
+    | "Activity"
+    | "FileText";
   permission?: Permission;
 }
 
@@ -37,6 +39,12 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Orders",
     href: "/orders",
     icon: "ClipboardList",
+    permission: Permission.ORDERS_READ,
+  },
+  {
+    label: "TCA",
+    href: "/tca",
+    icon: "Activity",
     permission: Permission.ORDERS_READ,
   },
   {
@@ -104,6 +112,14 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/compliance",
     icon: "ShieldCheck",
     permission: Permission.COMPLIANCE_READ,
+  },
+
+  // Corporate Actions
+  {
+    label: "Corp Actions",
+    href: "/corporate-actions",
+    icon: "FileText",
+    permission: Permission.POSITIONS_READ,
   },
 
   // Market Data

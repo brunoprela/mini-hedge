@@ -2,7 +2,7 @@
 
 import { Download } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Can } from "@/shared/components/can";
 import { SortableHeader, TablePagination, TableSearch } from "@/shared/components/table-controls";
 import { useExportCSV } from "@/shared/hooks/use-export-csv";
@@ -40,6 +40,18 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
     }));
     exportCSV(exportData as unknown as Record<string, unknown>[], `positions-${portfolioId}`);
   };
+
+  const totals = useMemo(() => {
+    if (!positions || positions.length === 0) return null;
+    return positions.reduce(
+      (acc, p) => ({
+        market_value: acc.market_value + Number(p.market_value),
+        unrealized_pnl: acc.unrealized_pnl + Number(p.unrealized_pnl),
+        count: acc.count + 1,
+      }),
+      { market_value: 0, unrealized_pnl: 0, count: 0 },
+    );
+  }, [positions]);
 
   const table = useTableState<Record<string, unknown>>({
     data: (positions ?? []) as unknown as Record<string, unknown>[],
@@ -81,6 +93,26 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
           </Can>
         </div>
       </div>
+
+      {/* Totals summary strip */}
+      {totals && (
+        <div className="mb-3 flex gap-3">
+          <div className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Positions</p>
+            <p className="font-mono text-lg font-semibold">{totals.count}</p>
+          </div>
+          <div className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Market Value</p>
+            <p className="font-mono text-lg font-semibold">{formatPnL(String(totals.market_value))}</p>
+          </div>
+          <div className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Unrealized P&L</p>
+            <p className={`font-mono text-lg font-semibold ${pnlColorClass(String(totals.unrealized_pnl))}`}>
+              {formatPnL(String(totals.unrealized_pnl))}
+            </p>
+          </div>
+        </div>
+      )}
 
       {!positions || positions.length === 0 ? (
         <p className="text-sm text-[var(--muted-foreground)]">
@@ -192,6 +224,26 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
                 );
               })}
             </tbody>
+            {totals && (
+              <tfoot>
+                <tr className="border-t-2 border-[var(--border)] bg-[var(--table-header)]">
+                  <td className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+                    Total ({totals.count})
+                  </td>
+                  <td className="px-4 py-2" />
+                  <td className="px-4 py-2" />
+                  <td className="px-4 py-2" />
+                  <td className="px-4 py-2 text-right font-mono font-semibold">
+                    {formatPnL(String(totals.market_value))}
+                  </td>
+                  <td className={`px-4 py-2 text-right font-mono font-semibold ${pnlColorClass(String(totals.unrealized_pnl))}`}>
+                    {formatPnL(String(totals.unrealized_pnl))}
+                  </td>
+                  <td className="px-4 py-2" />
+                  <td className="px-4 py-2" />
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       )}

@@ -1,9 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
+import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { useInstrumentSearch, useInstruments } from "../hooks/use-instruments";
 
 export function InstrumentList() {
+  const { fundSlug } = useFundContext();
   const [search, setSearch] = useState("");
 
   const allQuery = useInstruments();
@@ -40,7 +43,14 @@ export function InstrumentList() {
               {instruments?.map((inst) => (
                 <tr key={inst.id} className="border-b border-[var(--border)] last:border-0">
                   <td className="px-4 py-2 font-mono font-medium">{inst.ticker}</td>
-                  <td className="px-4 py-2">{inst.name}</td>
+                  <td className="px-4 py-2">
+                    <Link
+                      href={`/${fundSlug}/market-data`}
+                      className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] underline-offset-2 hover:underline"
+                    >
+                      {inst.name}
+                    </Link>
+                  </td>
                   <td className="px-4 py-2">{inst.asset_class}</td>
                   <td className="px-4 py-2">{inst.exchange}</td>
                   <td className="px-4 py-2">{inst.currency}</td>

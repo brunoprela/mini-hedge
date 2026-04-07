@@ -1,10 +1,13 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useState } from "react";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
 import { FactorBreakdown } from "@/features/risk/components/factor-breakdown";
 import { RiskDashboard } from "@/features/risk/components/risk-dashboard";
+import { CustomStressForm } from "@/features/risk/components/custom-stress-form";
+import { RiskHistoryChart } from "@/features/risk/components/risk-history-chart";
 import { StressTable } from "@/features/risk/components/stress-table";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 
@@ -18,7 +21,15 @@ export function RiskPageClient() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Risk</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold">Risk</h1>
+          <Link
+            href={`/${fundSlug}/exposure`}
+            className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] underline-offset-2 hover:underline"
+          >
+            View Exposure →
+          </Link>
+        </div>
         {portfolios && portfolios.length > 1 && (
           <select
             value={activePortfolioId}
@@ -44,8 +55,18 @@ export function RiskPageClient() {
           </section>
 
           <section>
+            <h2 className="mb-3 text-lg font-semibold">Risk Trend</h2>
+            <RiskHistoryChart portfolioId={activePortfolioId} />
+          </section>
+
+          <section>
             <h2 className="mb-3 text-lg font-semibold">Stress Tests</h2>
             <StressTable portfolioId={activePortfolioId} />
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-lg font-semibold">Custom Stress Test</h2>
+            <CustomStressForm portfolioId={activePortfolioId} />
           </section>
 
           <section>

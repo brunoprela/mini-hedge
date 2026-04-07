@@ -12,7 +12,7 @@ import { usePermission } from "@/shared/hooks/use-permission";
 import { useTableState } from "@/shared/hooks/use-table-state";
 import { clientFetch } from "@/shared/lib/api";
 import { Permission } from "@/shared/lib/permissions";
-import { violationsQueryOptions } from "../api";
+import { violationsQueryOptions, waiveViolation } from "../api";
 import type { Violation } from "../types";
 
 const SEVERITY_BADGE: Record<string, string> = {
@@ -50,6 +50,8 @@ export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
 
   const canWrite = can(Permission.COMPLIANCE_WRITE);
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
+  const [waiveTarget, setWaiveTarget] = useState<string | null>(null);
+  const [waiveReason, setWaiveReason] = useState("");
   const exportCSV = useExportCSV();
 
   const resolveMutation = useMutation({
@@ -66,6 +68,18 @@ export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
     onError: (err: Error) => {
       toast.error(err.message);
     },
+  });
+
+  const waiveMutation = useMutation({
+    mutationFn: ({ violationId, reason }: { violationId: string; reason: string }) =>
+      waiveViolation(fundSlug, violationId, { waived_by: "current_user", reason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["violations"] });
+      toast.success("Violation waived");
+      setWaiveTarget(null);
+      setWaiveReason("");
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const filteredViolations = useMemo(() => {
@@ -241,6 +255,13 @@ export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
                       >
                         Resolve
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => setWaiveTarget(v.id)}
+                        className="text-sm text-[var(--muted-foreground)] underline hover:text-[var(--foreground)] ml-2"
+                      >
+                        Waive
+                      </button>
                     </td>
                   )}
                 </tr>
@@ -259,6 +280,42 @@ export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
           pageSize={table.pageSize}
           onPageChange={table.setPage}
         />
+      )}
+
+      {/* Waive dialog */}
+      {waiveTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-xl">
+            <h3 className="text-lg font-semibold">Waive Violation</h3>
+            <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+              Provide a reason for waiving this compliance violation.
+            </p>
+            <textarea
+              value={waiveReason}
+              onChange={(e) => setWaiveReason(e.target.value)}
+              placeholder="Reason for waiver..."
+              rows={3}
+              className="mt-3 w-full rounded-lg border border-[var(--border)] bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => { setWaiveTarget(null); setWaiveReason(""); }}
+                className="rounded-lg px-4 py-2 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => waiveMutation.mutate({ violationId: waiveTarget, reason: waiveReason })}
+                disabled={!waiveReason.trim() || waiveMutation.isPending}
+                className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--primary-foreground)] disabled:opacity-50"
+              >
+                {waiveMutation.isPending ? "Waiving..." : "Waive"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

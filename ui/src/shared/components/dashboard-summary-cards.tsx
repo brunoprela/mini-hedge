@@ -163,12 +163,12 @@ function FXHedgingCard({ portfolioId }: { portfolioId: string }) {
           ? [
               {
                 label: "Open Forwards",
-                value: String(data.total_open_forwards),
+                value: String(data.open_forwards),
                 info: "Number of active FX forward contracts",
               },
               {
                 label: "Net MTM",
-                value: fmt(data.net_mtm),
+                value: fmt(data.total_mtm),
                 info: "Net mark-to-market value of all open forwards",
               },
             ]

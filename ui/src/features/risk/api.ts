@@ -42,3 +42,24 @@ export async function takeRiskSnapshot(
     method: "POST",
   });
 }
+
+export async function runCustomStressTest(
+  fundSlug: string,
+  portfolioId: string,
+  data: { name: string; shocks: Record<string, number>; description?: string },
+): Promise<StressTestResult> {
+  return clientFetch<StressTestResult>(`/risk/${portfolioId}/stress`, {
+    fundSlug,
+    method: "POST",
+    body: data,
+  });
+}
+
+export function riskHistoryQueryOptions(fundSlug: string, portfolioId: string) {
+  return queryOptions({
+    queryKey: ["risk-history", fundSlug, portfolioId],
+    queryFn: () =>
+      clientFetch<RiskSnapshot[]>(`/risk/${portfolioId}/snapshot/history`, { fundSlug }),
+    staleTime: 120_000,
+  });
+}

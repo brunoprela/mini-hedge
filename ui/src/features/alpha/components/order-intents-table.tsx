@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import Link from "next/link";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { approveIntent, cancelIntent, orderIntentsQueryOptions } from "../api";
 
@@ -16,7 +17,7 @@ export function OrderIntentsTable({ portfolioId }: { portfolioId: string }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["alpha-intents"] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
-      toast.success("Intent approved");
+      toast.success("Intent approved — order created. View in Orders.");
     },
     onError: (err: Error) => {
       toast.error(err.message);
@@ -106,6 +107,14 @@ export function OrderIntentsTable({ portfolioId }: { portfolioId: string }) {
           ))}
         </tbody>
       </table>
+      <div className="mt-3 text-right">
+        <Link
+          href={`/${fundSlug}/orders`}
+          className="text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] underline-offset-2 hover:underline"
+        >
+          View all orders →
+        </Link>
+      </div>
     </div>
   );
 }

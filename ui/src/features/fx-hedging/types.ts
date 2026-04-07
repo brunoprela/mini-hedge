@@ -1,57 +1,22 @@
-/** FX hedging types — inline until api-types regeneration. */
+/**
+ * FX hedging types — re-exported from auto-generated API types.
+ *
+ * Only add UI-only types here (not returned by the API).
+ */
+export type {
+  FXForwardContract,
+  FXForwardCreate,
+  FXForwardClose,
+  FXForwardRoll,
+  FXForwardDirection,
+  FXForwardStatus,
+  FXHedgingSummary,
+  FXInterestRate,
+  HedgeRecommendationResponse,
+  FXAttributionResult,
+} from "@mini-hedge/api-types";
 
-export type FXForwardStatus = "open" | "closed" | "rolled" | "expired" | "settled";
-export type FXForwardDirection = "buy" | "sell";
-
-export interface FXForwardContract {
-  id: string;
-  portfolio_id: string;
-  base_currency: string;
-  quote_currency: string;
-  direction: FXForwardDirection;
-  notional: string;
-  contract_rate: string;
-  spot_at_inception: string;
-  trade_date: string;
-  maturity_date: string;
-  status: FXForwardStatus;
-  counterparty: string | null;
-  roll_from_id: string | null;
-  close_rate: string | null;
-  close_spot: string | null;
-  realized_pnl: string | null;
-  mtm_value: string | null;
-  mtm_timestamp: string | null;
-}
-
-export interface FXForwardCreate {
-  portfolio_id: string;
-  base_currency: string;
-  quote_currency: string;
-  direction: FXForwardDirection;
-  notional: string;
-  tenor_days: number;
-  counterparty?: string;
-}
-
-export interface FXForwardClose {
-  forward_id: string;
-}
-
-export interface FXForwardRoll {
-  forward_id: string;
-  new_tenor_days: number;
-}
-
-export interface FXHedgingSummary {
-  portfolio_id: string;
-  total_open_forwards: number;
-  total_notional: string;
-  net_mtm: string;
-  currencies_hedged: string[];
-  last_mtm_timestamp: string | null;
-}
-
+/** UI-only: hedge recommendation row from the recommendations endpoint. */
 export interface HedgeRecommendation {
   currency_pair: string;
   base_currency: string;
@@ -64,14 +29,7 @@ export interface HedgeRecommendation {
   estimated_cost_bps: string;
 }
 
-export interface FXInterestRate {
-  currency: string;
-  rate: string;
-  tenor_days: number;
-  source: string | null;
-  updated_at: string;
-}
-
+/** UI-only: roll recommendation row. */
 export interface RollRecommendation {
   forward_id: string;
   currency_pair: string;

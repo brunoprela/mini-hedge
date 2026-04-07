@@ -52,3 +52,53 @@ export function investorTransactionsQueryOptions(fundSlug: string, investorId: s
     staleTime: 60_000,
   });
 }
+
+export async function processSubscription(
+  fundSlug: string,
+  data: {
+    investor_id: string;
+    amount: number | string;
+    nav_per_share: number | string;
+    business_date: string;
+    portfolio_id?: string | null;
+    currency?: string;
+    share_class?: string;
+    notes?: string | null;
+  },
+): Promise<CapitalAccountSummary> {
+  return clientFetch<CapitalAccountSummary>("/capital/subscriptions", {
+    fundSlug,
+    method: "POST",
+    body: data,
+  });
+}
+
+export async function createInvestor(
+  fundSlug: string,
+  data: { name: string; entity_type: string; email?: string; tax_id?: string },
+): Promise<InvestorInfo> {
+  return clientFetch<InvestorInfo>("/capital/investors", {
+    fundSlug,
+    method: "POST",
+    body: data,
+  });
+}
+
+export async function processRedemption(
+  fundSlug: string,
+  data: {
+    investor_id: string;
+    amount: number | string;
+    nav_per_share: number | string;
+    business_date: string;
+    portfolio_id?: string | null;
+    currency?: string;
+    notes?: string | null;
+  },
+): Promise<CapitalAccountSummary> {
+  return clientFetch<CapitalAccountSummary>("/capital/redemptions", {
+    fundSlug,
+    method: "POST",
+    body: data,
+  });
+}

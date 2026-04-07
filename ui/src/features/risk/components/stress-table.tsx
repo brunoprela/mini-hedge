@@ -75,6 +75,9 @@ export function StressTable({ portfolioId }: { portfolioId: string }) {
               <th className="px-4 py-2 text-right font-medium text-[var(--muted-foreground)]">
                 % Change
               </th>
+              <th className="px-4 py-2 text-left font-medium text-[var(--muted-foreground)]">
+                Actions
+              </th>
               <th className="w-10 px-4 py-2" />
             </tr>
           </thead>
@@ -124,6 +127,24 @@ function StressRow({
         >
           {fmtPct(result.total_pct_change)}
         </td>
+        <td className="px-4 py-2">
+          {pnl < -10000 && (
+            <div className="flex gap-2">
+              <Link
+                href={`/${fundSlug}/alpha?portfolio=${portfolioId}&scenario=${encodeURIComponent(result.scenario_name)}&loss=${Math.abs(pnl).toFixed(0)}`}
+                className="text-xs text-[var(--primary)] hover:underline"
+              >
+                What-If →
+              </Link>
+              <Link
+                href={`/${fundSlug}/fx-hedging?hedge_scenario=${encodeURIComponent(result.scenario_name)}&loss=${Math.abs(pnl).toFixed(0)}`}
+                className="text-xs text-[var(--primary)] hover:underline"
+              >
+                Hedge →
+              </Link>
+            </div>
+          )}
+        </td>
         <td className="px-4 py-2 text-center text-[var(--muted-foreground)]">
           {hasImpacts ? (expanded ? "▾" : "▸") : ""}
         </td>
@@ -154,6 +175,7 @@ function StressRow({
               >
                 {fmtPct(impact.pct_change)}
               </td>
+              <td />
               <td />
             </tr>
           );

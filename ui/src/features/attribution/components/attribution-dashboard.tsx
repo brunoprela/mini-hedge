@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { BrinsonFachlerTable } from "./brinson-fachler-table";
+import { FXAttributionTable } from "./fx-attribution-table";
 import { RiskBasedChart } from "./risk-based-chart";
 
 function formatDate(date: Date): string {
@@ -15,7 +16,7 @@ export function AttributionDashboard({ portfolioId }: { portfolioId: string }) {
 
   const [start, setStart] = useState(formatDate(thirtyDaysAgo));
   const [end, setEnd] = useState(formatDate(today));
-  const [activeTab, setActiveTab] = useState<"brinson" | "risk">("brinson");
+  const [activeTab, setActiveTab] = useState<"brinson" | "risk" | "fx">("brinson");
 
   return (
     <div className="space-y-4">
@@ -63,12 +64,27 @@ export function AttributionDashboard({ portfolioId }: { portfolioId: string }) {
         >
           Risk-Based
         </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("fx")}
+          className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+            activeTab === "fx"
+              ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+              : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+          }`}
+        >
+          FX
+        </button>
       </div>
 
-      {activeTab === "brinson" ? (
+      {activeTab === "brinson" && (
         <BrinsonFachlerTable portfolioId={portfolioId} start={start} end={end} />
-      ) : (
+      )}
+      {activeTab === "risk" && (
         <RiskBasedChart portfolioId={portfolioId} start={start} end={end} />
+      )}
+      {activeTab === "fx" && (
+        <FXAttributionTable portfolioId={portfolioId} start={start} end={end} />
       )}
     </div>
   );

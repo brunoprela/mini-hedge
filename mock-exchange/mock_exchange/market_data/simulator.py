@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 logger = structlog.get_logger()
 
 PRICES_TOPIC = "shared.prices.normalized"
+FX_RATES_TOPIC = "shared.fx-rates.normalized"
 
 
 @dataclass
@@ -287,13 +288,13 @@ class GBMSimulator:
                 },
             )
 
-        # Publish FX rates on the same topic
+        # Publish FX rates on dedicated topic
         fx_rates = self._generate_fx_tick()
         _q6 = Decimal("0.000001")
         for pair_id, rate in fx_rates.items():
             mid = Decimal(str(rate)).quantize(_q6, rounding=ROUND_HALF_UP)
             self.producer.produce(
-                topic=PRICES_TOPIC,
+                topic=FX_RATES_TOPIC,
                 event_type="fx_rate.updated",
                 data={
                     "instrument_id": pair_id,

@@ -89,6 +89,11 @@ function BreakdownTable({
               <th className="px-4 py-2 text-right font-medium text-[var(--muted-foreground)]">
                 Weight
               </th>
+              {dimension === "currency" && (
+                <th className="px-4 py-2 text-right font-medium text-[var(--muted-foreground)]">
+                  Action
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -121,6 +126,16 @@ function BreakdownTable({
                 <td className="px-4 py-2 text-right">{fmt(row.net_value)}</td>
                 <td className="px-4 py-2 text-right">{fmt(row.gross_value)}</td>
                 <td className="px-4 py-2 text-right">{parseFloat(row.weight_pct).toFixed(1)}%</td>
+                {dimension === "currency" && (
+                  <td className="px-4 py-2 text-right">
+                    <Link
+                      href={`/${fundSlug}/fx-hedging`}
+                      className="rounded px-2 py-1 text-xs font-medium text-[var(--primary)] hover:bg-[var(--primary)]/10"
+                    >
+                      Hedge →
+                    </Link>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

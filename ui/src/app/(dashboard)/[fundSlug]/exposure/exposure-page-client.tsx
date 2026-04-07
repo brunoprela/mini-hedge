@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { ExposureBreakdowns } from "@/features/exposure/components/exposure-breakdowns";
+import { ExposureHistoryChart } from "@/features/exposure/components/exposure-history-chart";
 import { ExposureSummary } from "@/features/exposure/components/exposure-summary";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
@@ -38,6 +39,10 @@ export function ExposurePageClient() {
       {activePortfolioId && (
         <>
           <ExposureSummary portfolioId={activePortfolioId} />
+          <section>
+            <h2 className="mb-3 text-lg font-semibold">History</h2>
+            <ExposureHistoryChart portfolioId={activePortfolioId} />
+          </section>
           <ExposureBreakdowns portfolioId={activePortfolioId} />
         </>
       )}

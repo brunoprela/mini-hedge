@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { cn } from "@/shared/lib/cn";
 import { hedgeRecommendationsQueryOptions } from "../api";
+import type { HedgeRecommendation } from "../types";
 
 function fmtAmount(value: string): string {
   return new Intl.NumberFormat("en-US", {
@@ -12,7 +13,13 @@ function fmtAmount(value: string): string {
   }).format(Number(value));
 }
 
-export function HedgeRecommendations({ portfolioId }: { portfolioId: string }) {
+export function HedgeRecommendations({
+  portfolioId,
+  onExecuteRecommendation,
+}: {
+  portfolioId: string;
+  onExecuteRecommendation?: (rec: HedgeRecommendation) => void;
+}) {
   const { fundSlug } = useFundContext();
   const { data: recs, isLoading } = useQuery(
     hedgeRecommendationsQueryOptions(fundSlug, portfolioId),
@@ -51,6 +58,11 @@ export function HedgeRecommendations({ portfolioId }: { portfolioId: string }) {
             <th className="px-4 py-3 text-right font-medium text-[var(--muted-foreground)]">
               Tenor
             </th>
+            {onExecuteRecommendation && (
+              <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">
+                Action
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -80,6 +92,17 @@ export function HedgeRecommendations({ portfolioId }: { portfolioId: string }) {
                 {Number(rec.estimated_cost_bps).toFixed(1)}
               </td>
               <td className="px-4 py-3 text-right">{rec.tenor_days}d</td>
+              {onExecuteRecommendation && (
+                <td className="px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => onExecuteRecommendation(rec)}
+                    className="rounded px-2 py-1 text-xs font-medium text-[var(--primary)] hover:bg-[var(--primary)]/10"
+                  >
+                    Open Forward
+                  </button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

@@ -21,17 +21,18 @@ export function FXSummaryCards({ portfolioId }: { portfolioId: string }) {
     return <div className="text-sm text-[var(--muted-foreground)]">Loading FX summary...</div>;
   }
 
+  const currencies = Object.keys(summary.currency_breakdown);
   const cards = [
-    { label: "Open Forwards", value: String(summary.total_open_forwards) },
+    { label: "Open Forwards", value: String(summary.open_forwards) },
     { label: "Total Notional", value: fmtNumber(summary.total_notional) },
     {
       label: "Net MTM",
-      value: fmtNumber(summary.net_mtm),
-      color: Number(summary.net_mtm) >= 0 ? "text-emerald-400" : "text-red-400",
+      value: fmtNumber(summary.total_mtm),
+      color: Number(summary.total_mtm) >= 0 ? "text-emerald-400" : "text-red-400",
     },
     {
       label: "Currencies Hedged",
-      value: summary.currencies_hedged.length > 0 ? summary.currencies_hedged.join(", ") : "None",
+      value: currencies.length > 0 ? currencies.join(", ") : "None",
     },
   ];
 

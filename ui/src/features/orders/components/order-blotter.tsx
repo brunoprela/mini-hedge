@@ -2,8 +2,11 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { StatusDot } from "@/shared/components/charts";
+import { QuickActions, type QuickAction } from "@/shared/components/quick-actions";
 import { SortableHeader, TablePagination, TableSearch } from "@/shared/components/table-controls";
 import { useExportCSV } from "@/shared/hooks/use-export-csv";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
@@ -22,6 +25,39 @@ const STATUS_TABS: { label: string; value: StatusFilter }[] = [
   { label: "Cancelled", value: "cancelled" },
   { label: "Rejected", value: "rejected" },
 ];
+
+function stateRowClass(state: string): string {
+  switch (state) {
+    case "filled":
+      return "bg-[var(--success-muted)]";
+    case "rejected":
+    case "cancelled":
+      return "bg-[var(--destructive-muted)]";
+    case "working":
+    case "partially_filled":
+      return "bg-[var(--primary-muted)]";
+    default:
+      return "";
+  }
+}
+
+function stateDotVariant(state: string): "success" | "warning" | "error" | "info" | "neutral" {
+  switch (state) {
+    case "filled":
+      return "success";
+    case "rejected":
+    case "cancelled":
+      return "error";
+    case "working":
+    case "partially_filled":
+    case "sent":
+      return "info";
+    case "pending_compliance":
+      return "warning";
+    default:
+      return "neutral";
+  }
+}
 
 /** Order states that can be cancelled */
 const CANCELLABLE_STATES = new Set([
@@ -218,26 +254,46 @@ export function OrderBlotter({ portfolioId }: { portfolioId: string }) {
                 direction={table.sortDirection}
                 onSort={table.onSort}
               />
-              {canCancel && (
-                <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
-                  Actions
-                </th>
-              )}
+              <th className="w-10 px-3 py-2" />
             </tr>
           </thead>
           <tbody>
             {table.rows.map((row) => {
               const order = row as Record<string, unknown>;
-              const isCancellable = CANCELLABLE_STATES.has(order.state as string);
-              const isCancelling = cancellingId === (order.id as string);
+              const state = order.state as string;
+              const isCancellable = CANCELLABLE_STATES.has(state);
+              const orderId = order.id as string;
+
+              const actions: QuickAction[] = [
+                {
+                  label: "View Details",
+                  onClick: () => window.location.assign(`/${fundSlug}/orders/${orderId}/tca`),
+                },
+              ];
+              if (state === "filled") {
+                actions.push({
+                  label: "View TCA",
+                  variant: "primary",
+                  onClick: () => window.location.assign(`/${fundSlug}/orders/${orderId}/tca`),
+                });
+              }
+              if (isCancellable && canCancel) {
+                actions.push({
+                  label: "Cancel Order",
+                  variant: "danger",
+                  onClick: () => cancelMutation.mutate(orderId),
+                  disabled: cancellingId === orderId,
+                });
+              }
 
               return (
                 <tr
-                  key={order.id as string}
-                  className="border-b border-[var(--table-border)] last:border-0 hover:bg-[var(--table-row-hover)]"
+                  key={orderId}
+                  className={`border-b border-[var(--table-border)] last:border-0 hover:bg-[var(--table-row-hover)] ${stateRowClass(state)}`}
                 >
                   <td className="px-3 py-2 pr-4 font-medium">
-                    <span className="flex items-center gap-1.5">
+                    <span className="flex items-center gap-2">
+                      <StatusDot variant={stateDotVariant(state)} size={7} />
                       {order.parent_order_id ? (
                         <span
                           className="text-[10px] text-[var(--muted-foreground)]"
@@ -246,7 +302,9 @@ export function OrderBlotter({ portfolioId }: { portfolioId: string }) {
                           ↳
                         </span>
                       ) : null}
-                      {order.instrument_id as string}
+                      <span className="text-[var(--foreground)]">
+                        {order.instrument_id as string}
+                      </span>
                       {order.algo_type ? (
                         <AlgoTypeBadge algoType={order.algo_type as string} />
                       ) : null}
@@ -254,20 +312,20 @@ export function OrderBlotter({ portfolioId }: { portfolioId: string }) {
                   </td>
                   <td className="px-3 py-2 pr-4">
                     <span
-                      className={
+                      className={`text-xs font-medium uppercase ${
                         (order.side as string) === "buy"
                           ? "text-[var(--success)]"
                           : "text-[var(--destructive)]"
-                      }
+                      }`}
                     >
                       {(order.side as string).toUpperCase()}
                     </span>
                   </td>
                   <td className="px-3 py-2 pr-4">{order.order_type as string}</td>
-                  <td className="px-3 py-2 pr-4 text-right">
+                  <td className="px-3 py-2 pr-4 text-right font-mono">
                     {parseFloat(order.quantity as string).toLocaleString()}
                   </td>
-                  <td className="px-3 py-2 pr-4 text-right">
+                  <td className="px-3 py-2 pr-4 text-right font-mono">
                     {parseFloat(order.filled_quantity as string).toLocaleString()}
                     {order.is_parent && Number(order.children_count) > 0 ? (
                       <span className="ml-1 text-[10px] text-[var(--muted-foreground)]">
@@ -275,31 +333,20 @@ export function OrderBlotter({ portfolioId }: { portfolioId: string }) {
                       </span>
                     ) : null}
                   </td>
-                  <td className="px-3 py-2 pr-4 text-right">
+                  <td className="px-3 py-2 pr-4 text-right font-mono">
                     {order.avg_fill_price
                       ? `$${parseFloat(order.avg_fill_price as string).toFixed(2)}`
                       : "\u2014"}
                   </td>
                   <td className="px-3 py-2 pr-4">
-                    <OrderStateBadge state={order.state as string} />
+                    <OrderStateBadge state={state} />
                   </td>
                   <td className="px-3 py-2 text-xs text-[var(--muted-foreground)]">
                     {new Date(order.created_at as string).toLocaleTimeString()}
                   </td>
-                  {canCancel && (
-                    <td className="px-3 py-2">
-                      {isCancellable && (
-                        <button
-                          type="button"
-                          onClick={() => cancelMutation.mutate(order.id as string)}
-                          disabled={isCancelling}
-                          className="rounded-md border border-[var(--destructive)] px-2 py-1 text-xs font-medium text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)] hover:text-white disabled:opacity-50"
-                        >
-                          {isCancelling ? "Cancelling..." : "Cancel"}
-                        </button>
-                      )}
-                    </td>
-                  )}
+                  <td className="px-3 py-2">
+                    <QuickActions actions={actions} />
+                  </td>
                 </tr>
               );
             })}

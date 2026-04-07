@@ -22,6 +22,7 @@ const STATUS_STYLES: Record<string, string> = {
   failed: "bg-red-400/20 text-red-400",
   running: "bg-blue-400/20 text-blue-400",
   pending: "bg-zinc-400/20 text-zinc-400",
+  skipped: "bg-zinc-400/10 text-zinc-500",
 };
 
 export function EODRunStatus({ businessDate }: { businessDate: string }) {

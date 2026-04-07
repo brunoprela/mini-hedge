@@ -86,9 +86,10 @@ export async function openForward(
 
 export async function closeForward(
   fundSlug: string,
+  forwardId: string,
   data: FXForwardClose,
 ): Promise<FXForwardContract> {
-  return clientFetch<FXForwardContract>("/fx-hedging/forwards/close", {
+  return clientFetch<FXForwardContract>(`/fx-hedging/forwards/${forwardId}/close`, {
     fundSlug,
     method: "POST",
     body: data,
@@ -97,9 +98,10 @@ export async function closeForward(
 
 export async function rollForward(
   fundSlug: string,
+  forwardId: string,
   data: FXForwardRoll,
 ): Promise<FXForwardContract> {
-  return clientFetch<FXForwardContract>("/fx-hedging/forwards/roll", {
+  return clientFetch<FXForwardContract>(`/fx-hedging/forwards/${forwardId}/roll`, {
     fundSlug,
     method: "POST",
     body: data,
@@ -110,5 +112,18 @@ export async function triggerMTM(fundSlug: string, portfolioId: string): Promise
   await clientFetch(`/fx-hedging/forwards/${portfolioId}/mtm`, {
     fundSlug,
     method: "POST",
+  });
+}
+
+export async function setInterestRate(
+  fundSlug: string,
+  currency: string,
+  rate: number | string,
+  tenorDays = 30,
+  source = "manual",
+): Promise<void> {
+  await clientFetch(`/fx-hedging/interest-rates/${currency}?rate=${rate}&tenor_days=${tenorDays}&source=${source}`, {
+    fundSlug,
+    method: "PUT",
   });
 }

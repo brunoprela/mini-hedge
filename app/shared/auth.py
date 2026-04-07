@@ -179,6 +179,8 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.ALPHA_WRITE,
             Permission.CAPITAL_READ,
             Permission.CAPITAL_WRITE,
+            Permission.FX_HEDGING_READ,
+            Permission.FX_HEDGING_WRITE,
         }
     ),
     Role.PORTFOLIO_MANAGER: frozenset(
@@ -202,6 +204,8 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.ALPHA_WRITE,
             Permission.CAPITAL_READ,
             Permission.CAPITAL_WRITE,
+            Permission.FX_HEDGING_READ,
+            Permission.FX_HEDGING_WRITE,
         }
     ),
     Role.ANALYST: frozenset(
@@ -217,6 +221,7 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.ATTRIBUTION_READ,
             Permission.ALPHA_READ,
             Permission.CAPITAL_READ,
+            Permission.FX_HEDGING_READ,
         }
     ),
     Role.RISK_MANAGER: frozenset(
@@ -233,6 +238,7 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.ATTRIBUTION_READ,
             Permission.ALPHA_READ,
             Permission.CAPITAL_READ,
+            Permission.FX_HEDGING_READ,
         }
     ),
     Role.COMPLIANCE_OFFICER: frozenset(
@@ -250,6 +256,7 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.ATTRIBUTION_READ,
             Permission.ALPHA_READ,
             Permission.CAPITAL_READ,
+            Permission.FX_HEDGING_READ,
         }
     ),
     Role.VIEWER: frozenset(
@@ -259,6 +266,7 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.POSITIONS_READ,
             Permission.FUNDS_READ,
             Permission.ORDERS_READ,
+            Permission.FX_HEDGING_READ,
         }
     ),
 }

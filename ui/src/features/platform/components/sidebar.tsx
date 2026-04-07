@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Activity,
   AlertTriangle,
   ArrowLeftRight,
   BarChart3,
@@ -8,6 +9,7 @@ import {
   Calendar,
   ChevronDown,
   ClipboardList,
+  FileText,
   LayoutDashboard,
   Lightbulb,
   PieChart,
@@ -30,6 +32,7 @@ import { NAV_ITEMS, type NavItem } from "@/shared/lib/navigation";
 import { LogoutButton } from "./logout-button";
 
 const ICONS = {
+  Activity,
   LayoutDashboard,
   Briefcase,
   Search,
@@ -46,6 +49,7 @@ const ICONS = {
   ArrowLeftRight,
   Calendar,
   Receipt,
+  FileText,
 } as const;
 
 /* Group nav items by category for the collapsible sections */
@@ -56,23 +60,31 @@ interface NavGroup {
 }
 
 function groupNavItems(items: NavItem[]): NavGroup[] {
-  const dashboard = items.filter((i) => i.href === "");
-  const trading = items.filter((i) =>
-    ["/portfolio", "/orders", "/exposure", "/fx-hedging"].includes(i.href),
+  const monitor = items.filter((i) => i.href === "");
+  const portfolios = items.filter((i) => i.href === "/portfolio");
+  const trade = items.filter((i) =>
+    ["/orders", "/tca", "/fx-hedging"].includes(i.href),
   );
-  const analytics = items.filter((i) => ["/attribution", "/risk", "/alpha"].includes(i.href));
-  const operations = items.filter((i) => ["/investors", "/cash", "/eod", "/fees"].includes(i.href));
-  const compliance = items.filter((i) => ["/compliance"].includes(i.href));
-  const marketData = items.filter((i) => ["/instruments", "/market-data"].includes(i.href));
+  const riskCompliance = items.filter((i) =>
+    ["/risk", "/exposure", "/compliance", "/alpha"].includes(i.href),
+  );
+  const operations = items.filter((i) =>
+    ["/corporate-actions", "/cash", "/eod", "/fees"].includes(i.href),
+  );
+  const investors = items.filter((i) => ["/investors"].includes(i.href));
+  const analytics = items.filter((i) =>
+    ["/attribution", "/instruments", "/market-data"].includes(i.href),
+  );
   const settings = items.filter((i) => i.href === "/settings");
 
   return [
-    { label: "", items: dashboard, defaultOpen: true },
-    { label: "Trading", items: trading, defaultOpen: true },
-    { label: "Analytics", items: analytics, defaultOpen: true },
+    { label: "", items: monitor, defaultOpen: true },
+    { label: "Portfolios", items: portfolios, defaultOpen: true },
+    { label: "Trade", items: trade, defaultOpen: true },
+    { label: "Risk & Compliance", items: riskCompliance, defaultOpen: true },
     { label: "Operations", items: operations, defaultOpen: true },
-    { label: "Compliance", items: compliance, defaultOpen: true },
-    { label: "Market Data", items: marketData, defaultOpen: true },
+    { label: "Investors", items: investors, defaultOpen: true },
+    { label: "Analytics & Data", items: analytics, defaultOpen: true },
     { label: "Settings", items: settings, defaultOpen: true },
   ].filter((g) => g.items.length > 0);
 }

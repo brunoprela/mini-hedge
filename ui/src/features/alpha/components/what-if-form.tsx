@@ -1,7 +1,8 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { runWhatIf } from "../api";
@@ -23,10 +24,33 @@ function emptyTrade(): TradeRow {
 export function WhatIfForm({ portfolioId }: { portfolioId: string }) {
   const { fundSlug } = useFundContext();
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
 
   const [scenarioName, setScenarioName] = useState("");
   const [trades, setTrades] = useState<TradeRow[]>([emptyTrade()]);
   const [result, setResult] = useState<WhatIfResult | null>(null);
+
+  // Pre-fill from query params (e.g. from stress test "What-If →" link)
+  useEffect(() => {
+    const scenario = searchParams.get("scenario");
+    const instrument = searchParams.get("instrument");
+    const side = searchParams.get("side");
+    const quantity = searchParams.get("quantity");
+
+    if (scenario && !scenarioName) {
+      setScenarioName(`Hedge: ${scenario}`);
+    }
+    if (instrument) {
+      setTrades([
+        {
+          ...emptyTrade(),
+          instrument_id: instrument,
+          side: (side as "buy" | "sell") || "buy",
+          quantity: quantity || "",
+        },
+      ]);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const mutation = useMutation({
     mutationFn: () =>

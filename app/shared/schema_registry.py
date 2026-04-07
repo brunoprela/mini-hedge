@@ -94,6 +94,7 @@ def shared_topics() -> list[str]:
     """Return all shared (global) Kafka topics."""
     return [
         shared_topic("prices.normalized"),
+        shared_topic("fx-rates.normalized"),
         shared_topic("interest-rates"),
         shared_topic("fx-forwards"),
     ]

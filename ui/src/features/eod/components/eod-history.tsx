@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { cn } from "@/shared/lib/cn";
 import { eodHistoryQueryOptions } from "../api";
@@ -22,7 +23,16 @@ export function EODHistory({ onSelectDate }: { onSelectDate: (date: string) => v
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-[var(--border)]">
+    <div className="space-y-2">
+      <div className="flex justify-end">
+        <Link
+          href={`/${fundSlug}/fees`}
+          className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] underline-offset-2 hover:underline"
+        >
+          View Fee Accruals →
+        </Link>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-[var(--border)]">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-[var(--border)] bg-[var(--card)]">
@@ -84,6 +94,7 @@ export function EODHistory({ onSelectDate }: { onSelectDate: (date: string) => v
           })}
         </tbody>
       </table>
+    </div>
     </div>
   );
 }

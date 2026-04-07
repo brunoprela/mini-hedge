@@ -5,7 +5,7 @@ import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { cn } from "@/shared/lib/cn";
 import { feeAccrualsQueryOptions } from "../api";
 
-function fmtAmount(value: string): string {
+function fmtAmount(value: string | number): string {
   return new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -15,6 +15,13 @@ function fmtAmount(value: string): string {
 const TYPE_STYLES: Record<string, string> = {
   management: "bg-blue-400/10 text-blue-400",
   performance: "bg-purple-400/10 text-purple-400",
+  admin: "bg-zinc-400/10 text-zinc-400",
+};
+
+const STATUS_STYLES: Record<string, string> = {
+  accrued: "text-amber-400",
+  crystallized: "text-blue-400",
+  paid: "text-emerald-400",
 };
 
 export function AccrualsTable({ portfolioId }: { portfolioId: string }) {
@@ -76,7 +83,16 @@ export function AccrualsTable({ portfolioId }: { portfolioId: string }) {
               <td className="px-4 py-3 text-right tabular-nums">
                 {fmtAmount(a.cumulative_amount)}
               </td>
-              <td className="px-4 py-3 text-xs text-[var(--muted-foreground)]">{a.status}</td>
+              <td className="px-4 py-3">
+                <span
+                  className={cn(
+                    "text-xs font-medium",
+                    STATUS_STYLES[a.status] ?? "text-[var(--muted-foreground)]",
+                  )}
+                >
+                  {a.status}
+                </span>
+              </td>
             </tr>
           ))}
         </tbody>

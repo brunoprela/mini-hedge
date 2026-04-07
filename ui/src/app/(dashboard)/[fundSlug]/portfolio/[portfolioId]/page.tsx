@@ -1,13 +1,5 @@
 import { HydrationBoundary } from "@tanstack/react-query";
-import { AttributionSummaryCard } from "@/features/attribution/components/attribution-summary-card";
-import { CashSummaryCard } from "@/features/cash/components/cash-summary-card";
-import { ComplianceBanner } from "@/features/compliance/components/compliance-banner";
-import { ExposureSummary } from "@/features/exposure/components/exposure-summary";
-import { ForwardsTable, FXSummaryCards } from "@/features/fx-hedging";
-import { OrderBlotter } from "@/features/orders/components/order-blotter";
-import { PortfolioSummary } from "@/features/portfolio/components/portfolio-summary";
-import { PositionTable } from "@/features/portfolio/components/position-table";
-import { RiskSummaryCard } from "@/features/risk/components/risk-summary-card";
+import { PortfolioDetailClient } from "./portfolio-detail-client";
 import { prefetch } from "@/shared/lib/prefetch";
 
 export default async function PortfolioDetailPage({
@@ -39,44 +31,17 @@ export default async function PortfolioDetailPage({
     { queryKey: ["cash-balances", fundSlug, portfolioId], path: `/cash/${portfolioId}/balances` },
     {
       queryKey: ["fx-forwards", fundSlug, portfolioId],
-      path: `/fx-hedging/forwards?portfolio_id=${portfolioId}`,
+      path: `/fx-hedging/forwards/${portfolioId}`,
     },
     {
       queryKey: ["fx-hedging-summary", fundSlug, portfolioId],
-      path: `/fx-hedging/summary?portfolio_id=${portfolioId}`,
+      path: `/fx-hedging/summary/${portfolioId}`,
     },
   ]);
 
   return (
     <HydrationBoundary state={dehydratedState}>
-      <div className="space-y-4">
-        <ComplianceBanner portfolioId={portfolioId} />
-
-        <h1 className="text-2xl font-semibold">Portfolio</h1>
-        <PortfolioSummary portfolioId={portfolioId} />
-
-        <h2 className="text-lg font-semibold">Exposure</h2>
-        <ExposureSummary portfolioId={portfolioId} />
-
-        <h2 className="text-lg font-semibold">Risk</h2>
-        <RiskSummaryCard portfolioId={portfolioId} />
-
-        <h2 className="text-lg font-semibold">Positions</h2>
-        <PositionTable portfolioId={portfolioId} />
-
-        <h2 className="text-lg font-semibold">Orders</h2>
-        <OrderBlotter portfolioId={portfolioId} />
-
-        <h2 className="text-lg font-semibold">Cash</h2>
-        <CashSummaryCard portfolioId={portfolioId} />
-
-        <h2 className="text-lg font-semibold">FX Hedging</h2>
-        <FXSummaryCards portfolioId={portfolioId} />
-        <ForwardsTable portfolioId={portfolioId} />
-
-        <h2 className="text-lg font-semibold">Attribution</h2>
-        <AttributionSummaryCard portfolioId={portfolioId} />
-      </div>
+      <PortfolioDetailClient portfolioId={portfolioId} />
     </HydrationBoundary>
   );
 }

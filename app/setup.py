@@ -344,6 +344,8 @@ def setup_market_data(
     fastapi_app.state.market_data_service = market_data_service
 
     event_bus.subscribe(shared_topic("prices.normalized"), _make_price_handler(market_data_service))
+    fx_rate_handler = _make_fx_rate_handler(market_data_service)
+    event_bus.subscribe(shared_topic("fx-rates.normalized"), fx_rate_handler)
     return market_data_service
 
 
@@ -1175,11 +1177,7 @@ async def _seed_fx_hedging(
 
 
 def _make_price_handler(market_data_service: MarketDataService) -> EventHandler:
-    """Create a price event handler bound to the given service.
-
-    Routes FX ticks (instrument_id starting with ``FX:``) to the FX rate
-    path; everything else goes through the equity price path.
-    """
+    """Create a price event handler for equity/instrument prices."""
 
     _required_fields = ("instrument_id", "bid", "ask", "mid", "source")
 
@@ -1188,29 +1186,6 @@ def _make_price_handler(market_data_service: MarketDataService) -> EventHandler:
             data = event.data
             instrument_id: str = data.get("instrument_id", "")
 
-            # ── FX rate event (e.g. instrument_id="FX:USD/GBP") ──
-            if instrument_id.startswith("FX:"):
-                pair = instrument_id[3:]  # "USD/GBP"
-                parts = pair.split("/")
-                if len(parts) != 2:
-                    logger.warning("fx_event_bad_pair", pair=pair)
-                    return
-                rate_str = data.get("mid") or data.get("rate")
-                if rate_str is None:
-                    logger.warning("fx_event_missing_rate", pair=pair)
-                    return
-                fx_snapshot = FXRateSnapshot(
-                    base_currency=parts[0],
-                    quote_currency=parts[1],
-                    rate=Decimal(rate_str),
-                    timestamp=event.timestamp,
-                    source=data.get("source", "mock-exchange"),
-                )
-                market_data_service.update_fx_rate(fx_snapshot)
-                await market_data_service.store_fx_rate(fx_snapshot)
-                return
-
-            # ── Equity / standard price event ──
             if not all(k in data for k in _required_fields):
                 logger.warning(
                     "price_event_missing_fields",
@@ -1234,6 +1209,38 @@ def _make_price_handler(market_data_service: MarketDataService) -> EventHandler:
             logger.exception("price_event_handler_failed", event_id=event.event_id)
 
     return on_price_event
+
+
+def _make_fx_rate_handler(market_data_service: MarketDataService) -> EventHandler:
+    """Create a handler for FX rate events on the dedicated fx-rates topic."""
+
+    async def on_fx_rate_event(event: BaseEvent) -> None:
+        try:
+            data = event.data
+            instrument_id: str = data.get("instrument_id", "")
+
+            pair = instrument_id.removeprefix("FX:")
+            parts = pair.split("/")
+            if len(parts) != 2:
+                logger.warning("fx_event_bad_pair", pair=pair)
+                return
+            rate_str = data.get("mid") or data.get("rate")
+            if rate_str is None:
+                logger.warning("fx_event_missing_rate", pair=pair)
+                return
+            fx_snapshot = FXRateSnapshot(
+                base_currency=parts[0],
+                quote_currency=parts[1],
+                rate=Decimal(rate_str),
+                timestamp=event.timestamp,
+                source=data.get("source", "mock-exchange"),
+            )
+            market_data_service.update_fx_rate(fx_snapshot)
+            await market_data_service.store_fx_rate(fx_snapshot)
+        except Exception:
+            logger.exception("fx_rate_event_handler_failed", event_id=event.event_id)
+
+    return on_fx_rate_event
 
 
 def _make_interest_rate_handler(fx_hedging_service: FXHedgingService) -> EventHandler:

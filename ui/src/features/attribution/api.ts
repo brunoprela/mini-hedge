@@ -1,6 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import { clientFetch } from "@/shared/lib/api";
-import type { BrinsonFachlerResult, CumulativeAttribution, RiskBasedResult } from "./types";
+import type { BrinsonFachlerResult, CumulativeAttribution, FXAttributionResult, RiskBasedResult } from "./types";
 
 export function brinsonFachlerQueryOptions(
   fundSlug: string,
@@ -47,6 +47,23 @@ export function cumulativeQueryOptions(
     queryFn: () =>
       clientFetch<CumulativeAttribution>(
         `/attribution/${portfolioId}/cumulative?start=${start}&end=${end}`,
+        { fundSlug },
+      ),
+    enabled: Boolean(portfolioId && start && end),
+  });
+}
+
+export function fxAttributionQueryOptions(
+  fundSlug: string,
+  portfolioId: string,
+  start: string,
+  end: string,
+) {
+  return queryOptions({
+    queryKey: ["attribution", "fx", fundSlug, portfolioId, start, end],
+    queryFn: () =>
+      clientFetch<FXAttributionResult>(
+        `/attribution/${portfolioId}/fx?start=${start}&end=${end}`,
         { fundSlug },
       ),
     enabled: Boolean(portfolioId && start && end),

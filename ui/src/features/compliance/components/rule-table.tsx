@@ -8,7 +8,7 @@ import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { usePermission } from "@/shared/hooks/use-permission";
 import { useTableState } from "@/shared/hooks/use-table-state";
 import { Permission } from "@/shared/lib/permissions";
-import { rulesQueryOptions, updateRule } from "../api";
+import { deleteRule, rulesQueryOptions, updateRule } from "../api";
 import type { RuleDefinition } from "../types";
 import { RuleFormDialog } from "./rule-form-dialog";
 
@@ -65,6 +65,17 @@ export function RuleTable() {
     initialSort: { key: "name", direction: "asc" },
     pageSize: 20,
     searchKeys: ["name", "rule_type", "severity"],
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (ruleId: string) => deleteRule(fundSlug, ruleId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["compliance-rules"] });
+      toast.success("Rule deleted");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
   });
 
   const toggleMutation = useMutation({
@@ -218,6 +229,18 @@ export function RuleTable() {
                         className="text-sm text-[var(--muted-foreground)] underline hover:text-[var(--foreground)]"
                       >
                         Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`Delete rule "${rule.name}"? This cannot be undone.`)) {
+                            deleteMutation.mutate(rule.id);
+                          }
+                        }}
+                        disabled={deleteMutation.isPending}
+                        className="ml-2 text-sm text-[var(--destructive)] underline hover:text-[var(--destructive)]"
+                      >
+                        Delete
                       </button>
                     </td>
                   )}

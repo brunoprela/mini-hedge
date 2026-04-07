@@ -1,32 +1,70 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftRight } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   ForwardsTable,
   FXSummaryCards,
   HedgeRecommendations,
   InterestRatesPanel,
+  OpenForwardDialog,
 } from "@/features/fx-hedging";
+import { triggerMTM } from "@/features/fx-hedging/api";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
+import type { HedgeRecommendation } from "@/features/fx-hedging/types";
 
 type Tab = "forwards" | "recommendations" | "rates";
 
+interface Prefill {
+  base_currency?: string;
+  quote_currency?: string;
+  direction?: string;
+  notional?: string;
+  contract_rate?: string;
+}
+
 export function FXHedgingPageClient() {
   const { fundSlug } = useFundContext();
+  const queryClient = useQueryClient();
   const { data: portfolios, isLoading } = useQuery(portfoliosQueryOptions(fundSlug));
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string>("");
   const [activeTab, setActiveTab] = useState<Tab>("forwards");
+  const [showOpenForward, setShowOpenForward] = useState(false);
+  const [prefill, setPrefill] = useState<Prefill | undefined>(undefined);
 
   const activePortfolioId = selectedPortfolioId || portfolios?.[0]?.id || "";
+
+  const mtmMutation = useMutation({
+    mutationFn: () => triggerMTM(fundSlug, activePortfolioId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["fx-forwards"] });
+      queryClient.invalidateQueries({ queryKey: ["fx-hedging-summary"] });
+      toast.success("MTM refresh triggered");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to refresh MTM");
+    },
+  });
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "forwards", label: "Forwards" },
     { key: "recommendations", label: "Hedge Recommendations" },
     { key: "rates", label: "Interest Rates" },
   ];
+
+  function handleExecuteRecommendation(rec: HedgeRecommendation) {
+    setPrefill({
+      base_currency: rec.base_currency,
+      quote_currency: rec.quote_currency,
+      direction: rec.direction,
+      notional: rec.notional,
+      contract_rate: rec.estimated_forward,
+    });
+    setShowOpenForward(true);
+  }
 
   return (
     <div className="space-y-6">
@@ -35,19 +73,43 @@ export function FXHedgingPageClient() {
           <ArrowLeftRight className="h-6 w-6 text-[var(--primary)]" />
           <h1 className="text-2xl font-semibold">FX Hedging</h1>
         </div>
-        {portfolios && portfolios.length > 1 && (
-          <select
-            value={activePortfolioId}
-            onChange={(e) => setSelectedPortfolioId(e.target.value)}
-            className="rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm"
-          >
-            {portfolios.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        )}
+        <div className="flex items-center gap-2">
+          {activePortfolioId && (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setPrefill(undefined);
+                  setShowOpenForward(true);
+                }}
+                className="rounded-md bg-[var(--primary)] px-3 py-1.5 text-sm font-medium text-white"
+              >
+                + Open Forward
+              </button>
+              <button
+                type="button"
+                onClick={() => mtmMutation.mutate()}
+                disabled={mtmMutation.isPending}
+                className="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--sidebar-active)] disabled:opacity-50"
+              >
+                {mtmMutation.isPending ? "Refreshing..." : "Refresh MTM"}
+              </button>
+            </>
+          )}
+          {portfolios && portfolios.length > 1 && (
+            <select
+              value={activePortfolioId}
+              onChange={(e) => setSelectedPortfolioId(e.target.value)}
+              className="rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm"
+            >
+              {portfolios.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
 
       {isLoading && <p className="text-sm text-[var(--muted-foreground)]">Loading portfolios...</p>}
@@ -75,10 +137,21 @@ export function FXHedgingPageClient() {
 
           {activeTab === "forwards" && <ForwardsTable portfolioId={activePortfolioId} />}
           {activeTab === "recommendations" && (
-            <HedgeRecommendations portfolioId={activePortfolioId} />
+            <HedgeRecommendations
+              portfolioId={activePortfolioId}
+              onExecuteRecommendation={handleExecuteRecommendation}
+            />
           )}
           {activeTab === "rates" && <InterestRatesPanel />}
         </>
+      )}
+
+      {showOpenForward && activePortfolioId && (
+        <OpenForwardDialog
+          portfolioId={activePortfolioId}
+          onClose={() => setShowOpenForward(false)}
+          prefill={prefill}
+        />
       )}
     </div>
   );

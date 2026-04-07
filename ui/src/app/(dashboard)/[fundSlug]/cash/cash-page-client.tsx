@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useState } from "react";
 import { CashDashboard } from "@/features/cash/components/cash-dashboard";
 import { CashProjection } from "@/features/cash/components/cash-projection";
@@ -18,7 +19,15 @@ export function CashPageClient() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Cash Management</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold">Cash Management</h1>
+          <Link
+            href={`/${fundSlug}/orders`}
+            className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] underline-offset-2 hover:underline"
+          >
+            View Orders →
+          </Link>
+        </div>
         {portfolios && portfolios.length > 1 && (
           <select
             value={activePortfolioId}

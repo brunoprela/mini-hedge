@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useState } from "react";
 import { AttributionDashboard } from "@/features/attribution/components/attribution-dashboard";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
@@ -16,7 +17,15 @@ export function AttributionPageClient() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Attribution</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold">Attribution</h1>
+          <Link
+            href={`/${fundSlug}/portfolio`}
+            className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] underline-offset-2 hover:underline"
+          >
+            View Positions →
+          </Link>
+        </div>
         {portfolios && portfolios.length > 1 && (
           <select
             value={activePortfolioId}

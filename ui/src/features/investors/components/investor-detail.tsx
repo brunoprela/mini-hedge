@@ -2,11 +2,13 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useState } from "react";
 import {
   investorHistoryQueryOptions,
   investorTransactionsQueryOptions,
 } from "@/features/investors/api";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
+import { CapitalActionDialog } from "./capital-action-dialog";
 
 export function InvestorDetail({ investorId }: { investorId: string }) {
   const { fundSlug } = useFundContext();
@@ -16,6 +18,7 @@ export function InvestorDetail({ investorId }: { investorId: string }) {
   const { data: transactions } = useQuery(investorTransactionsQueryOptions(fundSlug, investorId));
 
   const latest = history?.[0];
+  const [capitalAction, setCapitalAction] = useState<"subscription" | "redemption" | null>(null);
 
   return (
     <div className="space-y-6">
@@ -28,7 +31,21 @@ export function InvestorDetail({ investorId }: { investorId: string }) {
         </Link>
         <span className="text-sm text-[var(--muted-foreground)]">/</span>
         <h1 className="text-2xl font-semibold">{latest?.investor_name ?? "Investor"}</h1>
-        <span className="ml-auto text-sm">
+        <span className="ml-auto flex items-center gap-2 text-sm">
+          <button
+            type="button"
+            onClick={() => setCapitalAction("subscription")}
+            className="rounded-md bg-[var(--success)] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:brightness-110"
+          >
+            Subscription
+          </button>
+          <button
+            type="button"
+            onClick={() => setCapitalAction("redemption")}
+            className="rounded-md bg-[var(--destructive)] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:brightness-110"
+          >
+            Redemption
+          </button>
           <Link
             href={`/${fundSlug}/cash`}
             className="text-[var(--muted-foreground)] underline-offset-2 hover:text-[var(--foreground)] hover:underline"
@@ -37,6 +54,15 @@ export function InvestorDetail({ investorId }: { investorId: string }) {
           </Link>
         </span>
       </div>
+
+      {capitalAction && (
+        <CapitalActionDialog
+          investorId={investorId}
+          investorName={latest?.investor_name ?? "Investor"}
+          actionType={capitalAction}
+          onClose={() => setCapitalAction(null)}
+        />
+      )}
 
       {historyLoading && <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>}
 
