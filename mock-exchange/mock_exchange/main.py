@@ -20,8 +20,11 @@ from mock_exchange.execution.impact import MarketImpactModel
 from mock_exchange.execution.routes import router as execution_router
 from mock_exchange.fund_admin.routes import router as fund_admin_router
 from mock_exchange.fund_admin.service import FundAdminService
+from mock_exchange.market_data.fx_forward import FXForwardService
+from mock_exchange.market_data.fx_routes import router as fx_router
 from mock_exchange.market_data.routes import router as market_data_router
 from mock_exchange.market_data.service import MarketDataService
+from mock_exchange.market_data.yield_curve import YieldCurveSimulator
 from mock_exchange.reference_data.instruments import INSTRUMENT_UNIVERSE
 from mock_exchange.reference_data.routes import router as reference_data_router
 from mock_exchange.scenarios.engine import ScenarioEngine
@@ -52,6 +55,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # Build instrument lookup
     instruments = {i.ticker: i for i in INSTRUMENT_UNIVERSE}
+
+    # Yield curve simulator — provides term structures for all currencies
+    yield_curve_simulator = YieldCurveSimulator()
+    app.state.yield_curve_simulator = yield_curve_simulator
 
     # Market impact model
     impact_model = MarketImpactModel(eta=settings.market_impact_eta)
@@ -96,6 +103,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         execution_engine._order_books = market_data_service.order_books
         execution_engine._trade_tape = market_data_service.trade_tape
 
+        # Wire yield curves into GBM simulator for co-ticking
+        if market_data_service.simulator:
+            market_data_service.simulator.yield_curves = yield_curve_simulator
+
+    # FX forward service — OTC counterparty simulation
+    fx_forward_service = FXForwardService(
+        yield_curves=yield_curve_simulator,
+        simulator=market_data_service.simulator,
+        producer=producer,
+    )
+    app.state.fx_forward_service = fx_forward_service
+
     logger.info("mock_exchange_started")
     yield
 
@@ -112,6 +131,7 @@ app = FastAPI(
 )
 
 app.include_router(market_data_router, prefix="/api/v1")
+app.include_router(fx_router, prefix="/api/v1")
 app.include_router(reference_data_router, prefix="/api/v1")
 app.include_router(execution_router, prefix="/api/v1")
 app.include_router(scenarios_router, prefix="/api/v1")

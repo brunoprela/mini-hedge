@@ -38,6 +38,7 @@ from app.modules.corporate_actions.routes import router as corporate_actions_rou
 from app.modules.eod.routes import router as eod_router
 from app.modules.exposure.routes import router as exposure_router
 from app.modules.fee_accounting.routes import router as fee_router
+from app.modules.fx_hedging.routes import router as fx_hedging_router
 from app.modules.market_data.routes import fx_router
 from app.modules.market_data.routes import router as market_data_router
 from app.modules.orders.allocation_routes import router as allocation_router
@@ -63,6 +64,7 @@ from app.setup import (
     setup_exposure,
     setup_fee_accounting,
     setup_fga,
+    setup_fx_hedging,
     setup_market_data,
     setup_orders,
     setup_platform,
@@ -200,6 +202,7 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     await setup_fee_accounting(fastapi_app, session_factory)
     await setup_capital_accounts(fastapi_app, session_factory)
     await setup_corporate_actions(fastapi_app, session_factory, kafka_bus, settings)
+    await setup_fx_hedging(fastapi_app, session_factory, kafka_bus)
     await setup_eod(fastapi_app, session_factory, broker_adapter, fund_admin=fund_admin_adapter)
     logger.info("phase_3_modules_ready")
 
@@ -434,6 +437,7 @@ app.include_router(corporate_actions_router, prefix="/api/v1")
 app.include_router(allocation_router, prefix="/api/v1")
 app.include_router(broker_router, prefix="/api/v1")
 app.include_router(tca_router, prefix="/api/v1")
+app.include_router(fx_hedging_router, prefix="/api/v1")
 
 # Prometheus metrics endpoint — plain Starlette route (bypasses auth via PUBLIC_PATHS)
 app.routes.append(Route("/metrics", metrics_route))

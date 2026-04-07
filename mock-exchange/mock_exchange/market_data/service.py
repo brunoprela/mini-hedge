@@ -22,6 +22,8 @@ from .simulator import DEFAULT_UNIVERSE, GBMSimulator, InstrumentConfig
 if TYPE_CHECKING:
     from mock_exchange.market_data.volume_profile import IntradayVolumeProfile
 
+    from .yield_curve import YieldCurveSimulator
+
 logger = structlog.get_logger()
 
 
@@ -39,6 +41,7 @@ class MarketDataService:
         self._trade_tape: TradeTape | None = None
         self._ambient_flow: AmbientFlowGenerator | None = None
         self._volume_profile: IntradayVolumeProfile = DEFAULT_PROFILE
+        self._yield_curves: YieldCurveSimulator | None = None
 
         # Build instrument lookup from reference data
         self._instruments: dict[str, InstrumentInfo] = {
@@ -125,6 +128,14 @@ class MarketDataService:
     @property
     def instruments(self) -> dict[str, InstrumentInfo]:
         return self._instruments
+
+    @property
+    def yield_curves(self) -> YieldCurveSimulator | None:
+        return self._yield_curves
+
+    @yield_curves.setter
+    def yield_curves(self, value: YieldCurveSimulator) -> None:
+        self._yield_curves = value
 
     def get_latest_price(self, ticker: str) -> PriceQuote | None:
         """Get latest price — prefer order book, fallback to GBM."""

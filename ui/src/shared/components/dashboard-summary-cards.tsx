@@ -5,6 +5,8 @@ import Link from "next/link";
 import { brinsonFachlerQueryOptions } from "@/features/attribution/api";
 import { cashBalancesQueryOptions } from "@/features/cash/api";
 import { violationsQueryOptions } from "@/features/compliance/api";
+import { eodHistoryQueryOptions } from "@/features/eod/api";
+import { fxHedgingSummaryQueryOptions } from "@/features/fx-hedging/api";
 import { capitalOverviewQueryOptions } from "@/features/investors/api";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
 import { riskSnapshotQueryOptions } from "@/features/risk/api";
@@ -28,6 +30,8 @@ export function DashboardSummaryCards() {
       {can(Permission.ATTRIBUTION_READ) && <AttributionCard portfolioId={firstPortfolioId} />}
       {can(Permission.COMPLIANCE_READ) && <ComplianceCard portfolioId={firstPortfolioId} />}
       {can(Permission.CAPITAL_READ) && <InvestorCard />}
+      {can(Permission.FX_HEDGING_READ) && <FXHedgingCard portfolioId={firstPortfolioId} />}
+      {can(Permission.EOD_READ) && <EODCard />}
     </div>
   );
 }
@@ -142,6 +146,71 @@ function ComplianceCard({ portfolioId }: { portfolioId: string }) {
       ]}
       accentColor="var(--destructive)"
       accentBg="var(--destructive-muted)"
+    />
+  );
+}
+
+function FXHedgingCard({ portfolioId }: { portfolioId: string }) {
+  const { fundSlug } = useFundContext();
+  const { data } = useQuery(fxHedgingSummaryQueryOptions(fundSlug, portfolioId));
+
+  return (
+    <SummaryCard
+      title="FX Hedging"
+      href={`/${fundSlug}/fx-hedging`}
+      items={
+        data
+          ? [
+              {
+                label: "Open Forwards",
+                value: String(data.total_open_forwards),
+                info: "Number of active FX forward contracts",
+              },
+              {
+                label: "Net MTM",
+                value: fmt(data.net_mtm),
+                info: "Net mark-to-market value of all open forwards",
+              },
+            ]
+          : [{ label: "Status", value: "No forwards" }]
+      }
+      accentColor="var(--accent-cyan)"
+      accentBg="var(--accent-cyan-muted)"
+    />
+  );
+}
+
+function EODCard() {
+  const { fundSlug } = useFundContext();
+  const { data: history } = useQuery(eodHistoryQueryOptions(fundSlug));
+
+  const latest = history?.[0];
+
+  return (
+    <SummaryCard
+      title="EOD & NAV"
+      href={`/${fundSlug}/eod`}
+      items={
+        latest
+          ? [
+              {
+                label: "Last Run",
+                value: latest.business_date,
+                info: "Most recent end-of-day processing date",
+              },
+              {
+                label: "Status",
+                value: latest.is_successful ? "Success" : "Failed",
+                className: latest.is_successful
+                  ? "text-[var(--success)]"
+                  : "text-[var(--destructive)]",
+                info: `${latest.steps_completed}/${latest.steps_total} steps completed`,
+              },
+            ]
+          : [{ label: "Status", value: "No runs" }]
+      }
+      accentColor="var(--accent-orange)"
+      accentBg="var(--accent-orange-muted)"
     />
   );
 }

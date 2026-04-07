@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
 
     from app.config import Settings
+    from app.modules.fx_hedging.service import FXHedgingService
     from app.modules.orders.broker_registry import BrokerRegistry
     from app.shared.adapters import (
         BrokerAdapter,
@@ -752,10 +753,14 @@ async def setup_capital_accounts(
     account_repo = CapitalAccountRepository(session_factory)
     transaction_repo = CapitalTransactionRepository(session_factory)
 
+    # Wire cash service for subscription/redemption cash flows
+    cash_service = getattr(fastapi_app.state, "cash_service", None)
+
     capital_service = CapitalAccountService(
         investor_repo=investor_repo,
         account_repo=account_repo,
         transaction_repo=transaction_repo,
+        cash_service=cash_service,
     )
     fastapi_app.state.capital_account_service = capital_service
     fastapi_app.state.investor_repo = investor_repo
@@ -842,6 +847,41 @@ async def setup_fee_accounting(
     )
     fastapi_app.state.fee_accounting_service = fee_service
     fastapi_app.state.fee_schedule_repo = schedule_repo
+
+    # Seed fee schedules in local environment
+    if _is_local_env():
+        from app.modules.fee_accounting.models import FeeScheduleRecord
+
+        fund_repo: FundRepository = fastapi_app.state.fund_repo
+        active_funds = await fund_repo.get_all_active()
+        # Realistic hedge fund fee structures
+        fund_fee_configs = {
+            "alpha": (200, Decimal("0.20"), Decimal("0.08"), True, "annual", "quarterly"),
+            "beta": (150, Decimal("0.15"), Decimal("0.06"), True, "quarterly", "quarterly"),
+            "gamma": (175, Decimal("0.20"), Decimal("0.07"), True, "annual", "semi-annual"),
+        }
+        for fund in active_funds:
+            config = fund_fee_configs.get(
+                fund.slug,
+                (200, Decimal("0.20"), Decimal("0.08"), True, "annual", "quarterly"),
+            )
+            async with session_factory.fund_scope(fund.slug), session_factory() as session:
+                existing = await schedule_repo.get_by_fund_slug(fund.slug, session=session)
+                if existing is None:
+                    await schedule_repo.upsert(
+                        FeeScheduleRecord(
+                            fund_slug=fund.slug,
+                            management_fee_bps=config[0],
+                            performance_fee_pct=config[1],
+                            hurdle_rate_pct=config[2],
+                            high_water_mark=config[3],
+                            crystallization_frequency=config[4],
+                            payment_frequency=config[5],
+                        ),
+                        session=session,
+                    )
+        logger.info("fee_schedules_seeded", fund_count=len(active_funds))
+
     logger.info("fee_accounting_module_ready")
 
 
@@ -880,6 +920,7 @@ async def setup_eod(
     portfolio_repo = fastapi_app.state.portfolio_repo
     fee_service = getattr(fastapi_app.state, "fee_accounting_service", None)
     capital_service = getattr(fastapi_app.state, "capital_account_service", None)
+    attribution_service = getattr(fastapi_app.state, "attribution_service", None)
 
     price_service = PriceFinalizationService(
         price_repo=price_repo,
@@ -920,9 +961,212 @@ async def setup_eod(
         risk_service=risk_service,
         fee_service=fee_service,
         capital_service=capital_service,
+        attribution_service=attribution_service,
     )
     fastapi_app.state.eod_orchestrator = orchestrator
     logger.info("eod_module_ready")
+
+
+async def setup_fx_hedging(
+    fastapi_app: FastAPI,
+    session_factory: TenantSessionFactory,
+    event_bus: EventBus | None = None,
+) -> None:
+    """Wire FX hedging module: repos, service."""
+    from app.modules.fx_hedging.repository import (
+        FXForwardRepository,
+        FXInterestRateRepository,
+    )
+    from app.modules.fx_hedging.service import FXHedgingService
+
+    market_data_service = fastapi_app.state.market_data_service
+    fx_converter = market_data_service.fx_converter
+
+    forward_repo = FXForwardRepository(session_factory)
+    rate_repo = FXInterestRateRepository(session_factory)
+
+    fx_hedging_service = FXHedgingService(
+        forward_repo=forward_repo,
+        rate_repo=rate_repo,
+        event_bus=event_bus,
+        fx_converter=fx_converter,
+    )
+    fastapi_app.state.fx_hedging_service = fx_hedging_service
+
+    # Subscribe to interest rate updates from mock exchange
+    if event_bus is not None:
+        event_bus.subscribe(
+            shared_topic("interest-rates"),
+            _make_interest_rate_handler(fx_hedging_service),
+        )
+
+    # Seed FX hedging data in local environment
+    if _is_local_env():
+        await _seed_fx_hedging(
+            fastapi_app,
+            session_factory,
+            forward_repo,
+            rate_repo,
+        )
+
+    logger.info("fx_hedging_module_ready")
+
+
+async def _seed_fx_hedging(
+    fastapi_app: FastAPI,
+    session_factory: TenantSessionFactory,
+    forward_repo: object,
+    rate_repo: object,
+) -> None:
+    """Seed FX interest rates and sample forwards for local demo."""
+    from datetime import timedelta
+
+    from app.modules.fx_hedging.models import FXForwardRecord, FXInterestRateRecord
+    from app.modules.platform.seed import (
+        PORTFOLIO_ALPHA_EQUITY_LS_ID,
+        PORTFOLIO_ALPHA_GLOBAL_MACRO_ID,
+        PORTFOLIO_BETA_STAT_ARB_ID,
+    )
+
+    fund_repo: FundRepository = fastapi_app.state.fund_repo
+    active_funds = await fund_repo.get_all_active()
+
+    # Seed interest rates for major currencies
+    seed_rates = [
+        ("USD", Decimal("0.0530"), 360),
+        ("EUR", Decimal("0.0375"), 360),
+        ("GBP", Decimal("0.0525"), 360),
+        ("JPY", Decimal("0.0010"), 360),
+        ("CHF", Decimal("0.0175"), 360),
+        ("AUD", Decimal("0.0435"), 360),
+        ("CAD", Decimal("0.0500"), 360),
+    ]
+
+    for fund in active_funds:
+        async with session_factory.fund_scope(fund.slug), session_factory() as session:
+            existing_rates = await rate_repo.get_all(session=session)
+            if not existing_rates:
+                for ccy, rate, tenor in seed_rates:
+                    await rate_repo.upsert(
+                        FXInterestRateRecord(
+                            currency=ccy,
+                            rate=rate,
+                            tenor_days=tenor,
+                            source="seed",
+                        ),
+                        session=session,
+                    )
+                logger.info("fx_rates_seeded", fund=fund.slug, count=len(seed_rates))
+
+    # Seed sample FX forwards for the alpha fund
+    # These portfolios hold non-USD positions (GBP, EUR, JPY, CHF)
+    today = date.today()
+    seed_forwards = [
+        # Alpha Equity L/S — hedge GBP and EUR exposure
+        (
+            PORTFOLIO_ALPHA_EQUITY_LS_ID,
+            "USD",
+            "GBP",
+            "sell",
+            Decimal("5000000"),
+            Decimal("1.2650"),
+            Decimal("1.2700"),
+            today - timedelta(days=15),
+            today + timedelta(days=15),
+        ),
+        (
+            PORTFOLIO_ALPHA_EQUITY_LS_ID,
+            "USD",
+            "EUR",
+            "sell",
+            Decimal("3000000"),
+            Decimal("1.0820"),
+            Decimal("1.0850"),
+            today - timedelta(days=10),
+            today + timedelta(days=20),
+        ),
+        # Alpha Global Macro — hedge JPY and CHF
+        (
+            PORTFOLIO_ALPHA_GLOBAL_MACRO_ID,
+            "USD",
+            "JPY",
+            "sell",
+            Decimal("400000000"),
+            Decimal("0.006700"),
+            Decimal("0.006720"),
+            today - timedelta(days=20),
+            today + timedelta(days=40),
+        ),
+        (
+            PORTFOLIO_ALPHA_GLOBAL_MACRO_ID,
+            "USD",
+            "CHF",
+            "sell",
+            Decimal("2000000"),
+            Decimal("1.1350"),
+            Decimal("1.1380"),
+            today - timedelta(days=5),
+            today + timedelta(days=25),
+        ),
+        # Beta Stat Arb — hedge EUR exposure
+        (
+            PORTFOLIO_BETA_STAT_ARB_ID,
+            "USD",
+            "EUR",
+            "sell",
+            Decimal("4000000"),
+            Decimal("1.0810"),
+            Decimal("1.0840"),
+            today - timedelta(days=12),
+            today + timedelta(days=18),
+        ),
+    ]
+
+    for fund in active_funds:
+        if fund.slug != "alpha" and fund.slug != "beta":
+            continue
+        async with session_factory.fund_scope(fund.slug), session_factory() as session:
+            existing_fwds = await forward_repo.get_by_portfolio(
+                UUID(PORTFOLIO_ALPHA_EQUITY_LS_ID),
+                session=session,
+            )
+            if existing_fwds:
+                continue
+            for (
+                pid,
+                base,
+                quote,
+                direction,
+                notional,
+                rate,
+                spot,
+                trade_dt,
+                maturity_dt,
+            ) in seed_forwards:
+                # Only seed forwards that belong to this fund's portfolios
+                portfolio_ids_for_fund = {
+                    "alpha": {PORTFOLIO_ALPHA_EQUITY_LS_ID, PORTFOLIO_ALPHA_GLOBAL_MACRO_ID},
+                    "beta": {PORTFOLIO_BETA_STAT_ARB_ID},
+                }
+                if pid not in portfolio_ids_for_fund.get(fund.slug, set()):
+                    continue
+                await forward_repo.create(
+                    FXForwardRecord(
+                        portfolio_id=pid,
+                        base_currency=base,
+                        quote_currency=quote,
+                        direction=direction,
+                        notional=notional,
+                        contract_rate=rate,
+                        spot_at_inception=spot,
+                        trade_date=trade_dt,
+                        maturity_date=maturity_dt,
+                        status="open",
+                        counterparty="MOCK-BANK-1",
+                    ),
+                    session=session,
+                )
+            logger.info("fx_forwards_seeded", fund=fund.slug)
 
 
 # ---------------------------------------------------------------------------
@@ -990,3 +1234,32 @@ def _make_price_handler(market_data_service: MarketDataService) -> EventHandler:
             logger.exception("price_event_handler_failed", event_id=event.event_id)
 
     return on_price_event
+
+
+def _make_interest_rate_handler(fx_hedging_service: FXHedgingService) -> EventHandler:
+    """Create a handler that updates FX hedging interest rates from Kafka.
+
+    The mock exchange publishes interest_rate.updated events with pillar
+    rates per currency on the shared.interest-rates topic.
+    """
+
+    async def on_interest_rate_event(event: BaseEvent) -> None:
+        try:
+            data = event.data
+            currency = data.get("currency")
+            rate_1m = data.get("rate_1m")
+            if currency is None or rate_1m is None:
+                return
+            await fx_hedging_service.set_interest_rate(
+                currency=currency,
+                rate=Decimal(rate_1m),
+                tenor_days=30,
+                source="mock-exchange",
+            )
+        except Exception:
+            logger.exception(
+                "interest_rate_handler_failed",
+                event_id=event.event_id,
+            )
+
+    return on_interest_rate_event

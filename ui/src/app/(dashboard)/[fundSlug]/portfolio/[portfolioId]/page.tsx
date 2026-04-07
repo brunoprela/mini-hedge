@@ -3,6 +3,7 @@ import { AttributionSummaryCard } from "@/features/attribution/components/attrib
 import { CashSummaryCard } from "@/features/cash/components/cash-summary-card";
 import { ComplianceBanner } from "@/features/compliance/components/compliance-banner";
 import { ExposureSummary } from "@/features/exposure/components/exposure-summary";
+import { ForwardsTable, FXSummaryCards } from "@/features/fx-hedging";
 import { OrderBlotter } from "@/features/orders/components/order-blotter";
 import { PortfolioSummary } from "@/features/portfolio/components/portfolio-summary";
 import { PositionTable } from "@/features/portfolio/components/position-table";
@@ -36,6 +37,14 @@ export default async function PortfolioDetailPage({
       path: `/orders?portfolio_id=${portfolioId}`,
     },
     { queryKey: ["cash-balances", fundSlug, portfolioId], path: `/cash/${portfolioId}/balances` },
+    {
+      queryKey: ["fx-forwards", fundSlug, portfolioId],
+      path: `/fx-hedging/forwards?portfolio_id=${portfolioId}`,
+    },
+    {
+      queryKey: ["fx-hedging-summary", fundSlug, portfolioId],
+      path: `/fx-hedging/summary?portfolio_id=${portfolioId}`,
+    },
   ]);
 
   return (
@@ -60,6 +69,10 @@ export default async function PortfolioDetailPage({
 
         <h2 className="text-lg font-semibold">Cash</h2>
         <CashSummaryCard portfolioId={portfolioId} />
+
+        <h2 className="text-lg font-semibold">FX Hedging</h2>
+        <FXSummaryCards portfolioId={portfolioId} />
+        <ForwardsTable portfolioId={portfolioId} />
 
         <h2 className="text-lg font-semibold">Attribution</h2>
         <AttributionSummaryCard portfolioId={portfolioId} />

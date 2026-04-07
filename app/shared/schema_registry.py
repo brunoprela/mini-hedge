@@ -86,6 +86,7 @@ def fund_audit_topics_for_slug(fund_slug: str) -> list[str]:
         fund_topic(fund_slug, "risk.updated"),
         fund_topic(fund_slug, "cash.settlement.created"),
         fund_topic(fund_slug, "cash.settlement.settled"),
+        fund_topic(fund_slug, "fx-hedging.events"),
     ]
 
 
@@ -93,6 +94,8 @@ def shared_topics() -> list[str]:
     """Return all shared (global) Kafka topics."""
     return [
         shared_topic("prices.normalized"),
+        shared_topic("interest-rates"),
+        shared_topic("fx-forwards"),
     ]
 
 
@@ -128,6 +131,7 @@ def load_schemas() -> None:
 
     event_schemas = {
         AuditEventType.PRICE_UPDATED: "prices/normalized-v1.avsc",
+        AuditEventType.FX_RATE_UPDATED: "prices/normalized-v1.avsc",
         AuditEventType.POSITION_CHANGED: "positions/changed-v1.avsc",
         AuditEventType.PNL_REALIZED: "positions/pnl-realized-v1.avsc",
         AuditEventType.PNL_MARK_TO_MARKET: "positions/pnl-mtm-v1.avsc",

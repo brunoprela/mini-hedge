@@ -99,6 +99,7 @@ _FUND_SCOPED_MODULES = [
     "fee_accounting",
     "capital_accounts",
     "corporate_actions",
+    "fx_hedging",
 ]
 
 

@@ -112,3 +112,32 @@ export type CumulativeAttribution = Schemas["CumulativeAttribution"];
 // EOD
 export type EODRunSummary = Schemas["EODRunSummary"];
 export type EODRunResult = Schemas["EODRunResult"];
+export type EODStepResult = Schemas["EODStepResult"];
+export type EODStepName = Schemas["EODStepName"];
+export type EODStepStatus = Schemas["EODStepStatus"];
+
+// FX Hedging
+export type FXForwardContract = Schemas["FXForwardContract"];
+export type FXForwardCreate = Schemas["FXForwardCreate"];
+export type FXForwardClose = Schemas["FXForwardClose"];
+export type FXForwardRoll = Schemas["FXForwardRoll"];
+export type FXForwardDirection = Schemas["FXForwardDirection"];
+export type FXForwardStatus = Schemas["FXForwardStatus"];
+export type FXHedgingSummary = Schemas["FXHedgingSummary"];
+export type FXInterestRate = Schemas["FXInterestRate"];
+export type HedgeRecommendationResponse = Schemas["HedgeRecommendationResponse"];
+export type FXAttributionResult = Schemas["FXAttributionResult"];
+
+// Fees
+export type FeeScheduleResponse = Schemas["FeeScheduleResponse"];
+export type FeeAccrualResponse = Schemas["FeeAccrualResponse"];
+export type FeeScheduleUpdate = Schemas["FeeScheduleUpdate"];
+export type FeeType = Schemas["FeeType"];
+export type AccrualStatus = Schemas["AccrualStatus"];
+
+// Multi-Broker & TCA
+export type BrokerScorecard = Schemas["BrokerScorecard"];
+export type BestExecutionReport = Schemas["BestExecutionReport"];
+export type TCAReport = Schemas["TCAReport"];
+export type PortfolioTCAReport = Schemas["PortfolioTCAReport"];
+export type FundTCASummary = Schemas["FundTCASummary"];

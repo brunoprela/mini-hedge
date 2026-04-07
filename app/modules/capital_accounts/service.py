@@ -36,6 +36,7 @@ if TYPE_CHECKING:
         CapitalTransactionRepository,
         InvestorRepository,
     )
+    from app.modules.cash_management.service import CashManagementService
 
 logger = structlog.get_logger()
 
@@ -51,10 +52,12 @@ class CapitalAccountService:
         investor_repo: InvestorRepository,
         account_repo: CapitalAccountRepository,
         transaction_repo: CapitalTransactionRepository,
+        cash_service: CashManagementService | None = None,
     ) -> None:
         self._investors = investor_repo
         self._accounts = account_repo
         self._transactions = transaction_repo
+        self._cash = cash_service
 
     # ------------------------------------------------------------------
     # Queries
@@ -330,11 +333,17 @@ class CapitalAccountService:
         amount: Decimal,
         nav_per_share: Decimal,
         business_date: date,
+        portfolio_id: UUID | None = None,
+        currency: str = "USD",
         share_class: str = "default",
         notes: str | None = None,
         session: AsyncSession | None = None,
     ) -> CapitalAccountRecord:
-        """Process a capital subscription — issue shares, create account snapshot."""
+        """Process a capital subscription — issue shares, create account snapshot.
+
+        If *portfolio_id* and a ``CashManagementService`` are configured, a
+        corresponding cash credit is recorded automatically.
+        """
         shares = compute_subscription_shares(amount, nav_per_share)
 
         existing = await self._accounts.get_latest_for_investor(investor_id, session=session)
@@ -374,9 +383,10 @@ class CapitalAccountService:
 
         saved = await self._accounts.insert(new_account, session=session)
 
+        txn_id = str(uuid4())
         await self._transactions.insert(
             CapitalTransactionRecord(
-                id=str(uuid4()),
+                id=txn_id,
                 capital_account_id=saved.id,
                 investor_id=investor_id,
                 transaction_type=TransactionType.SUBSCRIPTION,
@@ -389,6 +399,20 @@ class CapitalAccountService:
             session=session,
         )
 
+        # Credit cash balance for the subscription inflow
+        if self._cash is not None and portfolio_id is not None:
+            from app.modules.cash_management.interface import CashFlowType
+
+            await self._cash.credit(
+                portfolio_id=portfolio_id,
+                currency=currency,
+                amount=amount,
+                flow_type=CashFlowType.SUBSCRIPTION,
+                reference_id=txn_id,
+                description=f"Subscription from investor {investor_id}",
+                session=session,
+            )
+
         # Recompute ownership for all accounts
         await self._recompute_all_ownership(business_date, session=session)
 
@@ -397,6 +421,96 @@ class CapitalAccountService:
             investor_id=investor_id,
             amount=str(amount),
             shares=str(shares),
+            nav_per_share=str(nav_per_share),
+        )
+        return saved
+
+    async def process_redemption(
+        self,
+        *,
+        investor_id: str,
+        amount: Decimal,
+        nav_per_share: Decimal,
+        business_date: date,
+        portfolio_id: UUID | None = None,
+        currency: str = "USD",
+        notes: str | None = None,
+        session: AsyncSession | None = None,
+    ) -> CapitalAccountRecord:
+        """Process a capital redemption — redeem shares, create account snapshot.
+
+        If *portfolio_id* and a ``CashManagementService`` are configured, a
+        corresponding cash debit is recorded automatically.
+        """
+        existing = await self._accounts.get_latest_for_investor(investor_id, session=session)
+        if existing is None:
+            msg = f"No capital account found for investor {investor_id}"
+            raise ValueError(msg)
+
+        if amount > existing.ending_capital:
+            msg = f"Redemption {amount} exceeds ending capital {existing.ending_capital}"
+            raise ValueError(msg)
+
+        shares_to_redeem = amount / nav_per_share if nav_per_share > 0 else ZERO
+        new_shares = existing.shares_held - shares_to_redeem
+        if new_shares < 0:
+            new_shares = ZERO
+
+        new_account = CapitalAccountRecord(
+            id=str(uuid4()),
+            investor_id=investor_id,
+            share_class=existing.share_class,
+            beginning_capital=existing.ending_capital,
+            contributions=ZERO,
+            withdrawals=amount,
+            pnl_allocation=ZERO,
+            management_fee_allocation=ZERO,
+            performance_fee_allocation=ZERO,
+            ending_capital=existing.ending_capital - amount,
+            ownership_pct=ZERO,
+            shares_held=new_shares,
+            effective_date=business_date,
+        )
+
+        saved = await self._accounts.insert(new_account, session=session)
+
+        txn_id = str(uuid4())
+        await self._transactions.insert(
+            CapitalTransactionRecord(
+                id=txn_id,
+                capital_account_id=saved.id,
+                investor_id=investor_id,
+                transaction_type=TransactionType.REDEMPTION,
+                amount=-amount,
+                shares=-shares_to_redeem,
+                nav_per_share=nav_per_share,
+                business_date=business_date,
+                notes=notes,
+            ),
+            session=session,
+        )
+
+        # Debit cash balance for the redemption outflow
+        if self._cash is not None and portfolio_id is not None:
+            from app.modules.cash_management.interface import CashFlowType
+
+            await self._cash.debit(
+                portfolio_id=portfolio_id,
+                currency=currency,
+                amount=amount,
+                flow_type=CashFlowType.REDEMPTION,
+                reference_id=txn_id,
+                description=f"Redemption for investor {investor_id}",
+                session=session,
+            )
+
+        await self._recompute_all_ownership(business_date, session=session)
+
+        logger.info(
+            "redemption_processed",
+            investor_id=investor_id,
+            amount=str(amount),
+            shares_redeemed=str(shares_to_redeem),
             nav_per_share=str(nav_per_share),
         )
         return saved

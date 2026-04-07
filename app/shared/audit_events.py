@@ -58,6 +58,14 @@ class AuditEventType(StrEnum):
 
     # -- Market Data -------------------------------------------------------
     PRICE_UPDATED = "price.updated"
+    FX_RATE_UPDATED = "fx_rate.updated"
+
+    # -- FX Hedging --------------------------------------------------------
+    FX_FORWARD_OPENED = "fx.forward.opened"
+    FX_FORWARD_CLOSED = "fx.forward.closed"
+    FX_FORWARD_ROLLED = "fx.forward.rolled"
+    FX_FORWARD_MTM = "fx.forward.mtm"
+    FX_HEDGE_RECOMMENDED = "fx.hedge.recommended"
 
     # -- Exposure ----------------------------------------------------------
     EXPOSURE_UPDATED = "exposure.updated"

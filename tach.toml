@@ -63,9 +63,25 @@ path = "app.modules.alpha_engine"
 depends_on = ["app.shared"]
 
 [[modules]]
+path = "app.modules.eod"
+depends_on = ["app.shared", "app.modules.positions", "app.modules.cash_management", "app.modules.fee_accounting", "app.modules.capital_accounts", "app.modules.risk_engine"]
+
+[[modules]]
+path = "app.modules.fee_accounting"
+depends_on = ["app.shared"]
+
+[[modules]]
+path = "app.modules.capital_accounts"
+depends_on = ["app.shared", "app.modules.cash_management"]
+
+[[modules]]
+path = "app.modules.fx_hedging"
+depends_on = ["app.shared", "app.modules.exposure"]
+
+[[modules]]
 path = "app.adapters"
 depends_on = ["app.shared", "app.modules.orders", "app.modules.security_master"]
 
 [[modules]]
 path = "app.setup"
-depends_on = ["app.shared", "app.modules.platform", "app.modules.security_master", "app.modules.market_data", "app.modules.positions", "app.modules.exposure", "app.modules.compliance", "app.modules.orders", "app.modules.risk_engine", "app.modules.cash_management", "app.modules.attribution", "app.modules.alpha_engine"]
+depends_on = ["app.shared", "app.modules.platform", "app.modules.security_master", "app.modules.market_data", "app.modules.positions", "app.modules.exposure", "app.modules.compliance", "app.modules.orders", "app.modules.risk_engine", "app.modules.cash_management", "app.modules.attribution", "app.modules.alpha_engine", "app.modules.fx_hedging", "app.modules.eod", "app.modules.fee_accounting", "app.modules.capital_accounts"]

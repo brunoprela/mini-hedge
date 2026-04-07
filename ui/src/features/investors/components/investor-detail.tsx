@@ -28,6 +28,14 @@ export function InvestorDetail({ investorId }: { investorId: string }) {
         </Link>
         <span className="text-sm text-[var(--muted-foreground)]">/</span>
         <h1 className="text-2xl font-semibold">{latest?.investor_name ?? "Investor"}</h1>
+        <span className="ml-auto text-sm">
+          <Link
+            href={`/${fundSlug}/cash`}
+            className="text-[var(--muted-foreground)] underline-offset-2 hover:text-[var(--foreground)] hover:underline"
+          >
+            View Fund Cash →
+          </Link>
+        </span>
       </div>
 
       {historyLoading && <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>}

@@ -1440,6 +1440,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/capital/redemptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Process Redemption */
+        post: operations["process_redemption_api_v1_capital_redemptions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/corporate-actions": {
         parameters: {
             query?: never;
@@ -1519,6 +1536,417 @@ export interface paths {
         put?: never;
         /** Cancel Allocation */
         post: operations["cancel_allocation_api_v1_allocations__allocation_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/brokers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Brokers
+         * @description List registered brokers.
+         */
+        get: operations["list_brokers_api_v1_brokers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/brokers/scorecards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Scorecards
+         * @description Get scorecards for all brokers.
+         */
+        get: operations["list_scorecards_api_v1_brokers_scorecards_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/brokers/{broker_id}/scorecard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Scorecard
+         * @description Get scorecard for a specific broker.
+         */
+        get: operations["get_scorecard_api_v1_brokers__broker_id__scorecard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/routing-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Routing Rules
+         * @description List routing rules for the current fund.
+         */
+        get: operations["list_routing_rules_api_v1_routing_rules_get"];
+        put?: never;
+        /**
+         * Create Routing Rule
+         * @description Create a new routing rule.
+         */
+        post: operations["create_routing_rule_api_v1_routing_rules_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/routing-rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Routing Rule
+         * @description Delete a routing rule.
+         */
+        delete: operations["delete_routing_rule_api_v1_routing_rules__rule_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/best-execution/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Best Execution Report
+         * @description Generate a best execution report for the fund.
+         */
+        get: operations["best_execution_report_api_v1_best_execution_report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/best-execution/orders/{order_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Order Execution Detail
+         * @description Get detailed execution analysis for a single order.
+         */
+        get: operations["order_execution_detail_api_v1_best_execution_orders__order_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/{order_id}/tca": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Order Tca
+         * @description Get TCA results for a specific order.
+         */
+        get: operations["get_order_tca_api_v1_orders__order_id__tca_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/{order_id}/tca/compute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Compute Order Tca
+         * @description Manually trigger TCA computation for an order.
+         */
+        post: operations["compute_order_tca_api_v1_orders__order_id__tca_compute_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/tca/portfolio/{portfolio_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Portfolio Tca
+         * @description Get aggregated TCA for all filled orders in a portfolio.
+         */
+        get: operations["portfolio_tca_api_v1_orders_tca_portfolio__portfolio_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/tca/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fund Tca Summary
+         * @description Get high-level TCA summary for the current fund.
+         */
+        get: operations["fund_tca_summary_api_v1_orders_tca_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fx-hedging/forwards/{portfolio_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Forwards */
+        get: operations["list_forwards_api_v1_fx_hedging_forwards__portfolio_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fx-hedging/forwards/{portfolio_id}/{forward_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Forward */
+        get: operations["get_forward_api_v1_fx_hedging_forwards__portfolio_id___forward_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fx-hedging/forwards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open Forward */
+        post: operations["open_forward_api_v1_fx_hedging_forwards_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fx-hedging/forwards/{forward_id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close Forward */
+        post: operations["close_forward_api_v1_fx_hedging_forwards__forward_id__close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fx-hedging/forwards/{forward_id}/roll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Roll Forward */
+        post: operations["roll_forward_api_v1_fx_hedging_forwards__forward_id__roll_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fx-hedging/mtm/{portfolio_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark To Market */
+        post: operations["mark_to_market_api_v1_fx_hedging_mtm__portfolio_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fx-hedging/summary/{portfolio_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Summary */
+        get: operations["get_summary_api_v1_fx_hedging_summary__portfolio_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fx-hedging/recommendations/{portfolio_id}/hedges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Hedge Recommendations */
+        get: operations["get_hedge_recommendations_api_v1_fx_hedging_recommendations__portfolio_id__hedges_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fx-hedging/recommendations/{portfolio_id}/rolls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Roll Recommendations */
+        get: operations["get_roll_recommendations_api_v1_fx_hedging_recommendations__portfolio_id__rolls_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fx-hedging/interest-rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Interest Rates */
+        get: operations["list_interest_rates_api_v1_fx_hedging_interest_rates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fx-hedging/interest-rates/{currency}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Interest Rate */
+        put: operations["set_interest_rate_api_v1_fx_hedging_interest_rates__currency__put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1679,7 +2107,7 @@ export interface components {
          * AssetClass
          * @enum {string}
          */
-        AssetClass: "equity" | "fixed_income" | "option" | "future" | "etf" | "fx" | "swap" | "private";
+        AssetClass: "equity" | "fixed_income" | "option" | "future" | "etf" | "fx" | "fx_forward" | "swap" | "private";
         /** AuditEntry */
         AuditEntry: {
             /** Id */
@@ -1720,6 +2148,31 @@ export interface components {
             records_checked: number;
             /** First Broken Link */
             first_broken_link?: string | null;
+        };
+        /** BestExecutionReport */
+        BestExecutionReport: {
+            /** Fund Slug */
+            fund_slug: string;
+            /**
+             * Period Start
+             * Format: date-time
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date-time
+             */
+            period_end: string;
+            /** Total Orders */
+            total_orders: number;
+            /** Broker Breakdown */
+            broker_breakdown: {
+                [key: string]: unknown;
+            }[];
+            /** Avg Slippage Bps */
+            avg_slippage_bps: string;
+            /** Avg Cost Bps */
+            avg_cost_bps: string;
         };
         /** BlockAllocationSummary */
         BlockAllocationSummary: {
@@ -1799,6 +2252,48 @@ export interface components {
              * Format: date-time
              */
             calculated_at: string;
+        };
+        /** BrokerScorecard */
+        BrokerScorecard: {
+            /** Broker Id */
+            broker_id: string;
+            /** Instrument Class */
+            instrument_class?: string | null;
+            /**
+             * Total Orders
+             * @default 0
+             */
+            total_orders: number;
+            /**
+             * Total Fills
+             * @default 0
+             */
+            total_fills: number;
+            /**
+             * Total Rejects
+             * @default 0
+             */
+            total_rejects: number;
+            /**
+             * Avg Slippage Bps
+             * @default 0
+             */
+            avg_slippage_bps: string;
+            /**
+             * Avg Fill Time Ms
+             * @default 0
+             */
+            avg_fill_time_ms: number;
+            /**
+             * Avg Cost Bps
+             * @default 0
+             */
+            avg_cost_bps: string;
+            /**
+             * Fill Rate
+             * @default 0
+             */
+            fill_rate: string;
         };
         /**
          * CapitalAccountSummary
@@ -2047,6 +2542,26 @@ export interface components {
             limit_price?: number | string | null;
             /** @default day */
             time_in_force: components["schemas"]["TimeInForce"];
+        };
+        /** CreateRoutingRuleRequest */
+        CreateRoutingRuleRequest: {
+            /** Fund Slug */
+            fund_slug: string;
+            /** Strategy */
+            strategy?: string | null;
+            /** Instrument Class */
+            instrument_class?: string | null;
+            /** Min Size */
+            min_size?: number | string | null;
+            /** Max Size */
+            max_size?: number | string | null;
+            /** Preferred Broker Id */
+            preferred_broker_id: string;
+            /**
+             * Priority
+             * @default 0
+             */
+            priority: number;
         };
         /** CreateRuleBody */
         CreateRuleBody: {
@@ -2328,6 +2843,170 @@ export interface components {
             calculated_at: string;
         };
         /**
+         * FXForwardClose
+         * @description Request to close an existing FX forward.
+         */
+        FXForwardClose: {
+            /** Close Rate */
+            close_rate: number | string;
+            /** Close Spot */
+            close_spot: number | string;
+        };
+        /**
+         * FXForwardContract
+         * @description An FX forward contract.
+         */
+        FXForwardContract: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Portfolio Id
+             * Format: uuid
+             */
+            portfolio_id: string;
+            /** Base Currency */
+            base_currency: string;
+            /** Quote Currency */
+            quote_currency: string;
+            direction: components["schemas"]["FXForwardDirection"];
+            /** Notional */
+            notional: string;
+            /** Contract Rate */
+            contract_rate: string;
+            /** Spot At Inception */
+            spot_at_inception: string;
+            /**
+             * Trade Date
+             * Format: date
+             */
+            trade_date: string;
+            /**
+             * Maturity Date
+             * Format: date
+             */
+            maturity_date: string;
+            status: components["schemas"]["FXForwardStatus"];
+            /** Counterparty */
+            counterparty?: string | null;
+            /** Roll From Id */
+            roll_from_id?: string | null;
+            /** Mtm Value */
+            mtm_value?: string | null;
+            /** Mtm Timestamp */
+            mtm_timestamp?: string | null;
+            /** Created At */
+            created_at?: string | null;
+        };
+        /**
+         * FXForwardCreate
+         * @description Request to open a new FX forward.
+         */
+        FXForwardCreate: {
+            /**
+             * Portfolio Id
+             * Format: uuid
+             */
+            portfolio_id: string;
+            /** Base Currency */
+            base_currency: string;
+            /** Quote Currency */
+            quote_currency: string;
+            direction: components["schemas"]["FXForwardDirection"];
+            /** Notional */
+            notional: number | string;
+            /** Contract Rate */
+            contract_rate: number | string;
+            /** Spot At Inception */
+            spot_at_inception: number | string;
+            /**
+             * Trade Date
+             * Format: date
+             */
+            trade_date: string;
+            /**
+             * Maturity Date
+             * Format: date
+             */
+            maturity_date: string;
+            /** Counterparty */
+            counterparty?: string | null;
+        };
+        /**
+         * FXForwardDirection
+         * @enum {string}
+         */
+        FXForwardDirection: "buy" | "sell";
+        /**
+         * FXForwardRoll
+         * @description Request to roll a forward to a new maturity.
+         */
+        FXForwardRoll: {
+            /**
+             * New Maturity Date
+             * Format: date
+             */
+            new_maturity_date: string;
+            /** New Contract Rate */
+            new_contract_rate: number | string;
+            /** Current Spot */
+            current_spot: number | string;
+        };
+        /**
+         * FXForwardStatus
+         * @enum {string}
+         */
+        FXForwardStatus: "open" | "closed" | "rolled" | "expired" | "settled";
+        /**
+         * FXHedgingSummary
+         * @description Portfolio-level FX hedging summary.
+         */
+        FXHedgingSummary: {
+            /**
+             * Portfolio Id
+             * Format: uuid
+             */
+            portfolio_id: string;
+            /** Open Forwards */
+            open_forwards: number;
+            /** Total Notional */
+            total_notional: string;
+            /** Total Mtm */
+            total_mtm: string;
+            /** Currency Breakdown */
+            currency_breakdown: {
+                [key: string]: string;
+            };
+            /** Expiring Within 5D */
+            expiring_within_5d: number;
+            /**
+             * Calculated At
+             * Format: date-time
+             */
+            calculated_at: string;
+        };
+        /**
+         * FXInterestRate
+         * @description Interest rate for a currency (simplified — no yield curve).
+         */
+        FXInterestRate: {
+            /** Currency */
+            currency: string;
+            /** Rate */
+            rate: string;
+            /** Tenor Days */
+            tenor_days: number;
+            /** Source */
+            source: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
          * FXRateSnapshot
          * @description Immutable snapshot of a single FX rate.
          */
@@ -2474,6 +3153,8 @@ export interface components {
             quantity: string;
             /** Price */
             price: string;
+            /** Broker Id */
+            broker_id?: string | null;
             /**
              * Filled At
              * Format: date-time
@@ -2548,10 +3229,64 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /**
+         * FundTCASummary
+         * @description High-level TCA summary for a fund.
+         */
+        FundTCASummary: {
+            /** Fund Slug */
+            fund_slug: string;
+            /**
+             * Period Start
+             * Format: date-time
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date-time
+             */
+            period_end: string;
+            /** Total Orders Analyzed */
+            total_orders_analyzed: number;
+            /** Avg Implementation Shortfall Bps */
+            avg_implementation_shortfall_bps: string;
+            /** Avg Commission Bps */
+            avg_commission_bps: string;
+            /** Avg Spread Bps */
+            avg_spread_bps: string;
+            /** Avg Impact Bps */
+            avg_impact_bps: string;
+            /** Total Cost Usd */
+            total_cost_usd: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * HedgeRecommendationResponse
+         * @description Hedge recommendation for API response.
+         */
+        HedgeRecommendationResponse: {
+            /** Currency Pair */
+            currency_pair: string;
+            /** Base Currency */
+            base_currency: string;
+            /** Quote Currency */
+            quote_currency: string;
+            /** Notional */
+            notional: string;
+            /** Direction */
+            direction: string;
+            /** Hedge Ratio */
+            hedge_ratio: string;
+            /** Tenor Days */
+            tenor_days: number;
+            /** Estimated Forward */
+            estimated_forward: string;
+            /** Estimated Cost Bps */
+            estimated_cost_bps: string;
         };
         /** Instrument */
         Instrument: {
@@ -2782,6 +3517,8 @@ export interface components {
              * @default 0
              */
             children_filled: number;
+            /** Broker Id */
+            broker_id?: string | null;
         };
         /**
          * OrderType
@@ -2856,6 +3593,33 @@ export interface components {
             total_unrealized_pnl: string;
             /** Position Count */
             position_count: number;
+        };
+        /**
+         * PortfolioTCAReport
+         * @description Aggregated TCA for all orders in a portfolio.
+         */
+        PortfolioTCAReport: {
+            /**
+             * Portfolio Id
+             * Format: uuid
+             */
+            portfolio_id: string;
+            /** Total Orders */
+            total_orders: number;
+            /** Avg Total Cost Bps */
+            avg_total_cost_bps: string;
+            /** Avg Commission Bps */
+            avg_commission_bps: string;
+            /** Avg Spread Bps */
+            avg_spread_bps: string;
+            /** Avg Impact Bps */
+            avg_impact_bps: string;
+            /** Avg Timing Bps */
+            avg_timing_bps: string;
+            /** Total Cost Usd */
+            total_cost_usd: string;
+            /** Orders */
+            orders: components["schemas"]["TCAReport"][];
         };
         /** Position */
         Position: {
@@ -2998,6 +3762,29 @@ export interface components {
          * @enum {string}
          */
         ProcessingStatus: "pending" | "processed" | "failed" | "skipped";
+        /** RedemptionRequest */
+        RedemptionRequest: {
+            /** Investor Id */
+            investor_id: string;
+            /** Amount */
+            amount: number | string;
+            /** Nav Per Share */
+            nav_per_share: number | string;
+            /**
+             * Business Date
+             * Format: date
+             */
+            business_date: string;
+            /** Portfolio Id */
+            portfolio_id?: string | null;
+            /**
+             * Currency
+             * @default USD
+             */
+            currency: string;
+            /** Notes */
+            notes?: string | null;
+        };
         /**
          * RemediationSuggestion
          * @description A suggested trade to cure a compliance breach.
@@ -3154,6 +3941,60 @@ export interface components {
              * Format: date-time
              */
             snapshot_at: string;
+        };
+        /**
+         * RollRecommendation
+         * @description Roll recommendation for an expiring forward.
+         */
+        RollRecommendation: {
+            /**
+             * Forward Id
+             * Format: uuid
+             */
+            forward_id: string;
+            /**
+             * Maturity Date
+             * Format: date
+             */
+            maturity_date: string;
+            /** Days Remaining */
+            days_remaining: number;
+            /** Current Mtm */
+            current_mtm: string;
+            /** Suggested New Tenor Days */
+            suggested_new_tenor_days: number;
+            /** Estimated Roll Cost Bps */
+            estimated_roll_cost_bps: string;
+        };
+        /** RoutingRule */
+        RoutingRule: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Fund Slug */
+            fund_slug: string;
+            /** Strategy */
+            strategy?: string | null;
+            /** Instrument Class */
+            instrument_class?: string | null;
+            /** Min Size */
+            min_size?: string | null;
+            /** Max Size */
+            max_size?: string | null;
+            /** Preferred Broker Id */
+            preferred_broker_id: string;
+            /**
+             * Priority
+             * @default 0
+             */
+            priority: number;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
         };
         /** RuleDefinition */
         RuleDefinition: {
@@ -3399,6 +4240,13 @@ export interface components {
              * Format: date
              */
             business_date: string;
+            /** Portfolio Id */
+            portfolio_id?: string | null;
+            /**
+             * Currency
+             * @default USD
+             */
+            currency: string;
             /**
              * Share Class
              * @default default
@@ -3406,6 +4254,58 @@ export interface components {
             share_class: string;
             /** Notes */
             notes?: string | null;
+        };
+        /**
+         * TCAReport
+         * @description TCA result for a single order.
+         */
+        TCAReport: {
+            /**
+             * Order Id
+             * Format: uuid
+             */
+            order_id: string;
+            /** Instrument Id */
+            instrument_id: string;
+            /** Side */
+            side: string;
+            /** Quantity */
+            quantity: string;
+            /** Filled Quantity */
+            filled_quantity: string;
+            /** Avg Fill Price */
+            avg_fill_price: string | null;
+            /** Arrival Mid Price */
+            arrival_mid_price: string;
+            /** Arrival Spread */
+            arrival_spread: string;
+            /** Vwap Benchmark */
+            vwap_benchmark: string | null;
+            /** Total Cost Bps */
+            total_cost_bps: string;
+            /** Commission Cost Bps */
+            commission_cost_bps: string;
+            /** Spread Cost Bps */
+            spread_cost_bps: string;
+            /** Market Impact Cost Bps */
+            market_impact_cost_bps: string;
+            /** Timing Cost Bps */
+            timing_cost_bps: string;
+            /** Opportunity Cost Bps */
+            opportunity_cost_bps: string;
+            /** Implementation Shortfall Bps */
+            implementation_shortfall_bps: string;
+            /** Participation Rate */
+            participation_rate: string | null;
+            /** Execution Duration Seconds */
+            execution_duration_seconds: number;
+            /** Total Cost Usd */
+            total_cost_usd: string;
+            /**
+             * Computed At
+             * Format: date-time
+             */
+            computed_at: string;
         };
         /**
          * TimeInForce
@@ -6586,6 +7486,39 @@ export interface operations {
             };
         };
     };
+    process_redemption_api_v1_capital_redemptions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedemptionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CapitalAccountSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_corporate_actions_api_v1_corporate_actions_get: {
         parameters: {
             query?: never;
@@ -6722,6 +7655,706 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["BlockAllocationSummary"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_brokers_api_v1_brokers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
+                };
+            };
+        };
+    };
+    list_scorecards_api_v1_brokers_scorecards_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrokerScorecard"][];
+                };
+            };
+        };
+    };
+    get_scorecard_api_v1_brokers__broker_id__scorecard_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                broker_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrokerScorecard"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_routing_rules_api_v1_routing_rules_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoutingRule"][];
+                };
+            };
+        };
+    };
+    create_routing_rule_api_v1_routing_rules_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRoutingRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoutingRule"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_routing_rule_api_v1_routing_rules__rule_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    best_execution_report_api_v1_best_execution_report_get: {
+        parameters: {
+            query?: {
+                /** @description Number of days to include */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BestExecutionReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    order_execution_detail_api_v1_best_execution_orders__order_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_order_tca_api_v1_orders__order_id__tca_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TCAReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    compute_order_tca_api_v1_orders__order_id__tca_compute_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TCAReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    portfolio_tca_api_v1_orders_tca_portfolio__portfolio_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                portfolio_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortfolioTCAReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fund_tca_summary_api_v1_orders_tca_summary_get: {
+        parameters: {
+            query?: {
+                /** @description Number of days to include */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FundTCASummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_forwards_api_v1_fx_hedging_forwards__portfolio_id__get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+            };
+            header?: never;
+            path: {
+                portfolio_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FXForwardContract"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_forward_api_v1_fx_hedging_forwards__portfolio_id___forward_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                portfolio_id: string;
+                forward_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FXForwardContract"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_forward_api_v1_fx_hedging_forwards_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FXForwardCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FXForwardContract"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    close_forward_api_v1_fx_hedging_forwards__forward_id__close_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                forward_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FXForwardClose"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FXForwardContract"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    roll_forward_api_v1_fx_hedging_forwards__forward_id__roll_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                forward_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FXForwardRoll"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FXForwardContract"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_to_market_api_v1_fx_hedging_mtm__portfolio_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                portfolio_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FXForwardContract"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_summary_api_v1_fx_hedging_summary__portfolio_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                portfolio_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FXHedgingSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_hedge_recommendations_api_v1_fx_hedging_recommendations__portfolio_id__hedges_get: {
+        parameters: {
+            query?: {
+                hedge_ratio?: number | string;
+                tenor_days?: number;
+            };
+            header?: never;
+            path: {
+                portfolio_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HedgeRecommendationResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_roll_recommendations_api_v1_fx_hedging_recommendations__portfolio_id__rolls_get: {
+        parameters: {
+            query?: {
+                days_ahead?: number;
+                new_tenor_days?: number;
+            };
+            header?: never;
+            path: {
+                portfolio_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RollRecommendation"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_interest_rates_api_v1_fx_hedging_interest_rates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FXInterestRate"][];
+                };
+            };
+        };
+    };
+    set_interest_rate_api_v1_fx_hedging_interest_rates__currency__put: {
+        parameters: {
+            query: {
+                rate: number | string;
+                tenor_days?: number;
+                source?: string;
+            };
+            header?: never;
+            path: {
+                currency: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

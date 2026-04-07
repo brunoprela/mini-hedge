@@ -105,6 +105,13 @@ function BreakdownTable({
                     >
                       {row.key}
                     </Link>
+                  ) : dimension === "currency" ? (
+                    <Link
+                      href={`/${fundSlug}/fx-hedging`}
+                      className="text-[var(--foreground)] underline-offset-2 hover:underline"
+                    >
+                      {row.key}
+                    </Link>
                   ) : (
                     row.key
                   )}

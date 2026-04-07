@@ -18,6 +18,7 @@ import structlog
 if TYPE_CHECKING:
     from mock_exchange.market_data.order_book import SimulatedOrderBook
     from mock_exchange.market_data.trade_tape import TradeTape
+    from mock_exchange.market_data.yield_curve import YieldCurveSimulator
     from mock_exchange.shared.kafka import MockExchangeProducer
 
 logger = structlog.get_logger()
@@ -162,6 +163,7 @@ class GBMSimulator:
     interval_ms: int = 1000
     order_books: dict[str, SimulatedOrderBook] = field(default_factory=dict)
     trade_tape: TradeTape | None = None
+    yield_curves: YieldCurveSimulator | None = None
     _prices: dict[str, float] = field(default_factory=dict, init=False)
     _fx_rates: dict[str, float] = field(default_factory=dict, init=False)
     _cholesky: np.ndarray | None = field(default=None, init=False)  # type: ignore[type-arg]
@@ -302,6 +304,30 @@ class GBMSimulator:
                     "source": "mock-exchange",
                 },
             )
+
+        # Tick yield curves and publish interest rate snapshots
+        if self.yield_curves is not None:
+            curve_snapshots = self.yield_curves.tick()
+            for ccy, snap in curve_snapshots.items():
+                # Publish the 1M rate as representative short rate
+                # (platform uses this for FX forward pricing)
+                rate_1m = snap.rate_at_tenor(30)
+                rate_1y = snap.rate_at_tenor(360)
+                self.producer.produce(
+                    topic="shared.interest-rates",
+                    event_type="interest_rate.updated",
+                    data={
+                        "currency": ccy,
+                        "rate_1m": str(round(rate_1m, 6)),
+                        "rate_1y": str(round(rate_1y, 6)),
+                        "pillar_rates": {
+                            p.tenor_label: str(round(p.rate, 6))
+                            for p in snap.points
+                        },
+                        "timestamp": now.isoformat(),
+                        "source": "mock-exchange",
+                    },
+                )
 
         self.producer.flush(timeout=0.5)
 

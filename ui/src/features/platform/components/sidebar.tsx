@@ -2,13 +2,16 @@
 
 import {
   AlertTriangle,
+  ArrowLeftRight,
   BarChart3,
   Briefcase,
+  Calendar,
   ChevronDown,
   ClipboardList,
   LayoutDashboard,
   Lightbulb,
   PieChart,
+  Receipt,
   Search,
   Settings,
   ShieldCheck,
@@ -40,6 +43,9 @@ const ICONS = {
   Lightbulb,
   Users,
   Settings,
+  ArrowLeftRight,
+  Calendar,
+  Receipt,
 } as const;
 
 /* Group nav items by category for the collapsible sections */
@@ -51,20 +57,22 @@ interface NavGroup {
 
 function groupNavItems(items: NavItem[]): NavGroup[] {
   const dashboard = items.filter((i) => i.href === "");
-  const portfolio = items.filter((i) => ["/portfolio", "/orders", "/exposure"].includes(i.href));
-  const riskCompliance = items.filter((i) => ["/compliance", "/risk"].includes(i.href));
-  const operations = items.filter((i) =>
-    ["/cash", "/attribution", "/alpha", "/investors"].includes(i.href),
+  const trading = items.filter((i) =>
+    ["/portfolio", "/orders", "/exposure", "/fx-hedging"].includes(i.href),
   );
-  const reference = items.filter((i) => ["/instruments", "/market-data"].includes(i.href));
+  const analytics = items.filter((i) => ["/attribution", "/risk", "/alpha"].includes(i.href));
+  const operations = items.filter((i) => ["/investors", "/cash", "/eod", "/fees"].includes(i.href));
+  const compliance = items.filter((i) => ["/compliance"].includes(i.href));
+  const marketData = items.filter((i) => ["/instruments", "/market-data"].includes(i.href));
   const settings = items.filter((i) => i.href === "/settings");
 
   return [
     { label: "", items: dashboard, defaultOpen: true },
-    { label: "Portfolio", items: portfolio, defaultOpen: true },
-    { label: "Risk & Compliance", items: riskCompliance, defaultOpen: true },
+    { label: "Trading", items: trading, defaultOpen: true },
+    { label: "Analytics", items: analytics, defaultOpen: true },
     { label: "Operations", items: operations, defaultOpen: true },
-    { label: "Reference Data", items: reference, defaultOpen: true },
+    { label: "Compliance", items: compliance, defaultOpen: true },
+    { label: "Market Data", items: marketData, defaultOpen: true },
     { label: "Settings", items: settings, defaultOpen: true },
   ].filter((g) => g.items.length > 0);
 }

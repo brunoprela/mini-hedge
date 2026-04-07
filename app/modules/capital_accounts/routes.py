@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -22,6 +23,7 @@ from app.shared.database import get_db
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
+    from app.modules.capital_accounts.models import CapitalAccountRecord
     from app.modules.capital_accounts.service import CapitalAccountService
     from app.shared.request_context import RequestContext
 
@@ -36,7 +38,19 @@ class SubscriptionRequest(BaseModel):
     amount: Decimal
     nav_per_share: Decimal
     business_date: date
+    portfolio_id: str | None = None
+    currency: str = "USD"
     share_class: str = "default"
+    notes: str | None = None
+
+
+class RedemptionRequest(BaseModel):
+    investor_id: str
+    amount: Decimal
+    nav_per_share: Decimal
+    business_date: date
+    portfolio_id: str | None = None
+    currency: str = "USD"
     notes: str | None = None
 
 
@@ -108,13 +122,41 @@ async def process_subscription(
         amount=body.amount,
         nav_per_share=body.nav_per_share,
         business_date=body.business_date,
+        portfolio_id=UUID(body.portfolio_id) if body.portfolio_id else None,
+        currency=body.currency,
         share_class=body.share_class,
         notes=body.notes,
         session=session,
     )
-    # Return as CapitalAccountSummary DTO
-    from uuid import UUID
+    return await _record_to_summary(record, capital_service, session)
 
+
+@router.post("/redemptions", response_model=CapitalAccountSummary, status_code=201)
+async def process_redemption(
+    body: RedemptionRequest,
+    _ctx: RequestContext = require_permission(Permission.CAPITAL_WRITE),
+    capital_service: CapitalAccountService = Depends(get_capital_account_service),
+    session: AsyncSession = Depends(get_db),
+) -> CapitalAccountSummary:
+    record = await capital_service.process_redemption(
+        investor_id=body.investor_id,
+        amount=body.amount,
+        nav_per_share=body.nav_per_share,
+        business_date=body.business_date,
+        portfolio_id=UUID(body.portfolio_id) if body.portfolio_id else None,
+        currency=body.currency,
+        notes=body.notes,
+        session=session,
+    )
+    return await _record_to_summary(record, capital_service, session)
+
+
+async def _record_to_summary(
+    record: CapitalAccountRecord,
+    capital_service: CapitalAccountService,
+    session: AsyncSession,
+) -> CapitalAccountSummary:
+    """Convert a CapitalAccountRecord to a CapitalAccountSummary DTO."""
     investors = await capital_service.list_investors(session=session)
     inv_map = {str(i.id): i.name for i in investors}
     return CapitalAccountSummary(

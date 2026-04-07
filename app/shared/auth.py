@@ -96,6 +96,10 @@ class Permission(StrEnum):
     CASH_READ = "cash:read"
     CASH_WRITE = "cash:write"
 
+    # Phase 3: FX Hedging
+    FX_HEDGING_READ = "fx_hedging:read"
+    FX_HEDGING_WRITE = "fx_hedging:write"
+
     # Phase 3: Performance Attribution
     ATTRIBUTION_READ = "attribution:read"
 

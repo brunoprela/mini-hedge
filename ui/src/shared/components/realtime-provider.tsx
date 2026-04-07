@@ -63,6 +63,14 @@ const SSE_EVENT_TYPES = [
   "risk.updated",
   "cash.settlement.created",
   "cash.settlement.settled",
+  "fx.forward.created",
+  "fx.forward.closed",
+  "fx.forward.rolled",
+  "fx.forward.mtm_updated",
+  "interest_rate.updated",
+  "eod.run.started",
+  "eod.run.completed",
+  "fee.accrual.created",
 ];
 
 /**
@@ -206,6 +214,43 @@ export function RealtimeProvider({ children }: { children?: ReactNode }) {
               queryKey: ["settlements", fundSlug, portfolioId],
             });
           }
+        } else if (
+          eventType === "fx.forward.created" ||
+          eventType === "fx.forward.closed" ||
+          eventType === "fx.forward.rolled" ||
+          eventType === "fx.forward.mtm_updated"
+        ) {
+          if (portfolioId) {
+            queryClient.invalidateQueries({
+              queryKey: ["fx-forwards", fundSlug, portfolioId],
+            });
+            queryClient.invalidateQueries({
+              queryKey: ["fx-hedging-summary", fundSlug, portfolioId],
+            });
+          }
+          queryClient.invalidateQueries({
+            queryKey: ["hedge-recommendations", fundSlug],
+          });
+        } else if (eventType === "interest_rate.updated") {
+          queryClient.invalidateQueries({
+            queryKey: ["fx-interest-rates", fundSlug],
+          });
+        } else if (eventType === "eod.run.started" || eventType === "eod.run.completed") {
+          queryClient.invalidateQueries({
+            queryKey: ["eod-status", fundSlug],
+          });
+          queryClient.invalidateQueries({
+            queryKey: ["eod-history", fundSlug],
+          });
+        } else if (eventType === "fee.accrual.created") {
+          if (portfolioId) {
+            queryClient.invalidateQueries({
+              queryKey: ["fee-accruals", fundSlug, portfolioId],
+            });
+          }
+          queryClient.invalidateQueries({
+            queryKey: ["fee-schedule", fundSlug],
+          });
         }
 
         // Notify all subscribers (activity feed, etc.)

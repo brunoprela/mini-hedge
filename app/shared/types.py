@@ -12,6 +12,7 @@ class AssetClass(StrEnum):
     FUTURE = "future"
     ETF = "etf"
     FX = "fx"
+    FX_FORWARD = "fx_forward"
     SWAP = "swap"
     PRIVATE = "private"
 
