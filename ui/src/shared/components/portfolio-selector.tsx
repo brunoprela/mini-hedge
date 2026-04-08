@@ -10,7 +10,41 @@ interface PortfolioSelectorProps {
   onChange: (id: string) => void;
 }
 
+/**
+ * Portfolio selector — renders as horizontal pill tabs when ≤6 portfolios,
+ * falls back to dropdown for larger lists.
+ */
 export function PortfolioSelector({ portfolios, value, onChange }: PortfolioSelectorProps) {
+  if (portfolios.length <= 1) return null;
+
+  // Pill tabs for small sets (Broadridge/HedgeFund style)
+  if (portfolios.length <= 6) {
+    return (
+      <div className="flex items-center gap-1">
+        {portfolios.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => onChange(p.id)}
+            className={cn(
+              "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+              p.id === value
+                ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                : "border border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]",
+            )}
+          >
+            {p.name}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  // Dropdown for large sets
+  return <PortfolioDropdown portfolios={portfolios} value={value} onChange={onChange} />;
+}
+
+function PortfolioDropdown({ portfolios, value, onChange }: PortfolioSelectorProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -25,8 +59,6 @@ export function PortfolioSelector({ portfolios, value, onChange }: PortfolioSele
     if (open) document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
-
-  if (portfolios.length <= 1) return null;
 
   return (
     <div ref={ref} className="relative">

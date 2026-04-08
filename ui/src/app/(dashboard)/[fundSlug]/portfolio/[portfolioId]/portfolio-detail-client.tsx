@@ -23,7 +23,9 @@ import { TCADashboard } from "@/features/tca/components/tca-dashboard";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { usePermission } from "@/shared/hooks/use-permission";
 import { cn } from "@/shared/lib/cn";
-import { LineChart, HBarChart, GaugeBar, SummaryStrip } from "@/shared/components/charts";
+import { LineChart, HBarChart, GaugeBar, SummaryStrip, DonutChart } from "@/shared/components/charts";
+import { exposureQueryOptions } from "@/features/exposure/api";
+import { SectionPanel } from "@/shared/components/section-panel";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -168,6 +170,19 @@ const TradeTicketLazy = dynamic(
 
 // ─── Overview Tab (Broadridge-style) ────────────────────────
 
+const DONUT_COLORS = [
+  "var(--primary)",
+  "var(--success)",
+  "var(--warning)",
+  "#6366f1",
+  "#06b6d4",
+  "var(--destructive)",
+  "#8b5cf6",
+  "#ec4899",
+  "var(--accent-orange)",
+  "#14b8a6",
+];
+
 function OverviewTab({ portfolioId }: { portfolioId: string }) {
   const { fundSlug } = useFundContext();
 
@@ -176,6 +191,9 @@ function OverviewTab({ portfolioId }: { portfolioId: string }) {
 
   // Risk snapshot
   const { data: risk } = useQuery(riskSnapshotQueryOptions(fundSlug, portfolioId));
+
+  // Exposure for donut
+  const { data: exposure } = useQuery(exposureQueryOptions(fundSlug, portfolioId));
 
   // Performance data for line chart
   const end = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -213,6 +231,37 @@ function OverviewTab({ portfolioId }: { portfolioId: string }) {
     ];
   }, [perfData]);
 
+  // Currency exposure bars
+  const currencyBars = useMemo(() => {
+    const currBreakdowns = exposure?.breakdowns?.currency;
+    if (!currBreakdowns || currBreakdowns.length === 0) return [];
+    return currBreakdowns
+      .map((b) => ({
+        label: b.key,
+        long: Math.abs(Number(b.long_value)),
+        short: Math.abs(Number(b.short_value)),
+        net: Number(b.net_value),
+      }))
+      .filter((b) => b.long > 0 || b.short > 0)
+      .sort((a, b) => (b.long + b.short) - (a.long + a.short))
+      .slice(0, 8);
+  }, [exposure]);
+
+  // Sector donut segments
+  const sectorSegments = useMemo(() => {
+    const sectorBreakdowns = exposure?.breakdowns?.sector;
+    if (!sectorBreakdowns || sectorBreakdowns.length === 0) return [];
+    return sectorBreakdowns
+      .map((b, i) => ({
+        label: b.key,
+        value: Math.abs(Number(b.gross_value)),
+        color: DONUT_COLORS[i % DONUT_COLORS.length],
+      }))
+      .filter((s) => s.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8);
+  }, [exposure]);
+
   // Top/bottom movers
   const movers = useMemo(() => {
     if (!positions) return { top: [], bottom: [] };
@@ -222,110 +271,186 @@ function OverviewTab({ portfolioId }: { portfolioId: string }) {
     return { top: sorted.slice(0, 5), bottom: sorted.slice(-5).reverse() };
   }, [positions]);
 
-  // Summary strip items
-  const stripItems = summary
-    ? [
-        { label: "Market Value", value: fmtCurrency(summary.total_market_value) },
-        {
-          label: "Unrealized P&L",
-          value: fmtCurrency(summary.total_unrealized_pnl),
-          color: Number(summary.total_unrealized_pnl) >= 0 ? "var(--success)" : "var(--destructive)",
-        },
-        {
-          label: "Realized P&L",
-          value: fmtCurrency(summary.total_realized_pnl),
-          color: Number(summary.total_realized_pnl) >= 0 ? "var(--success)" : "var(--destructive)",
-        },
-        { label: "Cost Basis", value: fmtCurrency(summary.total_cost_basis) },
-      ]
-    : [];
-
   // VaR gauge
   const varValue = risk ? Math.abs(Number(risk.var_95_1d)) : 0;
-  const varLimit = 200_000; // default limit — would come from fund config
+  const varLimit = 200_000;
 
   return (
-    <div className="space-y-5">
-      {/* Hero KPI + Summary strip */}
+    <div className="space-y-3">
+      {/* Hero KPI Strip — Broadridge client dashboard style */}
       {summary && (
-        <div className="flex items-baseline gap-3">
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Total Market Value</p>
-            <p className="font-mono text-base font-bold">{fmtCurrency(summary.total_market_value)}</p>
+        <div className="grid grid-cols-4 gap-3">
+          <div className="rounded-md border border-[var(--border)] bg-[var(--card)] px-4 py-3">
+            <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Market Value</p>
+            <p className="mt-1 font-mono text-xl font-bold">{fmtCurrency(summary.total_market_value)}</p>
           </div>
-          <div className="h-8 w-px bg-[var(--border)]" />
-          <div className="flex-1">
-            {stripItems.length > 0 && <SummaryStrip items={stripItems.slice(1)} />}
+          <div className="rounded-md border border-[var(--border)] bg-[var(--card)] px-4 py-3">
+            <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Unrealized P&L</p>
+            <p
+              className="mt-1 font-mono text-xl font-bold"
+              style={{ color: Number(summary.total_unrealized_pnl) >= 0 ? "var(--success)" : "var(--destructive)" }}
+            >
+              {fmtCurrency(summary.total_unrealized_pnl)}
+            </p>
+          </div>
+          <div className="rounded-md border border-[var(--border)] bg-[var(--card)] px-4 py-3">
+            <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Realized P&L</p>
+            <p
+              className="mt-1 font-mono text-xl font-bold"
+              style={{ color: Number(summary.total_realized_pnl) >= 0 ? "var(--success)" : "var(--destructive)" }}
+            >
+              {fmtCurrency(summary.total_realized_pnl)}
+            </p>
+          </div>
+          <div className="rounded-md border border-[var(--border)] bg-[var(--card)] px-4 py-3">
+            <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Positions</p>
+            <p className="mt-1 font-mono text-xl font-bold">{summary.position_count}</p>
+            <p className="mt-0.5 text-[10px] text-[var(--muted-foreground)]">
+              Cost Basis: {fmtCurrency(summary.total_cost_basis)}
+            </p>
           </div>
         </div>
       )}
-      {!summary && stripItems.length > 0 && <SummaryStrip items={stripItems} />}
 
-      {/* Performance chart + VaR gauge side by side */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_280px]">
-        <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
-          <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
-            Performance (30 days)
-          </h3>
-          {perfSeries.length > 0 ? (
-            <LineChart
-              series={perfSeries}
-              height={220}
-              formatY={(v) => `${v.toFixed(1)}%`}
-              xLabelInterval={7}
-            />
-          ) : (
-            <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
-              No performance data
-            </p>
-          )}
+      {/* Main grid: Performance + Allocation Donut + Risk */}
+      <div className="grid grid-cols-12 gap-3">
+        {/* Performance chart */}
+        <div className="col-span-5">
+          <SectionPanel title="Performance (30d)">
+            <div className="p-3">
+              {perfSeries.length > 0 ? (
+                <LineChart
+                  series={perfSeries}
+                  height={200}
+                  formatY={(v) => `${v.toFixed(1)}%`}
+                  xLabelInterval={7}
+                />
+              ) : (
+                <p className="py-8 text-center text-xs text-[var(--muted-foreground)]">
+                  No performance data
+                </p>
+              )}
+            </div>
+          </SectionPanel>
         </div>
 
-        <div className="space-y-3">
-          <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
-            <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
-              Risk
-            </h3>
-            <GaugeBar
-              value={varValue}
-              max={varLimit}
-              label="VaR 95% (1d) Utilization"
-            />
-            {risk && (
-              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <p className="text-[var(--muted-foreground)]">VaR 95%</p>
-                  <p className="font-mono font-medium">{fmtCurrency(risk.var_95_1d)}</p>
-                </div>
-                <div>
-                  <p className="text-[var(--muted-foreground)]">VaR 99%</p>
-                  <p className="font-mono font-medium">{fmtCurrency(risk.var_99_1d)}</p>
-                </div>
-              </div>
-            )}
-          </div>
+        {/* Sector Allocation Donut */}
+        <div className="col-span-4">
+          <SectionPanel title="Sector Allocation">
+            <div className="p-3">
+              {sectorSegments.length > 0 ? (
+                <DonutChart
+                  segments={sectorSegments}
+                  centerValue={String(positions?.length ?? summary?.position_count ?? 0)}
+                  centerLabel="Positions"
+                  size={150}
+                  thickness={26}
+                />
+              ) : (
+                <p className="py-8 text-center text-xs text-[var(--muted-foreground)]">
+                  No exposure data
+                </p>
+              )}
+            </div>
+          </SectionPanel>
+        </div>
 
-          <ExposureSummary portfolioId={portfolioId} />
+        {/* Risk panel */}
+        <div className="col-span-3">
+          <SectionPanel title="Risk">
+            <div className="p-3">
+              <GaugeBar
+                value={varValue}
+                max={varLimit}
+                label="VaR 95% (1d) Utilization"
+              />
+              {risk && (
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <p className="text-[var(--muted-foreground)]">VaR 95%</p>
+                    <p className="font-mono font-medium">{fmtCurrency(risk.var_95_1d)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[var(--muted-foreground)]">VaR 99%</p>
+                    <p className="font-mono font-medium">{fmtCurrency(risk.var_99_1d)}</p>
+                  </div>
+                </div>
+              )}
+              <div className="mt-3">
+                <ExposureSummary portfolioId={portfolioId} />
+              </div>
+            </div>
+          </SectionPanel>
         </div>
       </div>
 
-      {/* Top & Bottom Movers */}
-      {(movers.top.length > 0 || movers.bottom.length > 0) && (
-        <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
-          <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
-            Top & Bottom Movers
-          </h3>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div>
-              <p className="mb-2 text-[10px] font-medium uppercase text-[var(--success)]">Gainers</p>
-              <HBarChart items={movers.top} />
+      {/* Currency Exposure */}
+      {currencyBars.length > 0 && (
+        <SectionPanel title="Currency Exposure">
+          <div className="p-3">
+            <div className="space-y-2">
+              {(() => {
+                const maxVal = Math.max(...currencyBars.map((b) => Math.max(b.long, b.short)), 1);
+                return currencyBars.map((b) => (
+                  <div key={b.label} className="flex items-center gap-3 text-xs">
+                    <span className="w-10 font-mono font-medium text-[var(--foreground)]">{b.label}</span>
+                    <div className="flex-1">
+                      <div className="flex gap-0.5">
+                        <div
+                          className="h-4 rounded-l-sm"
+                          style={{
+                            width: `${Math.max((b.long / maxVal) * 100, 1)}%`,
+                            backgroundColor: "var(--primary)",
+                            opacity: 0.8,
+                          }}
+                        />
+                        {b.short > 0 && (
+                          <div
+                            className="h-4 rounded-r-sm"
+                            style={{
+                              width: `${Math.max((b.short / maxVal) * 100, 1)}%`,
+                              backgroundColor: "var(--destructive)",
+                              opacity: 0.6,
+                            }}
+                          />
+                        )}
+                      </div>
+                    </div>
+                    <span className={`w-20 text-right font-mono ${b.net >= 0 ? "text-[var(--success)]" : "text-[var(--destructive)]"}`}>
+                      {fmtCurrency(String(b.net))}
+                    </span>
+                  </div>
+                ));
+              })()}
             </div>
-            <div>
-              <p className="mb-2 text-[10px] font-medium uppercase text-[var(--destructive)]">Losers</p>
-              <HBarChart items={movers.bottom} />
+            <div className="mt-2 flex items-center gap-4 text-[10px] text-[var(--muted-foreground)]">
+              <span className="flex items-center gap-1">
+                <span className="inline-block h-2 w-4 rounded-sm bg-[var(--primary)] opacity-80" /> Long
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="inline-block h-2 w-4 rounded-sm bg-[var(--destructive)] opacity-60" /> Short
+              </span>
             </div>
           </div>
-        </div>
+        </SectionPanel>
+      )}
+
+      {/* Top & Bottom Movers */}
+      {(movers.top.length > 0 || movers.bottom.length > 0) && (
+        <SectionPanel title="Top & Bottom Movers">
+          <div className="p-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <p className="mb-1.5 text-[10px] font-medium uppercase text-[var(--success)]">Gainers</p>
+                <HBarChart items={movers.top} />
+              </div>
+              <div>
+                <p className="mb-1.5 text-[10px] font-medium uppercase text-[var(--destructive)]">Losers</p>
+                <HBarChart items={movers.bottom} />
+              </div>
+            </div>
+          </div>
+        </SectionPanel>
       )}
     </div>
   );

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { Filter } from "lucide-react";
 import { instrumentsQueryOptions } from "@/features/instruments/api";
 import { Can } from "@/shared/components/can";
 import { SortableHeader, TablePagination, TableSearch } from "@/shared/components/table-controls";
@@ -31,6 +32,10 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [showTradeTicket, setShowTradeTicket] = useState(false);
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
+  const [showFilters, setShowFilters] = useState(false);
+  const [sideFilter, setSideFilter] = useState<"all" | "long" | "short">("all");
+  const [sectorFilter, setSectorFilter] = useState<string>("all");
+  const [currencyFilter, setCurrencyFilter] = useState<string>("all");
   const exportCSV = useExportCSV();
 
   // Build instrument lookup for grouping
@@ -72,8 +77,53 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
     );
   }, [positions]);
 
+  // Available filter values
+  const availableSectors = useMemo(() => {
+    if (!positions || !instrumentMap.size) return [];
+    const sectors = new Set<string>();
+    for (const p of positions) {
+      sectors.add(instrumentMap.get(p.instrument_id)?.sector ?? "Other");
+    }
+    return [...sectors].sort();
+  }, [positions, instrumentMap]);
+
+  const availableCurrencies = useMemo(() => {
+    if (!positions) return [];
+    const currencies = new Set<string>();
+    for (const p of positions) {
+      if (p.currency) currencies.add(p.currency);
+    }
+    return [...currencies].sort();
+  }, [positions]);
+
+  // Filtered positions
+  const filteredPositions = useMemo(() => {
+    if (!positions) return [];
+    return positions.filter((p) => {
+      if (sideFilter === "long" && Number(p.quantity) <= 0) return false;
+      if (sideFilter === "short" && Number(p.quantity) >= 0) return false;
+      if (sectorFilter !== "all") {
+        const sector = instrumentMap.get(p.instrument_id)?.sector ?? "Other";
+        if (sector !== sectorFilter) return false;
+      }
+      if (currencyFilter !== "all" && p.currency !== currencyFilter) return false;
+      return true;
+    });
+  }, [positions, sideFilter, sectorFilter, currencyFilter, instrumentMap]);
+
+  const activeFilterCount =
+    (sideFilter !== "all" ? 1 : 0) +
+    (sectorFilter !== "all" ? 1 : 0) +
+    (currencyFilter !== "all" ? 1 : 0);
+
+  // Max absolute P/L for bar sizing
+  const maxAbsPnl = useMemo(() => {
+    if (!filteredPositions || filteredPositions.length === 0) return 1;
+    return Math.max(...filteredPositions.map((p) => Math.abs(Number(p.unrealized_pnl))), 1);
+  }, [filteredPositions]);
+
   const table = useTableState<Record<string, unknown>>({
-    data: (positions ?? []) as unknown as Record<string, unknown>[],
+    data: filteredPositions as unknown as Record<string, unknown>[],
     initialSort: { key: "instrument_id", direction: "asc" },
     pageSize: 15,
     searchKeys: ["instrument_id"],
@@ -118,6 +168,18 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
           </span>
           <button
             type="button"
+            onClick={() => setShowFilters(!showFilters)}
+            className={`inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm transition-colors ${
+              showFilters || activeFilterCount > 0
+                ? "border-[var(--primary)] bg-[var(--primary-muted)] text-[var(--primary)]"
+                : "border-[var(--border)] bg-[var(--background)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+            }`}
+          >
+            <Filter className="h-3.5 w-3.5" />
+            Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+          </button>
+          <button
+            type="button"
             onClick={handleExport}
             title="Export to CSV"
             className="inline-flex h-9 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
@@ -136,6 +198,84 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
           </Can>
         </div>
       </div>
+
+      {/* Collapsible filter panel */}
+      {showFilters && (
+        <div className="mb-3 rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="mb-1.5 block text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+                Side
+              </label>
+              <div className="flex gap-1">
+                {(["all", "long", "short"] as const).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setSideFilter(s)}
+                    className={`rounded-md px-3 py-1 text-xs font-medium capitalize transition-colors ${
+                      sideFilter === s
+                        ? s === "long"
+                          ? "bg-[var(--success)] text-white"
+                          : s === "short"
+                            ? "bg-[var(--destructive)] text-white"
+                            : "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                        : "border border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label htmlFor="sector-filter" className="mb-1.5 block text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+                Sector
+              </label>
+              <select
+                id="sector-filter"
+                value={sectorFilter}
+                onChange={(e) => setSectorFilter(e.target.value)}
+                className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs"
+              >
+                <option value="all">All Sectors</option>
+                {availableSectors.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="currency-filter" className="mb-1.5 block text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+                Currency
+              </label>
+              <select
+                id="currency-filter"
+                value={currencyFilter}
+                onChange={(e) => setCurrencyFilter(e.target.value)}
+                className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs"
+              >
+                <option value="all">All Currencies</option>
+                {availableCurrencies.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {activeFilterCount > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setSideFilter("all");
+                setSectorFilter("all");
+                setCurrencyFilter("all");
+              }}
+              className="mt-2 text-[10px] text-[var(--primary)] hover:underline"
+            >
+              Clear all filters
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Totals summary strip */}
       {totals && (
@@ -229,6 +369,7 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
                     <PositionRow
                       key={pos.instrument_id}
                       pos={pos}
+                      maxAbsPnl={maxAbsPnl}
                       expanded={expandedRow === pos.instrument_id}
                       onToggle={() =>
                         setExpandedRow(expandedRow === pos.instrument_id ? null : pos.instrument_id)
@@ -281,6 +422,7 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
                       <PositionRow
                         key={pos.instrument_id}
                         pos={pos}
+                        maxAbsPnl={maxAbsPnl}
                         expanded={expandedRow === pos.instrument_id}
                         onToggle={() =>
                           setExpandedRow(expandedRow === pos.instrument_id ? null : pos.instrument_id)
@@ -340,17 +482,23 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
 
 function PositionRow({
   pos,
+  maxAbsPnl,
   expanded,
   onToggle,
   fundSlug,
   portfolioId,
 }: {
   pos: { instrument_id: string; quantity: string; avg_cost: string; market_price: string; market_value: string; unrealized_pnl: string; last_updated: string };
+  maxAbsPnl: number;
   expanded: boolean;
   onToggle: () => void;
   fundSlug: string;
   portfolioId: string;
 }) {
+  const pnl = Number(pos.unrealized_pnl);
+  const barPct = Math.min((Math.abs(pnl) / maxAbsPnl) * 100, 100);
+  const barColor = pnl >= 0 ? "var(--success)" : "var(--destructive)";
+
   return (
     <>
       <tr
@@ -367,8 +515,18 @@ function PositionRow({
         <td className="px-3 py-1.5 text-right">{formatPrice(pos.avg_cost)}</td>
         <td className="px-3 py-1.5 text-right">{formatPrice(pos.market_price)}</td>
         <td className="px-3 py-1.5 text-right">{formatPnL(pos.market_value)}</td>
-        <td className={`px-3 py-1.5 text-right font-medium ${pnlColorClass(pos.unrealized_pnl)}`}>
-          {formatPnL(pos.unrealized_pnl)}
+        <td className="px-3 py-1.5 text-right">
+          <div className="flex items-center justify-end gap-2">
+            <div className="h-1.5 w-16 overflow-hidden rounded-full bg-[var(--border)]">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{ width: `${Math.max(barPct, 2)}%`, backgroundColor: barColor, opacity: 0.7 }}
+              />
+            </div>
+            <span className={`font-mono font-medium ${pnlColorClass(pos.unrealized_pnl)}`}>
+              {formatPnL(pos.unrealized_pnl)}
+            </span>
+          </div>
         </td>
         <td className="px-3 py-1.5 text-right text-[var(--muted-foreground)]">
           {formatTimestamp(pos.last_updated)}

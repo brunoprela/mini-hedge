@@ -442,3 +442,180 @@ export function SummaryStrip({ items }: { items: SummaryStripItem[] }) {
     </div>
   );
 }
+
+// ─── Donut Chart ───────────────────────────────────────────
+
+interface DonutSegment {
+  label: string;
+  value: number;
+  color: string;
+}
+
+interface DonutChartProps {
+  segments: DonutSegment[];
+  size?: number;
+  thickness?: number;
+  centerLabel?: string;
+  centerValue?: string;
+}
+
+const DONUT_PALETTE = [
+  "var(--primary)",
+  "var(--success)",
+  "var(--warning)",
+  "var(--destructive)",
+  "var(--accent-orange)",
+  "#6366f1",
+  "#06b6d4",
+  "#8b5cf6",
+  "#ec4899",
+  "#14b8a6",
+];
+
+export function DonutChart({
+  segments,
+  size = 180,
+  thickness = 32,
+  centerLabel,
+  centerValue,
+}: DonutChartProps) {
+  const total = segments.reduce((acc, s) => acc + s.value, 0);
+  if (total === 0) {
+    return <p className="text-sm text-[var(--muted-foreground)]">No data</p>;
+  }
+
+  const r = (size - thickness) / 2;
+  const cx = size / 2;
+  const cy = size / 2;
+  const circumference = 2 * Math.PI * r;
+
+  let accumulated = 0;
+
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <svg viewBox={`0 0 ${size} ${size}`} className="w-full max-w-[240px]">
+        {segments.map((seg, i) => {
+          const pct = seg.value / total;
+          const dashLen = pct * circumference;
+          const dashOffset = -accumulated * circumference;
+          accumulated += pct;
+
+          return (
+            <circle
+              key={seg.label}
+              cx={cx}
+              cy={cy}
+              r={r}
+              fill="none"
+              stroke={seg.color || DONUT_PALETTE[i % DONUT_PALETTE.length]}
+              strokeWidth={thickness}
+              strokeDasharray={`${dashLen} ${circumference - dashLen}`}
+              strokeDashoffset={dashOffset}
+              transform={`rotate(-90 ${cx} ${cy})`}
+            />
+          );
+        })}
+        {/* Center text */}
+        {(centerValue || centerLabel) && (
+          <>
+            {centerValue && (
+              <text
+                x={cx}
+                y={centerLabel ? cy - 4 : cy + 4}
+                textAnchor="middle"
+                fontSize={22}
+                fontWeight="bold"
+                fontFamily="monospace"
+                fill="var(--foreground)"
+              >
+                {centerValue}
+              </text>
+            )}
+            {centerLabel && (
+              <text
+                x={cx}
+                y={centerValue ? cy + 14 : cy + 4}
+                textAnchor="middle"
+                fontSize={9}
+                fill="var(--muted-foreground)"
+              >
+                {centerLabel}
+              </text>
+            )}
+          </>
+        )}
+      </svg>
+
+      {/* Legend */}
+      <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
+        {segments.map((seg, i) => (
+          <div key={seg.label} className="flex items-center gap-1.5 text-xs">
+            <span
+              className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
+              style={{ backgroundColor: seg.color || DONUT_PALETTE[i % DONUT_PALETTE.length] }}
+            />
+            <span className="text-[var(--muted-foreground)]">{seg.label}</span>
+            <span className="font-mono font-medium text-[var(--foreground)]">
+              {((seg.value / total) * 100).toFixed(1)}%
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Mini Bar Chart (Sparkline-style vertical bars) ────────
+
+interface MiniBarChartProps {
+  data: number[];
+  height?: number;
+  width?: number;
+  color?: string;
+  negativeColor?: string;
+}
+
+export function MiniBarChart({
+  data,
+  height = 40,
+  width = 120,
+  color = "var(--primary)",
+  negativeColor = "var(--destructive)",
+}: MiniBarChartProps) {
+  if (data.length === 0) return null;
+
+  const max = Math.max(...data.map(Math.abs), 1);
+  const barW = Math.max((width / data.length) * 0.7, 2);
+  const gap = (width / data.length) * 0.3;
+  const mid = height / 2;
+  const hasNeg = data.some((d) => d < 0);
+  const baseline = hasNeg ? mid : height;
+
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+      {data.map((v, i) => {
+        const barH = hasNeg
+          ? (Math.abs(v) / max) * (height / 2 - 2)
+          : (Math.abs(v) / max) * (height - 4);
+        const x = i * (barW + gap);
+        const y = v >= 0 ? baseline - barH : baseline;
+
+        return (
+          <rect
+            key={i}
+            x={x}
+            y={y}
+            width={barW}
+            height={Math.max(barH, 1)}
+            rx={1}
+            fill={v >= 0 ? color : negativeColor}
+            opacity={0.8}
+          />
+        );
+      })}
+      {hasNeg && (
+        <line x1={0} x2={width} y1={mid} y2={mid} stroke="var(--border)" strokeWidth={0.5} />
+      )}
+    </svg>
+  );
+}
