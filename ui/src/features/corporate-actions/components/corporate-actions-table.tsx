@@ -34,11 +34,15 @@ export function CorporateActionsTable() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   if (isLoading) {
-    return <div className="text-sm text-[var(--muted-foreground)]">Loading corporate actions...</div>;
+    return (
+      <div className="text-sm text-[var(--muted-foreground)]">Loading corporate actions...</div>
+    );
   }
 
   if (!actions || actions.length === 0) {
-    return <div className="text-sm text-[var(--muted-foreground)]">No corporate actions found.</div>;
+    return (
+      <div className="text-sm text-[var(--muted-foreground)]">No corporate actions found.</div>
+    );
   }
 
   return (
@@ -98,12 +102,8 @@ function TableRow({
             </button>
           )}
         </td>
-        <td className="px-3 py-2 font-mono text-xs">
-          {action.ex_date}
-        </td>
-        <td className="px-3 py-1 font-medium">
-          {action.instrument_id}
-        </td>
+        <td className="px-3 py-2 font-mono text-xs">{action.ex_date}</td>
+        <td className="px-3 py-1 font-medium">{action.instrument_id}</td>
         <td className="px-3 py-2">
           <span
             className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${ACTION_TYPE_COLORS[action.action_type]}`}
@@ -118,12 +118,8 @@ function TableRow({
             {action.status}
           </span>
         </td>
-        <td className="px-3 py-2 text-[var(--muted-foreground)]">
-          {action.description}
-        </td>
-        <td className="px-3 py-2 text-xs text-[var(--muted-foreground)]">
-          {adjustmentSummary}
-        </td>
+        <td className="px-3 py-2 text-[var(--muted-foreground)]">{action.description}</td>
+        <td className="px-3 py-2 text-xs text-[var(--muted-foreground)]">{adjustmentSummary}</td>
       </tr>
       {isExpanded && action.adjustments.length > 0 && (
         <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
@@ -144,15 +140,19 @@ function TableRow({
                   </thead>
                   <tbody>
                     {action.adjustments.map((adj, idx) => (
-                      <tr
-                        key={idx}
-                        className="border-b border-[var(--table-border)] last:border-0"
-                      >
+                      // biome-ignore lint/suspicious/noArrayIndexKey: adjustments lack stable IDs
+                      <tr key={idx} className="border-b border-[var(--table-border)] last:border-0">
                         <td className="px-3 py-1.5 text-xs text-[var(--muted-foreground)]">
                           {idx + 1}
                         </td>
                         <td className="px-3 py-1.5 font-mono text-xs">
-                          <span className={adj.quantity_delta >= 0 ? "text-[var(--success)]" : "text-[var(--destructive)]"}>
+                          <span
+                            className={
+                              adj.quantity_delta >= 0
+                                ? "text-[var(--success)]"
+                                : "text-[var(--destructive)]"
+                            }
+                          >
                             {adj.quantity_delta >= 0 ? "+" : ""}
                             {adj.quantity_delta.toLocaleString()}
                           </span>

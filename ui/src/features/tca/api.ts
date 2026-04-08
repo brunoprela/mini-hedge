@@ -28,10 +28,9 @@ export function fundTCASummaryQueryOptions(fundSlug: string, days?: number) {
   return queryOptions({
     queryKey: ["fund-tca-summary", fundSlug, days],
     queryFn: () =>
-      clientFetch<FundTCASummary>(
-        `/orders/tca/summary${days != null ? `?days=${days}` : ""}`,
-        { fundSlug },
-      ),
+      clientFetch<FundTCASummary>(`/orders/tca/summary${days != null ? `?days=${days}` : ""}`, {
+        fundSlug,
+      }),
     staleTime: 120_000,
   });
 }

@@ -33,10 +33,12 @@ class BacktestRunRecord(Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     results: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     equity_curve: Mapped[list[dict[str, Any]] | None] = mapped_column(
-        JSONB, nullable=True,
+        JSONB,
+        nullable=True,
     )
     trades: Mapped[list[dict[str, Any]] | None] = mapped_column(
-        JSONB, nullable=True,
+        JSONB,
+        nullable=True,
     )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -45,5 +47,6 @@ class BacktestRunRecord(Base):
         server_default=func.now(),
     )
     completed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True,
+        DateTime(timezone=True),
+        nullable=True,
     )

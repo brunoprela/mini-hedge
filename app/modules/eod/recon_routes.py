@@ -133,9 +133,7 @@ async def get_recon_by_date(
     session: AsyncSession = Depends(get_db),
 ) -> ReconSummary | None:
     """Get reconciliation result for a specific date."""
-    record = await recon_repo.get_by_date(
-        str(portfolio_id), business_date, session=session
-    )
+    record = await recon_repo.get_by_date(str(portfolio_id), business_date, session=session)
     if record is None:
         return None
     breaks_list = record.breaks if isinstance(record.breaks, list) else []
@@ -200,9 +198,7 @@ async def update_break(
     session: AsyncSession = Depends(get_db),
 ) -> TrackedBreak:
     """Update break status (investigate, resolve, escalate)."""
-    resolved_at = (
-        datetime.now(UTC) if body.status == BreakStatus.RESOLVED else None
-    )
+    resolved_at = datetime.now(UTC) if body.status == BreakStatus.RESOLVED else None
     record = await break_repo.update_status(
         str(break_id),
         status=body.status.value,
@@ -243,9 +239,7 @@ async def auto_resolve_breaks(
     from app.modules.eod.auto_resolver import BreakAutoResolver, default_rules
 
     resolver = BreakAutoResolver(default_rules(), break_repo)
-    return await resolver.process_breaks(
-        str(portfolio_id), business_date, session=session
-    )
+    return await resolver.process_breaks(str(portfolio_id), business_date, session=session)
 
 
 @router.get(

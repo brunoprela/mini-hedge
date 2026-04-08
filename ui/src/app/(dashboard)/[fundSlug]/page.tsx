@@ -1,6 +1,6 @@
 import { HydrationBoundary } from "@tanstack/react-query";
-import { DashboardHome } from "./dashboard-home";
 import { prefetch } from "@/shared/lib/prefetch";
+import { DashboardHome } from "./dashboard-home";
 
 export default async function FundDashboardPage({
   params,

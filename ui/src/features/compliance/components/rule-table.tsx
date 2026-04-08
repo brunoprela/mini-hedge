@@ -233,7 +233,9 @@ export function RuleTable() {
                       <button
                         type="button"
                         onClick={() => {
-                          if (window.confirm(`Delete rule "${rule.name}"? This cannot be undone.`)) {
+                          if (
+                            window.confirm(`Delete rule "${rule.name}"? This cannot be undone.`)
+                          ) {
                             deleteMutation.mutate(rule.id);
                           }
                         }}

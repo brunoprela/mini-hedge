@@ -122,8 +122,11 @@ export async function setInterestRate(
   tenorDays = 30,
   source = "manual",
 ): Promise<void> {
-  await clientFetch(`/fx-hedging/interest-rates/${currency}?rate=${rate}&tenor_days=${tenorDays}&source=${source}`, {
-    fundSlug,
-    method: "PUT",
-  });
+  await clientFetch(
+    `/fx-hedging/interest-rates/${currency}?rate=${rate}&tenor_days=${tenorDays}&source=${source}`,
+    {
+      fundSlug,
+      method: "PUT",
+    },
+  );
 }

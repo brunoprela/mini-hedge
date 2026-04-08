@@ -50,7 +50,7 @@ export function WhatIfForm({ portfolioId }: { portfolioId: string }) {
         },
       ]);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchParams.get, scenarioName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const mutation = useMutation({
     mutationFn: () =>

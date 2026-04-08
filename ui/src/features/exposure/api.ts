@@ -10,11 +10,19 @@ export function exposureQueryOptions(fundSlug: string, portfolioId: string) {
   });
 }
 
-export function exposureHistoryQueryOptions(fundSlug: string, portfolioId: string, start: string, end: string) {
+export function exposureHistoryQueryOptions(
+  fundSlug: string,
+  portfolioId: string,
+  start: string,
+  end: string,
+) {
   return queryOptions({
     queryKey: ["exposure-history", fundSlug, portfolioId, start, end],
     queryFn: () =>
-      clientFetch<ExposureHistoryEntry[]>(`/exposure/${portfolioId}/history?start=${start}&end=${end}`, { fundSlug }),
+      clientFetch<ExposureHistoryEntry[]>(
+        `/exposure/${portfolioId}/history?start=${start}&end=${end}`,
+        { fundSlug },
+      ),
     staleTime: 120_000,
     enabled: Boolean(portfolioId && start && end),
   });

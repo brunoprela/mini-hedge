@@ -25,7 +25,9 @@ export function TradeTicketPanel() {
       <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-2.5">
         <div>
           <h2 className="text-sm font-semibold">Trade Ticket</h2>
-          <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Order Entry</p>
+          <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">
+            Order Entry
+          </p>
         </div>
         <button
           type="button"

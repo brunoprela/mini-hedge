@@ -300,14 +300,19 @@ export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => { setWaiveTarget(null); setWaiveReason(""); }}
+                onClick={() => {
+                  setWaiveTarget(null);
+                  setWaiveReason("");
+                }}
                 className="rounded-lg px-3 py-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={() => waiveMutation.mutate({ violationId: waiveTarget, reason: waiveReason })}
+                onClick={() =>
+                  waiveMutation.mutate({ violationId: waiveTarget, reason: waiveReason })
+                }
                 disabled={!waiveReason.trim() || waiveMutation.isPending}
                 className="rounded-lg bg-[var(--primary)] px-3 py-1.5 text-sm font-medium text-[var(--primary-foreground)] disabled:opacity-50"
               >

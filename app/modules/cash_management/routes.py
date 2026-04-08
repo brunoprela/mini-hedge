@@ -172,9 +172,7 @@ async def generate_settlement_message(
     session: AsyncSession = Depends(get_db),
 ) -> SettlementMessage:
     """Generate a SWIFT-like settlement instruction for a settlement."""
-    pending = await cash_management_service.get_pending_settlements(
-        portfolio_id, session=session
-    )
+    pending = await cash_management_service.get_pending_settlements(portfolio_id, session=session)
     settlement = next((s for s in pending if str(s.id) == str(settlement_id)), None)
     if settlement is None:
         from fastapi import HTTPException
@@ -204,9 +202,7 @@ async def list_settlement_messages(
     every pending settlement.  Since no counterparty BIC registry exists
     yet, a placeholder BIC is used.
     """
-    pending = await cash_management_service.get_pending_settlements(
-        portfolio_id, session=session
-    )
+    pending = await cash_management_service.get_pending_settlements(portfolio_id, session=session)
     messages: list[dict[str, Any]] = []
     for settlement in pending:
         msg = _messenger.generate_payment_instruction(

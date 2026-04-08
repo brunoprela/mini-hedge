@@ -97,9 +97,7 @@ class InvestorOperationsService:
         session: AsyncSession | None = None,
     ) -> SubscriptionRequestSummary:
         """Create a new subscription request and move it to PENDING_KYC."""
-        terms = await self._terms_repo.get_by_share_class(
-            share_class, session=session
-        )
+        terms = await self._terms_repo.get_by_share_class(share_class, session=session)
         if terms and not validate_minimum_amount(amount, terms.minimum_subscription):
             msg = (
                 f"Amount {amount} is below minimum subscription "
@@ -119,9 +117,7 @@ class InvestorOperationsService:
             updated_at=now,
         )
         # Immediately transition to PENDING_KYC
-        apply_subscription_transition(
-            SubscriptionState.DRAFT, SubscriptionState.PENDING_KYC
-        )
+        apply_subscription_transition(SubscriptionState.DRAFT, SubscriptionState.PENDING_KYC)
         record.state = SubscriptionState.PENDING_KYC
 
         await self._sub_repo.save(record, session=session)
@@ -156,11 +152,7 @@ class InvestorOperationsService:
             raise ValueError(msg)
 
         current = SubscriptionState(record.state)
-        target = (
-            SubscriptionState.KYC_APPROVED
-            if approved
-            else SubscriptionState.KYC_REJECTED
-        )
+        target = SubscriptionState.KYC_APPROVED if approved else SubscriptionState.KYC_REJECTED
         apply_subscription_transition(current, target)
 
         now = _now()
@@ -209,16 +201,10 @@ class InvestorOperationsService:
 
         if current == SubscriptionState.KYC_APPROVED:
             # First transition to PENDING_OPS_REVIEW
-            apply_subscription_transition(
-                current, SubscriptionState.PENDING_OPS_REVIEW
-            )
+            apply_subscription_transition(current, SubscriptionState.PENDING_OPS_REVIEW)
             current = SubscriptionState.PENDING_OPS_REVIEW
 
-        target = (
-            SubscriptionState.PENDING_GP_APPROVAL
-            if approved
-            else SubscriptionState.CANCELLED
-        )
+        target = SubscriptionState.PENDING_GP_APPROVAL if approved else SubscriptionState.CANCELLED
         apply_subscription_transition(current, target)
 
         now = _now()
@@ -252,11 +238,7 @@ class InvestorOperationsService:
             raise ValueError(msg)
 
         current = SubscriptionState(record.state)
-        target = (
-            SubscriptionState.APPROVED
-            if approved
-            else SubscriptionState.REJECTED
-        )
+        target = SubscriptionState.APPROVED if approved else SubscriptionState.REJECTED
         apply_subscription_transition(current, target)
 
         extra: dict[str, object] = {
@@ -265,9 +247,7 @@ class InvestorOperationsService:
         }
 
         if approved:
-            terms = await self._terms_repo.get_by_share_class(
-                record.share_class, session=session
-            )
+            terms = await self._terms_repo.get_by_share_class(record.share_class, session=session)
             if terms:
                 dealing = compute_next_dealing_date(
                     RedemptionFrequency(terms.redemption_frequency),
@@ -277,9 +257,7 @@ class InvestorOperationsService:
                 extra["dealing_date"] = dealing
                 record.dealing_date = dealing
 
-        await self._sub_repo.update_state(
-            request_id, target, session=session, **extra
-        )
+        await self._sub_repo.update_state(request_id, target, session=session, **extra)
         record.state = target
         record.gp_decision_at = extra["gp_decision_at"]  # type: ignore[assignment]
         record.gp_decision_by = decision_by
@@ -335,12 +313,8 @@ class InvestorOperationsService:
 
         Calls the capital accounts engine to create the actual accounting entries.
         """
-        records = await self._sub_repo.list_by_dealing_date(
-            dealing_date, session=session
-        )
-        queued = [
-            r for r in records if r.state == SubscriptionState.QUEUED_FOR_NAV
-        ]
+        records = await self._sub_repo.list_by_dealing_date(dealing_date, session=session)
+        queued = [r for r in records if r.state == SubscriptionState.QUEUED_FOR_NAV]
 
         results: list[SubscriptionRequestSummary] = []
         for record in queued:
@@ -348,9 +322,7 @@ class InvestorOperationsService:
                 SubscriptionState(record.state), SubscriptionState.EXECUTED
             )
 
-            shares = (record.requested_amount / nav_per_share).quantize(
-                Decimal("0.000001")
-            )
+            shares = (record.requested_amount / nav_per_share).quantize(Decimal("0.000001"))
 
             await self._capital_service.process_subscription(
                 investor_id=record.investor_id,
@@ -453,9 +425,7 @@ class InvestorOperationsService:
             updated_at=now,
             gate_applied=False,
         )
-        apply_redemption_transition(
-            RedemptionState.DRAFT, RedemptionState.PENDING_VALIDATION
-        )
+        apply_redemption_transition(RedemptionState.DRAFT, RedemptionState.PENDING_VALIDATION)
         record.state = RedemptionState.PENDING_VALIDATION
 
         await self._red_repo.save(record, session=session)
@@ -489,39 +459,29 @@ class InvestorOperationsService:
             raise ValueError(msg)
 
         current = RedemptionState(record.state)
-        terms = await self._terms_repo.get_by_share_class(
-            share_class, session=session
-        )
+        terms = await self._terms_repo.get_by_share_class(share_class, session=session)
 
         failed_reason: str | None = None
         extra: dict[str, object] = {}
 
         if terms:
             # Check minimum redemption
-            if not validate_minimum_amount(
-                record.requested_amount, terms.minimum_redemption
-            ):
+            if not validate_minimum_amount(record.requested_amount, terms.minimum_redemption):
                 failed_reason = (
-                    f"Amount {record.requested_amount} below minimum "
-                    f"{terms.minimum_redemption}"
+                    f"Amount {record.requested_amount} below minimum {terms.minimum_redemption}"
                 )
 
             # Check lock-up
             if subscription_date and not failed_reason:
-                expiry = compute_lock_up_expiry(
-                    subscription_date, terms.lock_up_months
-                )
+                expiry = compute_lock_up_expiry(subscription_date, terms.lock_up_months)
                 if date.today() < expiry:
                     failed_reason = (
-                        f"Lock-up expires {expiry.isoformat()}, "
-                        f"cannot redeem until then"
+                        f"Lock-up expires {expiry.isoformat()}, cannot redeem until then"
                     )
                 extra["lock_up_expiry_date"] = expiry
 
             # Compute earliest redemption date from notice period
-            earliest = compute_notice_deadline(
-                record.notice_date, terms.notice_period_days
-            )
+            earliest = compute_notice_deadline(record.notice_date, terms.notice_period_days)
             extra["earliest_redemption_date"] = earliest
 
         if failed_reason:
@@ -532,9 +492,7 @@ class InvestorOperationsService:
             target = RedemptionState.VALIDATED
             apply_redemption_transition(current, target)
 
-        await self._red_repo.update_state(
-            request_id, target, session=session, **extra
-        )
+        await self._red_repo.update_state(request_id, target, session=session, **extra)
         record.state = target
         if "earliest_redemption_date" in extra:
             record.earliest_redemption_date = extra["earliest_redemption_date"]  # type: ignore[assignment]
@@ -554,9 +512,7 @@ class InvestorOperationsService:
     ) -> GateCheckResult:
         """Run the fund-level gate check on all pending redemptions."""
         if gate_pct is None:
-            terms = await self._terms_repo.get_by_share_class(
-                share_class, session=session
-            )
+            terms = await self._terms_repo.get_by_share_class(share_class, session=session)
             gate_pct = terms.gate_pct if terms else Decimal("0.25")
 
         pending = await self._red_repo.list_pending_for_gate(session=session)
@@ -586,15 +542,11 @@ class InvestorOperationsService:
 
             # validated → pending_gate_check → gate_applied/queued_for_nav
             if current == RedemptionState.VALIDATED:
-                apply_redemption_transition(
-                    current, RedemptionState.PENDING_GATE_CHECK
-                )
+                apply_redemption_transition(current, RedemptionState.PENDING_GATE_CHECK)
                 current = RedemptionState.PENDING_GATE_CHECK
 
             apply_redemption_transition(current, target)
-            await self._red_repo.update_state(
-                rid, target, session=session, **extra
-            )
+            await self._red_repo.update_state(rid, target, session=session, **extra)
 
         if result.gate_triggered:
             await self._event_bus.publish(
@@ -621,9 +573,7 @@ class InvestorOperationsService:
         session: AsyncSession | None = None,
     ) -> list[RedemptionRequestSummary]:
         """Execute all queued redemptions for a dealing date."""
-        records = await self._red_repo.list_by_dealing_date(
-            dealing_date, session=session
-        )
+        records = await self._red_repo.list_by_dealing_date(dealing_date, session=session)
         queued = [
             r
             for r in records
@@ -634,9 +584,7 @@ class InvestorOperationsService:
         for record in queued:
             current = RedemptionState(record.state)
             if current == RedemptionState.GATE_APPLIED:
-                apply_redemption_transition(
-                    current, RedemptionState.QUEUED_FOR_NAV
-                )
+                apply_redemption_transition(current, RedemptionState.QUEUED_FOR_NAV)
                 await self._red_repo.update_state(
                     record.id,
                     RedemptionState.QUEUED_FOR_NAV,
@@ -651,9 +599,7 @@ class InvestorOperationsService:
         results: list[RedemptionRequestSummary] = []
         for record in queued:
             redemption_amount = record.approved_amount or record.requested_amount
-            shares = (redemption_amount / nav_per_share).quantize(
-                Decimal("0.000001")
-            )
+            shares = (redemption_amount / nav_per_share).quantize(Decimal("0.000001"))
 
             # Transition: QUEUED_FOR_NAV → NAV_CALCULATED → PENDING_PAYMENT
             apply_redemption_transition(
@@ -719,9 +665,7 @@ class InvestorOperationsService:
 
         current = RedemptionState(record.state)
         apply_redemption_transition(current, RedemptionState.PAYMENT_SENT)
-        apply_redemption_transition(
-            RedemptionState.PAYMENT_SENT, RedemptionState.EXECUTED
-        )
+        apply_redemption_transition(RedemptionState.PAYMENT_SENT, RedemptionState.EXECUTED)
 
         now = _now()
         await self._red_repo.update_state(
@@ -790,9 +734,7 @@ class InvestorOperationsService:
         )
 
         # Upsert KYC record
-        existing = await self._kyc_repo.get_by_investor(
-            investor_id, session=session
-        )
+        existing = await self._kyc_repo.get_by_investor(investor_id, session=session)
         if existing:
             existing.kyc_status = result.kyc_status
             existing.aml_status = result.aml_status
@@ -838,9 +780,7 @@ class InvestorOperationsService:
         session: AsyncSession | None = None,
     ) -> InvestorKYCInfo | None:
         """Get the current KYC status for an investor."""
-        record = await self._kyc_repo.get_by_investor(
-            investor_id, session=session
-        )
+        record = await self._kyc_repo.get_by_investor(investor_id, session=session)
         if record is None:
             return None
         return InvestorKYCInfo(
@@ -866,9 +806,7 @@ class InvestorOperationsService:
         *,
         session: AsyncSession | None = None,
     ) -> FundTermsSummary | None:
-        record = await self._terms_repo.get_by_share_class(
-            share_class, session=session
-        )
+        record = await self._terms_repo.get_by_share_class(share_class, session=session)
         if record is None:
             return None
         return _terms_to_summary(record)
@@ -893,9 +831,7 @@ class InvestorOperationsService:
         payment_days: int = 30,
         session: AsyncSession | None = None,
     ) -> FundTermsSummary:
-        existing = await self._terms_repo.get_by_share_class(
-            share_class, session=session
-        )
+        existing = await self._terms_repo.get_by_share_class(share_class, session=session)
         if existing:
             existing.lock_up_months = lock_up_months
             existing.notice_period_days = notice_period_days
@@ -940,13 +876,9 @@ class InvestorOperationsService:
         session: AsyncSession | None = None,
     ) -> list[SubscriptionRequestSummary]:
         if state:
-            records = await self._sub_repo.list_by_state(
-                state, session=session
-            )
+            records = await self._sub_repo.list_by_state(state, session=session)
         elif investor_id:
-            records = await self._sub_repo.list_by_investor(
-                investor_id, session=session
-            )
+            records = await self._sub_repo.list_by_investor(investor_id, session=session)
         else:
             # Default: list all pending states
             records = []
@@ -960,9 +892,7 @@ class InvestorOperationsService:
                 SubscriptionState.WIRE_CONFIRMED,
                 SubscriptionState.QUEUED_FOR_NAV,
             ]:
-                records.extend(
-                    await self._sub_repo.list_by_state(s, session=session)
-                )
+                records.extend(await self._sub_repo.list_by_state(s, session=session))
         return [_sub_to_summary(r) for r in records]
 
     async def get_redemption(
@@ -979,13 +909,9 @@ class InvestorOperationsService:
         session: AsyncSession | None = None,
     ) -> list[RedemptionRequestSummary]:
         if state:
-            records = await self._red_repo.list_by_state(
-                state, session=session
-            )
+            records = await self._red_repo.list_by_state(state, session=session)
         elif investor_id:
-            records = await self._red_repo.list_by_investor(
-                investor_id, session=session
-            )
+            records = await self._red_repo.list_by_investor(investor_id, session=session)
         else:
             records = []
             for s in [
@@ -997,9 +923,7 @@ class InvestorOperationsService:
                 RedemptionState.NAV_CALCULATED,
                 RedemptionState.PENDING_PAYMENT,
             ]:
-                records.extend(
-                    await self._red_repo.list_by_state(s, session=session)
-                )
+                records.extend(await self._red_repo.list_by_state(s, session=session))
         return [_red_to_summary(r) for r in records]
 
     async def get_queue_summary(
@@ -1032,12 +956,8 @@ class InvestorOperationsService:
             RedemptionState.PENDING_PAYMENT,
         }
 
-        pending_subs = sum(
-            v for k, v in sub_counts.items() if k in pending_sub_states
-        )
-        pending_reds = sum(
-            v for k, v in red_counts.items() if k in pending_red_states
-        )
+        pending_subs = sum(v for k, v in sub_counts.items() if k in pending_sub_states)
+        pending_reds = sum(v for k, v in red_counts.items() if k in pending_red_states)
 
         # Get total amounts from pending subscriptions/redemptions
         sub_records = await self.list_subscriptions(session=session)
@@ -1047,9 +967,7 @@ class InvestorOperationsService:
         total_red = sum(r.requested_amount for r in red_records)
 
         # Next dealing date
-        terms = await self._terms_repo.get_by_share_class(
-            share_class, session=session
-        )
+        terms = await self._terms_repo.get_by_share_class(share_class, session=session)
         next_dealing: date | None = None
         if terms:
             next_dealing = compute_next_dealing_date(
@@ -1076,9 +994,7 @@ def _sub_to_summary(record: SubscriptionRequestRecord) -> SubscriptionRequestSum
     return SubscriptionRequestSummary(
         id=UUID(record.id) if isinstance(record.id, str) else record.id,
         investor_id=(
-            UUID(record.investor_id)
-            if isinstance(record.investor_id, str)
-            else record.investor_id
+            UUID(record.investor_id) if isinstance(record.investor_id, str) else record.investor_id
         ),
         share_class=record.share_class,
         requested_amount=record.requested_amount,
@@ -1106,9 +1022,7 @@ def _red_to_summary(record: RedemptionRequestRecord) -> RedemptionRequestSummary
     return RedemptionRequestSummary(
         id=UUID(record.id) if isinstance(record.id, str) else record.id,
         investor_id=(
-            UUID(record.investor_id)
-            if isinstance(record.investor_id, str)
-            else record.investor_id
+            UUID(record.investor_id) if isinstance(record.investor_id, str) else record.investor_id
         ),
         requested_amount=record.requested_amount,
         approved_amount=record.approved_amount,

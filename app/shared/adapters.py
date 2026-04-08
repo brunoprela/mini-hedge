@@ -270,9 +270,7 @@ class FundAdminAdapter(Protocol):
         """Confirm bank wire receipt. Returns True on success."""
         ...
 
-    async def register_redemption(
-        self, request_id: str, investor_id: str, amount: Decimal
-    ) -> None:
+    async def register_redemption(self, request_id: str, investor_id: str, amount: Decimal) -> None:
         """Register a pending redemption payment."""
         ...
 
@@ -369,9 +367,7 @@ class AltDataProvider(Protocol):
         self, instrument_id: str, start: date, end: date
     ) -> list[AltDataRecord]: ...
 
-    async def get_sentiment(
-        self, instrument_id: str, as_of: date
-    ) -> SentimentRecord | None: ...
+    async def get_sentiment(self, instrument_id: str, as_of: date) -> SentimentRecord | None: ...
 
     @property
     def source_name(self) -> str: ...

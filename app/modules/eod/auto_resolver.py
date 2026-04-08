@@ -50,10 +50,7 @@ class ImmaterialBreakRule(AutoResolutionRule):
     description = "Auto-resolve breaks below the materiality threshold"
 
     def matches(self, break_record: ReconciliationBreakRecord) -> bool:
-        return (
-            not break_record.is_material
-            and break_record.status == BreakStatus.OPEN.value
-        )
+        return not break_record.is_material and break_record.status == BreakStatus.OPEN.value
 
     def resolution_note(self, break_record: ReconciliationBreakRecord) -> str:
         return "Auto-resolved: below materiality threshold"
@@ -108,13 +105,9 @@ class DuplicateBreakRule(AutoResolutionRule):
     def __init__(self) -> None:
         self._resolved_keys: set[tuple[str | None, str]] = set()
 
-    def set_resolved_context(
-        self, recently_resolved: list[ReconciliationBreakRecord]
-    ) -> None:
+    def set_resolved_context(self, recently_resolved: list[ReconciliationBreakRecord]) -> None:
         """Pre-load the set of (instrument_id, break_type) resolved in the last 3 days."""
-        self._resolved_keys = {
-            (r.instrument_id, r.break_type) for r in recently_resolved
-        }
+        self._resolved_keys = {(r.instrument_id, r.break_type) for r in recently_resolved}
 
     def matches(self, break_record: ReconciliationBreakRecord) -> bool:
         if break_record.status != BreakStatus.OPEN.value:
@@ -169,9 +162,7 @@ class BreakAutoResolver:
         session: AsyncSession | None = None,
     ) -> AutoResolutionResult:
         """Apply all rules to open breaks, auto-resolve or escalate matches."""
-        open_breaks = await self._break_repo.list_open(
-            portfolio_id, session=session
-        )
+        open_breaks = await self._break_repo.list_open(portfolio_id, session=session)
 
         # Pre-load context for the DuplicateBreakRule
         for rule in self._rules:
@@ -191,11 +182,7 @@ class BreakAutoResolver:
             for rule in self._rules:
                 if rule.matches(brk):
                     target = rule.target_status()
-                    resolved_at = (
-                        datetime.now(UTC)
-                        if target == BreakStatus.RESOLVED
-                        else None
-                    )
+                    resolved_at = datetime.now(UTC) if target == BreakStatus.RESOLVED else None
                     await self._break_repo.update_status(
                         brk.id,
                         status=target.value,

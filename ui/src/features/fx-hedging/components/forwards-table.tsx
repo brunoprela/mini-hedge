@@ -5,7 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { cn } from "@/shared/lib/cn";
-import { closeForward, rollForward, fxForwardsQueryOptions } from "../api";
+import { closeForward, fxForwardsQueryOptions, rollForward } from "../api";
 import type { FXForwardContract } from "../types";
 
 function fmtRate(value: string): string {
@@ -46,7 +46,11 @@ export function ForwardsTable({ portfolioId }: { portfolioId: string }) {
   const [currentSpot, setCurrentSpot] = useState("");
 
   const closeMutation = useMutation({
-    mutationFn: ({ forwardId, closeRate, closeSpot }: {
+    mutationFn: ({
+      forwardId,
+      closeRate,
+      closeSpot,
+    }: {
       forwardId: string;
       closeRate: number | string;
       closeSpot: number | string;
@@ -66,11 +70,13 @@ export function ForwardsTable({ portfolioId }: { portfolioId: string }) {
   });
 
   const rollMutation = useMutation({
-    mutationFn: ({ forwardId, data }: {
+    mutationFn: ({
+      forwardId,
+      data,
+    }: {
       forwardId: string;
       data: { new_maturity_date: string; new_contract_rate: string; current_spot: string };
-    }) =>
-      rollForward(fundSlug, forwardId, data),
+    }) => rollForward(fundSlug, forwardId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fx-forwards"] });
       queryClient.invalidateQueries({ queryKey: ["fx-hedging-summary"] });
@@ -115,8 +121,12 @@ export function ForwardsTable({ portfolioId }: { portfolioId: string }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--border)] bg-[var(--card)]">
-              <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">Pair</th>
-              <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">Dir</th>
+              <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
+                Pair
+              </th>
+              <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
+                Dir
+              </th>
               <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
                 Notional
               </th>
@@ -126,7 +136,9 @@ export function ForwardsTable({ portfolioId }: { portfolioId: string }) {
               <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
                 Maturity
               </th>
-              <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">MTM</th>
+              <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
+                MTM
+              </th>
               <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
                 Status
               </th>
@@ -218,7 +230,9 @@ export function ForwardsTable({ portfolioId }: { portfolioId: string }) {
               <button
                 type="button"
                 onClick={handleRollSubmit}
-                disabled={!newMaturityDate || !newContractRate || !currentSpot || rollMutation.isPending}
+                disabled={
+                  !newMaturityDate || !newContractRate || !currentSpot || rollMutation.isPending
+                }
                 className="rounded-md bg-[var(--primary)] px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
               >
                 {rollMutation.isPending ? "Rolling..." : "Roll Forward"}

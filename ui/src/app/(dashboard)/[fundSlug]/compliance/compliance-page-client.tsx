@@ -5,24 +5,20 @@ import { Download, Shield, ShieldAlert, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { RuleTable } from "@/features/compliance/components/rule-table";
+import { violationsQueryOptions, waiveViolation } from "@/features/compliance/api";
 import { RemediationPanel } from "@/features/compliance/components/remediation-panel";
-import {
-  rulesQueryOptions,
-  violationsQueryOptions,
-  waiveViolation,
-} from "@/features/compliance/api";
+import { RuleTable } from "@/features/compliance/components/rule-table";
 import type { Violation } from "@/features/compliance/types";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
 import { DonutChart, StatusDot } from "@/shared/components/charts";
+import { PortfolioSelector } from "@/shared/components/portfolio-selector";
 import { SectionPanel, ToolbarTab } from "@/shared/components/section-panel";
 import { useExportCSV } from "@/shared/hooks/use-export-csv";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { usePermission } from "@/shared/hooks/use-permission";
-import { Permission } from "@/shared/lib/permissions";
 import { clientFetch } from "@/shared/lib/api";
 import { cn } from "@/shared/lib/cn";
-import { PortfolioSelector } from "@/shared/components/portfolio-selector";
+import { Permission } from "@/shared/lib/permissions";
 
 type TabId = "dashboard" | "violations" | "rules";
 
@@ -122,9 +118,21 @@ export function CompliancePageClient() {
   // Tabs shared across all views
   const tabs = (
     <>
-      <ToolbarTab label="Dashboard" active={activeTab === "dashboard"} onClick={() => setActiveTab("dashboard")} />
-      <ToolbarTab label="Violations" active={activeTab === "violations"} onClick={() => setActiveTab("violations")} />
-      <ToolbarTab label="Rules" active={activeTab === "rules"} onClick={() => setActiveTab("rules")} />
+      <ToolbarTab
+        label="Dashboard"
+        active={activeTab === "dashboard"}
+        onClick={() => setActiveTab("dashboard")}
+      />
+      <ToolbarTab
+        label="Violations"
+        active={activeTab === "violations"}
+        onClick={() => setActiveTab("violations")}
+      />
+      <ToolbarTab
+        label="Rules"
+        active={activeTab === "rules"}
+        onClick={() => setActiveTab("rules")}
+      />
     </>
   );
 
@@ -172,14 +180,20 @@ export function CompliancePageClient() {
               <KpiTile
                 label="Total Violations"
                 value={String(violations?.length ?? 0)}
-                color={violations && violations.length > 0 ? "var(--destructive)" : "var(--success)"}
+                color={
+                  violations && violations.length > 0 ? "var(--destructive)" : "var(--success)"
+                }
               />
               <KpiTile label="Blocks" value={String(blockCount)} color="var(--destructive)" />
               <KpiTile label="Warnings" value={String(warningCount)} color="var(--warning)" />
               <KpiTile label="Breaches" value={String(breachCount)} color="var(--accent-orange)" />
               <KpiTile
                 label="Compliance Rate"
-                value={violations && violations.length > 0 ? `${((1 - violations.length / Math.max(violations.length + 10, 1)) * 100).toFixed(1)}%` : "100%"}
+                value={
+                  violations && violations.length > 0
+                    ? `${((1 - violations.length / Math.max(violations.length + 10, 1)) * 100).toFixed(1)}%`
+                    : "100%"
+                }
                 color="var(--success)"
               />
             </div>
@@ -194,9 +208,15 @@ export function CompliancePageClient() {
                 {violations && violations.length > 0 ? (
                   <DonutChart
                     segments={[
-                      ...(blockCount > 0 ? [{ label: "Blocks", value: blockCount, color: "var(--destructive)" }] : []),
-                      ...(warningCount > 0 ? [{ label: "Warnings", value: warningCount, color: "var(--warning)" }] : []),
-                      ...(breachCount > 0 ? [{ label: "Breaches", value: breachCount, color: "var(--accent-orange)" }] : []),
+                      ...(blockCount > 0
+                        ? [{ label: "Blocks", value: blockCount, color: "var(--destructive)" }]
+                        : []),
+                      ...(warningCount > 0
+                        ? [{ label: "Warnings", value: warningCount, color: "var(--warning)" }]
+                        : []),
+                      ...(breachCount > 0
+                        ? [{ label: "Breaches", value: breachCount, color: "var(--accent-orange)" }]
+                        : []),
                     ]}
                     centerValue={String(violations.length)}
                     centerLabel="Total"
@@ -263,7 +283,9 @@ export function CompliancePageClient() {
                           </span>
                         </td>
                         <td className="px-3 py-1.5 text-xs font-medium">{v.rule_name}</td>
-                        <td className="px-3 py-1.5 text-xs text-[var(--muted-foreground)] max-w-[300px] truncate">{v.message}</td>
+                        <td className="px-3 py-1.5 text-xs text-[var(--muted-foreground)] max-w-[300px] truncate">
+                          {v.message}
+                        </td>
                         <td className="px-3 py-1.5 text-right text-xs text-[var(--muted-foreground)]">
                           {new Date(v.detected_at).toLocaleString()}
                         </td>
@@ -377,7 +399,10 @@ export function CompliancePageClient() {
               </div>
 
               {/* Right: Stacked alert cards */}
-              <div className="hidden w-[400px] shrink-0 space-y-2 overflow-y-auto lg:block" style={{ maxHeight: "calc(100vh - 16rem)" }}>
+              <div
+                className="hidden w-[400px] shrink-0 space-y-2 overflow-y-auto lg:block"
+                style={{ maxHeight: "calc(100vh - 16rem)" }}
+              >
                 <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
                   Alerts ({filteredViolations.length})
                 </p>
@@ -405,7 +430,11 @@ export function CompliancePageClient() {
                                 : "bg-[var(--accent-orange)] text-white",
                           )}
                         >
-                          {v.severity === "block" ? "Compliance Check Failed" : v.severity === "warning" ? "Compliance Warning" : "Compliance Breach"}
+                          {v.severity === "block"
+                            ? "Compliance Check Failed"
+                            : v.severity === "warning"
+                              ? "Compliance Warning"
+                              : "Compliance Breach"}
                         </div>
 
                         <button
@@ -432,13 +461,19 @@ export function CompliancePageClient() {
                               <div className="flex gap-3 text-xs">
                                 {v.current_value && (
                                   <div>
-                                    <p className="text-[10px] text-[var(--muted-foreground)]">Current</p>
-                                    <p className="font-mono font-semibold text-[var(--destructive)]">{v.current_value}</p>
+                                    <p className="text-[10px] text-[var(--muted-foreground)]">
+                                      Current
+                                    </p>
+                                    <p className="font-mono font-semibold text-[var(--destructive)]">
+                                      {v.current_value}
+                                    </p>
                                   </div>
                                 )}
                                 {v.limit_value && (
                                   <div>
-                                    <p className="text-[10px] text-[var(--muted-foreground)]">Limit</p>
+                                    <p className="text-[10px] text-[var(--muted-foreground)]">
+                                      Limit
+                                    </p>
                                     <p className="font-mono font-semibold">{v.limit_value}</p>
                                   </div>
                                 )}
@@ -447,7 +482,8 @@ export function CompliancePageClient() {
 
                             <p className="text-[10px] text-[var(--muted-foreground)]">
                               Detected: {new Date(v.detected_at).toLocaleString()}
-                              {v.deadline_at && ` — Deadline: ${new Date(v.deadline_at).toLocaleString()}`}
+                              {v.deadline_at &&
+                                ` — Deadline: ${new Date(v.deadline_at).toLocaleString()}`}
                             </p>
 
                             {canWrite && (
@@ -465,7 +501,10 @@ export function CompliancePageClient() {
                                   type="button"
                                   onClick={() => {
                                     if (waiveReason.trim()) {
-                                      waiveMutation.mutate({ violationId: v.id, reason: waiveReason });
+                                      waiveMutation.mutate({
+                                        violationId: v.id,
+                                        reason: waiveReason,
+                                      });
                                     }
                                   }}
                                   disabled={!waiveReason.trim() || waiveMutation.isPending}
@@ -529,7 +568,13 @@ function KpiTile({ label, value, color }: { label: string; value: string; color?
   );
 }
 
-function ViolationsByRule({ violations, fundSlug }: { violations: Violation[]; fundSlug: string }) {
+function ViolationsByRule({
+  violations,
+  fundSlug: _fundSlug,
+}: {
+  violations: Violation[];
+  fundSlug: string;
+}) {
   const grouped = useMemo(() => {
     const map = new Map<string, { count: number; severity: string }>();
     for (const v of violations) {
@@ -584,11 +629,19 @@ function ViolationsByRule({ violations, fundSlug }: { violations: Violation[]; f
             <td className="px-3 py-1.5 text-right font-mono text-xs font-semibold">{count}</td>
             <td className="px-3 py-1.5 text-right">
               {/* Visual bar showing relative count */}
-              <div className="inline-block h-2 rounded-full" style={{
-                width: `${Math.max((count / Math.max(...violations.map(() => 1), 1)) * 60, 8)}px`,
-                backgroundColor: severity === "block" ? "var(--destructive)" : severity === "warning" ? "var(--warning)" : "var(--accent-orange)",
-                opacity: 0.6,
-              }} />
+              <div
+                className="inline-block h-2 rounded-full"
+                style={{
+                  width: `${Math.max((count / Math.max(...violations.map(() => 1), 1)) * 60, 8)}px`,
+                  backgroundColor:
+                    severity === "block"
+                      ? "var(--destructive)"
+                      : severity === "warning"
+                        ? "var(--warning)"
+                        : "var(--accent-orange)",
+                  opacity: 0.6,
+                }}
+              />
             </td>
           </tr>
         ))}

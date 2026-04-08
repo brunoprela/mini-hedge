@@ -42,9 +42,14 @@ export function PortfolioList() {
             </thead>
             <tbody>
               {portfolios.map((p) => (
-                <tr key={p.id} className="border-b border-[var(--table-border)] last:border-b-0 hover:bg-[var(--table-row-hover)]">
+                <tr
+                  key={p.id}
+                  className="border-b border-[var(--table-border)] last:border-b-0 hover:bg-[var(--table-row-hover)]"
+                >
                   <td className="px-3 py-1.5 font-medium">{p.name}</td>
-                  <td className="px-3 py-1.5 font-mono text-xs text-[var(--muted-foreground)]">{p.strategy ?? "—"}</td>
+                  <td className="px-3 py-1.5 font-mono text-xs text-[var(--muted-foreground)]">
+                    {p.strategy ?? "—"}
+                  </td>
                   <td className="px-3 py-1.5 text-right">
                     <Link
                       href={`/${fundSlug}/portfolio/${p.id}`}

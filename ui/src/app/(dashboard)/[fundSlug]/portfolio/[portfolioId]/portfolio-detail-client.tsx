@@ -2,35 +2,39 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, Plus } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
-import { AttributionSummaryCard } from "@/features/attribution/components/attribution-summary-card";
+import { type ReactNode, useMemo, useState } from "react";
 import { cumulativeQueryOptions } from "@/features/attribution/api";
+import { AttributionSummaryCard } from "@/features/attribution/components/attribution-summary-card";
 import { CashSummaryCard } from "@/features/cash/components/cash-summary-card";
 import { ComplianceBanner } from "@/features/compliance/components/compliance-banner";
+import { exposureQueryOptions } from "@/features/exposure/api";
 import { ExposureHistoryChart } from "@/features/exposure/components/exposure-history-chart";
 import { ExposureSummary } from "@/features/exposure/components/exposure-summary";
 import { ForwardsTable, FXSummaryCards } from "@/features/fx-hedging";
 import { OrderBlotter } from "@/features/orders/components/order-blotter";
-import { positionsQueryOptions, portfolioSummaryQueryOptions } from "@/features/portfolio/api";
+import { portfolioSummaryQueryOptions, positionsQueryOptions } from "@/features/portfolio/api";
 import { PositionTable } from "@/features/portfolio/components/position-table";
+import { riskSnapshotQueryOptions } from "@/features/risk/api";
+import { CustomStressForm } from "@/features/risk/components/custom-stress-form";
 import { RiskHistoryChart } from "@/features/risk/components/risk-history-chart";
 import { RiskSummaryCard } from "@/features/risk/components/risk-summary-card";
-import { riskSnapshotQueryOptions } from "@/features/risk/api";
 import { StressTable } from "@/features/risk/components/stress-table";
-import { CustomStressForm } from "@/features/risk/components/custom-stress-form";
 import { TCADashboard } from "@/features/tca/components/tca-dashboard";
-import { useFundContext } from "@/shared/hooks/use-fund-context";
-import { usePermission } from "@/shared/hooks/use-permission";
-import { LineChart, HBarChart, GaugeBar, DonutChart } from "@/shared/components/charts";
-import { exposureQueryOptions } from "@/features/exposure/api";
+import { DonutChart, GaugeBar, HBarChart, LineChart } from "@/shared/components/charts";
 import { SectionPanel } from "@/shared/components/section-panel";
 import { useTradeTicket } from "@/shared/components/trade-ticket-provider";
+import { useFundContext } from "@/shared/hooks/use-fund-context";
+import { usePermission } from "@/shared/hooks/use-permission";
 import { Permission } from "@/shared/lib/permissions";
 
 const fmtCurrency = (v: string | number) =>
-  Number(v).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  Number(v).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
 
-const fmtPct = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
+const _fmtPct = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
 
 // ─── Main Component ─────────────────────────────────────────
 
@@ -158,13 +162,17 @@ export function PortfolioDetailClient({ portfolioId }: { portfolioId: string }) 
           <StripItem
             label="Unrealized P&L"
             value={fmtCurrency(summary.total_unrealized_pnl)}
-            color={Number(summary.total_unrealized_pnl) >= 0 ? "var(--success)" : "var(--destructive)"}
+            color={
+              Number(summary.total_unrealized_pnl) >= 0 ? "var(--success)" : "var(--destructive)"
+            }
           />
           <StripDivider />
           <StripItem
             label="Realized P&L"
             value={fmtCurrency(summary.total_realized_pnl)}
-            color={Number(summary.total_realized_pnl) >= 0 ? "var(--success)" : "var(--destructive)"}
+            color={
+              Number(summary.total_realized_pnl) >= 0 ? "var(--success)" : "var(--destructive)"
+            }
           />
           <StripDivider />
           <StripItem label="Positions" value={String(summary.position_count)} />
@@ -173,7 +181,11 @@ export function PortfolioDetailClient({ portfolioId }: { portfolioId: string }) 
           {risk && (
             <>
               <StripDivider />
-              <StripItem label="VaR 95%" value={fmtCurrency(risk.var_95_1d)} color="var(--warning)" />
+              <StripItem
+                label="VaR 95%"
+                value={fmtCurrency(risk.var_95_1d)}
+                color="var(--warning)"
+              />
             </>
           )}
           {grossExposure !== null && (
@@ -208,7 +220,9 @@ export function PortfolioDetailClient({ portfolioId }: { portfolioId: string }) 
                   xLabelInterval={7}
                 />
               ) : (
-                <p className="py-8 text-center text-xs text-[var(--muted-foreground)]">No performance data</p>
+                <p className="py-8 text-center text-xs text-[var(--muted-foreground)]">
+                  No performance data
+                </p>
               )}
             </div>
           </SectionPanel>
@@ -226,7 +240,9 @@ export function PortfolioDetailClient({ portfolioId }: { portfolioId: string }) 
                   thickness={26}
                 />
               ) : (
-                <p className="py-8 text-center text-xs text-[var(--muted-foreground)]">No exposure data</p>
+                <p className="py-8 text-center text-xs text-[var(--muted-foreground)]">
+                  No exposure data
+                </p>
               )}
             </div>
           </SectionPanel>
@@ -265,7 +281,9 @@ export function PortfolioDetailClient({ portfolioId }: { portfolioId: string }) 
                 const maxVal = Math.max(...currencyBars.map((b) => Math.max(b.long, b.short)), 1);
                 return currencyBars.map((b) => (
                   <div key={b.label} className="flex items-center gap-3 text-xs">
-                    <span className="w-10 font-mono font-medium text-[var(--foreground)]">{b.label}</span>
+                    <span className="w-10 font-mono font-medium text-[var(--foreground)]">
+                      {b.label}
+                    </span>
                     <div className="flex-1">
                       <div className="flex gap-0.5">
                         <div
@@ -299,10 +317,12 @@ export function PortfolioDetailClient({ portfolioId }: { portfolioId: string }) 
             </div>
             <div className="mt-2 flex items-center gap-4 text-[10px] text-[var(--muted-foreground)]">
               <span className="flex items-center gap-1">
-                <span className="inline-block h-2 w-4 rounded-sm bg-[var(--primary)] opacity-80" /> Long
+                <span className="inline-block h-2 w-4 rounded-sm bg-[var(--primary)] opacity-80" />{" "}
+                Long
               </span>
               <span className="flex items-center gap-1">
-                <span className="inline-block h-2 w-4 rounded-sm bg-[var(--destructive)] opacity-60" /> Short
+                <span className="inline-block h-2 w-4 rounded-sm bg-[var(--destructive)] opacity-60" />{" "}
+                Short
               </span>
             </div>
           </div>
@@ -315,11 +335,15 @@ export function PortfolioDetailClient({ portfolioId }: { portfolioId: string }) 
           <div className="p-3">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
-                <p className="mb-1.5 text-[10px] font-medium uppercase text-[var(--success)]">Gainers</p>
+                <p className="mb-1.5 text-[10px] font-medium uppercase text-[var(--success)]">
+                  Gainers
+                </p>
                 <HBarChart items={movers.top} />
               </div>
               <div>
-                <p className="mb-1.5 text-[10px] font-medium uppercase text-[var(--destructive)]">Losers</p>
+                <p className="mb-1.5 text-[10px] font-medium uppercase text-[var(--destructive)]">
+                  Losers
+                </p>
                 <HBarChart items={movers.bottom} />
               </div>
             </div>

@@ -29,7 +29,9 @@ def upgrade() -> None:
         sa.Column("requested_amount", sa.Numeric(18, 2), nullable=False),
         sa.Column("state", sa.String(32), nullable=False),
         sa.Column(
-            "submitted_at", sa.DateTime(timezone=True), nullable=False,
+            "submitted_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
             server_default=sa.func.now(),
         ),
         # KYC
@@ -57,11 +59,15 @@ def upgrade() -> None:
         sa.Column("cancellation_reason", sa.String(512), nullable=True),
         # Timestamps
         sa.Column(
-            "created_at", sa.DateTime(timezone=True), nullable=False,
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
             server_default=sa.func.now(),
         ),
         sa.Column(
-            "updated_at", sa.DateTime(timezone=True), nullable=False,
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
             server_default=sa.func.now(),
         ),
         schema=SCHEMA,
@@ -81,7 +87,9 @@ def upgrade() -> None:
         sa.Column("approved_amount", sa.Numeric(18, 2), nullable=True),
         sa.Column("state", sa.String(32), nullable=False),
         sa.Column(
-            "submitted_at", sa.DateTime(timezone=True), nullable=False,
+            "submitted_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
             server_default=sa.func.now(),
         ),
         sa.Column("notice_date", sa.Date(), nullable=False),
@@ -104,11 +112,15 @@ def upgrade() -> None:
         sa.Column("cancellation_reason", sa.String(512), nullable=True),
         # Timestamps
         sa.Column(
-            "created_at", sa.DateTime(timezone=True), nullable=False,
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
             server_default=sa.func.now(),
         ),
         sa.Column(
-            "updated_at", sa.DateTime(timezone=True), nullable=False,
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
             server_default=sa.func.now(),
         ),
         schema=SCHEMA,
@@ -127,30 +139,41 @@ def upgrade() -> None:
         sa.Column("lock_up_months", sa.Integer(), nullable=False, server_default=sa.text("12")),
         sa.Column("notice_period_days", sa.Integer(), nullable=False, server_default=sa.text("45")),
         sa.Column(
-            "redemption_frequency", sa.String(32), nullable=False,
+            "redemption_frequency",
+            sa.String(32),
+            nullable=False,
             server_default="quarterly",
         ),
         sa.Column("gate_pct", sa.Numeric(8, 6), nullable=False, server_default=sa.text("0.25")),
         sa.Column(
-            "minimum_subscription", sa.Numeric(18, 2), nullable=False,
+            "minimum_subscription",
+            sa.Numeric(18, 2),
+            nullable=False,
             server_default=sa.text("1000000"),
         ),
         sa.Column(
-            "minimum_redemption", sa.Numeric(18, 2), nullable=False,
+            "minimum_redemption",
+            sa.Numeric(18, 2),
+            nullable=False,
             server_default=sa.text("100000"),
         ),
         sa.Column("dealing_day", sa.Integer(), nullable=False, server_default=sa.text("-1")),
         sa.Column("payment_days", sa.Integer(), nullable=False, server_default=sa.text("30")),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True), nullable=False,
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
             server_default=sa.func.now(),
         ),
         schema=SCHEMA,
     )
     op.create_index(
-        "ix_fund_terms_share_class", "fund_terms", ["share_class"],
-        unique=True, schema=SCHEMA,
+        "ix_fund_terms_share_class",
+        "fund_terms",
+        ["share_class"],
+        unique=True,
+        schema=SCHEMA,
     )
 
 

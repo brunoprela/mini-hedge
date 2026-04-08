@@ -22,29 +22,37 @@ SCHEMA = "platform"
 def upgrade() -> None:
     op.create_table(
         "investor_kyc",
+        sa.Column("id", PG_UUID(), server_default=sa.text("gen_random_uuid()"), primary_key=True),
         sa.Column(
-            "id", PG_UUID(), server_default=sa.text("gen_random_uuid()"), primary_key=True
+            "investor_id",
+            PG_UUID(),
+            sa.ForeignKey(f"{SCHEMA}.investors.id"),
+            nullable=False,
         ),
         sa.Column(
-            "investor_id", PG_UUID(),
-            sa.ForeignKey(f"{SCHEMA}.investors.id"), nullable=False,
-        ),
-        sa.Column(
-            "kyc_status", sa.String(32), nullable=False,
+            "kyc_status",
+            sa.String(32),
+            nullable=False,
             server_default=sa.text("'pending'"),
         ),
         sa.Column(
-            "aml_status", sa.String(32), nullable=False,
+            "aml_status",
+            sa.String(32),
+            nullable=False,
             server_default=sa.text("'pending'"),
         ),
         sa.Column("sanctions_clear", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("pep_flag", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column(
-            "source_of_funds_verified", sa.Boolean(), nullable=False,
+            "source_of_funds_verified",
+            sa.Boolean(),
+            nullable=False,
             server_default=sa.text("false"),
         ),
         sa.Column(
-            "accredited_investor", sa.Boolean(), nullable=False,
+            "accredited_investor",
+            sa.Boolean(),
+            nullable=False,
             server_default=sa.text("false"),
         ),
         sa.Column("last_screened_at", sa.DateTime(timezone=True), nullable=True),
@@ -52,18 +60,25 @@ def upgrade() -> None:
         sa.Column("screening_provider", sa.String(64), nullable=True),
         sa.Column("notes", sa.Text(), nullable=True),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True), nullable=False,
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
             server_default=sa.func.now(),
         ),
         sa.Column(
-            "updated_at", sa.DateTime(timezone=True), nullable=False,
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
             server_default=sa.func.now(),
         ),
         schema=SCHEMA,
     )
     op.create_index(
-        "ix_investor_kyc_investor", "investor_kyc", ["investor_id"],
-        unique=True, schema=SCHEMA,
+        "ix_investor_kyc_investor",
+        "investor_kyc",
+        ["investor_id"],
+        unique=True,
+        schema=SCHEMA,
     )
 
 

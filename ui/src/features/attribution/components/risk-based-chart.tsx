@@ -32,7 +32,7 @@ export function RiskBasedChart({ portfolioId, start, end }: Props) {
     );
   }
 
-  if (!data || !data.factor_contributions) return null;
+  if (!data?.factor_contributions) return null;
 
   return (
     <div className="space-y-2">

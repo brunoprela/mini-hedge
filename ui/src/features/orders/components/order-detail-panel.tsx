@@ -3,11 +3,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Clock, Copy, FileText, X } from "lucide-react";
 import Link from "next/link";
+import { StatusDot } from "@/shared/components/charts";
+import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { orderFillsQueryOptions } from "../api";
 import type { OrderSummary } from "../types";
 import { OrderStateBadge } from "./order-state-badge";
-import { StatusDot } from "@/shared/components/charts";
-import { useFundContext } from "@/shared/hooks/use-fund-context";
 
 interface OrderDetailPanelProps {
   order: OrderSummary;
@@ -31,12 +31,18 @@ export function OrderDetailPanel({ order, onClose, onClone }: OrderDetailPanelPr
       <div className="flex items-center justify-between border-b border-[var(--border)] px-3 py-2">
         <div className="flex items-center gap-2">
           <span className="font-mono text-sm font-semibold">{order.instrument_id}</span>
-          <span className={`text-xs font-medium ${order.side === "buy" ? "text-[var(--success)]" : "text-[var(--destructive)]"}`}>
+          <span
+            className={`text-xs font-medium ${order.side === "buy" ? "text-[var(--success)]" : "text-[var(--destructive)]"}`}
+          >
             {order.side.toUpperCase()}
           </span>
           <OrderStateBadge state={order.state} />
         </div>
-        <button type="button" onClick={onClose} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+        >
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -47,9 +53,18 @@ export function OrderDetailPanel({ order, onClose, onClone }: OrderDetailPanelPr
         <div className="grid grid-cols-2 gap-2">
           <DetailField label="Quantity" value={parseFloat(order.quantity).toLocaleString()} />
           <DetailField label="Filled" value={parseFloat(order.filled_quantity).toLocaleString()} />
-          <DetailField label="Limit Price" value={order.limit_price ? `$${parseFloat(order.limit_price).toFixed(2)}` : "MKT"} />
-          <DetailField label="Avg Fill" value={order.avg_fill_price ? `$${parseFloat(order.avg_fill_price).toFixed(2)}` : "—"} />
-          <DetailField label="Type" value={`${order.order_type.toUpperCase()}${order.algo_type ? ` / ${order.algo_type.toUpperCase()}` : ""}`} />
+          <DetailField
+            label="Limit Price"
+            value={order.limit_price ? `$${parseFloat(order.limit_price).toFixed(2)}` : "MKT"}
+          />
+          <DetailField
+            label="Avg Fill"
+            value={order.avg_fill_price ? `$${parseFloat(order.avg_fill_price).toFixed(2)}` : "—"}
+          />
+          <DetailField
+            label="Type"
+            value={`${order.order_type.toUpperCase()}${order.algo_type ? ` / ${order.algo_type.toUpperCase()}` : ""}`}
+          />
           <DetailField label="TIF" value={order.time_in_force?.toUpperCase() ?? "—"} />
           {order.broker_id && <DetailField label="Broker" value={order.broker_id} />}
         </div>
@@ -87,9 +102,13 @@ export function OrderDetailPanel({ order, onClose, onClone }: OrderDetailPanelPr
                 <tbody>
                   {fills.map((f) => (
                     <tr key={f.id} className="border-b border-[var(--table-border)] last:border-0">
-                      <td className="px-2 py-1 font-mono">{parseFloat(f.quantity).toLocaleString()}</td>
+                      <td className="px-2 py-1 font-mono">
+                        {parseFloat(f.quantity).toLocaleString()}
+                      </td>
                       <td className="px-2 py-1 font-mono">${parseFloat(f.price).toFixed(2)}</td>
-                      <td className="px-2 py-1 text-[var(--muted-foreground)]">{f.broker_id ?? "—"}</td>
+                      <td className="px-2 py-1 text-[var(--muted-foreground)]">
+                        {f.broker_id ?? "—"}
+                      </td>
                       <td className="px-2 py-1 text-[var(--muted-foreground)]">
                         {new Date(f.filled_at).toLocaleTimeString()}
                       </td>
@@ -164,9 +183,7 @@ function TimelineRow({ label, time }: { label: string; time: string }) {
   return (
     <div className="flex items-center justify-between">
       <span className="text-[var(--muted-foreground)]">{label}</span>
-      <span className="font-mono text-[var(--foreground)]">
-        {new Date(time).toLocaleString()}
-      </span>
+      <span className="font-mono text-[var(--foreground)]">{new Date(time).toLocaleString()}</span>
     </div>
   );
 }

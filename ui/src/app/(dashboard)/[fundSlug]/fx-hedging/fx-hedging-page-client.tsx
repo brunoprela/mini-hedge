@@ -11,10 +11,10 @@ import {
   OpenForwardDialog,
 } from "@/features/fx-hedging";
 import { triggerMTM } from "@/features/fx-hedging/api";
+import type { HedgeRecommendation } from "@/features/fx-hedging/types";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
 import { PortfolioSelector } from "@/shared/components/portfolio-selector";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
-import type { HedgeRecommendation } from "@/features/fx-hedging/types";
 
 type Tab = "forwards" | "recommendations" | "rates";
 

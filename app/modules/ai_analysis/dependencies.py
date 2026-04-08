@@ -11,9 +11,7 @@ if TYPE_CHECKING:
 
 
 def get_ai_analysis_service(request: Request) -> AIAnalysisService:
-    service: AIAnalysisService | None = getattr(
-        request.app.state, "ai_analysis_service", None
-    )
+    service: AIAnalysisService | None = getattr(request.app.state, "ai_analysis_service", None)
     if service is None:
         raise HTTPException(
             status_code=503,

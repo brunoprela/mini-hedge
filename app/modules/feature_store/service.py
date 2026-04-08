@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 
     from app.modules.feature_store.compute_engine import FeatureComputeEngine
     from app.modules.feature_store.repository import FeatureRepository
+    from app.shared.events import EventBus
 
 logger = structlog.get_logger()
 
@@ -42,10 +43,12 @@ class FeatureStoreService:
         repo: FeatureRepository,
         compute_engine: FeatureComputeEngine,
         session_factory: Any,
+        event_bus: EventBus | None = None,
     ) -> None:
         self._repo = repo
         self._compute_engine = compute_engine
         self._session_factory = session_factory
+        self._event_bus = event_bus
 
     # ------------------------------------------------------------------
     # Feature definitions
@@ -81,6 +84,26 @@ class FeatureStoreService:
         )
         await self._repo.create_definition(record, session=session)
         logger.info("feature_registered", name=name, entity_type=entity_type)
+
+        if self._event_bus:
+            from app.shared.audit_events import AuditEventType
+            from app.shared.events import BaseEvent
+            from app.shared.schema_registry import shared_topic
+
+            await self._event_bus.publish(
+                shared_topic("audit"),
+                BaseEvent(
+                    event_type=AuditEventType.FEATURE_REGISTERED,
+                    data={
+                        "feature_id": record.id,
+                        "name": name,
+                        "feature_type": feature_type.value,
+                        "compute_method": compute_method.value,
+                        "entity_type": entity_type,
+                    },
+                ),
+            )
+
         return self._def_to_dto(record)
 
     async def list_features(
@@ -92,7 +115,9 @@ class FeatureStoreService:
     ) -> list[FeatureDefinition]:
         status_val = status.value if status is not None else None
         records = await self._repo.list_definitions(
-            entity_type=entity_type, status=status_val, session=session,
+            entity_type=entity_type,
+            status=status_val,
+            session=session,
         )
         return [self._def_to_dto(r) for r in records]
 
@@ -107,7 +132,9 @@ class FeatureStoreService:
             msg = f"Feature '{feature_name}' not found"
             raise ValueError(msg)
         await self._repo.update_definition(
-            record.id, status=FeatureStatus.DEPRECATED.value, session=session,
+            record.id,
+            status=FeatureStatus.DEPRECATED.value,
+            session=session,
         )
         logger.info("feature_deprecated", name=feature_name)
 
@@ -137,13 +164,9 @@ class FeatureStoreService:
         val_record = FeatureValueRecord(
             feature_id=record.id,
             entity_id=entity_id,
-            value_numeric=(
-                Decimal(str(result)) if is_numeric else None
-            ),
+            value_numeric=(Decimal(str(result)) if is_numeric else None),
             value_text=(
-                str(result)
-                if result is not None and not is_numeric and not is_complex
-                else None
+                str(result) if result is not None and not is_numeric and not is_complex else None
             ),
             value_json=result if is_complex else None,
             computed_at=now,
@@ -190,19 +213,11 @@ class FeatureStoreService:
                     FeatureValueRecord(
                         feature_id=rec.id,
                         entity_id=entity_id,
-                        value_numeric=(
-                            Decimal(str(value)) if is_num else None
-                        ),
+                        value_numeric=(Decimal(str(value)) if is_num else None),
                         value_text=(
-                            str(value)
-                            if value is not None
-                            and not is_num
-                            and not is_cplx
-                            else None
+                            str(value) if value is not None and not is_num and not is_cplx else None
                         ),
-                        value_json=(
-                            value if is_cplx else None
-                        ),
+                        value_json=(value if is_cplx else None),
                         computed_at=now,
                         version=rec.version,
                     )
@@ -221,6 +236,24 @@ class FeatureStoreService:
             features=len(feature_names),
             entities=len(entities_data),
         )
+
+        if self._event_bus:
+            from app.shared.audit_events import AuditEventType
+            from app.shared.events import BaseEvent
+            from app.shared.schema_registry import shared_topic
+
+            await self._event_bus.publish(
+                shared_topic("audit"),
+                BaseEvent(
+                    event_type=AuditEventType.FEATURE_COMPUTED,
+                    data={
+                        "feature_names": feature_names,
+                        "entity_count": len(entities_data),
+                        "values_computed": len(val_records),
+                    },
+                ),
+            )
+
         return vectors
 
     # ------------------------------------------------------------------

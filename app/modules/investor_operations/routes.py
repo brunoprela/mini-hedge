@@ -142,9 +142,7 @@ async def list_subscriptions(
     service: InvestorOperationsService = Depends(get_investor_ops_service),
     session: AsyncSession = Depends(get_db),
 ) -> list[SubscriptionRequestSummary]:
-    return await service.list_subscriptions(
-        state=state, investor_id=investor_id, session=session
-    )
+    return await service.list_subscriptions(state=state, investor_id=investor_id, session=session)
 
 
 @router.get(
@@ -303,9 +301,7 @@ async def list_redemptions(
     service: InvestorOperationsService = Depends(get_investor_ops_service),
     session: AsyncSession = Depends(get_db),
 ) -> list[RedemptionRequestSummary]:
-    return await service.list_redemptions(
-        state=state, investor_id=investor_id, session=session
-    )
+    return await service.list_redemptions(state=state, investor_id=investor_id, session=session)
 
 
 @router.get(

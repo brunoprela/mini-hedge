@@ -71,7 +71,12 @@ function PortfolioDropdown({ portfolios, value, onChange }: PortfolioSelectorPro
         )}
       >
         <span className="text-[var(--foreground)]">{selected?.name ?? "Select portfolio"}</span>
-        <ChevronDown className={cn("h-3.5 w-3.5 text-[var(--muted-foreground)] transition-transform", open && "rotate-180")} />
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 text-[var(--muted-foreground)] transition-transform",
+            open && "rotate-180",
+          )}
+        />
       </button>
 
       {open && (

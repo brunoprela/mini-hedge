@@ -36,6 +36,7 @@ if TYPE_CHECKING:
         RegimeRepository,
     )
     from app.shared.database import TenantSessionFactory
+    from app.shared.events import EventBus
 
 logger = structlog.get_logger()
 
@@ -52,12 +53,14 @@ class QuantResearchService:
         factor_engine_fns: dict[str, Callable[..., dict[str, Decimal]]],
         regime_detector: RegimeDetector,
         session_factory: TenantSessionFactory,
+        event_bus: EventBus | None = None,
     ) -> None:
         self._factor_repo = factor_repo
         self._regime_repo = regime_repo
         self._factor_fns = factor_engine_fns
         self._regime_detector = regime_detector
         self._session_factory = session_factory
+        self._event_bus = event_bus
 
     # ------------------------------------------------------------------
     # Factor Research
@@ -92,9 +95,7 @@ class QuantResearchService:
             is_active=record.is_active,
         )
 
-    async def list_factors(
-        self, *, session: AsyncSession | None = None
-    ) -> list[FactorDefinition]:
+    async def list_factors(self, *, session: AsyncSession | None = None) -> list[FactorDefinition]:
         records = await self._factor_repo.list_factors(session=session)
         return [
             FactorDefinition(
@@ -116,9 +117,7 @@ class QuantResearchService:
         *,
         session: AsyncSession | None = None,
     ) -> list[FactorExposure]:
-        factor_record = await self._factor_repo.get_by_name(
-            factor_name, session=session
-        )
+        factor_record = await self._factor_repo.get_by_name(factor_name, session=session)
         if factor_record is None:
             msg = f"Factor '{factor_name}' not found"
             raise ValueError(msg)
@@ -143,6 +142,24 @@ class QuantResearchService:
         ]
         await self._factor_repo.save_exposures(exposure_records, session=session)
 
+        if self._event_bus:
+            from app.shared.audit_events import AuditEventType
+            from app.shared.events import BaseEvent
+            from app.shared.schema_registry import shared_topic
+
+            await self._event_bus.publish(
+                shared_topic("audit"),
+                BaseEvent(
+                    event_type=AuditEventType.FACTOR_EXPOSURE_COMPUTED,
+                    data={
+                        "factor_name": factor_name,
+                        "factor_id": factor_record.id,
+                        "instrument_count": len(raw_exposures),
+                        "as_of_date": str(today),
+                    },
+                ),
+            )
+
         return [
             FactorExposure(
                 factor_name=factor_name,
@@ -162,9 +179,7 @@ class QuantResearchService:
         end_date: date | None = None,
         session: AsyncSession | None = None,
     ) -> FactorAnalysisResult:
-        factor_record = await self._factor_repo.get_by_name(
-            factor_name, session=session
-        )
+        factor_record = await self._factor_repo.get_by_name(factor_name, session=session)
         if factor_record is None:
             msg = f"Factor '{factor_name}' not found"
             raise ValueError(msg)
@@ -204,9 +219,7 @@ class QuantResearchService:
         ann_vol = vol * ann_factor
         ann_mean = mean_ret * Decimal(252)
         risk_free = Decimal("0.04")
-        sharpe = (
-            (ann_mean - risk_free) / ann_vol if ann_vol != ZERO else ZERO
-        )
+        sharpe = (ann_mean - risk_free) / ann_vol if ann_vol != ZERO else ZERO
 
         # Max drawdown from cumulative returns
         cum_values = [r.cumulative_return for r in returns]
@@ -283,18 +296,14 @@ class QuantResearchService:
 
         factor_exposures: dict[str, dict[str, Decimal]] = {}
         for fname in factor_names:
-            factor_record = await self._factor_repo.get_by_name(
-                fname, session=session
-            )
+            factor_record = await self._factor_repo.get_by_name(fname, session=session)
             if factor_record is None:
                 continue
             today = date.today()
             exp_records = await self._factor_repo.get_exposures(
                 factor_record.id, today, session=session
             )
-            factor_exposures[fname] = {
-                r.instrument_id: r.exposure for r in exp_records
-            }
+            factor_exposures[fname] = {r.instrument_id: r.exposure for r in exp_records}
 
         contributions, residual = _decompose(portfolio_weights, factor_exposures)
 
@@ -333,9 +342,7 @@ class QuantResearchService:
         analysis = self._regime_detector.detect_regime(market_prices)
 
         # Persist snapshot
-        indicators_json = {
-            ind.name: str(ind.value) for ind in analysis.indicators
-        }
+        indicators_json = {ind.name: str(ind.value) for ind in analysis.indicators}
         record = RegimeSnapshotRecord(
             regime_type=analysis.current_regime.value,
             detection_method=self._regime_detector._config.method.value,
@@ -345,6 +352,24 @@ class QuantResearchService:
             end_date=None,
         )
         await self._regime_repo.save_snapshot(record, session=session)
+
+        if self._event_bus:
+            from app.shared.audit_events import AuditEventType
+            from app.shared.events import BaseEvent
+            from app.shared.schema_registry import shared_topic
+
+            await self._event_bus.publish(
+                shared_topic("audit"),
+                BaseEvent(
+                    event_type=AuditEventType.REGIME_DETECTED,
+                    data={
+                        "regime_type": analysis.current_regime.value,
+                        "confidence": str(analysis.confidence),
+                        "detection_method": self._regime_detector._config.method.value,
+                        "snapshot_id": record.id,
+                    },
+                ),
+            )
 
         return analysis
 
@@ -358,9 +383,7 @@ class QuantResearchService:
                 start_date=r.start_date,
                 end_date=r.end_date,
                 confidence=r.confidence,
-                indicators={
-                    k: Decimal(v) for k, v in (r.indicators or {}).items()
-                },
+                indicators={k: Decimal(v) for k, v in (r.indicators or {}).items()},
             )
             for r in records
         ]
@@ -376,7 +399,5 @@ class QuantResearchService:
             start_date=record.start_date,
             end_date=record.end_date,
             confidence=record.confidence,
-            indicators={
-                k: Decimal(v) for k, v in (record.indicators or {}).items()
-            },
+            indicators={k: Decimal(v) for k, v in (record.indicators or {}).items()},
         )

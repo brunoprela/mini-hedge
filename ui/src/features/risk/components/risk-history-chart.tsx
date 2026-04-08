@@ -2,14 +2,12 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { LineChart } from "@/shared/components/charts";
 import { riskHistoryQueryOptions } from "@/features/risk/api";
+import { LineChart } from "@/shared/components/charts";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 
 const fmtCurrency = (v: number) =>
-  Math.abs(v) >= 1_000_000
-    ? `$${(v / 1_000_000).toFixed(1)}M`
-    : `$${(v / 1_000).toFixed(0)}K`;
+  Math.abs(v) >= 1_000_000 ? `$${(v / 1_000_000).toFixed(1)}M` : `$${(v / 1_000).toFixed(0)}K`;
 
 /** Hook to check if risk history has enough data for a chart. */
 export function useHasRiskHistory(portfolioId: string): boolean {
@@ -57,9 +55,12 @@ export function RiskHistoryChart({ portfolioId }: { portfolioId: string }) {
   }, [data]);
 
   // Latest values for the summary strip
-  const latest = data && data.length > 0
-    ? [...data].sort((a, b) => new Date(b.snapshot_at).getTime() - new Date(a.snapshot_at).getTime())[0]
-    : null;
+  const latest =
+    data && data.length > 0
+      ? [...data].sort(
+          (a, b) => new Date(b.snapshot_at).getTime() - new Date(a.snapshot_at).getTime(),
+        )[0]
+      : null;
 
   if (isLoading) {
     return <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>;
@@ -69,7 +70,9 @@ export function RiskHistoryChart({ portfolioId }: { portfolioId: string }) {
     return (
       <div className="flex items-center justify-center rounded-md border border-dashed border-[var(--border)] p-6">
         <p className="text-xs text-[var(--muted-foreground)]">
-          {data?.length === 1 ? "1 snapshot — chart needs 2+" : "Take snapshots to build risk history"}
+          {data?.length === 1
+            ? "1 snapshot — chart needs 2+"
+            : "Take snapshots to build risk history"}
         </p>
       </div>
     );
@@ -81,19 +84,31 @@ export function RiskHistoryChart({ portfolioId }: { portfolioId: string }) {
       {latest && (
         <div className="mb-3 flex items-center gap-3 text-xs">
           <div className="flex items-center gap-1.5">
-            <span className="inline-block h-2 w-4 rounded-sm" style={{ backgroundColor: "var(--warning)" }} />
+            <span
+              className="inline-block h-2 w-4 rounded-sm"
+              style={{ backgroundColor: "var(--warning)" }}
+            />
             <span className="text-[var(--muted-foreground)]">VaR 95%:</span>
-            <span className="font-mono font-semibold">{fmtCurrency(Math.abs(Number(latest.var_95_1d)))}</span>
+            <span className="font-mono font-semibold">
+              {fmtCurrency(Math.abs(Number(latest.var_95_1d)))}
+            </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="inline-block h-2 w-4 rounded-sm" style={{ backgroundColor: "var(--destructive)" }} />
+            <span
+              className="inline-block h-2 w-4 rounded-sm"
+              style={{ backgroundColor: "var(--destructive)" }}
+            />
             <span className="text-[var(--muted-foreground)]">VaR 99%:</span>
-            <span className="font-mono font-semibold">{fmtCurrency(Math.abs(Number(latest.var_99_1d)))}</span>
+            <span className="font-mono font-semibold">
+              {fmtCurrency(Math.abs(Number(latest.var_99_1d)))}
+            </span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="inline-block h-2 w-4 rounded-sm border border-dashed border-[var(--primary)]" />
             <span className="text-[var(--muted-foreground)]">ES 95%:</span>
-            <span className="font-mono font-semibold">{fmtCurrency(Math.abs(Number(latest.expected_shortfall_95)))}</span>
+            <span className="font-mono font-semibold">
+              {fmtCurrency(Math.abs(Number(latest.expected_shortfall_95)))}
+            </span>
           </div>
         </div>
       )}

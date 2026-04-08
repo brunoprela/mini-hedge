@@ -100,7 +100,9 @@ export function InvestorDetail({ investorId }: { investorId: string }) {
           {/* Hero KPI */}
           <div className="flex items-baseline gap-3">
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Ending Capital</p>
+              <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">
+                Ending Capital
+              </p>
               <p className="font-mono text-base font-bold">{fmt(latest.ending_capital)}</p>
             </div>
             <div className="h-8 w-px bg-[var(--border)]" />
@@ -117,10 +119,18 @@ export function InvestorDetail({ investorId }: { investorId: string }) {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[var(--border)] bg-[var(--table-header)]">
-                    <th className="px-3 py-2 text-left font-medium text-[var(--muted-foreground)]">Date</th>
-                    <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">Beginning</th>
-                    <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">P&L</th>
-                    <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">Ending</th>
+                    <th className="px-3 py-2 text-left font-medium text-[var(--muted-foreground)]">
+                      Date
+                    </th>
+                    <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">
+                      Beginning
+                    </th>
+                    <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">
+                      P&L
+                    </th>
+                    <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">
+                      Ending
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -130,9 +140,15 @@ export function InvestorDetail({ investorId }: { investorId: string }) {
                       className="border-b border-[var(--border)] transition-colors hover:bg-[var(--table-row-hover)]"
                     >
                       <td className="px-3 py-2">{row.effective_date}</td>
-                      <td className="px-3 py-2 text-right font-mono">{fmt(row.beginning_capital)}</td>
-                      <td className="px-3 py-2 text-right font-mono">{fmtSigned(row.pnl_allocation)}</td>
-                      <td className="px-3 py-2 text-right font-mono font-semibold">{fmt(row.ending_capital)}</td>
+                      <td className="px-3 py-2 text-right font-mono">
+                        {fmt(row.beginning_capital)}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono">
+                        {fmtSigned(row.pnl_allocation)}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono font-semibold">
+                        {fmt(row.ending_capital)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -147,12 +163,24 @@ export function InvestorDetail({ investorId }: { investorId: string }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--table-header)]">
-                <th className="px-3 py-2 text-left font-medium text-[var(--muted-foreground)]">Date</th>
-                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">Beginning</th>
-                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">Contributions</th>
-                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">P&L</th>
-                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">Fees</th>
-                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">Ending</th>
+                <th className="px-3 py-2 text-left font-medium text-[var(--muted-foreground)]">
+                  Date
+                </th>
+                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">
+                  Beginning
+                </th>
+                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">
+                  Contributions
+                </th>
+                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">
+                  P&L
+                </th>
+                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">
+                  Fees
+                </th>
+                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">
+                  Ending
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -164,9 +192,15 @@ export function InvestorDetail({ investorId }: { investorId: string }) {
                   <td className="px-3 py-2">{row.effective_date}</td>
                   <td className="px-3 py-2 text-right font-mono">{fmt(row.beginning_capital)}</td>
                   <td className="px-3 py-2 text-right font-mono">{fmt(row.contributions)}</td>
-                  <td className="px-3 py-2 text-right font-mono">{fmtSigned(row.pnl_allocation)}</td>
-                  <td className="px-3 py-2 text-right font-mono">{fmt(row.management_fee_allocation)}</td>
-                  <td className="px-3 py-2 text-right font-mono font-semibold">{fmt(row.ending_capital)}</td>
+                  <td className="px-3 py-2 text-right font-mono">
+                    {fmtSigned(row.pnl_allocation)}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono">
+                    {fmt(row.management_fee_allocation)}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono font-semibold">
+                    {fmt(row.ending_capital)}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -179,12 +213,24 @@ export function InvestorDetail({ investorId }: { investorId: string }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--table-header)]">
-                <th className="px-3 py-2 text-left font-medium text-[var(--muted-foreground)]">Date</th>
-                <th className="px-3 py-2 text-left font-medium text-[var(--muted-foreground)]">Type</th>
-                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">Amount</th>
-                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">Shares</th>
-                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">NAV/Share</th>
-                <th className="px-3 py-2 text-left font-medium text-[var(--muted-foreground)]">Notes</th>
+                <th className="px-3 py-2 text-left font-medium text-[var(--muted-foreground)]">
+                  Date
+                </th>
+                <th className="px-3 py-2 text-left font-medium text-[var(--muted-foreground)]">
+                  Type
+                </th>
+                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">
+                  Amount
+                </th>
+                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">
+                  Shares
+                </th>
+                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">
+                  NAV/Share
+                </th>
+                <th className="px-3 py-2 text-left font-medium text-[var(--muted-foreground)]">
+                  Notes
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -200,7 +246,9 @@ export function InvestorDetail({ investorId }: { investorId: string }) {
                     </span>
                   </td>
                   <td className="px-3 py-2 text-right font-mono">{fmt(tx.amount)}</td>
-                  <td className="px-3 py-2 text-right font-mono">{Number(tx.shares).toLocaleString()}</td>
+                  <td className="px-3 py-2 text-right font-mono">
+                    {Number(tx.shares).toLocaleString()}
+                  </td>
                   <td className="px-3 py-2 text-right font-mono">{fmt(tx.nav_per_share)}</td>
                   <td className="px-3 py-2 text-[var(--muted-foreground)]">{tx.notes ?? "-"}</td>
                 </tr>

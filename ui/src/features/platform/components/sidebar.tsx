@@ -64,9 +64,7 @@ interface NavGroup {
 function groupNavItems(items: NavItem[]): NavGroup[] {
   const monitor = items.filter((i) => i.href === "");
   const portfolios = items.filter((i) => i.href === "/portfolio");
-  const trade = items.filter((i) =>
-    ["/orders", "/tca", "/fx-hedging"].includes(i.href),
-  );
+  const trade = items.filter((i) => ["/orders", "/tca", "/fx-hedging"].includes(i.href));
   const riskCompliance = items.filter((i) =>
     ["/risk", "/exposure", "/compliance", "/alpha"].includes(i.href),
   );

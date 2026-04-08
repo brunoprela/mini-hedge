@@ -39,8 +39,7 @@ export function redemptionsQueryOptions(fundSlug: string, state?: string) {
 export function queueSummaryQueryOptions(fundSlug: string) {
   return queryOptions({
     queryKey: ["investor-ops-queue", fundSlug],
-    queryFn: () =>
-      clientFetch<QueueSummary>("/investor-operations/queue", { fundSlug }),
+    queryFn: () => clientFetch<QueueSummary>("/investor-operations/queue", { fundSlug }),
     staleTime: 30_000,
   });
 }
@@ -48,8 +47,7 @@ export function queueSummaryQueryOptions(fundSlug: string) {
 export function fundTermsQueryOptions(fundSlug: string) {
   return queryOptions({
     queryKey: ["fund-terms", fundSlug],
-    queryFn: () =>
-      clientFetch<FundTerms[]>("/investor-operations/fund-terms", { fundSlug }),
+    queryFn: () => clientFetch<FundTerms[]>("/investor-operations/fund-terms", { fundSlug }),
     staleTime: 60_000,
   });
 }
@@ -140,10 +138,11 @@ export async function cancelRedemption(
   requestId: string,
   data: { reason: string; cancelled_by: string },
 ): Promise<RedemptionRequest> {
-  return clientFetch<RedemptionRequest>(
-    `/investor-operations/redemptions/${requestId}/cancel`,
-    { fundSlug, method: "POST", body: data },
-  );
+  return clientFetch<RedemptionRequest>(`/investor-operations/redemptions/${requestId}/cancel`, {
+    fundSlug,
+    method: "POST",
+    body: data,
+  });
 }
 
 export async function confirmPayment(
@@ -162,8 +161,9 @@ export async function screenInvestorKYC(
   investorId: string,
   data: { name: string; entity_type?: string },
 ): Promise<InvestorKYC> {
-  return clientFetch<InvestorKYC>(
-    `/investor-operations/investors/${investorId}/kyc/screen`,
-    { fundSlug, method: "POST", body: data },
-  );
+  return clientFetch<InvestorKYC>(`/investor-operations/investors/${investorId}/kyc/screen`, {
+    fundSlug,
+    method: "POST",
+    body: data,
+  });
 }

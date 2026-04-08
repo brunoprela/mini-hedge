@@ -73,9 +73,7 @@ export function EODPageClient() {
                 <span className="text-[10px] font-medium text-[var(--muted-foreground)]">
                   {step}
                 </span>
-                {i < EOD_STEPS.length - 1 && (
-                  <div className="h-px flex-1 bg-[var(--border)]" />
-                )}
+                {i < EOD_STEPS.length - 1 && <div className="h-px flex-1 bg-[var(--border)]" />}
               </div>
             ))}
           </div>
@@ -85,7 +83,9 @@ export function EODPageClient() {
       {/* Current run status */}
       <div>
         <div className="mb-2 flex items-center gap-3">
-          <h2 className="text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Run Status</h2>
+          <h2 className="text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+            Run Status
+          </h2>
           <input
             type="date"
             value={selectedDate}
@@ -98,7 +98,9 @@ export function EODPageClient() {
 
       {/* History */}
       <div>
-        <h2 className="mb-1 text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Run History</h2>
+        <h2 className="mb-1 text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+          Run History
+        </h2>
         <EODHistory onSelectDate={setSelectedDate} />
       </div>
     </div>

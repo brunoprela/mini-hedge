@@ -6,7 +6,11 @@ import { exposureHistoryQueryOptions } from "@/features/exposure/api";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 
 const fmt = (v: string) =>
-  Number(v).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  Number(v).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
 
 function toISODate(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -29,9 +33,11 @@ export function ExposureHistoryChart({ portfolioId }: { portfolioId: string }) {
     return { start: toISODate(s), end: toISODate(now) };
   }, [rangeDays]);
 
-  const { data, isLoading } = useQuery(exposureHistoryQueryOptions(fundSlug, portfolioId, start, end));
+  const { data, isLoading } = useQuery(
+    exposureHistoryQueryOptions(fundSlug, portfolioId, start, end),
+  );
 
-  const maxGross = useMemo(() => {
+  const _maxGross = useMemo(() => {
     if (!data || data.length === 0) return 1;
     return Math.max(...data.map((e) => Math.abs(Number(e.gross_value))), 1);
   }, [data]);
@@ -44,6 +50,7 @@ export function ExposureHistoryChart({ portfolioId }: { portfolioId: string }) {
           {RANGE_OPTIONS.map((opt) => (
             <button
               key={opt.days}
+              type="button"
               onClick={() => setRangeDays(opt.days)}
               className={`rounded px-2 py-0.5 text-xs transition-colors ${
                 rangeDays === opt.days
@@ -69,7 +76,10 @@ export function ExposureHistoryChart({ portfolioId }: { portfolioId: string }) {
                 <th className="bg-[var(--table-header)] px-3 py-1 font-medium text-right">Short</th>
                 <th className="bg-[var(--table-header)] px-3 py-1 font-medium text-right">Net</th>
                 <th className="bg-[var(--table-header)] px-3 py-1 font-medium text-right">Gross</th>
-                <th className="bg-[var(--table-header)] px-3 py-1 font-medium" style={{ minWidth: 120 }}>
+                <th
+                  className="bg-[var(--table-header)] px-3 py-1 font-medium"
+                  style={{ minWidth: 120 }}
+                >
                   Net / Gross
                 </th>
               </tr>
@@ -82,10 +92,17 @@ export function ExposureHistoryChart({ portfolioId }: { portfolioId: string }) {
                 const barWidth = Math.min(Math.abs(pct), 100);
 
                 return (
-                  <tr key={entry.date} className="border-b border-[var(--table-border)] hover:bg-[var(--table-row-hover)]">
+                  <tr
+                    key={entry.date}
+                    className="border-b border-[var(--table-border)] hover:bg-[var(--table-row-hover)]"
+                  >
                     <td className="px-3 py-1.5 font-mono text-xs">{entry.date}</td>
-                    <td className="px-3 py-1.5 text-right text-[var(--success)]">{fmt(entry.long_value)}</td>
-                    <td className="px-3 py-1.5 text-right text-[var(--destructive)]">{fmt(entry.short_value)}</td>
+                    <td className="px-3 py-1.5 text-right text-[var(--success)]">
+                      {fmt(entry.long_value)}
+                    </td>
+                    <td className="px-3 py-1.5 text-right text-[var(--destructive)]">
+                      {fmt(entry.short_value)}
+                    </td>
                     <td className="px-3 py-1.5 text-right">{fmt(entry.net_value)}</td>
                     <td className="px-3 py-1.5 text-right">{fmt(entry.gross_value)}</td>
                     <td className="px-3 py-1.5">

@@ -101,9 +101,7 @@ async def get_factor_exposures(
     service: QuantResearchService = Depends(get_quant_research_service),
     session: AsyncSession = Depends(get_read_db),
 ) -> list[FactorExposure]:
-    factor_record = await service._factor_repo.get_by_name(
-        factor_name, session=session
-    )
+    factor_record = await service._factor_repo.get_by_name(factor_name, session=session)
     if factor_record is None:
         return []
     records = await service._factor_repo.get_exposures(

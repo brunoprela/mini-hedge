@@ -26,9 +26,7 @@ class MockAltDataProvider:
     def source_name(self) -> str:
         return "mock"
 
-    async def fetch_data(
-        self, instrument_id: str, start: date, end: date
-    ) -> list[AltDataRecord]:
+    async def fetch_data(self, instrument_id: str, start: date, end: date) -> list[AltDataRecord]:
         """Generate deterministic data points based on hash of instrument+date."""
         from app.shared.adapters import AltDataRecord
 
@@ -60,9 +58,7 @@ class MockAltDataProvider:
 
         return records
 
-    async def get_sentiment(
-        self, instrument_id: str, as_of: date
-    ) -> SentimentRecord | None:
+    async def get_sentiment(self, instrument_id: str, as_of: date) -> SentimentRecord | None:
         """Generate deterministic sentiment based on hash."""
         from app.shared.adapters import SentimentRecord
 

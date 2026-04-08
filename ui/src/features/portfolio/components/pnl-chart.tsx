@@ -25,7 +25,7 @@ export function PnLChart({ portfolioId }: { portfolioId: string }) {
     return <p className="text-sm text-(--muted-foreground)">Loading P&L data...</p>;
   }
 
-  if (!data || !data.periods || data.periods.length === 0) return null;
+  if (!data?.periods || data.periods.length === 0) return null;
 
   const returns = data.periods.map((p) => ({
     date: p.period_end,

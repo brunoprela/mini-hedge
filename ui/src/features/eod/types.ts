@@ -1,7 +1,7 @@
 export type {
   EODRunResult,
   EODRunSummary,
-  EODStepResult,
   EODStepName,
+  EODStepResult,
   EODStepStatus,
 } from "@mini-hedge/api-types";

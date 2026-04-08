@@ -61,7 +61,10 @@ export function ProcessActionsDialog({ onClose }: Props) {
 
         {/* Portfolio */}
         <div className="mb-4">
-          <label htmlFor="ca-portfolio" className="mb-1 block text-sm text-[var(--muted-foreground)]">
+          <label
+            htmlFor="ca-portfolio"
+            className="mb-1 block text-sm text-[var(--muted-foreground)]"
+          >
             Portfolio
           </label>
           <select
@@ -81,7 +84,10 @@ export function ProcessActionsDialog({ onClose }: Props) {
 
         {/* Start Date */}
         <div className="mb-4">
-          <label htmlFor="ca-start-date" className="mb-1 block text-sm text-[var(--muted-foreground)]">
+          <label
+            htmlFor="ca-start-date"
+            className="mb-1 block text-sm text-[var(--muted-foreground)]"
+          >
             Start Date
           </label>
           <input
@@ -95,7 +101,10 @@ export function ProcessActionsDialog({ onClose }: Props) {
 
         {/* End Date */}
         <div className="mb-4">
-          <label htmlFor="ca-end-date" className="mb-1 block text-sm text-[var(--muted-foreground)]">
+          <label
+            htmlFor="ca-end-date"
+            className="mb-1 block text-sm text-[var(--muted-foreground)]"
+          >
             End Date
           </label>
           <input

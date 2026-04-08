@@ -175,9 +175,7 @@ def _compute_sortino(
     downside_std = Decimal(str(math.sqrt(float(downside_var))))
     if downside_std == ZERO:
         return ZERO
-    return (mean_excess / downside_std) * Decimal(
-        str(math.sqrt(float(TRADING_DAYS_PER_YEAR)))
-    )
+    return (mean_excess / downside_std) * Decimal(str(math.sqrt(float(TRADING_DAYS_PER_YEAR))))
 
 
 def _compute_max_drawdown(equity_curve: list[EquityCurvePoint]) -> Decimal:
@@ -523,11 +521,7 @@ class BacktestEngine:
         # Avg holding period (rough: total days / number of round-trip trades)
         total_trades = len(trades)
         round_trips = total_trades // 2
-        avg_holding = (
-            Decimal(n_days) / Decimal(round_trips)
-            if round_trips > 0
-            else Decimal(n_days)
-        )
+        avg_holding = Decimal(n_days) / Decimal(round_trips) if round_trips > 0 else Decimal(n_days)
 
         return BacktestResult(
             id="",  # assigned by caller

@@ -1,6 +1,6 @@
 export type {
-  FeeScheduleResponse,
-  FeeAccrualResponse,
-  FeeType,
   AccrualStatus,
+  FeeAccrualResponse,
+  FeeScheduleResponse,
+  FeeType,
 } from "@mini-hedge/api-types";

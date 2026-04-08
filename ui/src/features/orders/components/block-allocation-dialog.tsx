@@ -30,8 +30,7 @@ export function BlockAllocationDialog({ onClose }: BlockAllocationDialogProps) {
   const [legs, setLegs] = useState<LegEntry[]>([{ portfolio_id: "", target_pct: "" }]);
 
   const mutation = useMutation({
-    mutationFn: (request: CreateBlockAllocationRequest) =>
-      createBlockAllocation(fundSlug, request),
+    mutationFn: (request: CreateBlockAllocationRequest) => createBlockAllocation(fundSlug, request),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       toast.success("Block allocation created successfully");
@@ -92,7 +91,14 @@ export function BlockAllocationDialog({ onClose }: BlockAllocationDialogProps) {
     !mutation.isPending;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+    // biome-ignore lint/a11y/useKeyWithClickEvents: modal backdrop dismiss
+    // biome-ignore lint/a11y/noStaticElementInteractions: modal backdrop dismiss
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      onClick={onClose}
+    >
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: stops click propagation to backdrop */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: dialog container */}
       <div
         className="w-full max-w-lg rounded-md border border-[var(--border)] bg-[var(--background)] p-6 shadow-lg"
         onClick={(e) => e.stopPropagation()}
@@ -111,8 +117,11 @@ export function BlockAllocationDialog({ onClose }: BlockAllocationDialogProps) {
         <form onSubmit={handleSubmit} className="space-y-3">
           {/* Instrument ID */}
           <div>
-            <label className="mb-1 block text-sm font-medium">Instrument ID</label>
+            <label htmlFor="block-instrument-id" className="mb-1 block text-sm font-medium">
+              Instrument ID
+            </label>
             <input
+              id="block-instrument-id"
               type="text"
               value={instrumentId}
               onChange={(e) => setInstrumentId(e.target.value)}
@@ -123,7 +132,7 @@ export function BlockAllocationDialog({ onClose }: BlockAllocationDialogProps) {
 
           {/* Side */}
           <div>
-            <label className="mb-1 block text-sm font-medium">Side</label>
+            <span className="mb-1 block text-sm font-medium">Side</span>
             <div className="flex gap-1 rounded-md border border-[var(--border)] p-0.5">
               <button
                 type="button"
@@ -152,8 +161,11 @@ export function BlockAllocationDialog({ onClose }: BlockAllocationDialogProps) {
 
           {/* Total Quantity */}
           <div>
-            <label className="mb-1 block text-sm font-medium">Total Quantity</label>
+            <label htmlFor="block-total-quantity" className="mb-1 block text-sm font-medium">
+              Total Quantity
+            </label>
             <input
+              id="block-total-quantity"
               type="number"
               value={totalQuantity}
               onChange={(e) => setTotalQuantity(e.target.value)}
@@ -166,8 +178,11 @@ export function BlockAllocationDialog({ onClose }: BlockAllocationDialogProps) {
 
           {/* Order Type */}
           <div>
-            <label className="mb-1 block text-sm font-medium">Order Type</label>
+            <label htmlFor="block-order-type" className="mb-1 block text-sm font-medium">
+              Order Type
+            </label>
             <select
+              id="block-order-type"
               value={orderType}
               onChange={(e) => setOrderType(e.target.value as "market" | "limit")}
               className="w-full rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm"
@@ -180,8 +195,11 @@ export function BlockAllocationDialog({ onClose }: BlockAllocationDialogProps) {
           {/* Limit Price */}
           {orderType === "limit" && (
             <div>
-              <label className="mb-1 block text-sm font-medium">Limit Price</label>
+              <label htmlFor="block-limit-price" className="mb-1 block text-sm font-medium">
+                Limit Price
+              </label>
               <input
+                id="block-limit-price"
                 type="number"
                 value={limitPrice}
                 onChange={(e) => setLimitPrice(e.target.value)}
@@ -196,7 +214,7 @@ export function BlockAllocationDialog({ onClose }: BlockAllocationDialogProps) {
           {/* Allocation Legs */}
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <label className="text-sm font-medium">Allocation Legs</label>
+              <span className="text-sm font-medium">Allocation Legs</span>
               <button
                 type="button"
                 onClick={addLeg}
@@ -207,6 +225,7 @@ export function BlockAllocationDialog({ onClose }: BlockAllocationDialogProps) {
             </div>
             <div className="space-y-2">
               {legs.map((leg, index) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: dynamic form rows
                 <div key={index} className="flex items-center gap-2">
                   <select
                     value={leg.portfolio_id}

@@ -36,7 +36,9 @@ export function SettingsPageClient() {
 
       {/* User Profile */}
       <section className="rounded-md border border-[var(--border)] bg-[var(--card)] p-6">
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Profile</h2>
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+          Profile
+        </h2>
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm text-[var(--muted-foreground)]">Name</span>
@@ -61,7 +63,9 @@ export function SettingsPageClient() {
 
       {/* Appearance */}
       <section className="rounded-md border border-[var(--border)] bg-[var(--card)] p-6">
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Appearance</h2>
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+          Appearance
+        </h2>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium">Theme</p>
@@ -81,7 +85,9 @@ export function SettingsPageClient() {
 
       {/* Table Display Preferences */}
       <section className="rounded-md border border-[var(--border)] bg-[var(--card)] p-6">
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Table Display</h2>
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+          Table Display
+        </h2>
         <div className="space-y-5">
           {/* Density Toggle */}
           <div className="flex items-center justify-between">

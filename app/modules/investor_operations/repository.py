@@ -92,9 +92,7 @@ class SubscriptionRequestRepository(BaseRepository):
             )
             await s.execute(stmt)
 
-    async def count_by_state(
-        self, *, session: AsyncSession | None = None
-    ) -> dict[str, int]:
+    async def count_by_state(self, *, session: AsyncSession | None = None) -> dict[str, int]:
         """Return {state: count} for all subscription requests."""
         from sqlalchemy import func
 
@@ -121,9 +119,7 @@ class RedemptionRequestRepository(BaseRepository):
         self, request_id: str, *, session: AsyncSession | None = None
     ) -> RedemptionRequestRecord | None:
         async with self._session(session) as s:
-            stmt = select(RedemptionRequestRecord).where(
-                RedemptionRequestRecord.id == request_id
-            )
+            stmt = select(RedemptionRequestRecord).where(RedemptionRequestRecord.id == request_id)
             result = await s.execute(stmt)
             return result.scalar_one_or_none()
 
@@ -170,11 +166,7 @@ class RedemptionRequestRepository(BaseRepository):
         async with self._session(session) as s:
             stmt = (
                 select(RedemptionRequestRecord)
-                .where(
-                    RedemptionRequestRecord.state.in_(
-                        ["validated", "pending_gate_check"]
-                    )
-                )
+                .where(RedemptionRequestRecord.state.in_(["validated", "pending_gate_check"]))
                 .order_by(RedemptionRequestRecord.submitted_at)
             )
             result = await s.execute(stmt)
@@ -196,9 +188,7 @@ class RedemptionRequestRepository(BaseRepository):
             )
             await s.execute(stmt)
 
-    async def count_by_state(
-        self, *, session: AsyncSession | None = None
-    ) -> dict[str, int]:
+    async def count_by_state(self, *, session: AsyncSession | None = None) -> dict[str, int]:
         from sqlalchemy import func
 
         async with self._session(session) as s:
@@ -217,15 +207,11 @@ class FundTermsRepository(BaseRepository):
         self, share_class: str, *, session: AsyncSession | None = None
     ) -> FundTermsRecord | None:
         async with self._session(session) as s:
-            stmt = select(FundTermsRecord).where(
-                FundTermsRecord.share_class == share_class
-            )
+            stmt = select(FundTermsRecord).where(FundTermsRecord.share_class == share_class)
             result = await s.execute(stmt)
             return result.scalar_one_or_none()
 
-    async def get_all_active(
-        self, *, session: AsyncSession | None = None
-    ) -> list[FundTermsRecord]:
+    async def get_all_active(self, *, session: AsyncSession | None = None) -> list[FundTermsRecord]:
         async with self._session(session) as s:
             stmt = (
                 select(FundTermsRecord)
@@ -235,9 +221,7 @@ class FundTermsRepository(BaseRepository):
             result = await s.execute(stmt)
             return list(result.scalars().all())
 
-    async def upsert(
-        self, record: FundTermsRecord, *, session: AsyncSession | None = None
-    ) -> None:
+    async def upsert(self, record: FundTermsRecord, *, session: AsyncSession | None = None) -> None:
         async with self._session(session) as s:
             merged = await s.merge(record)
             s.add(merged)
@@ -251,9 +235,7 @@ class InvestorKYCRepository(BaseRepository):
         self, investor_id: str, *, session: AsyncSession | None = None
     ) -> InvestorKYCRecord | None:
         async with self._session(session) as s:
-            stmt = select(InvestorKYCRecord).where(
-                InvestorKYCRecord.investor_id == investor_id
-            )
+            stmt = select(InvestorKYCRecord).where(InvestorKYCRecord.investor_id == investor_id)
             result = await s.execute(stmt)
             return result.scalar_one_or_none()
 

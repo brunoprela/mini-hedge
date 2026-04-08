@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { fxAttributionQueryOptions } from "../api";
 
@@ -36,7 +36,7 @@ export function FXAttributionTable({ portfolioId, start, end }: Props) {
     return <div className="text-sm text-[var(--muted-foreground)]">Loading FX attribution...</div>;
   }
 
-  if (!data || !data.entries) return null;
+  if (!data?.entries) return null;
 
   return (
     <div className="space-y-2">

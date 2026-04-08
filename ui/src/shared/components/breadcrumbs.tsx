@@ -1,8 +1,8 @@
 "use client";
 
-import { Fragment } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Fragment } from "react";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 
 const SEGMENT_LABELS: Record<string, string> = {
@@ -32,9 +32,7 @@ export function Breadcrumbs() {
   const { fundSlug } = useFundContext();
 
   const prefix = `/${fundSlug}`;
-  const relativePath = pathname.startsWith(prefix)
-    ? pathname.slice(prefix.length)
-    : pathname;
+  const relativePath = pathname.startsWith(prefix) ? pathname.slice(prefix.length) : pathname;
 
   const parts = relativePath.split("/").filter(Boolean);
 
@@ -58,14 +56,9 @@ export function Breadcrumbs() {
         <Fragment key={seg.path}>
           <span>/</span>
           {i === segments.length - 1 ? (
-            <span className="text-[var(--foreground)] font-medium">
-              {seg.label}
-            </span>
+            <span className="text-[var(--foreground)] font-medium">{seg.label}</span>
           ) : (
-            <Link
-              href={seg.path}
-              className="hover:text-[var(--foreground)]"
-            >
+            <Link href={seg.path} className="hover:text-[var(--foreground)]">
               {seg.label}
             </Link>
           )}

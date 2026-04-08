@@ -30,13 +30,7 @@ function initFormData(schedule: FeeScheduleResponse): EditFormData {
   };
 }
 
-function EditDialog({
-  schedule,
-  onClose,
-}: {
-  schedule: FeeScheduleResponse;
-  onClose: () => void;
-}) {
+function EditDialog({ schedule, onClose }: { schedule: FeeScheduleResponse; onClose: () => void }) {
   const { fundSlug } = useFundContext();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<EditFormData>(() => initFormData(schedule));

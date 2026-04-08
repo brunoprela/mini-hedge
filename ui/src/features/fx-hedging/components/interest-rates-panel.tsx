@@ -67,7 +67,6 @@ export function InterestRatesPanel() {
                   onChange={(e) => setEditRate(e.target.value)}
                   placeholder={(Number(shortRate.rate) * 100).toFixed(2)}
                   className="w-full rounded-md border border-[var(--border)] bg-transparent px-2 py-1 text-sm tabular-nums"
-                  autoFocus
                 />
                 <div className="mt-1.5 flex gap-1">
                   <button

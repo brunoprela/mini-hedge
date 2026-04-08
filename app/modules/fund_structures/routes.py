@@ -127,7 +127,8 @@ async def get_feeder_master(
     session: AsyncSession = Depends(get_read_db),
 ) -> MasterFeederLink | None:
     record = await service._mf_repo.get_master_for_feeder(
-        feeder_slug, session=session,
+        feeder_slug,
+        session=session,
     )
     if record is None:
         return None
@@ -215,7 +216,9 @@ async def check_rebalance(
     session: AsyncSession = Depends(get_read_db),
 ) -> list[BookRebalanceResult]:
     return await service.check_rebalance(
-        fund_slug, body.book_navs, session=session,
+        fund_slug,
+        body.book_navs,
+        session=session,
     )
 
 

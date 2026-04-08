@@ -93,7 +93,9 @@ export function OptimizationPanel({ portfolioId }: { portfolioId: string }) {
             </div>
             <div className="rounded-md border border-[var(--border)] p-3">
               <p className="text-xs text-[var(--muted-foreground)]">Expected Risk</p>
-              <p className="mt-0.5 font-mono text-sm font-semibold">{fmtPct(result.expected_risk)}</p>
+              <p className="mt-0.5 font-mono text-sm font-semibold">
+                {fmtPct(result.expected_risk)}
+              </p>
             </div>
             {result.sharpe_ratio && (
               <div className="rounded-md border border-[var(--border)] p-3">

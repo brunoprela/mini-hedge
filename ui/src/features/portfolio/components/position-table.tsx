@@ -1,10 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Download } from "lucide-react";
+import { Download, Filter } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Filter } from "lucide-react";
 import { instrumentsQueryOptions } from "@/features/instruments/api";
 import { Can } from "@/shared/components/can";
 import { SortableHeader, TablePagination, TableSearch } from "@/shared/components/table-controls";
@@ -204,9 +203,9 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
         <div className="mb-3 rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="mb-1.5 block text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+              <span className="mb-1.5 block text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
                 Side
-              </label>
+              </span>
               <div className="flex gap-1">
                 {(["all", "long", "short"] as const).map((s) => (
                   <button
@@ -229,7 +228,10 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
               </div>
             </div>
             <div>
-              <label htmlFor="sector-filter" className="mb-1.5 block text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+              <label
+                htmlFor="sector-filter"
+                className="mb-1.5 block text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]"
+              >
                 Sector
               </label>
               <select
@@ -240,12 +242,17 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
               >
                 <option value="all">All Sectors</option>
                 {availableSectors.map((s) => (
-                  <option key={s} value={s}>{s}</option>
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
-              <label htmlFor="currency-filter" className="mb-1.5 block text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+              <label
+                htmlFor="currency-filter"
+                className="mb-1.5 block text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]"
+              >
                 Currency
               </label>
               <select
@@ -256,7 +263,9 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
               >
                 <option value="all">All Currencies</option>
                 {availableCurrencies.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
                 ))}
               </select>
             </div>
@@ -281,16 +290,26 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
       {totals && (
         <div className="mb-3 flex gap-3">
           <div className="flex-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Positions</p>
+            <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">
+              Positions
+            </p>
             <p className="font-mono text-sm font-semibold">{totals.count}</p>
           </div>
           <div className="flex-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Market Value</p>
-            <p className="font-mono text-sm font-semibold">{formatPnL(String(totals.market_value))}</p>
+            <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">
+              Market Value
+            </p>
+            <p className="font-mono text-sm font-semibold">
+              {formatPnL(String(totals.market_value))}
+            </p>
           </div>
           <div className="flex-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Unrealized P&L</p>
-            <p className={`font-mono text-sm font-semibold ${pnlColorClass(String(totals.unrealized_pnl))}`}>
+            <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">
+              Unrealized P&L
+            </p>
+            <p
+              className={`font-mono text-sm font-semibold ${pnlColorClass(String(totals.unrealized_pnl))}`}
+            >
               {formatPnL(String(totals.unrealized_pnl))}
             </p>
           </div>
@@ -384,9 +403,10 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
                 const groups = new Map<string, NonNullable<typeof positions>>();
                 for (const pos of rows) {
                   const inst = instrumentMap.get(pos.instrument_id);
-                  const key = groupBy === "sector"
-                    ? (inst?.sector ?? "Other")
-                    : (inst?.asset_class ?? "Other");
+                  const key =
+                    groupBy === "sector"
+                      ? (inst?.sector ?? "Other")
+                      : (inst?.asset_class ?? "Other");
                   const arr = groups.get(key) ?? [];
                   arr.push(pos);
                   groups.set(key, arr);
@@ -413,7 +433,9 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
                       <td className="px-4 py-1.5 text-right font-mono text-xs font-bold">
                         {formatPnL(String(groupMv))}
                       </td>
-                      <td className={`px-4 py-1.5 text-right font-mono text-xs font-bold ${pnlColorClass(String(groupPnl))}`}>
+                      <td
+                        className={`px-4 py-1.5 text-right font-mono text-xs font-bold ${pnlColorClass(String(groupPnl))}`}
+                      >
                         {formatPnL(String(groupPnl))}
                       </td>
                       <td className="px-4 py-1.5" />
@@ -425,7 +447,9 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
                         maxAbsPnl={maxAbsPnl}
                         expanded={expandedRow === pos.instrument_id}
                         onToggle={() =>
-                          setExpandedRow(expandedRow === pos.instrument_id ? null : pos.instrument_id)
+                          setExpandedRow(
+                            expandedRow === pos.instrument_id ? null : pos.instrument_id,
+                          )
                         }
                         fundSlug={fundSlug}
                         portfolioId={portfolioId}
@@ -447,7 +471,9 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
                   <td className="px-3 py-1.5 text-right font-mono font-semibold">
                     {formatPnL(String(totals.market_value))}
                   </td>
-                  <td className={`px-3 py-1.5 text-right font-mono font-semibold ${pnlColorClass(String(totals.unrealized_pnl))}`}>
+                  <td
+                    className={`px-3 py-1.5 text-right font-mono font-semibold ${pnlColorClass(String(totals.unrealized_pnl))}`}
+                  >
                     {formatPnL(String(totals.unrealized_pnl))}
                   </td>
                   <td className="px-3 py-1.5" />
@@ -488,7 +514,15 @@ function PositionRow({
   fundSlug,
   portfolioId,
 }: {
-  pos: { instrument_id: string; quantity: string; avg_cost: string; market_price: string; market_value: string; unrealized_pnl: string; last_updated: string };
+  pos: {
+    instrument_id: string;
+    quantity: string;
+    avg_cost: string;
+    market_price: string;
+    market_value: string;
+    unrealized_pnl: string;
+    last_updated: string;
+  };
   maxAbsPnl: number;
   expanded: boolean;
   onToggle: () => void;
@@ -520,7 +554,11 @@ function PositionRow({
             <div className="h-1.5 w-16 overflow-hidden rounded-full bg-[var(--border)]">
               <div
                 className="h-full rounded-full transition-all"
-                style={{ width: `${Math.max(barPct, 2)}%`, backgroundColor: barColor, opacity: 0.7 }}
+                style={{
+                  width: `${Math.max(barPct, 2)}%`,
+                  backgroundColor: barColor,
+                  opacity: 0.7,
+                }}
               />
             </div>
             <span className={`font-mono font-medium ${pnlColorClass(pos.unrealized_pnl)}`}>
@@ -540,9 +578,7 @@ function PositionRow({
           </Link>
         </td>
       </tr>
-      {expanded && (
-        <LotDrawer portfolioId={portfolioId} instrumentId={pos.instrument_id} />
-      )}
+      {expanded && <LotDrawer portfolioId={portfolioId} instrumentId={pos.instrument_id} />}
     </>
   );
 }

@@ -6,10 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { runWhatIf } from "@/features/alpha/api";
 import type { WhatIfResult } from "@/features/alpha/types";
-import {
-  checkTradeCompliance,
-  type ComplianceDecision,
-} from "@/features/compliance/api";
+import { type ComplianceDecision, checkTradeCompliance } from "@/features/compliance/api";
 import { instrumentSearchQueryOptions } from "@/features/instruments/api";
 import { latestPriceQueryOptions } from "@/features/market-data/api";
 import { createAlgoOrder, createOrder } from "@/features/orders/api";
@@ -25,15 +22,19 @@ interface TradeTicketInnerProps {
   portfolios?: { id: string; name: string }[];
 }
 
-export function TradeTicketInner({ portfolioId: initialPortfolioId, onClose, defaults, showPortfolioSelector, portfolios }: TradeTicketInnerProps) {
+export function TradeTicketInner({
+  portfolioId: initialPortfolioId,
+  onClose: _onClose,
+  defaults,
+  showPortfolioSelector,
+  portfolios,
+}: TradeTicketInnerProps) {
   const { fundSlug } = useFundContext();
   const queryClient = useQueryClient();
 
   const [portfolioId, setPortfolioId] = useState(initialPortfolioId);
 
-  const [side, setSide] = useState<"buy" | "sell">(
-    defaults?.side === "sell" ? "sell" : "buy",
-  );
+  const [side, setSide] = useState<"buy" | "sell">(defaults?.side === "sell" ? "sell" : "buy");
   const [instrumentId, setInstrumentId] = useState(defaults?.instrument ?? "");
   const [search, setSearch] = useState("");
   const [quantity, setQuantity] = useState(defaults?.quantity ?? "");
@@ -197,7 +198,9 @@ export function TradeTicketInner({ portfolioId: initialPortfolioId, onClose, def
               className="w-full rounded-md border border-[var(--border)] bg-transparent px-2 py-1.5 text-sm"
             >
               {portfolios.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
               ))}
             </select>
           </div>
@@ -222,7 +225,11 @@ export function TradeTicketInner({ portfolioId: initialPortfolioId, onClose, def
                 ))}
               </ul>
             )}
-            <button type="button" onClick={() => setRejectionDetail(null)} className="mt-2 text-xs underline">
+            <button
+              type="button"
+              onClick={() => setRejectionDetail(null)}
+              className="mt-2 text-xs underline"
+            >
               Dismiss
             </button>
           </div>
@@ -265,7 +272,10 @@ export function TradeTicketInner({ portfolioId: initialPortfolioId, onClose, def
               <span className="font-mono text-sm font-medium">{instrumentId}</span>
               <button
                 type="button"
-                onClick={() => { setInstrumentId(""); setShowSearch(true); }}
+                onClick={() => {
+                  setInstrumentId("");
+                  setShowSearch(true);
+                }}
                 className="text-[10px] text-[var(--muted-foreground)] underline"
               >
                 change
@@ -276,7 +286,10 @@ export function TradeTicketInner({ portfolioId: initialPortfolioId, onClose, def
               type="text"
               placeholder="Search instruments..."
               value={search}
-              onChange={(e) => { setSearch(e.target.value); setShowSearch(true); }}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setShowSearch(true);
+              }}
               onFocus={() => setShowSearch(true)}
               className="w-full rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm"
             />
@@ -301,7 +314,12 @@ export function TradeTicketInner({ portfolioId: initialPortfolioId, onClose, def
         {/* Quantity + Price */}
         <div className="mb-3 grid grid-cols-2 gap-2">
           <div>
-            <label htmlFor="panel-qty" className="mb-1 block text-xs text-[var(--muted-foreground)]">Qty</label>
+            <label
+              htmlFor="panel-qty"
+              className="mb-1 block text-xs text-[var(--muted-foreground)]"
+            >
+              Qty
+            </label>
             <input
               id="panel-qty"
               type="number"
@@ -317,7 +335,11 @@ export function TradeTicketInner({ portfolioId: initialPortfolioId, onClose, def
             <div className="mb-1 flex items-center justify-between text-xs text-[var(--muted-foreground)]">
               <label htmlFor="panel-price">Price</label>
               {latestPrice && (
-                <button type="button" onClick={handleUseMarketPrice} className="text-[10px] underline">
+                <button
+                  type="button"
+                  onClick={handleUseMarketPrice}
+                  className="text-[10px] underline"
+                >
                   Mid: {latestPrice.mid}
                 </button>
               )}
@@ -338,14 +360,25 @@ export function TradeTicketInner({ portfolioId: initialPortfolioId, onClose, def
         {/* Notional */}
         {Number(quantity) > 0 && Number(price) > 0 && (
           <p className="mb-3 text-xs text-[var(--muted-foreground)]">
-            Notional: <span className="font-mono font-medium">${(Number(quantity) * Number(price)).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+            Notional:{" "}
+            <span className="font-mono font-medium">
+              $
+              {(Number(quantity) * Number(price)).toLocaleString("en-US", {
+                minimumFractionDigits: 2,
+              })}
+            </span>
           </p>
         )}
 
         {/* Execution */}
         <div className="mb-2 border-t border-[var(--border)] pt-2">
           <label className="flex cursor-pointer items-center gap-2 text-xs">
-            <input type="checkbox" checked={useAlgo} onChange={(e) => setUseAlgo(e.target.checked)} className="h-3.5 w-3.5 rounded border-[var(--border)]" />
+            <input
+              type="checkbox"
+              checked={useAlgo}
+              onChange={(e) => setUseAlgo(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-[var(--border)]"
+            />
             <span className="text-[var(--muted-foreground)]">Algo execution</span>
           </label>
         </div>
@@ -371,19 +404,59 @@ export function TradeTicketInner({ portfolioId: initialPortfolioId, onClose, def
             {algoType !== "iceberg" && (
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label htmlFor="panel-algo-dur" className="mb-0.5 block text-[10px] text-[var(--muted-foreground)]">Duration (s)</label>
-                  <input id="panel-algo-dur" type="number" min="60" step="60" value={algoDuration} onChange={(e) => setAlgoDuration(e.target.value)} className="w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 font-mono text-xs" />
+                  <label
+                    htmlFor="panel-algo-dur"
+                    className="mb-0.5 block text-[10px] text-[var(--muted-foreground)]"
+                  >
+                    Duration (s)
+                  </label>
+                  <input
+                    id="panel-algo-dur"
+                    type="number"
+                    min="60"
+                    step="60"
+                    value={algoDuration}
+                    onChange={(e) => setAlgoDuration(e.target.value)}
+                    className="w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 font-mono text-xs"
+                  />
                 </div>
                 <div>
-                  <label htmlFor="panel-algo-slc" className="mb-0.5 block text-[10px] text-[var(--muted-foreground)]">Slices</label>
-                  <input id="panel-algo-slc" type="number" min="2" step="1" value={algoSlices} onChange={(e) => setAlgoSlices(e.target.value)} className="w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 font-mono text-xs" />
+                  <label
+                    htmlFor="panel-algo-slc"
+                    className="mb-0.5 block text-[10px] text-[var(--muted-foreground)]"
+                  >
+                    Slices
+                  </label>
+                  <input
+                    id="panel-algo-slc"
+                    type="number"
+                    min="2"
+                    step="1"
+                    value={algoSlices}
+                    onChange={(e) => setAlgoSlices(e.target.value)}
+                    className="w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 font-mono text-xs"
+                  />
                 </div>
               </div>
             )}
             {algoType === "iceberg" && (
               <div>
-                <label htmlFor="panel-algo-vis" className="mb-0.5 block text-[10px] text-[var(--muted-foreground)]">Visible qty</label>
-                <input id="panel-algo-vis" type="number" min="1" step="1" value={algoVisibleQty} onChange={(e) => setAlgoVisibleQty(e.target.value)} placeholder="Auto" className="w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 font-mono text-xs" />
+                <label
+                  htmlFor="panel-algo-vis"
+                  className="mb-0.5 block text-[10px] text-[var(--muted-foreground)]"
+                >
+                  Visible qty
+                </label>
+                <input
+                  id="panel-algo-vis"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={algoVisibleQty}
+                  onChange={(e) => setAlgoVisibleQty(e.target.value)}
+                  placeholder="Auto"
+                  className="w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 font-mono text-xs"
+                />
               </div>
             )}
           </div>
@@ -396,27 +469,39 @@ export function TradeTicketInner({ portfolioId: initialPortfolioId, onClose, def
               {complianceLoading ? (
                 <>
                   <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[var(--primary)] border-t-transparent" />
-                  <span className="text-[10px] font-medium text-[var(--muted-foreground)]">Checking compliance...</span>
+                  <span className="text-[10px] font-medium text-[var(--muted-foreground)]">
+                    Checking compliance...
+                  </span>
                 </>
               ) : complianceCheck?.approved ? (
                 <>
                   <ShieldCheck className="h-3.5 w-3.5 text-[var(--success)]" />
-                  <span className="text-[10px] font-medium text-[var(--success)]">Compliance Passed</span>
+                  <span className="text-[10px] font-medium text-[var(--success)]">
+                    Compliance Passed
+                  </span>
                 </>
               ) : (
                 <>
                   <ShieldAlert className="h-3.5 w-3.5 text-[var(--destructive)]" />
-                  <span className="text-[10px] font-medium text-[var(--destructive)]">Compliance Failed</span>
+                  <span className="text-[10px] font-medium text-[var(--destructive)]">
+                    Compliance Failed
+                  </span>
                 </>
               )}
             </div>
             {complianceCheck && (
               <div className="space-y-1">
                 {complianceCheck.results.map((r) => {
-                  const badgeColor = r.passed ? "bg-[var(--success)] text-white" : r.severity === "block" ? "bg-[var(--destructive)] text-white" : "bg-[var(--warning)] text-[var(--warning-foreground)]";
+                  const badgeColor = r.passed
+                    ? "bg-[var(--success)] text-white"
+                    : r.severity === "block"
+                      ? "bg-[var(--destructive)] text-white"
+                      : "bg-[var(--warning)] text-[var(--warning-foreground)]";
                   return (
                     <div key={r.rule_id} className="flex items-center gap-1.5 text-[10px]">
-                      <span className={`inline-flex rounded px-1 py-0.5 font-bold uppercase tracking-wide ${badgeColor}`}>
+                      <span
+                        className={`inline-flex rounded px-1 py-0.5 font-bold uppercase tracking-wide ${badgeColor}`}
+                      >
                         {r.passed ? "PASS" : r.severity === "block" ? "BLOCK" : "WARN"}
                       </span>
                       <span className="font-medium text-[var(--foreground)]">{r.rule_name}</span>
@@ -431,20 +516,36 @@ export function TradeTicketInner({ portfolioId: initialPortfolioId, onClose, def
         {/* Impact */}
         {(impact || impactLoading) && (
           <div className="mb-3 rounded-md border border-[var(--border)] bg-[var(--muted)] p-2">
-            <button type="button" onClick={() => setShowImpact(!showImpact)} className="flex w-full items-center justify-between text-xs font-medium">
+            <button
+              type="button"
+              onClick={() => setShowImpact(!showImpact)}
+              className="flex w-full items-center justify-between text-xs font-medium"
+            >
               Impact Preview
-              <span className="text-[10px] text-[var(--muted-foreground)]">{showImpact ? "▾" : "▸"}</span>
+              <span className="text-[10px] text-[var(--muted-foreground)]">
+                {showImpact ? "▾" : "▸"}
+              </span>
             </button>
-            {showImpact && (impactLoading ? (
-              <p className="mt-1 text-[10px] text-[var(--muted-foreground)]">Calculating...</p>
-            ) : impact ? (
-              <div className="mt-1 space-y-1">
-                <ImpactRow label="NAV" before={fmtUsd(impact.current_nav)} after={fmtUsd(impact.proposed_nav)} delta={impact.nav_change_pct} />
-                {impact.current_var_95 && impact.proposed_var_95 && (
-                  <ImpactRow label="VaR 95%" before={fmtUsd(impact.current_var_95)} after={fmtUsd(impact.proposed_var_95)} />
-                )}
-              </div>
-            ) : null)}
+            {showImpact &&
+              (impactLoading ? (
+                <p className="mt-1 text-[10px] text-[var(--muted-foreground)]">Calculating...</p>
+              ) : impact ? (
+                <div className="mt-1 space-y-1">
+                  <ImpactRow
+                    label="NAV"
+                    before={fmtUsd(impact.current_nav)}
+                    after={fmtUsd(impact.proposed_nav)}
+                    delta={impact.nav_change_pct}
+                  />
+                  {impact.current_var_95 && impact.proposed_var_95 && (
+                    <ImpactRow
+                      label="VaR 95%"
+                      before={fmtUsd(impact.current_var_95)}
+                      after={fmtUsd(impact.proposed_var_95)}
+                    />
+                  )}
+                </div>
+              ) : null)}
           </div>
         )}
       </div>
@@ -454,7 +555,7 @@ export function TradeTicketInner({ portfolioId: initialPortfolioId, onClose, def
         {hasComplianceBlock && (
           <p className="mb-2 flex items-center gap-1.5 text-[10px] text-[var(--destructive)]">
             <ShieldAlert className="h-3 w-3" />
-            Blocked by: {complianceCheck!.blocked_by.join(", ")}
+            Blocked by: {complianceCheck?.blocked_by.join(", ")}
           </p>
         )}
         <button
@@ -476,7 +577,17 @@ export function TradeTicketInner({ portfolioId: initialPortfolioId, onClose, def
   );
 }
 
-function ImpactRow({ label, before, after, delta }: { label: string; before: string; after: string; delta?: string }) {
+function ImpactRow({
+  label,
+  before,
+  after,
+  delta,
+}: {
+  label: string;
+  before: string;
+  after: string;
+  delta?: string;
+}) {
   return (
     <div className="flex items-baseline justify-between text-[10px]">
       <span className="text-[var(--muted-foreground)]">{label}</span>
@@ -485,8 +596,13 @@ function ImpactRow({ label, before, after, delta }: { label: string; before: str
         <span>→</span>
         <span className="font-medium">{after}</span>
         {delta && (
-          <span className={parseFloat(delta) >= 0 ? "text-[var(--success)]" : "text-[var(--destructive)]"}>
-            ({parseFloat(delta) >= 0 ? "+" : ""}{parseFloat(delta).toFixed(2)}%)
+          <span
+            className={
+              parseFloat(delta) >= 0 ? "text-[var(--success)]" : "text-[var(--destructive)]"
+            }
+          >
+            ({parseFloat(delta) >= 0 ? "+" : ""}
+            {parseFloat(delta).toFixed(2)}%)
           </span>
         )}
       </div>
@@ -497,5 +613,9 @@ function ImpactRow({ label, before, after, delta }: { label: string; before: str
 function fmtUsd(v: string): string {
   const n = parseFloat(v);
   if (Number.isNaN(n)) return v;
-  return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  return n.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
 }

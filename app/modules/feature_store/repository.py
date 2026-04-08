@@ -36,9 +36,7 @@ class FeatureRepository(BaseRepository):
     ) -> FeatureDefinitionRecord | None:
         async with self._session(session) as s:
             result = await s.execute(
-                select(FeatureDefinitionRecord).where(
-                    FeatureDefinitionRecord.id == feature_id
-                )
+                select(FeatureDefinitionRecord).where(FeatureDefinitionRecord.id == feature_id)
             )
             return result.scalar_one_or_none()
 
@@ -47,9 +45,7 @@ class FeatureRepository(BaseRepository):
     ) -> FeatureDefinitionRecord | None:
         async with self._session(session) as s:
             result = await s.execute(
-                select(FeatureDefinitionRecord).where(
-                    FeatureDefinitionRecord.name == name
-                )
+                select(FeatureDefinitionRecord).where(FeatureDefinitionRecord.name == name)
             )
             return result.scalar_one_or_none()
 
@@ -201,16 +197,12 @@ class FeatureRepository(BaseRepository):
         self, set_id: str, *, session: AsyncSession | None = None
     ) -> FeatureSetRecord | None:
         async with self._session(session) as s:
-            result = await s.execute(
-                select(FeatureSetRecord).where(FeatureSetRecord.id == set_id)
-            )
+            result = await s.execute(select(FeatureSetRecord).where(FeatureSetRecord.id == set_id))
             return result.scalar_one_or_none()
 
     async def list_feature_sets(
         self, *, session: AsyncSession | None = None
     ) -> list[FeatureSetRecord]:
         async with self._session(session) as s:
-            result = await s.execute(
-                select(FeatureSetRecord).order_by(FeatureSetRecord.name)
-            )
+            result = await s.execute(select(FeatureSetRecord).order_by(FeatureSetRecord.name))
             return list(result.scalars().all())

@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from app.modules.ai_analysis.llm_adapter import LLMAdapter
     from app.modules.ai_analysis.repository import AnalysisRepository
     from app.shared.database import TenantSessionFactory
+    from app.shared.events import EventBus
 
 logger = structlog.get_logger()
 
@@ -40,10 +41,12 @@ class AIAnalysisService:
         repo: AnalysisRepository,
         llm_adapter: LLMAdapter,
         session_factory: TenantSessionFactory,
+        event_bus: EventBus | None = None,
     ) -> None:
         self._repo = repo
         self._llm = llm_adapter
         self._session_factory = session_factory
+        self._event_bus = event_bus
 
     async def run_analysis(
         self, request: AnalysisRequest, *, session: AsyncSession | None = None
@@ -83,6 +86,25 @@ class AIAnalysisService:
             tokens_used=llm_response.tokens_used,
         )
         await self._repo.save_result(record, session=session)
+
+        if self._event_bus:
+            from app.shared.audit_events import AuditEventType
+            from app.shared.events import BaseEvent
+            from app.shared.schema_registry import shared_topic
+
+            await self._event_bus.publish(
+                shared_topic("audit"),
+                BaseEvent(
+                    event_type=AuditEventType.ANALYSIS_COMPLETED,
+                    data={
+                        "analysis_id": record.id,
+                        "analysis_type": request.analysis_type.value,
+                        "model_used": llm_response.model,
+                        "tokens_used": llm_response.tokens_used,
+                        "instruments": request.instruments or [],
+                    },
+                ),
+            )
 
         return AnalysisResult(
             id=UUID(record.id),
@@ -147,6 +169,26 @@ class AIAnalysisService:
             tags=tags or [],
         )
         await self._repo.save_note(record, session=session)
+
+        if self._event_bus:
+            from app.shared.audit_events import AuditEventType
+            from app.shared.events import BaseEvent
+            from app.shared.schema_registry import shared_topic
+
+            await self._event_bus.publish(
+                shared_topic("audit"),
+                BaseEvent(
+                    event_type=AuditEventType.RESEARCH_NOTE_CREATED,
+                    data={
+                        "note_id": record.id,
+                        "title": title,
+                        "analysis_type": analysis_type.value,
+                        "instruments": instruments or [],
+                        "tags": tags or [],
+                    },
+                ),
+            )
+
         return ResearchNote(
             id=UUID(record.id),
             title=record.title,
@@ -165,9 +207,7 @@ class AIAnalysisService:
         session: AsyncSession | None = None,
     ) -> list[ResearchNote]:
         """List research notes with optional tag filter."""
-        records = await self._repo.list_notes(
-            tags=tags, limit=limit, session=session
-        )
+        records = await self._repo.list_notes(tags=tags, limit=limit, session=session)
         return [_note_record_to_dto(r) for r in records]
 
 

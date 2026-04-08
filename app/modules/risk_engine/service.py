@@ -526,7 +526,8 @@ class RiskService:
     ) -> list[CounterpartyExposure]:
         """Get latest counterparty exposure for a portfolio."""
         records = await self._risk_repo.get_counterparty_exposures(
-            portfolio_id, session=session,
+            portfolio_id,
+            session=session,
         )
         cpty_map = await self._risk_repo.get_counterparty_map(session=session)
         return [
@@ -624,8 +625,11 @@ class RiskService:
                 portfolio_id=portfolio_id,
                 business_date=now,
                 total_nav=ZERO,
-                pct_1_day=ZERO, pct_1_week=ZERO, pct_1_month=ZERO,
-                pct_3_months=ZERO, pct_illiquid=ZERO,
+                pct_1_day=ZERO,
+                pct_1_week=ZERO,
+                pct_1_month=ZERO,
+                pct_3_months=ZERO,
+                pct_illiquid=ZERO,
                 weighted_days_to_liquidate=ZERO,
                 redemption_coverage_pct=Decimal(1),
             )
@@ -635,13 +639,15 @@ class RiskService:
         total_nav = ZERO
         for p in positions:
             mv = (
-                p.market_value if hasattr(p, "market_value")
+                p.market_value
+                if hasattr(p, "market_value")
                 else p.quantity * getattr(p, "current_price", ZERO)
             )
             total_nav += mv
             # Estimate ADV from security master or use a heuristic
             sec = await self._security_master_service.get_instrument(
-                p.instrument_id, session=session,
+                p.instrument_id,
+                session=session,
             )
             adv = Decimal(str(getattr(sec, "avg_daily_volume", 0) or 0))
             # Convert ADV shares to USD
@@ -709,11 +715,13 @@ class RiskService:
         pos_data: list[tuple[str, Decimal, str]] = []
         for p in positions:
             mv = (
-                p.market_value if hasattr(p, "market_value")
+                p.market_value
+                if hasattr(p, "market_value")
                 else p.quantity * getattr(p, "current_price", ZERO)
             )
             sec = await self._security_master_service.get_instrument(
-                p.instrument_id, session=session,
+                p.instrument_id,
+                session=session,
             )
             asset_class = getattr(sec, "asset_class", "equity") or "equity"
             pos_data.append((p.instrument_id, mv, asset_class))
@@ -722,7 +730,6 @@ class RiskService:
         cash_balance = ZERO
         # Try to get from cash_management if available
         try:
-
             cash_svc = getattr(self, "_cash_service", None)
             if cash_svc:
                 bal = await cash_svc.get_total_balance(portfolio_id, session=session)

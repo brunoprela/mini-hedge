@@ -75,9 +75,7 @@ def _check_sector_concentration(
         sector = pos.get("sector", "unknown")
         mv = Decimal(str(pos.get("market_value", 0)))
         sector_values[sector] = sector_values.get(sector, ZERO) + mv
-        sector_instruments.setdefault(sector, []).append(
-            pos.get("instrument_id", "unknown")
-        )
+        sector_instruments.setdefault(sector, []).append(pos.get("instrument_id", "unknown"))
 
     insights: list[PortfolioInsight] = []
     for sector, value in sector_values.items():
@@ -94,17 +92,13 @@ def _check_sector_concentration(
                         f"exceeding the 30% sector concentration guideline."
                     ),
                     affected_instruments=sector_instruments.get(sector, []),
-                    suggested_action=(
-                        f"Diversify away from {sector} into underweight sectors."
-                    ),
+                    suggested_action=(f"Diversify away from {sector} into underweight sectors."),
                 )
             )
     return insights
 
 
-def _check_small_positions(
-    positions: list[dict], total_value: Decimal
-) -> list[PortfolioInsight]:
+def _check_small_positions(positions: list[dict], total_value: Decimal) -> list[PortfolioInsight]:
     """Flag positions < 0.5% of portfolio as cleanup candidates."""
     small: list[str] = []
     for pos in positions:
@@ -124,9 +118,7 @@ def _check_small_positions(
                     "operational complexity and transaction costs."
                 ),
                 affected_instruments=small,
-                suggested_action=(
-                    "Consider closing or consolidating small positions."
-                ),
+                suggested_action=("Consider closing or consolidating small positions."),
             )
         ]
     return []
@@ -157,20 +149,14 @@ def _check_sector_correlation(positions: list[dict]) -> list[PortfolioInsight]:
                     "sector, creating high correlation risk and reducing "
                     "portfolio diversification."
                 ),
-                affected_instruments=[
-                    p.get("instrument_id", "unknown") for p in top5
-                ],
-                suggested_action=(
-                    "Urgently diversify across sectors to reduce correlation risk."
-                ),
+                affected_instruments=[p.get("instrument_id", "unknown") for p in top5],
+                suggested_action=("Urgently diversify across sectors to reduce correlation risk."),
             )
         ]
     return []
 
 
-def _check_cash_drag(
-    positions: list[dict], total_value: Decimal
-) -> list[PortfolioInsight]:
+def _check_cash_drag(positions: list[dict], total_value: Decimal) -> list[PortfolioInsight]:
     """Flag cash > 15% of portfolio as potential drag on returns."""
     cash_value = ZERO
     for pos in positions:

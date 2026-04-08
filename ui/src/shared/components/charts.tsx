@@ -63,6 +63,7 @@ export function LineChart({
 
   return (
     <svg viewBox={`0 0 ${viewW} ${height}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+      <title>Line Chart</title>
       {/* Grid lines */}
       {yTicks.map((tick) => (
         <g key={tick}>
@@ -175,7 +176,10 @@ export function HBarChart({ items, formatValue }: HBarChartProps) {
   }
 
   const maxAbs = Math.max(...items.map((i) => Math.abs(i.value)), 1);
-  const fmt = formatValue ?? ((v: number) => v.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }));
+  const fmt =
+    formatValue ??
+    ((v: number) =>
+      v.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }));
 
   return (
     <div className="space-y-1.5">
@@ -199,11 +203,9 @@ export function HBarChart({ items, formatValue }: HBarChartProps) {
                 }}
               />
             </div>
-            <span
-              className="w-20 text-right font-mono"
-              style={{ color }}
-            >
-              {isPositive ? "+" : ""}{fmt(item.value)}
+            <span className="w-20 text-right font-mono" style={{ color }}>
+              {isPositive ? "+" : ""}
+              {fmt(item.value)}
             </span>
           </div>
         );
@@ -226,11 +228,7 @@ interface WaterfallChartProps {
   formatValue?: (v: number) => string;
 }
 
-export function WaterfallChart({
-  items,
-  height = 200,
-  formatValue,
-}: WaterfallChartProps) {
+export function WaterfallChart({ items, height = 200, formatValue }: WaterfallChartProps) {
   if (items.length === 0) {
     return <p className="text-sm text-[var(--muted-foreground)]">No data</p>;
   }
@@ -273,6 +271,7 @@ export function WaterfallChart({
 
   return (
     <svg viewBox={`0 0 ${viewW} ${height}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+      <title>Bar Chart</title>
       {/* Zero line */}
       <line
         x1={padLeft}
@@ -312,15 +311,7 @@ export function WaterfallChart({
 
         return (
           <g key={bar.label}>
-            <rect
-              x={x}
-              y={top}
-              width={barW}
-              height={barH}
-              rx={2}
-              fill={fill}
-              opacity={0.8}
-            />
+            <rect x={x} y={top} width={barW} height={barH} rx={2} fill={fill} opacity={0.8} />
             {/* Value label */}
             <text
               x={x + barW / 2}
@@ -330,7 +321,8 @@ export function WaterfallChart({
               fontFamily="monospace"
               fill={fill}
             >
-              {bar.isTotal ? "" : (isPositive ? "+" : "")}{fmt(bar.value)}
+              {bar.isTotal ? "" : isPositive ? "+" : ""}
+              {fmt(bar.value)}
             </text>
             {/* X label */}
             <text
@@ -362,9 +354,10 @@ interface GaugeBarProps {
 
 export function GaugeBar({ value, max, label, formatValue, formatMax }: GaugeBarProps) {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
-  const fmt = formatValue ?? ((v: number) =>
-    v.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })
-  );
+  const fmt =
+    formatValue ??
+    ((v: number) =>
+      v.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }));
   const fmtMax = formatMax ?? fmt;
 
   let barColor = "var(--success)";
@@ -494,6 +487,7 @@ export function DonutChart({
   return (
     <div className="flex flex-col items-center gap-3">
       <svg viewBox={`0 0 ${size} ${size}`} className="w-full max-w-[240px]">
+        <title>Donut Chart</title>
         {segments.map((seg, i) => {
           const pct = seg.value / total;
           const dashLen = pct * circumference;
@@ -593,6 +587,7 @@ export function MiniBarChart({
 
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+      <title>Sparkline Chart</title>
       {data.map((v, i) => {
         const barH = hasNeg
           ? (Math.abs(v) / max) * (height / 2 - 2)
@@ -602,6 +597,7 @@ export function MiniBarChart({
 
         return (
           <rect
+            // biome-ignore lint/suspicious/noArrayIndexKey: chart data points
             key={i}
             x={x}
             y={y}

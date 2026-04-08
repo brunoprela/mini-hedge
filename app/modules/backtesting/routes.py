@@ -73,9 +73,7 @@ async def run_backtest(
     # Convert price_data from request format to engine format
     price_data: dict[str, list[tuple[date_type, Decimal]]] = {}
     for inst_id, points in body.price_data.items():
-        price_data[inst_id] = [
-            (date_type.fromisoformat(p.date), p.price) for p in points
-        ]
+        price_data[inst_id] = [(date_type.fromisoformat(p.date), p.price) for p in points]
 
     return await service.submit_backtest(
         body.config,
@@ -95,7 +93,9 @@ async def list_backtests(
 ) -> list[BacktestSummary]:
     """List backtests, optionally filtered by status."""
     return await service.list_backtests(
-        status=status, limit=limit, session=session,
+        status=status,
+        limit=limit,
+        session=session,
     )
 
 
@@ -184,5 +184,6 @@ async def compare_backtests(
 ) -> list[BacktestSummary]:
     """Compare multiple backtests side by side."""
     return await service.compare_backtests(
-        body.backtest_ids, session=session,
+        body.backtest_ids,
+        session=session,
     )

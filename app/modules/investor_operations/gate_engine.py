@@ -70,9 +70,7 @@ def check_gate(
 
     for i, (rid, amt) in enumerate(requests):
         is_last = i == len(requests) - 1
-        proration_pct = (amt / total_requested).quantize(
-            Decimal("0.000001"), rounding=ROUND_DOWN
-        )
+        proration_pct = (amt / total_requested).quantize(Decimal("0.000001"), rounding=ROUND_DOWN)
 
         if is_last:
             # Last investor gets the remainder to avoid rounding drift

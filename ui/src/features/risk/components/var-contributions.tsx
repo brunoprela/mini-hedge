@@ -22,7 +22,7 @@ export function VaRContributions({ portfolioId }: { portfolioId: string }) {
   });
 
   const chartItems = useMemo(() => {
-    if (!result || !result.contributions || result.contributions.length === 0) return [];
+    if (!result?.contributions || result.contributions.length === 0) return [];
     return result.contributions
       .map((c) => ({
         label: c.instrument_id,
@@ -61,15 +61,23 @@ export function VaRContributions({ portfolioId }: { portfolioId: string }) {
           {/* Summary strip */}
           <div className="flex items-center gap-2 text-xs">
             <div>
-              <span className="text-[var(--muted-foreground)]">VaR ({(result.confidence_level * 100).toFixed(0)}%): </span>
+              <span className="text-[var(--muted-foreground)]">
+                VaR ({(result.confidence_level * 100).toFixed(0)}%):{" "}
+              </span>
               <span className="font-mono font-semibold">
-                ${Math.abs(Number(result.var_amount)).toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                $
+                {Math.abs(Number(result.var_amount)).toLocaleString("en-US", {
+                  maximumFractionDigits: 0,
+                })}
               </span>
             </div>
             <div>
               <span className="text-[var(--muted-foreground)]">ES: </span>
               <span className="font-mono font-semibold">
-                ${Math.abs(Number(result.expected_shortfall)).toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                $
+                {Math.abs(Number(result.expected_shortfall)).toLocaleString("en-US", {
+                  maximumFractionDigits: 0,
+                })}
               </span>
             </div>
             <div>

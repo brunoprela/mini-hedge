@@ -3,8 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
-import { TCADashboard } from "@/features/tca/components/tca-dashboard";
 import { FundTCASummaryCard } from "@/features/tca/components/fund-tca-summary";
+import { TCADashboard } from "@/features/tca/components/tca-dashboard";
 import { PortfolioSelector } from "@/shared/components/portfolio-selector";
 import { SectionPanel, ToolbarTab } from "@/shared/components/section-panel";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
@@ -40,18 +40,14 @@ export function TCAPageClient() {
 
       <SectionPanel
         title="Execution Quality"
-        tabs={
-          <>
-            {TABS.map((tab) => (
-              <ToolbarTab
-                key={tab.id}
-                label={tab.label}
-                active={activeTab === tab.id}
-                onClick={() => setActiveTab(tab.id)}
-              />
-            ))}
-          </>
-        }
+        tabs={TABS.map((tab) => (
+          <ToolbarTab
+            key={tab.id}
+            label={tab.label}
+            active={activeTab === tab.id}
+            onClick={() => setActiveTab(tab.id)}
+          />
+        ))}
       >
         <div className="p-3">
           {activeTab === "fund" && <FundTCASummaryCard />}

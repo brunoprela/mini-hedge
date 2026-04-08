@@ -44,13 +44,16 @@ class AltDataFeedRecord(Base):
     frequency: Mapped[str] = mapped_column(String(16), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     instruments: Mapped[list[Any]] = mapped_column(
-        JSONB, nullable=False, server_default=text("'[]'::jsonb"),
+        JSONB,
+        nullable=False,
+        server_default=text("'[]'::jsonb"),
     )
     quality: Mapped[str] = mapped_column(String(16), nullable=False, default="raw")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     config: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     last_updated: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True,
+        DateTime(timezone=True),
+        nullable=True,
     )
     record_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(
@@ -82,7 +85,8 @@ class AltDataPointRecord(Base):
     )
     instrument_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     timestamp: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
     )
     value: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
     metadata: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)

@@ -1,8 +1,8 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import Link from "next/link";
+import { toast } from "sonner";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { approveIntent, cancelIntent, orderIntentsQueryOptions } from "../api";
 
@@ -49,7 +49,11 @@ export function OrderIntentsTable({ portfolioId }: { portfolioId: string }) {
   }
 
   if (!intents || intents.length === 0) {
-    return <p className="text-xs text-[var(--muted-foreground)]">No pending order intents. Run an optimization or what-if scenario to generate intents.</p>;
+    return (
+      <p className="text-xs text-[var(--muted-foreground)]">
+        No pending order intents. Run an optimization or what-if scenario to generate intents.
+      </p>
+    );
   }
 
   return (

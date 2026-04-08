@@ -35,6 +35,8 @@ export function SlidePanel({
   return (
     <>
       {/* Backdrop */}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: backdrop dismiss, not an interactive control */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop dismiss overlay */}
       <div className="fixed inset-0 z-40 bg-black/30" onClick={onClose} />
 
       {/* Panel */}

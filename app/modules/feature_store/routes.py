@@ -97,7 +97,9 @@ async def list_features(
     session: AsyncSession = Depends(get_read_db),
 ) -> list[FeatureDefinition]:
     return await service.list_features(
-        entity_type=entity_type, status=status, session=session,
+        entity_type=entity_type,
+        status=status,
+        session=session,
     )
 
 
@@ -132,7 +134,9 @@ async def compute_features(
     session: AsyncSession = Depends(get_db),
 ) -> dict[str, FeatureVector]:
     return await service.compute_features_batch(
-        body.feature_names, body.entities_data, session=session,
+        body.feature_names,
+        body.entities_data,
+        session=session,
     )
 
 
@@ -145,7 +149,9 @@ async def get_feature_vector(
     session: AsyncSession = Depends(get_read_db),
 ) -> FeatureVector:
     return await service.get_feature_vector(
-        entity_id, feature_names, session=session,
+        entity_id,
+        feature_names,
+        session=session,
     )
 
 

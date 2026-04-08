@@ -306,9 +306,9 @@ class EODOrchestrator:
             share_classes = ["default"]
             if self._capital_service is not None:
                 with contextlib.suppress(Exception):
-                    share_classes = (
-                        await self._capital_service.list_share_classes()
-                    ) or ["default"]
+                    share_classes = (await self._capital_service.list_share_classes()) or [
+                        "default"
+                    ]
 
             for pid in portfolio_ids:
                 pid_key = str(pid)
@@ -318,20 +318,14 @@ class EODOrchestrator:
                     for cls in share_classes:
                         # Compute per-class NAV proportion
                         if self._capital_service and len(share_classes) > 1:
-                            cls_aum, _, _ = (
-                                await self._capital_service.get_share_class_nav(cls)
-                            )
+                            cls_aum, _, _ = await self._capital_service.get_share_class_nav(cls)
                             # Scale NAV to this class's share
                             all_accounts = (
                                 await self._capital_service._accounts.get_latest_by_fund()
                             )
-                            total_aum = sum(
-                                (a.ending_capital for a in all_accounts), Decimal(0)
-                            )
+                            total_aum = sum((a.ending_capital for a in all_accounts), Decimal(0))
                             cls_nav = (
-                                nav_value * cls_aum / total_aum
-                                if total_aum > 0
-                                else nav_value
+                                nav_value * cls_aum / total_aum if total_aum > 0 else nav_value
                             )
                         else:
                             cls_nav = nav_value
@@ -401,9 +395,7 @@ class EODOrchestrator:
             for snap in nav_snapshots.values():
                 total_nav += snap.nav
                 total_shares += snap.shares_outstanding
-            nav_per_share = (
-                total_nav / total_shares if total_shares > 0 else Decimal(1)
-            )
+            nav_per_share = total_nav / total_shares if total_shares > 0 else Decimal(1)
 
             # Use the first portfolio for execution
             portfolio_id = portfolio_ids[0] if portfolio_ids else None

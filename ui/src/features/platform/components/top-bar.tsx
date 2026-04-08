@@ -27,7 +27,10 @@ export function TopBar() {
 
   return (
     <>
-      <header className="flex h-10 items-center border-b border-[var(--border)] bg-[var(--sidebar)]" style={{ backgroundImage: "var(--sidebar-gradient)" }}>
+      <header
+        className="flex h-10 items-center border-b border-[var(--border)] bg-[var(--sidebar)]"
+        style={{ backgroundImage: "var(--sidebar-gradient)" }}
+      >
         {/* Fund selector */}
         <div className="flex items-center px-4">
           <FundSelector />

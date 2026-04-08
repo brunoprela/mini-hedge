@@ -58,12 +58,16 @@ class FeeAccountingService:
     ) -> list[FeeAccrualRecord]:
         """Calculate and persist daily management + performance fee accruals."""
         schedule = await self._schedule_repo.get_by_fund_slug(
-            fund_slug, share_class=share_class, session=session,
+            fund_slug,
+            share_class=share_class,
+            session=session,
         )
         if schedule is None:
             # Fall back to default class schedule
             schedule = await self._schedule_repo.get_by_fund_slug(
-                fund_slug, share_class="default", session=session,
+                fund_slug,
+                share_class="default",
+                session=session,
             )
         if schedule is None:
             logger.warning("fee_schedule_not_found", fund_slug=fund_slug)
@@ -74,8 +78,10 @@ class FeeAccountingService:
         # --- Management fee ---
         mgmt_fee = calculate_daily_management_fee(nav, schedule.management_fee_bps)
         latest_mgmt = await self._accrual_repo.get_latest_by_type(
-            portfolio_id, FeeType.MANAGEMENT,
-            share_class=share_class, session=session,
+            portfolio_id,
+            FeeType.MANAGEMENT,
+            share_class=share_class,
+            session=session,
         )
         cumulative_mgmt = latest_mgmt.cumulative_amount + mgmt_fee if latest_mgmt else mgmt_fee
         mgmt_accrual = FeeAccrualRecord(
@@ -94,7 +100,9 @@ class FeeAccountingService:
 
         # --- Performance fee ---
         hwm_record = await self._hwm_repo.get_latest(
-            portfolio_id, share_class=share_class, session=session,
+            portfolio_id,
+            share_class=share_class,
+            session=session,
         )
         hwm_nav = hwm_record.hwm_nav if hwm_record else nav
         days_since_hwm = (business_date - hwm_record.hwm_date).days if hwm_record else 0
@@ -108,8 +116,10 @@ class FeeAccountingService:
         )
         if perf_fee > 0:
             latest_perf = await self._accrual_repo.get_latest_by_type(
-                portfolio_id, FeeType.PERFORMANCE,
-                share_class=share_class, session=session,
+                portfolio_id,
+                FeeType.PERFORMANCE,
+                share_class=share_class,
+                session=session,
             )
             cumulative_perf = latest_perf.cumulative_amount + perf_fee if latest_perf else perf_fee
             perf_accrual = FeeAccrualRecord(
@@ -147,11 +157,15 @@ class FeeAccountingService:
     ) -> None:
         """Mark accrued fees as crystallized and update the high water mark."""
         schedule = await self._schedule_repo.get_by_fund_slug(
-            fund_slug, share_class=share_class, session=session,
+            fund_slug,
+            share_class=share_class,
+            session=session,
         )
         if schedule is None:
             schedule = await self._schedule_repo.get_by_fund_slug(
-                fund_slug, share_class="default", session=session,
+                fund_slug,
+                share_class="default",
+                session=session,
             )
         if schedule is None:
             return
@@ -173,7 +187,9 @@ class FeeAccountingService:
         if latest_accrual is not None:
             current_nav = latest_accrual.nav_basis
             hwm_record = await self._hwm_repo.get_latest(
-                portfolio_id, share_class=share_class, session=session,
+                portfolio_id,
+                share_class=share_class,
+                session=session,
             )
             peak = max(current_nav, hwm_record.peak_nav) if hwm_record else current_nav
             new_hwm = HighWaterMarkRecord(

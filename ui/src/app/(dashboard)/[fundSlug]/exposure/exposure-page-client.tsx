@@ -2,10 +2,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { exposureQueryOptions } from "@/features/exposure/api";
 import { ExposureBreakdowns } from "@/features/exposure/components/exposure-breakdowns";
 import { ExposureHistoryChart } from "@/features/exposure/components/exposure-history-chart";
 import { useExposureSummary } from "@/features/exposure/components/exposure-summary";
-import { exposureQueryOptions } from "@/features/exposure/api";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
 import { GaugeBar } from "@/shared/components/charts";
 import { PortfolioSelector } from "@/shared/components/portfolio-selector";
@@ -13,7 +13,11 @@ import { SectionPanel } from "@/shared/components/section-panel";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 
 const fmtCurrency = (v: string | number) =>
-  Number(v).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  Number(v).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
 
 export function ExposurePageClient() {
   const { fundSlug } = useFundContext();

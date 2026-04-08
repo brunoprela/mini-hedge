@@ -96,11 +96,13 @@ class RegulatoryService:
             try:
                 cptys = await self._risk.list_counterparties(session=session)
                 for c in cptys[:5]:
-                    cpty_list.append({
-                        "name": c.name,
-                        "type": c.counterparty_type,
-                        "credit_limit": str(c.credit_limit),
-                    })
+                    cpty_list.append(
+                        {
+                            "name": c.name,
+                            "type": c.counterparty_type,
+                            "credit_limit": str(c.credit_limit),
+                        }
+                    )
             except Exception:
                 pass
 
@@ -122,7 +124,8 @@ class RegulatoryService:
             gross_notional=gross_notional or nav,
             net_notional=nav,
             leverage_ratio_gross=(
-                (gross_notional / nav).quantize(_2) if nav > 0 and gross_notional > 0
+                (gross_notional / nav).quantize(_2)
+                if nav > 0 and gross_notional > 0
                 else Decimal("1.00")
             ),
             leverage_ratio_net=Decimal("1.00"),
@@ -190,14 +193,16 @@ class RegulatoryService:
                 positions = await self._positions.get_positions(pid, session=session)
                 for pos in positions:
                     mv = (
-                        pos.market_value if hasattr(pos, "market_value")
+                        pos.market_value
+                        if hasattr(pos, "market_value")
                         else pos.quantity * getattr(pos, "current_price", ZERO)
                     )
                     # Only include equities (13F securities)
                     sec = None
                     if self._sec_master:
                         sec = await self._sec_master.get_instrument(
-                            pos.instrument_id, session=session,
+                            pos.instrument_id,
+                            session=session,
                         )
                     asset_class = getattr(sec, "asset_class", "equity") or "equity"
                     if asset_class != "equity":
@@ -208,18 +213,20 @@ class RegulatoryService:
                     mv_thousands = (mv / _THOU).quantize(_2, ROUND_HALF_UP)
                     total_mv += mv_thousands
 
-                    entries.append(Filing13FEntry(
-                        issuer_name=name,
-                        cusip=cusip,
-                        ticker=pos.instrument_id,
-                        share_class="COM",
-                        quantity=pos.quantity,
-                        market_value=mv_thousands,
-                        investment_discretion="SOLE",
-                        voting_authority_sole=pos.quantity,
-                        voting_authority_shared=ZERO,
-                        voting_authority_none=ZERO,
-                    ))
+                    entries.append(
+                        Filing13FEntry(
+                            issuer_name=name,
+                            cusip=cusip,
+                            ticker=pos.instrument_id,
+                            share_class="COM",
+                            quantity=pos.quantity,
+                            market_value=mv_thousands,
+                            investment_discretion="SOLE",
+                            voting_authority_sole=pos.quantity,
+                            voting_authority_shared=ZERO,
+                            voting_authority_none=ZERO,
+                        )
+                    )
 
         report = Filing13FReport(
             fund_name=fund_name or fund_slug,
@@ -274,10 +281,7 @@ class RegulatoryService:
             return None
 
         # Find accounts within period
-        period_accounts = [
-            a for a in history
-            if period_start <= a.effective_date <= period_end
-        ]
+        period_accounts = [a for a in history if period_start <= a.effective_date <= period_end]
         if not period_accounts:
             return None
 

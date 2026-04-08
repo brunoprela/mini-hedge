@@ -101,7 +101,7 @@ class RedisBridge:
                     return
                 except MaxConnectionsError:
                     if attempt < _MAX_RETRIES:
-                        await asyncio.sleep(_RETRY_BASE_DELAY * (2 ** attempt))
+                        await asyncio.sleep(_RETRY_BASE_DELAY * (2**attempt))
                     else:
                         self._record_drop(channel, event.event_id)
                 except Exception:

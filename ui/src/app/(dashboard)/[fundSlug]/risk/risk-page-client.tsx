@@ -3,10 +3,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
+import { riskSnapshotQueryOptions } from "@/features/risk/api";
+import { CustomStressForm } from "@/features/risk/components/custom-stress-form";
 import { FactorBreakdown } from "@/features/risk/components/factor-breakdown";
 import { PnLContributors } from "@/features/risk/components/pnl-contributors";
-import { SnapshotButton, useRiskSummary, RiskSnapshotPrompt } from "@/features/risk/components/risk-dashboard";
-import { CustomStressForm } from "@/features/risk/components/custom-stress-form";
+import {
+  RiskSnapshotPrompt,
+  SnapshotButton,
+  useRiskSummary,
+} from "@/features/risk/components/risk-dashboard";
 import { RiskHistoryChart, useHasRiskHistory } from "@/features/risk/components/risk-history-chart";
 import { StressTable } from "@/features/risk/components/stress-table";
 import { VaRContributions } from "@/features/risk/components/var-contributions";
@@ -14,10 +19,13 @@ import { GaugeBar } from "@/shared/components/charts";
 import { PortfolioSelector } from "@/shared/components/portfolio-selector";
 import { SectionPanel, ToolbarTab } from "@/shared/components/section-panel";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
-import { riskSnapshotQueryOptions } from "@/features/risk/api";
 
 const fmtCurrency = (v: string | number) =>
-  Number(v).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  Number(v).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
 
 type RiskTab = "overview" | "pnl" | "stress";
 
@@ -109,18 +117,14 @@ export function RiskPageClient() {
           {riskSummary && (
             <SectionPanel
               title="Risk Overview"
-              tabs={
-                <>
-                  {TABS.map((tab) => (
-                    <ToolbarTab
-                      key={tab.id}
-                      label={tab.label}
-                      active={activeTab === tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                    />
-                  ))}
-                </>
-              }
+              tabs={TABS.map((tab) => (
+                <ToolbarTab
+                  key={tab.id}
+                  label={tab.label}
+                  active={activeTab === tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                />
+              ))}
               summary={riskSummary}
             >
               <div className="p-3">

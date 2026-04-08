@@ -193,10 +193,7 @@ class FeatureComputeEngine:
                 if not data["rows"]:
                     return None
                 columns = list(data["rows"][0].keys())
-                arrays = {
-                    col: [row.get(col) for row in data["rows"]]
-                    for col in columns
-                }
+                arrays = {col: [row.get(col) for row in data["rows"]] for col in columns}
                 table = pa.table(arrays)
                 conn.register("input_data", table)
             elif any(isinstance(v, list) for v in data.values()):
@@ -274,7 +271,8 @@ class FeatureComputeEngine:
                     except ValueError:
                         logger.warning(
                             "unresolved_feature_arg",
-                            arg=name, expression=expression,
+                            arg=name,
+                            expression=expression,
                         )
                         args.append(name)
 
@@ -286,6 +284,7 @@ class FeatureComputeEngine:
         except Exception:
             logger.exception(
                 "feature_compute_error",
-                function=func_name, expression=expression,
+                function=func_name,
+                expression=expression,
             )
             return None

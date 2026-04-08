@@ -12,7 +12,9 @@ if TYPE_CHECKING:
 
 def get_feature_store_service(request: Request) -> FeatureStoreService:
     service: FeatureStoreService | None = getattr(
-        request.app.state, "feature_store_service", None,
+        request.app.state,
+        "feature_store_service",
+        None,
     )
     if service is None:
         raise HTTPException(

@@ -42,7 +42,9 @@ export function HedgeRecommendations({
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-[var(--border)] bg-[var(--card)]">
-            <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">Pair</th>
+            <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
+              Pair
+            </th>
             <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
               Direction
             </th>

@@ -108,9 +108,7 @@ class AltDataRepository(BaseRepository):
         session: AsyncSession | None = None,
     ) -> list[AltDataPointRecord]:
         async with self._session(session) as s:
-            stmt = select(AltDataPointRecord).where(
-                AltDataPointRecord.feed_id == feed_id
-            )
+            stmt = select(AltDataPointRecord).where(AltDataPointRecord.feed_id == feed_id)
             if instrument_id is not None:
                 stmt = stmt.where(AltDataPointRecord.instrument_id == instrument_id)
             if start is not None:
@@ -129,9 +127,7 @@ class AltDataRepository(BaseRepository):
         session: AsyncSession | None = None,
     ) -> AltDataPointRecord | None:
         async with self._session(session) as s:
-            stmt = select(AltDataPointRecord).where(
-                AltDataPointRecord.feed_id == feed_id
-            )
+            stmt = select(AltDataPointRecord).where(AltDataPointRecord.feed_id == feed_id)
             if instrument_id is not None:
                 stmt = stmt.where(AltDataPointRecord.instrument_id == instrument_id)
             stmt = stmt.order_by(AltDataPointRecord.timestamp.desc()).limit(1)

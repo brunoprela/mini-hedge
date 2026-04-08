@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
     from app.modules.alt_data.repository import AltDataRepository
     from app.shared.adapters import AltDataProvider
+    from app.shared.events import EventBus
 
 logger = structlog.get_logger()
 
@@ -37,10 +38,12 @@ class AltDataService:
         repo: AltDataRepository,
         providers: list[AltDataProvider],
         session_factory: Any,
+        event_bus: EventBus | None = None,
     ) -> None:
         self._repo = repo
         self._providers = providers
         self._session_factory = session_factory
+        self._event_bus = event_bus
 
     async def create_feed(
         self,
@@ -65,6 +68,26 @@ class AltDataService:
         await self._repo.create_feed(record, session=session)
 
         logger.info("alt_data_feed_created", name=name, source=source)
+
+        if self._event_bus:
+            from app.shared.audit_events import AuditEventType
+            from app.shared.events import BaseEvent
+            from app.shared.schema_registry import shared_topic
+
+            await self._event_bus.publish(
+                shared_topic("audit"),
+                BaseEvent(
+                    event_type=AuditEventType.ALT_DATA_FEED_CREATED,
+                    data={
+                        "feed_id": record.id,
+                        "name": name,
+                        "source": source.value,
+                        "frequency": frequency.value,
+                        "instruments": instruments or [],
+                    },
+                ),
+            )
+
         return self._feed_to_dto(record)
 
     async def list_feeds(
@@ -104,6 +127,24 @@ class AltDataService:
         )
 
         logger.info("alt_data_ingested", feed_id=str(feed_id), count=len(records))
+
+        if self._event_bus:
+            from app.shared.audit_events import AuditEventType
+            from app.shared.events import BaseEvent
+            from app.shared.schema_registry import shared_topic
+
+            await self._event_bus.publish(
+                shared_topic("audit"),
+                BaseEvent(
+                    event_type=AuditEventType.ALT_DATA_INGESTED,
+                    data={
+                        "feed_id": str(feed_id),
+                        "data_points_ingested": len(records),
+                        "total_record_count": new_count,
+                    },
+                ),
+            )
+
         return len(records)
 
     async def get_feed_data(
@@ -154,9 +195,7 @@ class AltDataService:
             feed_name=feed.name,
             source=AltDataSource(feed.source),
             latest_value=(
-                Decimal(str(stats["max_value"]))
-                if stats["max_value"] is not None
-                else None
+                Decimal(str(stats["max_value"])) if stats["max_value"] is not None else None
             ),
             avg_value=Decimal(str(stats["avg_value"])) if stats["avg_value"] is not None else None,
             min_value=Decimal(str(stats["min_value"])) if stats["min_value"] is not None else None,

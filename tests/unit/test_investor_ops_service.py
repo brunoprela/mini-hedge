@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
@@ -114,9 +114,7 @@ class TestSubmitSubscription:
         terms_repo.get_by_share_class = AsyncMock(return_value=_make_terms())
         event_bus = AsyncMock()
 
-        service = _make_service(
-            sub_repo=sub_repo, terms_repo=terms_repo, event_bus=event_bus
-        )
+        service = _make_service(sub_repo=sub_repo, terms_repo=terms_repo, event_bus=event_bus)
         result = await service.submit_subscription(
             investor_id=str(uuid4()),
             amount=Decimal("5000000"),
@@ -174,9 +172,7 @@ class TestKYCDecision:
 
         service = _make_service(sub_repo=sub_repo)
         with pytest.raises(ValueError, match="not found"):
-            await service.record_kyc_decision(
-                str(uuid4()), approved=True, decision_by="test"
-            )
+            await service.record_kyc_decision(str(uuid4()), approved=True, decision_by="test")
 
 
 class TestOpsReview:
@@ -187,9 +183,7 @@ class TestOpsReview:
         sub_repo.get_by_id = AsyncMock(return_value=record)
 
         service = _make_service(sub_repo=sub_repo)
-        result = await service.ops_review(
-            record.id, approved=True, decision_by="ops@fund.com"
-        )
+        result = await service.ops_review(record.id, approved=True, decision_by="ops@fund.com")
 
         assert result.state == SubscriptionState.PENDING_GP_APPROVAL
 
@@ -204,9 +198,7 @@ class TestGPDecision:
         terms_repo.get_by_share_class = AsyncMock(return_value=_make_terms())
 
         service = _make_service(sub_repo=sub_repo, terms_repo=terms_repo)
-        result = await service.gp_decision(
-            record.id, approved=True, decision_by="gp@fund.com"
-        )
+        result = await service.gp_decision(record.id, approved=True, decision_by="gp@fund.com")
 
         assert result.state == SubscriptionState.APPROVED
         # Dealing date should be set
@@ -220,9 +212,7 @@ class TestGPDecision:
         sub_repo.get_by_id = AsyncMock(return_value=record)
 
         service = _make_service(sub_repo=sub_repo)
-        result = await service.gp_decision(
-            record.id, approved=False, decision_by="gp@fund.com"
-        )
+        result = await service.gp_decision(record.id, approved=False, decision_by="gp@fund.com")
 
         assert result.state == SubscriptionState.REJECTED
 
@@ -235,9 +225,7 @@ class TestConfirmWire:
         sub_repo.get_by_id = AsyncMock(return_value=record)
 
         service = _make_service(sub_repo=sub_repo)
-        result = await service.confirm_wire(
-            record.id, wire_reference="WIRE-123"
-        )
+        result = await service.confirm_wire(record.id, wire_reference="WIRE-123")
 
         assert result.state == SubscriptionState.QUEUED_FOR_NAV
 
@@ -264,9 +252,7 @@ class TestCancelSubscription:
 
         service = _make_service(sub_repo=sub_repo)
         with pytest.raises(InvalidTransitionError):
-            await service.cancel_subscription(
-                record.id, reason="Too late", cancelled_by="investor"
-            )
+            await service.cancel_subscription(record.id, reason="Too late", cancelled_by="investor")
 
 
 class TestSubmitRedemption:
@@ -351,8 +337,6 @@ class TestConfirmPayment:
         red_repo.get_by_id = AsyncMock(return_value=record)
 
         service = _make_service(red_repo=red_repo)
-        result = await service.confirm_payment(
-            record.id, payment_reference="WIRE-RED-ABC"
-        )
+        result = await service.confirm_payment(record.id, payment_reference="WIRE-RED-ABC")
 
         assert result.state == RedemptionState.EXECUTED

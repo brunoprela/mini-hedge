@@ -42,11 +42,11 @@ export function AttributionDashboard({ portfolioId }: { portfolioId: string }) {
       </div>
 
       <div className="flex gap-1 border-b border-[var(--border)]">
-        {([
+        {[
           { id: "brinson" as const, label: "Brinson-Fachler" },
           { id: "risk" as const, label: "Risk-Based" },
           { id: "fx" as const, label: "FX" },
-        ]).map((tab) => (
+        ].map((tab) => (
           <button
             key={tab.id}
             type="button"
@@ -65,9 +65,7 @@ export function AttributionDashboard({ portfolioId }: { portfolioId: string }) {
       {activeTab === "brinson" && (
         <BrinsonFachlerTable portfolioId={portfolioId} start={start} end={end} />
       )}
-      {activeTab === "risk" && (
-        <RiskBasedChart portfolioId={portfolioId} start={start} end={end} />
-      )}
+      {activeTab === "risk" && <RiskBasedChart portfolioId={portfolioId} start={start} end={end} />}
       {activeTab === "fx" && (
         <FXAttributionTable portfolioId={portfolioId} start={start} end={end} />
       )}

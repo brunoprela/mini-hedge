@@ -313,10 +313,7 @@ def build_corporate_actions_adapter(
 def build_llm_adapter(config: Settings) -> LLMAdapter:
     factory = _LLM_REGISTRY.get(config.llm_adapter)
     if factory is None:
-        msg = (
-            f"Unknown llm_adapter: {config.llm_adapter!r}. "
-            f"Available: {sorted(_LLM_REGISTRY)}"
-        )
+        msg = f"Unknown llm_adapter: {config.llm_adapter!r}. Available: {sorted(_LLM_REGISTRY)}"
         raise ValueError(msg)
     return factory(config)
 

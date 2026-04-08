@@ -111,10 +111,7 @@ def compute_volatility_factor(
             continue
         sorted_series = sorted(series, key=lambda p: p[0])
         recent = sorted_series[-window:]
-        returns = [
-            _safe_return(recent[i][1], recent[i - 1][1])
-            for i in range(1, len(recent))
-        ]
+        returns = [_safe_return(recent[i][1], recent[i - 1][1]) for i in range(1, len(recent))]
         if len(returns) < 2:
             continue
         vol = Decimal(str(statistics.stdev(float(r) for r in returns)))
@@ -136,12 +133,8 @@ def compute_factor_returns(
     short_leg = sorted_instruments[:n]
     long_leg = sorted_instruments[-n:]
 
-    long_return = (
-        sum(instrument_returns.get(inst, ZERO) for inst, _ in long_leg) / Decimal(n)
-    )
-    short_return = (
-        sum(instrument_returns.get(inst, ZERO) for inst, _ in short_leg) / Decimal(n)
-    )
+    long_return = sum(instrument_returns.get(inst, ZERO) for inst, _ in long_leg) / Decimal(n)
+    short_return = sum(instrument_returns.get(inst, ZERO) for inst, _ in short_leg) / Decimal(n)
     return long_return - short_return
 
 
@@ -188,8 +181,7 @@ def decompose_portfolio(
 
     for factor_name, exposures in factor_exposures.items():
         contribution = sum(
-            portfolio_weights.get(inst, ZERO) * exp
-            for inst, exp in exposures.items()
+            portfolio_weights.get(inst, ZERO) * exp for inst, exp in exposures.items()
         )
         factor_contributions[factor_name] = contribution
         total_explained += abs(contribution)

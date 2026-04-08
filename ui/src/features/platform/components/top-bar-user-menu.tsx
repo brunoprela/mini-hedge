@@ -6,7 +6,13 @@ import { signOut } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 
-export function TopBarUserMenu({ userName, userInitials }: { userName: string; userInitials: string }) {
+export function TopBarUserMenu({
+  userName,
+  userInitials,
+}: {
+  userName: string;
+  userInitials: string;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const { fundSlug } = useFundContext();

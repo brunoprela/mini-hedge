@@ -1,0 +1,93 @@
+"""Alembic environment for the regulatory bounded context.
+
+Supports per-fund schema isolation.  When ``target_schema`` is set on the
+Alembic config attributes (by ``FundSchemaManager``), tables are created in
+that schema instead of the default ``positions``.
+"""
+
+from logging.config import fileConfig
+
+from alembic import context
+from sqlalchemy import Connection, create_engine, pool, text
+
+from app.modules.regulatory.models import Base
+from app.shared.alembic_plugins import setup_plugins
+
+DEFAULT_SCHEMA = "positions"
+
+setup_plugins()
+
+config = context.config
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+target_metadata = Base.metadata
+
+
+def _get_target_schema() -> str:
+    return str(
+        getattr(config.attributes, "target_schema", None)
+        or config.attributes.get("target_schema", DEFAULT_SCHEMA)
+    )
+
+
+def _get_url() -> str:
+    url = config.get_section_option(config.config_ini_section, "sqlalchemy.url")
+    if url:
+        return url.replace("+asyncpg", "")
+    from app.config import get_settings
+
+    raw = get_settings().database_url
+    return raw.replace("+asyncpg", "")
+
+
+def run_migrations_offline() -> None:
+    schema = _get_target_schema()
+    context.configure(
+        url=_get_url(),
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+        version_table="alembic_version_regulatory",
+        version_table_schema=schema,
+        include_schemas=[schema],  # type: ignore[arg-type]
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def do_run_migrations(connection: Connection, schema: str) -> None:
+    if schema != DEFAULT_SCHEMA:
+        connection = connection.execution_options(
+            schema_translate_map={DEFAULT_SCHEMA: schema},
+        )
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        version_table="alembic_version_regulatory",
+        version_table_schema=schema,
+        include_schemas=[schema],  # type: ignore[arg-type]
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def run_migrations_online() -> None:
+    schema = _get_target_schema()
+    if schema == DEFAULT_SCHEMA:
+        raise RuntimeError(
+            "Regulatory migrations must target a per-fund schema. "
+            "Set target_schema via Alembic config attributes."
+        )
+    engine = create_engine(_get_url(), poolclass=pool.NullPool)
+    with engine.connect() as connection:
+        connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema}"))
+        connection.commit()
+        do_run_migrations(connection, schema)
+    engine.dispose()
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()

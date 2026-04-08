@@ -492,14 +492,16 @@ def calculate_liquidity_profile(
 
         buckets[bucket] += abs_mv
         pct = abs_mv / total_nav if total_nav > 0 else ZERO
-        details.append(PositionLiquidity(
-            instrument_id=inst_id,
-            market_value=mv,
-            avg_daily_volume_usd=adv,
-            days_to_liquidate=days.quantize(_Q4),
-            liquidity_bucket=bucket,
-            pct_of_nav=pct.quantize(_Q4),
-        ))
+        details.append(
+            PositionLiquidity(
+                instrument_id=inst_id,
+                market_value=mv,
+                avg_daily_volume_usd=adv,
+                days_to_liquidate=days.quantize(_Q4),
+                liquidity_bucket=bucket,
+                pct_of_nav=pct.quantize(_Q4),
+            )
+        )
 
     total_abs = sum(buckets.values())
     pct_fn = lambda v: (v / total_abs).quantize(_Q4) if total_abs > 0 else ZERO  # noqa: E731
@@ -516,9 +518,7 @@ def calculate_liquidity_profile(
     # by liquidating positions within 1 week
     liquid_1w = buckets["1d"] + buckets["1w"]
     red_cov = (
-        min(liquid_1w / pending_redemptions, Decimal(1))
-        if pending_redemptions > 0
-        else Decimal(1)
+        min(liquid_1w / pending_redemptions, Decimal(1)) if pending_redemptions > 0 else Decimal(1)
     ).quantize(_Q4)
 
     profile = LiquidityProfile(
@@ -559,13 +559,15 @@ def calculate_margin_requirements(
         maint = (initial * Decimal("0.75")).quantize(Decimal("0.01"))  # 75% of initial
         total_initial += initial
         total_maintenance += maint
-        pos_margins.append(PositionMargin(
-            instrument_id=inst_id,
-            market_value=mv,
-            margin_rate=rate,
-            initial_margin=initial,
-            maintenance_margin=maint,
-        ))
+        pos_margins.append(
+            PositionMargin(
+                instrument_id=inst_id,
+                market_value=mv,
+                margin_rate=rate,
+                initial_margin=initial,
+                maintenance_margin=maint,
+            )
+        )
 
     excess = cash_balance - total_initial
     util = (total_initial / cash_balance).quantize(_Q4) if cash_balance > 0 else Decimal(999)

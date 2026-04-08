@@ -99,7 +99,11 @@ export function TCAOrderDetail({ orderId }: { orderId: string }) {
             { label: "Spread", value: parseFloat(report.spread_cost_bps), color: "#f59e0b" },
             { label: "Timing", value: parseFloat(report.timing_cost_bps), color: "#ef4444" },
             { label: "Impact", value: parseFloat(report.impact_cost_bps), color: "#8b5cf6" },
-            { label: "Opportunity", value: parseFloat(report.opportunity_cost_bps), color: "#6b7280" },
+            {
+              label: "Opportunity",
+              value: parseFloat(report.opportunity_cost_bps),
+              color: "#6b7280",
+            },
           ]}
         />
       </div>
@@ -166,36 +170,22 @@ export function TCAOrderDetail({ orderId }: { orderId: string }) {
   );
 }
 
-function CostCard({
-  label,
-  bps,
-  highlight,
-}: {
-  label: string;
-  bps: string;
-  highlight?: boolean;
-}) {
+function CostCard({ label, bps, highlight }: { label: string; bps: string; highlight?: boolean }) {
   return (
     <div
       className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3"
       style={highlight ? { borderColor: "var(--primary)" } : undefined}
     >
       <p className="text-xs text-[var(--muted-foreground)]">{label}</p>
-      <p
-        className="mt-0.5 font-mono text-sm font-semibold"
-        style={{ color: costColor(bps) }}
-      >
-        {fmtBps(bps)} <span className="text-xs font-normal text-[var(--muted-foreground)]">bps</span>
+      <p className="mt-0.5 font-mono text-sm font-semibold" style={{ color: costColor(bps) }}>
+        {fmtBps(bps)}{" "}
+        <span className="text-xs font-normal text-[var(--muted-foreground)]">bps</span>
       </p>
     </div>
   );
 }
 
-function CostBar({
-  items,
-}: {
-  items: { label: string; value: number; color: string }[];
-}) {
+function CostBar({ items }: { items: { label: string; value: number; color: string }[] }) {
   const total = items.reduce((sum, i) => sum + Math.max(i.value, 0), 0);
   if (total <= 0) return null;
 

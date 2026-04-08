@@ -30,9 +30,7 @@ class AnalysisRepository(BaseRepository):
     ) -> AnalysisResultRecord | None:
         async with self._session(session) as s:
             result = await s.execute(
-                select(AnalysisResultRecord).where(
-                    AnalysisResultRecord.id == result_id
-                )
+                select(AnalysisResultRecord).where(AnalysisResultRecord.id == result_id)
             )
             return result.scalar_one_or_none()
 
@@ -44,13 +42,9 @@ class AnalysisRepository(BaseRepository):
         session: AsyncSession | None = None,
     ) -> list[AnalysisResultRecord]:
         async with self._session(session) as s:
-            stmt = select(AnalysisResultRecord).order_by(
-                AnalysisResultRecord.created_at.desc()
-            )
+            stmt = select(AnalysisResultRecord).order_by(AnalysisResultRecord.created_at.desc())
             if analysis_type is not None:
-                stmt = stmt.where(
-                    AnalysisResultRecord.analysis_type == analysis_type
-                )
+                stmt = stmt.where(AnalysisResultRecord.analysis_type == analysis_type)
             stmt = stmt.limit(limit)
             result = await s.execute(stmt)
             return list(result.scalars().all())
@@ -72,15 +66,11 @@ class AnalysisRepository(BaseRepository):
         session: AsyncSession | None = None,
     ) -> list[ResearchNoteRecord]:
         async with self._session(session) as s:
-            stmt = select(ResearchNoteRecord).order_by(
-                ResearchNoteRecord.created_at.desc()
-            )
+            stmt = select(ResearchNoteRecord).order_by(ResearchNoteRecord.created_at.desc())
             if tags:
                 # Filter notes that contain any of the requested tags
                 for tag in tags:
-                    stmt = stmt.where(
-                        ResearchNoteRecord.tags.op("@>")(f'["{tag}"]')
-                    )
+                    stmt = stmt.where(ResearchNoteRecord.tags.op("@>")(f'["{tag}"]'))
             stmt = stmt.limit(limit)
             result = await s.execute(stmt)
             return list(result.scalars().all())
@@ -94,11 +84,7 @@ class AnalysisRepository(BaseRepository):
             )
             return result.scalar_one_or_none()
 
-    async def delete_note(
-        self, note_id: str, *, session: AsyncSession | None = None
-    ) -> None:
+    async def delete_note(self, note_id: str, *, session: AsyncSession | None = None) -> None:
         async with self._session(session) as s:
-            await s.execute(
-                delete(ResearchNoteRecord).where(ResearchNoteRecord.id == note_id)
-            )
+            await s.execute(delete(ResearchNoteRecord).where(ResearchNoteRecord.id == note_id))
             await s.commit()

@@ -10,7 +10,9 @@ export function RemediationPanel({ portfolioId }: { portfolioId: string; fundSlu
   const { data: suggestions, isLoading } = useQuery(remediationQueryOptions(fundSlug, portfolioId));
 
   if (isLoading) {
-    return <p className="text-sm text-[var(--muted-foreground)]">Loading remediation suggestions...</p>;
+    return (
+      <p className="text-sm text-[var(--muted-foreground)]">Loading remediation suggestions...</p>
+    );
   }
 
   if (!suggestions || suggestions.length === 0) {
@@ -19,7 +21,9 @@ export function RemediationPanel({ portfolioId }: { portfolioId: string; fundSlu
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-[var(--foreground)]">Suggested Remediation Trades</h3>
+      <h3 className="text-sm font-semibold text-[var(--foreground)]">
+        Suggested Remediation Trades
+      </h3>
       <div className="overflow-x-auto rounded-md border border-[var(--border)] bg-[var(--card)]">
         <table className="w-full text-sm">
           <thead>

@@ -63,7 +63,8 @@ export function CapitalActionDialog({ investorId, investorName, actionType, onCl
     },
   });
 
-  const canSubmit = Number(amount) > 0 && Number(navPerShare) > 0 && businessDate && !mutation.isPending;
+  const canSubmit =
+    Number(amount) > 0 && Number(navPerShare) > 0 && businessDate && !mutation.isPending;
 
   const isSubscription = actionType === "subscription";
   const title = isSubscription ? "New Subscription" : "New Redemption";
@@ -82,9 +83,7 @@ export function CapitalActionDialog({ investorId, investorName, actionType, onCl
           </button>
         </div>
 
-        <p className="mb-4 text-sm text-[var(--muted-foreground)]">
-          {investorName}
-        </p>
+        <p className="mb-4 text-sm text-[var(--muted-foreground)]">{investorName}</p>
 
         {/* Amount */}
         <div className="mb-4">
@@ -136,7 +135,10 @@ export function CapitalActionDialog({ investorId, investorName, actionType, onCl
 
         {/* Portfolio */}
         <div className="mb-4">
-          <label htmlFor="ca-portfolio" className="mb-1 block text-sm text-[var(--muted-foreground)]">
+          <label
+            htmlFor="ca-portfolio"
+            className="mb-1 block text-sm text-[var(--muted-foreground)]"
+          >
             Portfolio (optional)
           </label>
           <select
@@ -156,7 +158,10 @@ export function CapitalActionDialog({ investorId, investorName, actionType, onCl
 
         {/* Currency */}
         <div className="mb-4">
-          <label htmlFor="ca-currency" className="mb-1 block text-sm text-[var(--muted-foreground)]">
+          <label
+            htmlFor="ca-currency"
+            className="mb-1 block text-sm text-[var(--muted-foreground)]"
+          >
             Currency
           </label>
           <select
@@ -176,7 +181,10 @@ export function CapitalActionDialog({ investorId, investorName, actionType, onCl
         {/* Share Class (subscription only) */}
         {isSubscription && (
           <div className="mb-4">
-            <label htmlFor="ca-share-class" className="mb-1 block text-sm text-[var(--muted-foreground)]">
+            <label
+              htmlFor="ca-share-class"
+              className="mb-1 block text-sm text-[var(--muted-foreground)]"
+            >
               Share Class
             </label>
             <input

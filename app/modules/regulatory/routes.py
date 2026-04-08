@@ -39,7 +39,10 @@ async def generate_form_pf(
     session: AsyncSession = Depends(get_db),
 ) -> FormPFData:
     return await svc.generate_form_pf(
-        fund_slug, reporting_date, fund_name=fund_name, session=session,
+        fund_slug,
+        reporting_date,
+        fund_name=fund_name,
+        session=session,
     )
 
 
@@ -58,8 +61,11 @@ async def generate_13f(
 ) -> Filing13FReport:
     pids = [p.strip() for p in portfolio_ids.split(",") if p.strip()] or None
     return await svc.generate_13f(
-        fund_slug, reporting_date, fund_name=fund_name,
-        portfolio_ids=pids, session=session,
+        fund_slug,
+        reporting_date,
+        fund_name=fund_name,
+        portfolio_ids=pids,
+        session=session,
     )
 
 
@@ -76,7 +82,10 @@ async def generate_investor_statement(
     session: AsyncSession = Depends(get_db),
 ) -> InvestorStatement | None:
     return await svc.generate_investor_statement(
-        investor_id, period_start, period_end, session=session,
+        investor_id,
+        period_start,
+        period_end,
+        session=session,
     )
 
 
@@ -93,7 +102,10 @@ async def generate_performance_letter(
     session: AsyncSession = Depends(get_db),
 ) -> MonthlyPerformanceLetter:
     return await svc.generate_performance_letter(
-        fund_slug, period_end, fund_name=fund_name, session=session,
+        fund_slug,
+        period_end,
+        fund_name=fund_name,
+        session=session,
     )
 
 

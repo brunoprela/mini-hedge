@@ -3,8 +3,8 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useMemo } from "react";
-import { ordersQueryOptions } from "@/features/orders/api";
 import { violationsQueryOptions } from "@/features/compliance/api";
+import { ordersQueryOptions } from "@/features/orders/api";
 import { portfolioSummaryQueryOptions, portfoliosQueryOptions } from "@/features/portfolio/api";
 import type { PortfolioInfo, PortfolioSummary } from "@/features/portfolio/types";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
@@ -40,7 +40,8 @@ export function FundOverview({ fundSlug }: { fundSlug: string }) {
     return {
       total: todayOrders.length,
       filled: todayOrders.filter((o) => o.state === "filled").length,
-      working: todayOrders.filter((o) => ["working", "partially_filled", "sent"].includes(o.state)).length,
+      working: todayOrders.filter((o) => ["working", "partially_filled", "sent"].includes(o.state))
+        .length,
       rejected: todayOrders.filter((o) => o.state === "rejected").length,
     };
   }, [orders]);
@@ -64,7 +65,8 @@ export function FundOverview({ fundSlug }: { fundSlug: string }) {
       <div>
         <h1 className="text-lg font-semibold text-[var(--foreground-bright)]">{fundName}</h1>
         <p className="text-xs text-[var(--muted-foreground)]">
-          {role ?? "loading..."} &middot; {portfolios?.length ?? 0} portfolio{portfolios?.length !== 1 ? "s" : ""}
+          {role ?? "loading..."} &middot; {portfolios?.length ?? 0} portfolio
+          {portfolios?.length !== 1 ? "s" : ""}
         </p>
       </div>
 
@@ -73,7 +75,9 @@ export function FundOverview({ fundSlug }: { fundSlug: string }) {
         {/* AUM & P&L summary widget */}
         <div className="col-span-4 rounded-md border border-[var(--border)] bg-[var(--card)]">
           <div className="border-b border-[var(--border)] bg-[var(--primary-muted)] px-3 py-1.5">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--foreground)]">Fund Summary</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--foreground)]">
+              Fund Summary
+            </span>
           </div>
           <div className="grid grid-cols-2 gap-3 p-3">
             <div>
@@ -100,7 +104,9 @@ export function FundOverview({ fundSlug }: { fundSlug: string }) {
         {/* Today's Orders widget */}
         <div className="col-span-4 rounded-md border border-[var(--border)] bg-[var(--card)]">
           <div className="border-b border-[var(--border)] bg-[var(--primary-muted)] px-3 py-1.5">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--foreground)]">Today&apos;s Orders</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--foreground)]">
+              Today&apos;s Orders
+            </span>
           </div>
           <div className="p-3">
             {orderStats ? (
@@ -108,7 +114,11 @@ export function FundOverview({ fundSlug }: { fundSlug: string }) {
                 <CountBadge count={orderStats.total} label="Total" color="var(--foreground)" />
                 <CountBadge count={orderStats.filled} label="Filled" color="var(--success)" />
                 <CountBadge count={orderStats.working} label="Working" color="var(--primary)" />
-                <CountBadge count={orderStats.rejected} label="Rejected" color="var(--destructive)" />
+                <CountBadge
+                  count={orderStats.rejected}
+                  label="Rejected"
+                  color="var(--destructive)"
+                />
               </div>
             ) : (
               <p className="text-xs text-[var(--muted-foreground)]">No orders data</p>
@@ -125,7 +135,9 @@ export function FundOverview({ fundSlug }: { fundSlug: string }) {
         {/* Compliance widget */}
         <div className="col-span-4 rounded-md border border-[var(--border)] bg-[var(--card)]">
           <div className="border-b border-[var(--border)] bg-[var(--primary-muted)] px-3 py-1.5">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--foreground)]">Compliance</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--foreground)]">
+              Compliance
+            </span>
           </div>
           <div className="p-3">
             {complianceStats ? (
@@ -133,9 +145,21 @@ export function FundOverview({ fundSlug }: { fundSlug: string }) {
                 <p className="text-xs text-[var(--success)]">All clear — no violations</p>
               ) : (
                 <div className="flex items-center gap-3">
-                  <CountBadge count={complianceStats.total} label="Active" color="var(--foreground)" />
-                  <CountBadge count={complianceStats.blocks} label="Blocks" color="var(--destructive)" />
-                  <CountBadge count={complianceStats.warnings} label="Warnings" color="var(--warning)" />
+                  <CountBadge
+                    count={complianceStats.total}
+                    label="Active"
+                    color="var(--foreground)"
+                  />
+                  <CountBadge
+                    count={complianceStats.blocks}
+                    label="Blocks"
+                    color="var(--destructive)"
+                  />
+                  <CountBadge
+                    count={complianceStats.warnings}
+                    label="Warnings"
+                    color="var(--warning)"
+                  />
                 </div>
               )
             ) : (
@@ -155,7 +179,9 @@ export function FundOverview({ fundSlug }: { fundSlug: string }) {
       {portfolios && portfolios.length > 0 && (
         <div className="overflow-hidden rounded-md border border-[var(--border)]">
           <div className="border-b border-[var(--border)] bg-[var(--primary-muted)] px-3 py-1.5">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--foreground)]">Portfolios</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--foreground)]">
+              Portfolios
+            </span>
           </div>
           <table className="w-full text-sm">
             <thead>
@@ -233,7 +259,9 @@ function PortfolioRow({
 function CountBadge({ count, label, color }: { count: number; label: string; color: string }) {
   return (
     <div className="text-center">
-      <p className="font-mono text-lg font-bold" style={{ color }}>{count}</p>
+      <p className="font-mono text-lg font-bold" style={{ color }}>
+        {count}
+      </p>
       <p className="text-[9px] uppercase tracking-wider text-[var(--muted-foreground)]">{label}</p>
     </div>
   );

@@ -39,7 +39,7 @@ export function TCADashboard({ portfolioId }: { portfolioId: string }) {
     return <div className="text-sm text-[var(--muted-foreground)]">Loading TCA data...</div>;
   }
 
-  if (!report || !report.reports || report.reports.length === 0) return null;
+  if (!report?.reports || report.reports.length === 0) return null;
 
   return (
     <div className="space-y-2">

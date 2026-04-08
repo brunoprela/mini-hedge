@@ -35,7 +35,9 @@ export function InvestorTable() {
             <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
               Investor
             </th>
-            <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">Type</th>
+            <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
+              Type
+            </th>
             <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
               Ending Capital
             </th>

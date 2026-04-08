@@ -294,12 +294,14 @@ def _extract_drawdown_periods(
         if pt.portfolio_value >= peak:
             # New high — close out any active drawdown
             if in_drawdown:
-                periods.append({
-                    "peak_date": current_peak_date,
-                    "valley_date": current_valley_date,
-                    "recovery_date": pt.date,
-                    "max_drawdown": current_max_dd,
-                })
+                periods.append(
+                    {
+                        "peak_date": current_peak_date,
+                        "valley_date": current_valley_date,
+                        "recovery_date": pt.date,
+                        "max_drawdown": current_max_dd,
+                    }
+                )
                 in_drawdown = False
             peak = pt.portfolio_value
             peak_date = pt.date
@@ -319,12 +321,14 @@ def _extract_drawdown_periods(
 
     # Close any open drawdown (no recovery yet)
     if in_drawdown:
-        periods.append({
-            "peak_date": current_peak_date,
-            "valley_date": current_valley_date,
-            "recovery_date": None,
-            "max_drawdown": current_max_dd,
-        })
+        periods.append(
+            {
+                "peak_date": current_peak_date,
+                "valley_date": current_valley_date,
+                "recovery_date": None,
+                "max_drawdown": current_max_dd,
+            }
+        )
 
     # Sort by severity, take top N
     periods.sort(key=lambda p: p["max_drawdown"], reverse=True)
@@ -337,14 +341,16 @@ def _extract_drawdown_periods(
         recovery_d: date | None = p["recovery_date"]
         duration = (valley_d - peak_d).days
         recovery_days = (recovery_d - valley_d).days if recovery_d else None
-        result.append(DrawdownPeriod(
-            peak_date=peak_d,
-            valley_date=valley_d,
-            recovery_date=recovery_d,
-            max_drawdown=p["max_drawdown"],
-            duration_days=duration,
-            recovery_days=recovery_days,
-        ))
+        result.append(
+            DrawdownPeriod(
+                peak_date=peak_d,
+                valley_date=valley_d,
+                recovery_date=recovery_d,
+                max_drawdown=p["max_drawdown"],
+                duration_days=duration,
+                recovery_days=recovery_days,
+            )
+        )
     return result
 
 

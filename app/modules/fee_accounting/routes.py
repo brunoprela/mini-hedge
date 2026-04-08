@@ -100,7 +100,9 @@ async def get_fee_schedule(
     session: AsyncSession = Depends(get_db),
 ) -> FeeScheduleResponse:
     record = await schedule_repo.get_by_fund_slug(
-        fund_slug, share_class=share_class, session=session,
+        fund_slug,
+        share_class=share_class,
+        session=session,
     )
     if record is None:
         raise HTTPException(status_code=404, detail="Fee schedule not found")

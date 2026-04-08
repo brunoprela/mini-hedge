@@ -6,7 +6,6 @@ import { useTableState } from "@/shared/hooks/use-table-state";
 import { useInstruments } from "../hooks/use-instruments";
 
 export function InstrumentList() {
-
   const allQuery = useInstruments();
   const instruments = allQuery.data;
   const isLoading = allQuery.isLoading;
@@ -45,13 +44,55 @@ export function InstrumentList() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)] text-left text-[var(--muted-foreground)]">
-                <SortableHeader label="Ticker" sortKey="ticker" currentSort={table.sortKey} direction={table.sortDirection} onSort={table.onSort} />
-                <SortableHeader label="Name" sortKey="name" currentSort={table.sortKey} direction={table.sortDirection} onSort={table.onSort} />
-                <SortableHeader label="Class" sortKey="asset_class" currentSort={table.sortKey} direction={table.sortDirection} onSort={table.onSort} />
-                <SortableHeader label="Sector" sortKey="sector" currentSort={table.sortKey} direction={table.sortDirection} onSort={table.onSort} />
-                <SortableHeader label="Exchange" sortKey="exchange" currentSort={table.sortKey} direction={table.sortDirection} onSort={table.onSort} />
-                <SortableHeader label="Currency" sortKey="currency" currentSort={table.sortKey} direction={table.sortDirection} onSort={table.onSort} />
-                <SortableHeader label="Country" sortKey="country" currentSort={table.sortKey} direction={table.sortDirection} onSort={table.onSort} />
+                <SortableHeader
+                  label="Ticker"
+                  sortKey="ticker"
+                  currentSort={table.sortKey}
+                  direction={table.sortDirection}
+                  onSort={table.onSort}
+                />
+                <SortableHeader
+                  label="Name"
+                  sortKey="name"
+                  currentSort={table.sortKey}
+                  direction={table.sortDirection}
+                  onSort={table.onSort}
+                />
+                <SortableHeader
+                  label="Class"
+                  sortKey="asset_class"
+                  currentSort={table.sortKey}
+                  direction={table.sortDirection}
+                  onSort={table.onSort}
+                />
+                <SortableHeader
+                  label="Sector"
+                  sortKey="sector"
+                  currentSort={table.sortKey}
+                  direction={table.sortDirection}
+                  onSort={table.onSort}
+                />
+                <SortableHeader
+                  label="Exchange"
+                  sortKey="exchange"
+                  currentSort={table.sortKey}
+                  direction={table.sortDirection}
+                  onSort={table.onSort}
+                />
+                <SortableHeader
+                  label="Currency"
+                  sortKey="currency"
+                  currentSort={table.sortKey}
+                  direction={table.sortDirection}
+                  onSort={table.onSort}
+                />
+                <SortableHeader
+                  label="Country"
+                  sortKey="country"
+                  currentSort={table.sortKey}
+                  direction={table.sortDirection}
+                  onSort={table.onSort}
+                />
               </tr>
             </thead>
             <tbody>
@@ -79,9 +120,7 @@ export function InstrumentList() {
                     <td className="px-3 py-1.5 text-xs text-[var(--muted-foreground)]">
                       {inst.exchange as string}
                     </td>
-                    <td className="px-3 py-1.5 text-xs font-mono">
-                      {inst.currency as string}
-                    </td>
+                    <td className="px-3 py-1.5 text-xs font-mono">{inst.currency as string}</td>
                     <td className="px-3 py-1.5 text-xs text-[var(--muted-foreground)]">
                       {(inst.country as string) || "—"}
                     </td>

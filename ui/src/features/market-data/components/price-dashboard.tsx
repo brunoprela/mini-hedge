@@ -3,8 +3,8 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { instrumentsQueryOptions } from "@/features/instruments/api";
-import { Sparkline } from "@/shared/components/sparkline";
 import { SectionPanel } from "@/shared/components/section-panel";
+import { Sparkline } from "@/shared/components/sparkline";
 import { SortableHeader, TableSearch } from "@/shared/components/table-controls";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { useTableState } from "@/shared/hooks/use-table-state";
@@ -24,7 +24,9 @@ export function PriceDashboard() {
 
   // Fetch latest prices for all instruments
   const priceResults = useQueries({
-    queries: (instruments ?? []).slice(0, 30).map((inst) => latestPriceQueryOptions(fundSlug, inst.ticker)),
+    queries: (instruments ?? [])
+      .slice(0, 30)
+      .map((inst) => latestPriceQueryOptions(fundSlug, inst.ticker)),
   });
 
   // Stable time window for sparklines
@@ -38,7 +40,9 @@ export function PriceDashboard() {
 
   // Fetch sparkline history for all instruments
   const historyResults = useQueries({
-    queries: (instruments ?? []).slice(0, 30).map((inst) => priceHistoryQueryOptions(fundSlug, inst.ticker, start, end)),
+    queries: (instruments ?? [])
+      .slice(0, 30)
+      .map((inst) => priceHistoryQueryOptions(fundSlug, inst.ticker, start, end)),
   });
 
   // Build rows with instrument + price data merged
@@ -104,12 +108,42 @@ export function PriceDashboard() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)] text-left text-[var(--muted-foreground)]">
-              <SortableHeader label="Ticker" sortKey="ticker" currentSort={table.sortKey} direction={table.sortDirection} onSort={table.onSort} />
+              <SortableHeader
+                label="Ticker"
+                sortKey="ticker"
+                currentSort={table.sortKey}
+                direction={table.sortDirection}
+                onSort={table.onSort}
+              />
               <th className="px-3 py-1.5 text-xs font-medium">Name</th>
-              <SortableHeader label="Bid" sortKey="bid" currentSort={table.sortKey} direction={table.sortDirection} onSort={table.onSort} />
-              <SortableHeader label="Mid" sortKey="mid" currentSort={table.sortKey} direction={table.sortDirection} onSort={table.onSort} />
-              <SortableHeader label="Ask" sortKey="ask" currentSort={table.sortKey} direction={table.sortDirection} onSort={table.onSort} />
-              <SortableHeader label="Spread (bps)" sortKey="spreadBps" currentSort={table.sortKey} direction={table.sortDirection} onSort={table.onSort} />
+              <SortableHeader
+                label="Bid"
+                sortKey="bid"
+                currentSort={table.sortKey}
+                direction={table.sortDirection}
+                onSort={table.onSort}
+              />
+              <SortableHeader
+                label="Mid"
+                sortKey="mid"
+                currentSort={table.sortKey}
+                direction={table.sortDirection}
+                onSort={table.onSort}
+              />
+              <SortableHeader
+                label="Ask"
+                sortKey="ask"
+                currentSort={table.sortKey}
+                direction={table.sortDirection}
+                onSort={table.onSort}
+              />
+              <SortableHeader
+                label="Spread (bps)"
+                sortKey="spreadBps"
+                currentSort={table.sortKey}
+                direction={table.sortDirection}
+                onSort={table.onSort}
+              />
               <th className="px-3 py-1.5 text-xs font-medium">1h</th>
               <th className="px-3 py-1.5 text-xs font-medium">Sector</th>
               <th className="px-3 py-1.5 text-xs font-medium text-right">Updated</th>
@@ -140,7 +174,13 @@ export function PriceDashboard() {
                   </td>
                   <td className="px-3 py-1.5 text-right font-mono text-xs">
                     {r.spreadBps > 0 ? (
-                      <span className={r.spreadBps > 10 ? "text-[var(--warning)]" : "text-[var(--muted-foreground)]"}>
+                      <span
+                        className={
+                          r.spreadBps > 10
+                            ? "text-[var(--warning)]"
+                            : "text-[var(--muted-foreground)]"
+                        }
+                      >
                         {r.spreadBps.toFixed(1)}
                       </span>
                     ) : (

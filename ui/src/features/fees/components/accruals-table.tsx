@@ -45,8 +45,12 @@ export function AccrualsTable({ portfolioId }: { portfolioId: string }) {
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-[var(--border)] bg-[var(--card)]">
-            <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">Date</th>
-            <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">Type</th>
+            <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
+              Date
+            </th>
+            <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
+              Type
+            </th>
             <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
               NAV Basis
             </th>

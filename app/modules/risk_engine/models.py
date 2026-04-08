@@ -199,7 +199,9 @@ class CounterpartyRecord(Base):
     netting_eligible: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(),
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
     )
 
 
@@ -225,7 +227,9 @@ class CounterpartyExposureRecord(Base):
     utilization_pct: Mapped[Decimal] = mapped_column(Numeric(8, 4), nullable=False)
     breach: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(),
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
     )
 
 
@@ -254,14 +258,19 @@ class LiquidityProfileRecord(Base):
     pct_3_months: Mapped[Decimal] = mapped_column(Numeric(8, 4), nullable=False)
     pct_illiquid: Mapped[Decimal] = mapped_column(Numeric(8, 4), nullable=False)
     weighted_days_to_liquidate: Mapped[Decimal] = mapped_column(
-        Numeric(10, 2), nullable=False,
+        Numeric(10, 2),
+        nullable=False,
     )
     redemption_coverage_pct: Mapped[Decimal] = mapped_column(
-        Numeric(8, 4), nullable=False, default=Decimal("1.0"),
+        Numeric(8, 4),
+        nullable=False,
+        default=Decimal("1.0"),
     )
     details: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(),
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
     )
 
 
@@ -289,9 +298,13 @@ class MarginRequirementRecord(Base):
     margin_excess_deficit: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     margin_utilization_pct: Mapped[Decimal] = mapped_column(Numeric(8, 4), nullable=False)
     margin_call_triggered: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False,
+        Boolean,
+        nullable=False,
+        default=False,
     )
     details: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(),
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
     )

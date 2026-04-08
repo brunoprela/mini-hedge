@@ -165,7 +165,8 @@ async def list_share_classes(
     for cls in classes:
         aum, shares, nav = await capital_service.get_share_class_nav(cls, session=session)
         accounts = await capital_service._accounts.get_latest_by_share_class(
-            cls, session=session,
+            cls,
+            session=session,
         )
         result.append(
             ShareClassSummary(

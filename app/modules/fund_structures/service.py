@@ -32,6 +32,7 @@ if TYPE_CHECKING:
         StrategyBookRepository,
     )
     from app.shared.database import TenantSessionFactory
+    from app.shared.events import EventBus
 
 logger = structlog.get_logger()
 
@@ -48,11 +49,13 @@ class FundStructuresService:
         strategy_book_repo: StrategyBookRepository,
         fof_repo: FundOfFundsRepository,
         session_factory: TenantSessionFactory,
+        event_bus: EventBus | None = None,
     ) -> None:
         self._mf_repo = master_feeder_repo
         self._sb_repo = strategy_book_repo
         self._fof_repo = fof_repo
         self._session_factory = session_factory
+        self._event_bus = event_bus
 
     # ------------------------------------------------------------------
     # 6A  Master-Feeder
@@ -78,6 +81,24 @@ class FundStructuresService:
             feeder=feeder_slug,
             allocation_pct=str(allocation_pct),
         )
+        if self._event_bus:
+            from app.shared.audit_events import AuditEventType
+            from app.shared.events import BaseEvent
+            from app.shared.schema_registry import shared_topic
+
+            await self._event_bus.publish(
+                shared_topic("audit"),
+                BaseEvent(
+                    event_type=AuditEventType.MASTER_FEEDER_LINK_CREATED,
+                    fund_slug=master_slug,
+                    data={
+                        "link_id": record.id,
+                        "master_fund_slug": master_slug,
+                        "feeder_fund_slug": feeder_slug,
+                        "allocation_pct": str(allocation_pct),
+                    },
+                ),
+            )
         return self._to_mf_link(record)
 
     async def get_feeder_structure(
@@ -87,7 +108,8 @@ class FundStructuresService:
         session: AsyncSession | None = None,
     ) -> list[MasterFeederLink]:
         records = await self._mf_repo.get_feeders_for_master(
-            master_slug, session=session,
+            master_slug,
+            session=session,
         )
         return [self._to_mf_link(r) for r in records]
 
@@ -100,7 +122,8 @@ class FundStructuresService:
     ) -> FeederSubscription:
         """Calculate how much of a feeder subscription flows to the master."""
         link = await self._mf_repo.get_master_for_feeder(
-            feeder_slug, session=session,
+            feeder_slug,
+            session=session,
         )
         if link is None:
             return FeederSubscription(
@@ -124,7 +147,8 @@ class FundStructuresService:
     ) -> Decimal:
         """Compute feeder NAV as its allocation_pct * master NAV."""
         link = await self._mf_repo.get_master_for_feeder(
-            feeder_slug, session=session,
+            feeder_slug,
+            session=session,
         )
         if link is None:
             return ZERO
@@ -155,6 +179,26 @@ class FundStructuresService:
         )
         await self._sb_repo.create(record, session=session)
         logger.info("strategy_book_created", fund=fund_slug, name=name, level=level)
+        if self._event_bus:
+            from app.shared.audit_events import AuditEventType
+            from app.shared.events import BaseEvent
+            from app.shared.schema_registry import shared_topic
+
+            await self._event_bus.publish(
+                shared_topic("audit"),
+                BaseEvent(
+                    event_type=AuditEventType.STRATEGY_BOOK_CREATED,
+                    fund_slug=fund_slug,
+                    data={
+                        "book_id": record.id,
+                        "fund_slug": fund_slug,
+                        "name": name,
+                        "level": level,
+                        "parent_id": parent_id,
+                        "target_pct": str(target_pct),
+                    },
+                ),
+            )
         return self._to_strategy_book(record)
 
     async def get_book_tree(
@@ -227,6 +271,26 @@ class FundStructuresService:
             underlying=underlying_name,
             allocation_pct=str(allocation_pct),
         )
+        if self._event_bus:
+            from app.shared.audit_events import AuditEventType
+            from app.shared.events import BaseEvent
+            from app.shared.schema_registry import shared_topic
+
+            await self._event_bus.publish(
+                shared_topic("audit"),
+                BaseEvent(
+                    event_type=AuditEventType.FOF_HOLDING_ADDED,
+                    fund_slug=fof_slug,
+                    data={
+                        "holding_id": record.id,
+                        "fof_fund_slug": fof_slug,
+                        "underlying_fund_name": underlying_name,
+                        "underlying_fund_slug": underlying_slug,
+                        "allocation_pct": str(allocation_pct),
+                        "is_internal": is_internal,
+                    },
+                ),
+            )
         return self._to_fof_holding(record)
 
     async def get_fof_holdings(

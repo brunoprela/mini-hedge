@@ -89,3 +89,31 @@ class AuditEventType(StrEnum):
     REDEMPTION_SUBMITTED = "investor_ops.redemption.submitted"
     REDEMPTION_GATE_APPLIED = "investor_ops.redemption.gate_applied"
     REDEMPTION_EXECUTED = "investor_ops.redemption.executed"
+
+    # -- Fund Structures ---------------------------------------------------
+    MASTER_FEEDER_LINK_CREATED = "fund_structures.link.created"
+    MASTER_FEEDER_LINK_UPDATED = "fund_structures.link.updated"
+    STRATEGY_BOOK_CREATED = "fund_structures.book.created"
+    STRATEGY_BOOK_UPDATED = "fund_structures.book.updated"
+    FOF_HOLDING_ADDED = "fund_structures.fof.holding_added"
+
+    # -- Backtesting -------------------------------------------------------
+    BACKTEST_SUBMITTED = "backtesting.submitted"
+    BACKTEST_COMPLETED = "backtesting.completed"
+    BACKTEST_FAILED = "backtesting.failed"
+
+    # -- Quant Research ----------------------------------------------------
+    REGIME_DETECTED = "quant_research.regime.detected"
+    FACTOR_EXPOSURE_COMPUTED = "quant_research.factor.computed"
+
+    # -- AI Analysis -------------------------------------------------------
+    ANALYSIS_COMPLETED = "ai_analysis.completed"
+    RESEARCH_NOTE_CREATED = "ai_analysis.note.created"
+
+    # -- Alternative Data --------------------------------------------------
+    ALT_DATA_FEED_CREATED = "alt_data.feed.created"
+    ALT_DATA_INGESTED = "alt_data.ingested"
+
+    # -- Feature Store -----------------------------------------------------
+    FEATURE_REGISTERED = "feature_store.feature.registered"
+    FEATURE_COMPUTED = "feature_store.feature.computed"

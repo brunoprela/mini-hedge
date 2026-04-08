@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { fundTCASummaryQueryOptions } from "../api";
 
@@ -84,12 +84,17 @@ export function FundTCASummaryCard() {
                 Average Cost Breakdown (bps)
               </p>
               <p className="text-[10px] text-[var(--muted-foreground)]">
-                {new Date(summary.period_start).toLocaleDateString()} – {new Date(summary.period_end).toLocaleDateString()}
+                {new Date(summary.period_start).toLocaleDateString()} –{" "}
+                {new Date(summary.period_end).toLocaleDateString()}
               </p>
             </div>
             <CostBar summary={summary} />
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-              <Legend color="#6366f1" label="Commission" value={fmtBps(summary.avg_commission_bps)} />
+              <Legend
+                color="#6366f1"
+                label="Commission"
+                value={fmtBps(summary.avg_commission_bps)}
+              />
               <Legend color="#f59e0b" label="Spread" value={fmtBps(summary.avg_spread_cost_bps)} />
               <Legend color="#ef4444" label="Timing" value={fmtBps(summary.avg_timing_cost_bps)} />
               <Legend color="#8b5cf6" label="Impact" value={fmtBps(summary.avg_impact_cost_bps)} />
@@ -120,9 +125,7 @@ function CostBar({
 
   const total = segments.reduce((sum, s) => sum + s.value, 0);
   if (total === 0) {
-    return (
-      <div className="h-5 w-full rounded bg-[var(--border)]" />
-    );
+    return <div className="h-5 w-full rounded bg-[var(--border)]" />;
   }
 
   return (
@@ -132,6 +135,7 @@ function CostBar({
         if (pct <= 0) return null;
         return (
           <div
+            // biome-ignore lint/suspicious/noArrayIndexKey: chart segments lack IDs
             key={i}
             style={{
               width: `${pct}%`,

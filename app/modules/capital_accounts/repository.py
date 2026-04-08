@@ -102,9 +102,8 @@ class CapitalAccountRepository(BaseRepository):
         session: AsyncSession | None = None,
     ) -> CapitalAccountRecord | None:
         async with self._session(session) as session:
-            stmt = (
-                select(CapitalAccountRecord)
-                .where(CapitalAccountRecord.investor_id == investor_id)
+            stmt = select(CapitalAccountRecord).where(
+                CapitalAccountRecord.investor_id == investor_id
             )
             if share_class is not None:
                 stmt = stmt.where(CapitalAccountRecord.share_class == share_class)
@@ -155,11 +154,15 @@ class CapitalAccountRepository(BaseRepository):
                 .group_by(CapitalAccountRecord.investor_id)
                 .subquery()
             )
-            stmt = select(CapitalAccountRecord).join(
-                sub,
-                (CapitalAccountRecord.investor_id == sub.c.investor_id)
-                & (CapitalAccountRecord.effective_date == sub.c.max_date),
-            ).where(CapitalAccountRecord.share_class == share_class)
+            stmt = (
+                select(CapitalAccountRecord)
+                .join(
+                    sub,
+                    (CapitalAccountRecord.investor_id == sub.c.investor_id)
+                    & (CapitalAccountRecord.effective_date == sub.c.max_date),
+                )
+                .where(CapitalAccountRecord.share_class == share_class)
+            )
             result = await session.execute(stmt)
             return list(result.scalars().all())
 

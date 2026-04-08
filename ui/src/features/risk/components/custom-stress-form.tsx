@@ -52,8 +52,7 @@ export function CustomStressForm({ portfolioId }: { portfolioId: string }) {
 
   const addShock = () => setShocks((prev) => [...prev, emptyShock()]);
 
-  const removeShock = (index: number) =>
-    setShocks((prev) => prev.filter((_, i) => i !== index));
+  const removeShock = (index: number) => setShocks((prev) => prev.filter((_, i) => i !== index));
 
   const updateShock = (index: number, field: keyof ShockRow, value: string) =>
     setShocks((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
@@ -80,13 +79,20 @@ export function CustomStressForm({ portfolioId }: { portfolioId: string }) {
 
   return (
     <div className="space-y-2">
-      <form onSubmit={handleSubmit} className="space-y-2 rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-2 rounded-md border border-[var(--border)] bg-[var(--card)] p-3"
+      >
         <div className="grid gap-2 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm text-[var(--muted-foreground)]">
+            <label
+              htmlFor="stress-scenario-name"
+              className="mb-1 block text-sm text-[var(--muted-foreground)]"
+            >
               Scenario Name
             </label>
             <input
+              id="stress-scenario-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -96,10 +102,14 @@ export function CustomStressForm({ portfolioId }: { portfolioId: string }) {
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm text-[var(--muted-foreground)]">
+            <label
+              htmlFor="stress-description"
+              className="mb-1 block text-sm text-[var(--muted-foreground)]"
+            >
               Description
             </label>
             <input
+              id="stress-description"
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -110,9 +120,10 @@ export function CustomStressForm({ portfolioId }: { portfolioId: string }) {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm text-[var(--muted-foreground)]">Shocks</label>
+          <span className="mb-1 block text-sm text-[var(--muted-foreground)]">Shocks</span>
           <div className="space-y-2">
             {shocks.map((shock, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: dynamic form rows
               <div key={i} className="flex items-center gap-2">
                 <input
                   type="text"

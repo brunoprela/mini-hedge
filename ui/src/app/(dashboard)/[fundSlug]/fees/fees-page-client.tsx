@@ -40,18 +40,14 @@ export function FeesPageClient() {
 
       <SectionPanel
         title="Fee Management"
-        tabs={
-          <>
-            {TABS.map((tab) => (
-              <ToolbarTab
-                key={tab.id}
-                label={tab.label}
-                active={activeTab === tab.id}
-                onClick={() => setActiveTab(tab.id)}
-              />
-            ))}
-          </>
-        }
+        tabs={TABS.map((tab) => (
+          <ToolbarTab
+            key={tab.id}
+            label={tab.label}
+            active={activeTab === tab.id}
+            onClick={() => setActiveTab(tab.id)}
+          />
+        ))}
       >
         <div className="p-3">
           {activeTab === "schedule" && <FeeScheduleCard />}

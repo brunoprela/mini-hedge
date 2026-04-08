@@ -48,9 +48,7 @@ class EscalationPolicy:
             return SLAStatus.WARNING
         return SLAStatus.WITHIN_SLA
 
-    def get_aging_summary(
-        self, breaks: list[ReconciliationBreakRecord]
-    ) -> AgingSummary:
+    def get_aging_summary(self, breaks: list[ReconciliationBreakRecord]) -> AgingSummary:
         """Bucket breaks by age: <1h, 1-4h, 4-24h, >24h."""
         buckets_config: list[tuple[str, float, float]] = [
             ("<1h", 0, 1),
@@ -60,9 +58,7 @@ class EscalationPolicy:
         ]
 
         bucket_counts: dict[str, int] = {label: 0 for label, _, _ in buckets_config}
-        bucket_diffs: dict[str, Decimal] = {
-            label: ZERO for label, _, _ in buckets_config
-        }
+        bucket_diffs: dict[str, Decimal] = {label: ZERO for label, _, _ in buckets_config}
 
         oldest_hours = 0.0
         sla_breached = 0

@@ -192,9 +192,7 @@ class RiskRepository(BaseRepository):
             )
             return result.scalar_one_or_none()
 
-    async def get_counterparty_map(
-        self, *, session: AsyncSession | None = None
-    ) -> dict[str, str]:
+    async def get_counterparty_map(self, *, session: AsyncSession | None = None) -> dict[str, str]:
         records = await self.list_counterparties(session=session)
         return {r.id: r.name for r in records}
 

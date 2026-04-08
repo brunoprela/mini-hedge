@@ -154,9 +154,7 @@ async def list_research_notes(
     session: AsyncSession = Depends(get_read_db),
 ) -> list[ResearchNote]:
     """List research notes with optional tag filter."""
-    return await service.list_research_notes(
-        tags=tags, limit=limit, session=session
-    )
+    return await service.list_research_notes(tags=tags, limit=limit, session=session)
 
 
 @router.get("/research-notes/{note_id}", response_model=ResearchNote)

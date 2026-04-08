@@ -37,14 +37,19 @@ class MasterFeederLinkRecord(Base):
     )
     master_fund_slug: Mapped[str] = mapped_column(String(64), nullable=False)
     feeder_fund_slug: Mapped[str] = mapped_column(
-        String(64), nullable=False, unique=True,
+        String(64),
+        nullable=False,
+        unique=True,
     )
     allocation_pct: Mapped[Decimal] = mapped_column(
-        Numeric(8, 6), nullable=False,
+        Numeric(8, 6),
+        nullable=False,
     )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(),
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
     )
 
 
@@ -72,14 +77,19 @@ class StrategyBookRecord(Base):
         nullable=True,
     )
     portfolio_id: Mapped[str | None] = mapped_column(
-        PG_UUID(as_uuid=False), nullable=True,
+        PG_UUID(as_uuid=False),
+        nullable=True,
     )
     target_allocation_pct: Mapped[Decimal] = mapped_column(
-        Numeric(8, 6), nullable=False, server_default=text("1.0"),
+        Numeric(8, 6),
+        nullable=False,
+        server_default=text("1.0"),
     )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(),
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
     )
 
 
@@ -99,18 +109,25 @@ class FundOfFundsHoldingRecord(Base):
     )
     fof_fund_slug: Mapped[str] = mapped_column(String(64), nullable=False)
     underlying_fund_slug: Mapped[str | None] = mapped_column(
-        String(64), nullable=True,
+        String(64),
+        nullable=True,
     )
     underlying_fund_name: Mapped[str] = mapped_column(String(128), nullable=False)
     allocation_pct: Mapped[Decimal] = mapped_column(Numeric(8, 6), nullable=False)
     current_nav: Mapped[Decimal] = mapped_column(
-        Numeric(18, 2), nullable=False, server_default=text("0"),
+        Numeric(18, 2),
+        nullable=False,
+        server_default=text("0"),
     )
     is_internal: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(),
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(),
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
     )

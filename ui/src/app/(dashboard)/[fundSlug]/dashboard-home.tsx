@@ -6,16 +6,15 @@ import { useSession } from "next-auth/react";
 import { useMemo, useState } from "react";
 import { exposureQueryOptions } from "@/features/exposure/api";
 import { ordersQueryOptions } from "@/features/orders/api";
-import { portfoliosQueryOptions, portfolioSummaryQueryOptions } from "@/features/portfolio/api";
+import { portfolioSummaryQueryOptions, portfoliosQueryOptions } from "@/features/portfolio/api";
 import type { PortfolioSummary } from "@/features/portfolio/types";
-import { DonutChart, HBarChart, MiniBarChart, StatusDot } from "@/shared/components/charts";
+import { DonutChart, HBarChart, StatusDot } from "@/shared/components/charts";
 import { SectionPanel } from "@/shared/components/section-panel";
-import { Sparkline } from "@/shared/components/sparkline";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { usePermission } from "@/shared/hooks/use-permission";
-import { Permission } from "@/shared/lib/permissions";
 import { clientFetch } from "@/shared/lib/api";
 import { formatPnL, pnlColorClass } from "@/shared/lib/formatters";
+import { Permission } from "@/shared/lib/permissions";
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -79,10 +78,9 @@ export function DashboardHome() {
   const { data: violations } = useQuery({
     queryKey: ["violations-all", fundSlug],
     queryFn: () =>
-      clientFetch<{ id: string; severity: string; rule_name: string; message: string; portfolio_id: string }[]>(
-        "/compliance/violations",
-        { fundSlug },
-      ),
+      clientFetch<
+        { id: string; severity: string; rule_name: string; message: string; portfolio_id: string }[]
+      >("/compliance/violations", { fundSlug }),
     staleTime: 60_000,
     enabled: can(Permission.COMPLIANCE_READ),
   });
@@ -192,9 +190,7 @@ export function DashboardHome() {
     <div className="space-y-3">
       {/* Greeting + Date */}
       <div>
-        <h1 className="text-lg font-semibold text-[var(--foreground-bright)]">
-          Hello, {userName}
-        </h1>
+        <h1 className="text-lg font-semibold text-[var(--foreground-bright)]">Hello, {userName}</h1>
         <p className="text-xs text-[var(--muted-foreground)]">
           Here&apos;s what&apos;s happening today, {dateStr} &middot; {fundName}
         </p>
@@ -203,21 +199,28 @@ export function DashboardHome() {
       {/* Hero KPI Strip — large prominent numbers */}
       <div className="grid grid-cols-5 gap-3">
         <div className="col-span-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-          <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Total AUM</p>
+          <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">
+            Total AUM
+          </p>
           <p className="mt-1 font-mono text-xl font-bold">
             {aggregate ? fmtCurrency(aggregate.total_aum) : "—"}
           </p>
           <p className="mt-0.5 text-[10px] text-[var(--muted-foreground)]">
-            {aggregate?.portfolio_count ?? 0} portfolio{(aggregate?.portfolio_count ?? 0) !== 1 ? "s" : ""}
+            {aggregate?.portfolio_count ?? 0} portfolio
+            {(aggregate?.portfolio_count ?? 0) !== 1 ? "s" : ""}
           </p>
         </div>
         <div className="col-span-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-          <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Unrealized P&L</p>
+          <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">
+            Unrealized P&L
+          </p>
           <p
             className="mt-1 font-mono text-xl font-bold"
             style={{
               color: aggregate
-                ? Number(aggregate.total_unrealized_pnl) >= 0 ? "var(--success)" : "var(--destructive)"
+                ? Number(aggregate.total_unrealized_pnl) >= 0
+                  ? "var(--success)"
+                  : "var(--destructive)"
                 : undefined,
             }}
           >
@@ -225,12 +228,16 @@ export function DashboardHome() {
           </p>
         </div>
         <div className="col-span-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-          <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Realized P&L</p>
+          <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">
+            Realized P&L
+          </p>
           <p
             className="mt-1 font-mono text-xl font-bold"
             style={{
               color: aggregate
-                ? Number(aggregate.total_realized_pnl) >= 0 ? "var(--success)" : "var(--destructive)"
+                ? Number(aggregate.total_realized_pnl) >= 0
+                  ? "var(--success)"
+                  : "var(--destructive)"
                 : undefined,
             }}
           >
@@ -238,13 +245,15 @@ export function DashboardHome() {
           </p>
         </div>
         <div className="col-span-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-          <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Positions</p>
-          <p className="mt-1 font-mono text-xl font-bold">
-            {aggregate?.total_positions ?? "—"}
+          <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">
+            Positions
           </p>
+          <p className="mt-1 font-mono text-xl font-bold">{aggregate?.total_positions ?? "—"}</p>
         </div>
         <div className="col-span-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-          <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Today&apos;s Orders</p>
+          <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">
+            Today&apos;s Orders
+          </p>
           <p className="mt-1 font-mono text-xl font-bold">{totalOrders}</p>
           <p className="mt-0.5 text-[10px] text-[var(--muted-foreground)]">
             {filledToday} filled &middot; {pendingOrders} working
@@ -259,7 +268,10 @@ export function DashboardHome() {
           {/* Allocation donut + Top movers side by side */}
           <div className="grid grid-cols-2 gap-3">
             {/* Sector Allocation Donut */}
-            <SectionPanel title="Sector Allocation" actions={<PeriodSelect value={allocationPeriod} onChange={setAllocationPeriod} />}>
+            <SectionPanel
+              title="Sector Allocation"
+              actions={<PeriodSelect value={allocationPeriod} onChange={setAllocationPeriod} />}
+            >
               <div className="p-3">
                 {sectorSegments.length > 0 ? (
                   <DonutChart
@@ -278,7 +290,10 @@ export function DashboardHome() {
             </SectionPanel>
 
             {/* Top & Bottom Movers */}
-            <SectionPanel title="Top & Bottom Movers" actions={<PeriodSelect value={moversPeriod} onChange={setMoversPeriod} />}>
+            <SectionPanel
+              title="Top & Bottom Movers"
+              actions={<PeriodSelect value={moversPeriod} onChange={setMoversPeriod} />}
+            >
               <div className="p-3">
                 {movers.top.length > 0 ? (
                   <div className="space-y-3">
@@ -310,10 +325,15 @@ export function DashboardHome() {
               <div className="p-3">
                 <div className="space-y-2">
                   {(() => {
-                    const maxVal = Math.max(...currencyBars.map((b) => Math.max(b.long, b.short)), 1);
+                    const maxVal = Math.max(
+                      ...currencyBars.map((b) => Math.max(b.long, b.short)),
+                      1,
+                    );
                     return currencyBars.map((b) => (
                       <div key={b.label} className="flex items-center gap-3 text-xs">
-                        <span className="w-10 font-mono font-medium text-[var(--foreground)]">{b.label}</span>
+                        <span className="w-10 font-mono font-medium text-[var(--foreground)]">
+                          {b.label}
+                        </span>
                         <div className="flex-1">
                           <div className="flex gap-0.5">
                             <div
@@ -347,10 +367,12 @@ export function DashboardHome() {
                 </div>
                 <div className="mt-2 flex items-center gap-4 text-[10px] text-[var(--muted-foreground)]">
                   <span className="flex items-center gap-1">
-                    <span className="inline-block h-2 w-4 rounded-sm bg-[var(--primary)] opacity-80" /> Long
+                    <span className="inline-block h-2 w-4 rounded-sm bg-[var(--primary)] opacity-80" />{" "}
+                    Long
                   </span>
                   <span className="flex items-center gap-1">
-                    <span className="inline-block h-2 w-4 rounded-sm bg-[var(--destructive)] opacity-60" /> Short
+                    <span className="inline-block h-2 w-4 rounded-sm bg-[var(--destructive)] opacity-60" />{" "}
+                    Short
                   </span>
                 </div>
               </div>
@@ -419,7 +441,9 @@ export function DashboardHome() {
                         {o.state}
                       </td>
                       <td className="px-3 py-1.5 text-right text-xs text-[var(--muted-foreground)]">
-                        {new Date(o.created_at).toLocaleTimeString(undefined, { timeZoneName: "short" })}
+                        {new Date(o.created_at).toLocaleTimeString(undefined, {
+                          timeZoneName: "short",
+                        })}
                       </td>
                     </tr>
                   ))}
@@ -436,7 +460,10 @@ export function DashboardHome() {
         {/* Right column (4 cols): Status + Compliance + Tasks */}
         <div className="col-span-4 space-y-3">
           {/* Today's Orders Summary */}
-          <SectionPanel title="Order Activity" actions={<PeriodSelect value={ordersPeriod} onChange={setOrdersPeriod} />}>
+          <SectionPanel
+            title="Order Activity"
+            actions={<PeriodSelect value={ordersPeriod} onChange={setOrdersPeriod} />}
+          >
             <div className="p-3">
               <div className="grid grid-cols-4 gap-2 text-center">
                 <CountBadge count={totalOrders} label="Total" color="var(--foreground)" />
@@ -484,7 +511,9 @@ export function DashboardHome() {
                           size={5}
                         />
                         <div className="min-w-0 flex-1">
-                          <span className="font-medium text-[var(--foreground)]">{v.rule_name}</span>
+                          <span className="font-medium text-[var(--foreground)]">
+                            {v.rule_name}
+                          </span>
                           <p className="truncate text-[var(--muted-foreground)]">{v.message}</p>
                         </div>
                       </Link>
@@ -527,77 +556,95 @@ export function DashboardHome() {
       {portfolios && portfolios.length > 0 && (
         <SectionPanel title="Portfolios">
           <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
-                <th className="px-3 py-1.5 text-left text-xs font-medium text-[var(--muted-foreground)]">Portfolio</th>
-                <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">NAV</th>
-                <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">Unrealized P&L</th>
-                <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">Realized P&L</th>
-                <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">Cost Basis</th>
-                <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">Positions</th>
-                <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]" />
-              </tr>
-            </thead>
-            <tbody>
-              {portfolios.map((p) => {
-                const summary = summaries.find((s) => s.portfolio_id === p.id);
-                return (
-                  <tr
-                    key={p.id}
-                    className="border-b border-[var(--table-border)] last:border-0 transition-colors hover:bg-[var(--table-row-hover)]"
-                  >
-                    <td className="px-3 py-1.5">
-                      <Link
-                        href={`/${fundSlug}/portfolio/${p.id}`}
-                        className="font-medium text-[var(--foreground-bright)] hover:text-[var(--primary)]"
-                      >
-                        {p.name}
-                      </Link>
-                      {p.strategy && (
-                        <span className="ml-2 text-[10px] text-[var(--muted-foreground)]">{p.strategy}</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-1.5 text-right font-mono text-sm">
-                      {summary ? formatPnL(summary.total_market_value) : "—"}
-                    </td>
-                    <td className="px-3 py-1.5 text-right">
-                      {summary ? (
-                        <span className={`font-mono text-sm ${pnlColorClass(summary.total_unrealized_pnl)}`}>
-                          {formatPnL(summary.total_unrealized_pnl)}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="px-3 py-1.5 text-right">
-                      {summary ? (
-                        <span className={`font-mono text-sm ${pnlColorClass(summary.total_realized_pnl)}`}>
-                          {formatPnL(summary.total_realized_pnl)}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="px-3 py-1.5 text-right font-mono text-sm text-[var(--muted-foreground)]">
-                      {summary ? formatPnL(summary.total_cost_basis) : "—"}
-                    </td>
-                    <td className="px-3 py-1.5 text-right text-sm text-[var(--muted-foreground)]">
-                      {summary?.position_count ?? "—"}
-                    </td>
-                    <td className="px-3 py-1.5 text-right">
-                      <Link
-                        href={`/${fundSlug}/portfolio/${p.id}`}
-                        className="text-xs text-[var(--primary)] hover:underline"
-                      >
-                        Open &rarr;
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
+                  <th className="px-3 py-1.5 text-left text-xs font-medium text-[var(--muted-foreground)]">
+                    Portfolio
+                  </th>
+                  <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">
+                    NAV
+                  </th>
+                  <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">
+                    Unrealized P&L
+                  </th>
+                  <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">
+                    Realized P&L
+                  </th>
+                  <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">
+                    Cost Basis
+                  </th>
+                  <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">
+                    Positions
+                  </th>
+                  <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]" />
+                </tr>
+              </thead>
+              <tbody>
+                {portfolios.map((p) => {
+                  const summary = summaries.find((s) => s.portfolio_id === p.id);
+                  return (
+                    <tr
+                      key={p.id}
+                      className="border-b border-[var(--table-border)] last:border-0 transition-colors hover:bg-[var(--table-row-hover)]"
+                    >
+                      <td className="px-3 py-1.5">
+                        <Link
+                          href={`/${fundSlug}/portfolio/${p.id}`}
+                          className="font-medium text-[var(--foreground-bright)] hover:text-[var(--primary)]"
+                        >
+                          {p.name}
+                        </Link>
+                        {p.strategy && (
+                          <span className="ml-2 text-[10px] text-[var(--muted-foreground)]">
+                            {p.strategy}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-1.5 text-right font-mono text-sm">
+                        {summary ? formatPnL(summary.total_market_value) : "—"}
+                      </td>
+                      <td className="px-3 py-1.5 text-right">
+                        {summary ? (
+                          <span
+                            className={`font-mono text-sm ${pnlColorClass(summary.total_unrealized_pnl)}`}
+                          >
+                            {formatPnL(summary.total_unrealized_pnl)}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="px-3 py-1.5 text-right">
+                        {summary ? (
+                          <span
+                            className={`font-mono text-sm ${pnlColorClass(summary.total_realized_pnl)}`}
+                          >
+                            {formatPnL(summary.total_realized_pnl)}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="px-3 py-1.5 text-right font-mono text-sm text-[var(--muted-foreground)]">
+                        {summary ? formatPnL(summary.total_cost_basis) : "—"}
+                      </td>
+                      <td className="px-3 py-1.5 text-right text-sm text-[var(--muted-foreground)]">
+                        {summary?.position_count ?? "—"}
+                      </td>
+                      <td className="px-3 py-1.5 text-right">
+                        <Link
+                          href={`/${fundSlug}/portfolio/${p.id}`}
+                          className="text-xs text-[var(--primary)] hover:underline"
+                        >
+                          Open &rarr;
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </SectionPanel>
       )}
@@ -634,7 +681,9 @@ function PeriodSelect({ value, onChange }: { value: Period; onChange: (p: Period
 function CountBadge({ count, label, color }: { count: number; label: string; color: string }) {
   return (
     <div className="text-center">
-      <p className="font-mono text-lg font-bold" style={{ color }}>{count}</p>
+      <p className="font-mono text-lg font-bold" style={{ color }}>
+        {count}
+      </p>
       <p className="text-[9px] uppercase tracking-wider text-[var(--muted-foreground)]">{label}</p>
     </div>
   );

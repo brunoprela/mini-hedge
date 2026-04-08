@@ -4,16 +4,16 @@
  * Only add UI-only types here (not returned by the API).
  */
 export type {
+  FXAttributionResult,
+  FXForwardClose,
   FXForwardContract,
   FXForwardCreate,
-  FXForwardClose,
-  FXForwardRoll,
   FXForwardDirection,
+  FXForwardRoll,
   FXForwardStatus,
   FXHedgingSummary,
   FXInterestRate,
   HedgeRecommendationResponse,
-  FXAttributionResult,
 } from "@mini-hedge/api-types";
 
 /** UI-only: hedge recommendation row from the recommendations endpoint. */

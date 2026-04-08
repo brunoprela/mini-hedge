@@ -13,7 +13,9 @@ export function RealtimeToasts() {
 
     switch (event.event_type) {
       case "compliance.violation":
-        toast.error(d.rule_name ? `Compliance violation detected: ${d.rule_name}` : "New violation");
+        toast.error(
+          d.rule_name ? `Compliance violation detected: ${d.rule_name}` : "New violation",
+        );
         break;
       case "trade.rejected":
         toast.error(d.reason ? `Trade rejected: ${d.reason}` : "Trade was rejected");

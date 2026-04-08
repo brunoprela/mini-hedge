@@ -1,6 +1,6 @@
 import { HydrationBoundary } from "@tanstack/react-query";
-import { PortfolioDetailClient } from "./portfolio-detail-client";
 import { prefetch } from "@/shared/lib/prefetch";
+import { PortfolioDetailClient } from "./portfolio-detail-client";
 
 export default async function PortfolioDetailPage({
   params,

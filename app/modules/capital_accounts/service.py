@@ -190,16 +190,15 @@ class CapitalAccountService:
     ) -> tuple[Decimal, Decimal, Decimal]:
         """Get (total_aum, total_shares, nav_per_share) for a share class."""
         accounts = await self._accounts.get_latest_by_share_class(
-            share_class, session=session,
+            share_class,
+            session=session,
         )
         total_aum = sum((a.ending_capital for a in accounts), ZERO)
         total_shares = sum((a.shares_held for a in accounts), ZERO)
         nav = total_aum / total_shares if total_shares > ZERO else ZERO
         return total_aum, total_shares, nav
 
-    async def list_share_classes(
-        self, *, session: AsyncSession | None = None
-    ) -> list[str]:
+    async def list_share_classes(self, *, session: AsyncSession | None = None) -> list[str]:
         """Get distinct share classes with active capital accounts."""
         accounts = await self._accounts.get_latest_by_fund(session=session)
         return sorted({a.share_class for a in accounts})
@@ -257,18 +256,14 @@ class CapitalAccountService:
             classes: dict[str, list[tuple[str, Decimal, Decimal]]] = {}
             for a in current:
                 cls = a.share_class
-                classes.setdefault(cls, []).append(
-                    (a.id, post_pnl_cap[a.id], a.ownership_pct)
-                )
+                classes.setdefault(cls, []).append((a.id, post_pnl_cap[a.id], a.ownership_pct))
 
             for cls, cls_accounts in classes.items():
                 cls_mgmt, cls_perf = class_fees.get(cls, (ZERO, ZERO))
                 # Recompute intra-class ownership for fee allocation
                 cls_total = sum(cap for _, cap, _ in cls_accounts)
                 if cls_total > ZERO:
-                    cls_inputs = [
-                        (aid, cap, cap / cls_total) for aid, cap, _ in cls_accounts
-                    ]
+                    cls_inputs = [(aid, cap, cap / cls_total) for aid, cap, _ in cls_accounts]
                 else:
                     cls_inputs = cls_accounts
                 cls_mgmt_results = allocate_fees(cls_inputs, cls_mgmt)
@@ -279,29 +274,20 @@ class CapitalAccountService:
                     )
                 ]
                 cls_perf_results = allocate_fees(post_mgmt, cls_perf)
-                for (aid, m, _), (_, p, fc) in zip(
-                    cls_mgmt_results, cls_perf_results, strict=True
-                ):
+                for (aid, m, _), (_, p, fc) in zip(cls_mgmt_results, cls_perf_results, strict=True):
                     mgmt_map[aid] = m
                     perf_map[aid] = p
                     final_cap[aid] = fc
         else:
             # Legacy fund-level allocation
-            post_pnl = [
-                (aid, post_pnl_cap[aid], pct)
-                for aid, _, pct in inputs
-            ]
+            post_pnl = [(aid, post_pnl_cap[aid], pct) for aid, _, pct in inputs]
             mgmt_results = allocate_fees(post_pnl, management_fee)
             post_mgmt = [
                 (aid, new_cap, pct)
-                for (aid, _, pct), (_, _, new_cap) in zip(
-                    post_pnl, mgmt_results, strict=True
-                )
+                for (aid, _, pct), (_, _, new_cap) in zip(post_pnl, mgmt_results, strict=True)
             ]
             perf_results = allocate_fees(post_mgmt, performance_fee)
-            for (aid, m, _), (_, p, fc) in zip(
-                mgmt_results, perf_results, strict=True
-            ):
+            for (aid, m, _), (_, p, fc) in zip(mgmt_results, perf_results, strict=True):
                 mgmt_map[aid] = m
                 perf_map[aid] = p
                 final_cap[aid] = fc
@@ -420,7 +406,9 @@ class CapitalAccountService:
         shares = compute_subscription_shares(amount, nav_per_share)
 
         existing = await self._accounts.get_latest_for_investor(
-            investor_id, share_class=share_class, session=session,
+            investor_id,
+            share_class=share_class,
+            session=session,
         )
 
         if existing:
@@ -519,7 +507,9 @@ class CapitalAccountService:
         corresponding cash debit is recorded automatically.
         """
         existing = await self._accounts.get_latest_for_investor(
-            investor_id, share_class=share_class, session=session,
+            investor_id,
+            share_class=share_class,
+            session=session,
         )
         if existing is None:
             msg = f"No capital account found for investor {investor_id}"

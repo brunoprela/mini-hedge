@@ -12,7 +12,9 @@ if TYPE_CHECKING:
 
 def get_fund_structures_service(request: Request) -> FundStructuresService:
     service: FundStructuresService | None = getattr(
-        request.app.state, "fund_structures_service", None,
+        request.app.state,
+        "fund_structures_service",
+        None,
     )
     if service is None:
         raise HTTPException(

@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
-import { formatPnL, pnlColorClass } from "@/shared/lib/formatters";
+import { formatPnL } from "@/shared/lib/formatters";
 import { portfolioSummaryQueryOptions } from "../api";
 
 /** Returns summary items for use in SectionPanel summary prop. */
@@ -22,8 +22,16 @@ export function usePortfolioSummary(portfolioId: string) {
   return [
     { label: "Market Value", value: formatPnL(summary.total_market_value) },
     { label: "Cost Basis", value: formatPnL(summary.total_cost_basis) },
-    { label: "Realized P&L", value: formatPnL(summary.total_realized_pnl), color: pnlColor(summary.total_realized_pnl) },
-    { label: "Unrealized P&L", value: formatPnL(summary.total_unrealized_pnl), color: pnlColor(summary.total_unrealized_pnl) },
+    {
+      label: "Realized P&L",
+      value: formatPnL(summary.total_realized_pnl),
+      color: pnlColor(summary.total_realized_pnl),
+    },
+    {
+      label: "Unrealized P&L",
+      value: formatPnL(summary.total_unrealized_pnl),
+      color: pnlColor(summary.total_unrealized_pnl),
+    },
   ];
 }
 

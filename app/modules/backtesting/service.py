@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 
     from app.modules.backtesting.repository import BacktestRepository
     from app.shared.database import TenantSessionFactory
+    from app.shared.events import EventBus
 
 logger = structlog.get_logger()
 
@@ -42,10 +43,12 @@ class BacktestingService:
         repo: BacktestRepository,
         engine: BacktestEngine,
         session_factory: TenantSessionFactory,
+        event_bus: EventBus | None = None,
     ) -> None:
         self._repo = repo
         self._engine = engine
         self._session_factory = session_factory
+        self._event_bus = event_bus
 
     async def submit_backtest(
         self,
@@ -70,9 +73,28 @@ class BacktestingService:
         await self._repo.create(record, session=session)
         backtest_id = record.id
 
+        if self._event_bus:
+            from app.shared.audit_events import AuditEventType
+            from app.shared.events import BaseEvent
+            from app.shared.schema_registry import shared_topic
+
+            await self._event_bus.publish(
+                shared_topic("audit"),
+                BaseEvent(
+                    event_type=AuditEventType.BACKTEST_SUBMITTED,
+                    data={
+                        "backtest_id": backtest_id,
+                        "strategy_name": config.strategy_name,
+                        "signal_name": signal_name,
+                    },
+                ),
+            )
+
         # Update to running
         await self._repo.update_status(
-            backtest_id, BacktestStatus.RUNNING, session=session,
+            backtest_id,
+            BacktestStatus.RUNNING,
+            session=session,
         )
 
         try:
@@ -100,13 +122,9 @@ class BacktestingService:
                 "profit_factor": str(result.profit_factor),
                 "total_trades": result.total_trades,
                 "avg_holding_period_days": str(result.avg_holding_period_days),
-                "monthly_returns": [
-                    mr.model_dump(mode="json") for mr in result.monthly_returns
-                ],
+                "monthly_returns": [mr.model_dump(mode="json") for mr in result.monthly_returns],
             }
-            equity_curve_dicts = [
-                pt.model_dump(mode="json") for pt in result.equity_curve
-            ]
+            equity_curve_dicts = [pt.model_dump(mode="json") for pt in result.equity_curve]
             trade_dicts = [t.model_dump(mode="json") for t in result.trades]
 
             await self._repo.update_status(
@@ -118,6 +136,25 @@ class BacktestingService:
                 completed_at=now,
                 session=session,
             )
+
+            if self._event_bus:
+                from app.shared.audit_events import AuditEventType
+                from app.shared.events import BaseEvent
+                from app.shared.schema_registry import shared_topic
+
+                await self._event_bus.publish(
+                    shared_topic("audit"),
+                    BaseEvent(
+                        event_type=AuditEventType.BACKTEST_COMPLETED,
+                        data={
+                            "backtest_id": backtest_id,
+                            "strategy_name": config.strategy_name,
+                            "total_return": str(result.total_return),
+                            "sharpe_ratio": str(result.sharpe_ratio),
+                            "max_drawdown": str(result.max_drawdown),
+                        },
+                    ),
+                )
 
             return BacktestSummary(
                 id=backtest_id,
@@ -137,6 +174,22 @@ class BacktestingService:
                 error_message="Internal engine error",
                 session=session,
             )
+            if self._event_bus:
+                from app.shared.audit_events import AuditEventType
+                from app.shared.events import BaseEvent
+                from app.shared.schema_registry import shared_topic
+
+                await self._event_bus.publish(
+                    shared_topic("audit"),
+                    BaseEvent(
+                        event_type=AuditEventType.BACKTEST_FAILED,
+                        data={
+                            "backtest_id": backtest_id,
+                            "strategy_name": config.strategy_name,
+                            "error": "Internal engine error",
+                        },
+                    ),
+                )
             raise
 
     async def get_backtest(
@@ -160,7 +213,9 @@ class BacktestingService:
     ) -> list[BacktestSummary]:
         """List backtest runs, optionally filtered by status."""
         records = await self._repo.list_all(
-            status=status, limit=limit, session=session,
+            status=status,
+            limit=limit,
+            session=session,
         )
         return [self._record_to_summary(r) for r in records]
 
@@ -221,16 +276,10 @@ class BacktestingService:
         results = record.results or {}
         config = BacktestConfig.model_validate(record.config)
 
-        equity_curve = [
-            EquityCurvePoint.model_validate(pt)
-            for pt in (record.equity_curve or [])
-        ]
-        trades = [
-            BacktestTrade.model_validate(t) for t in (record.trades or [])
-        ]
+        equity_curve = [EquityCurvePoint.model_validate(pt) for pt in (record.equity_curve or [])]
+        trades = [BacktestTrade.model_validate(t) for t in (record.trades or [])]
         monthly_returns = [
-            MonthlyReturn.model_validate(mr)
-            for mr in results.get("monthly_returns", [])
+            MonthlyReturn.model_validate(mr) for mr in results.get("monthly_returns", [])
         ]
 
         return BacktestResult(

@@ -40,9 +40,7 @@ class FMPAltDataProvider:
     # Public API
     # ------------------------------------------------------------------
 
-    async def fetch_data(
-        self, instrument_id: str, start: date, end: date
-    ) -> list[AltDataRecord]:
+    async def fetch_data(self, instrument_id: str, start: date, end: date) -> list[AltDataRecord]:
         """Fetch analyst estimates for an instrument within the date range."""
         import httpx
 
@@ -67,18 +65,14 @@ class FMPAltDataProvider:
                 for item in resp.json():
                     item_date_str = item.get("date", "")
                     try:
-                        item_date = datetime.strptime(
-                            item_date_str, "%Y-%m-%d"
-                        ).replace(tzinfo=UTC)
+                        item_date = datetime.strptime(item_date_str, "%Y-%m-%d").replace(tzinfo=UTC)
                     except ValueError:
                         continue
 
                     if item_date.date() < start or item_date.date() > end:
                         continue
 
-                    consensus = item.get(
-                        "estimatedEpsAvg", item.get("estimatedRevenueAvg", 0)
-                    )
+                    consensus = item.get("estimatedEpsAvg", item.get("estimatedRevenueAvg", 0))
                     records.append(
                         AltDataRecord(
                             instrument_id=instrument_id,
@@ -89,9 +83,7 @@ class FMPAltDataProvider:
                                 "type": "analyst_estimate",
                                 "eps_high": str(item.get("estimatedEpsHigh", "")),
                                 "eps_low": str(item.get("estimatedEpsLow", "")),
-                                "revenue_avg": str(
-                                    item.get("estimatedRevenueAvg", "")
-                                ),
+                                "revenue_avg": str(item.get("estimatedRevenueAvg", "")),
                                 "number_analysts": str(
                                     item.get("numberAnalystEstimatedRevenue", "")
                                 ),
@@ -103,9 +95,7 @@ class FMPAltDataProvider:
 
         return records
 
-    async def get_sentiment(
-        self, instrument_id: str, as_of: date
-    ) -> SentimentRecord | None:
+    async def get_sentiment(self, instrument_id: str, as_of: date) -> SentimentRecord | None:
         """Fetch social sentiment from FMP for the given instrument."""
         import httpx
 
@@ -138,9 +128,7 @@ class FMPAltDataProvider:
                 for item in data:
                     item_date_str = item.get("date", "")
                     try:
-                        item_dt = datetime.strptime(
-                            item_date_str[:10], "%Y-%m-%d"
-                        ).date()
+                        item_dt = datetime.strptime(item_date_str[:10], "%Y-%m-%d").date()
                     except ValueError:
                         continue
                     if item_dt > as_of:
@@ -154,17 +142,11 @@ class FMPAltDataProvider:
 
                 ts_str = best.get("date", "")
                 try:
-                    ts = datetime.strptime(ts_str[:19], "%Y-%m-%d %H:%M:%S").replace(
-                        tzinfo=UTC
-                    )
+                    ts = datetime.strptime(ts_str[:19], "%Y-%m-%d %H:%M:%S").replace(tzinfo=UTC)
                 except ValueError:
-                    ts = datetime(
-                        best_date.year, best_date.month, best_date.day, tzinfo=UTC
-                    )
+                    ts = datetime(best_date.year, best_date.month, best_date.day, tzinfo=UTC)
 
-                positive = int(best.get("stocktwitsPosts", 0)) + int(
-                    best.get("twitterPosts", 0)
-                )
+                positive = int(best.get("stocktwitsPosts", 0)) + int(best.get("twitterPosts", 0))
                 negative = int(best.get("stocktwitsComments", 0)) + int(
                     best.get("twitterComments", 0)
                 )

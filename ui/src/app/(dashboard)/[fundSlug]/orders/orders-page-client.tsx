@@ -3,17 +3,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
+import { ordersQueryOptions } from "@/features/orders/api";
 import { BlockAllocationDialog } from "@/features/orders/components/block-allocation-dialog";
 import { OrderBlotter } from "@/features/orders/components/order-blotter";
 import { OrderDetailPanel } from "@/features/orders/components/order-detail-panel";
-import { ordersQueryOptions } from "@/features/orders/api";
-import type { OrderSummary } from "@/features/orders/types";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
+import { PortfolioSelector } from "@/shared/components/portfolio-selector";
+import { useTradeTicket } from "@/shared/components/trade-ticket-provider";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { usePermission } from "@/shared/hooks/use-permission";
 import { Permission } from "@/shared/lib/permissions";
-import { PortfolioSelector } from "@/shared/components/portfolio-selector";
-import { useTradeTicket } from "@/shared/components/trade-ticket-provider";
 
 export function OrdersPageClient() {
   const { fundSlug } = useFundContext();
@@ -35,7 +34,15 @@ export function OrdersPageClient() {
   const summary = useMemo(() => {
     if (!orders) return null;
     const working = orders.filter((o) =>
-      ["pending", "pending_compliance", "approved", "sent", "working", "partially_filled", "draft"].includes(o.state),
+      [
+        "pending",
+        "pending_compliance",
+        "approved",
+        "sent",
+        "working",
+        "partially_filled",
+        "draft",
+      ].includes(o.state),
     );
     const filled = orders.filter((o) => o.state === "filled");
     const rejected = orders.filter((o) => o.state === "rejected");
@@ -103,7 +110,11 @@ export function OrdersPageClient() {
           <Divider />
           <SummaryItem label="Filled" value={String(summary.filled)} color="var(--success)" />
           <Divider />
-          <SummaryItem label="Rejected" value={String(summary.rejected)} color="var(--destructive)" />
+          <SummaryItem
+            label="Rejected"
+            value={String(summary.rejected)}
+            color="var(--destructive)"
+          />
           <Divider />
           <SummaryItem label="Fill Rate" value={`${summary.fillRate}%`} />
           <Divider />
@@ -155,7 +166,9 @@ export function OrdersPageClient() {
 function SummaryItem({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div className="text-center">
-      <p className="font-mono text-sm font-bold" style={color ? { color } : undefined}>{value}</p>
+      <p className="font-mono text-sm font-bold" style={color ? { color } : undefined}>
+        {value}
+      </p>
       <p className="text-[9px] uppercase tracking-wider text-[var(--muted-foreground)]">{label}</p>
     </div>
   );

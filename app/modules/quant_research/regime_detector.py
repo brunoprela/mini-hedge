@@ -48,9 +48,7 @@ class RegimeDetector:
             for i in range(1, len(price_values))
         ]
 
-        volatility = self._compute_rolling_volatility(
-            returns, self._config.vol_window
-        )
+        volatility = self._compute_rolling_volatility(returns, self._config.vol_window)
         trend = self._compute_trend(price_values, self._config.trend_window)
         drawdown = self._compute_drawdown(price_values)
 
@@ -63,18 +61,18 @@ class RegimeDetector:
                 value=volatility,
                 threshold_low=self._config.vol_threshold_low,
                 threshold_high=self._config.vol_threshold_high,
-                signal="bearish" if volatility > self._config.vol_threshold_high else (
-                    "bullish" if volatility < self._config.vol_threshold_low else "neutral"
-                ),
+                signal="bearish"
+                if volatility > self._config.vol_threshold_high
+                else ("bullish" if volatility < self._config.vol_threshold_low else "neutral"),
             ),
             RegimeIndicator(
                 name="trend",
                 value=trend,
                 threshold_low=Decimal("-0.05"),
                 threshold_high=Decimal("0.05"),
-                signal="bullish" if trend > Decimal("0.05") else (
-                    "bearish" if trend < Decimal("-0.05") else "neutral"
-                ),
+                signal="bullish"
+                if trend > Decimal("0.05")
+                else ("bearish" if trend < Decimal("-0.05") else "neutral"),
             ),
             RegimeIndicator(
                 name="drawdown",
@@ -139,9 +137,7 @@ class RegimeDetector:
         # NORMAL: everything else
         return RegimeType.NORMAL, Decimal("0.5")
 
-    def _compute_rolling_volatility(
-        self, returns: list[Decimal], window: int
-    ) -> Decimal:
+    def _compute_rolling_volatility(self, returns: list[Decimal], window: int) -> Decimal:
         """Annualized rolling volatility over the given window."""
         if len(returns) < window:
             return ZERO
@@ -246,8 +242,5 @@ class RegimeDetector:
         matrix: dict[str, dict[str, float]] = {}
         for from_r, targets in transitions.items():
             total = sum(targets.values())
-            matrix[from_r] = {
-                to_r: round(count / total, 4)
-                for to_r, count in targets.items()
-            }
+            matrix[from_r] = {to_r: round(count / total, 4) for to_r, count in targets.items()}
         return matrix

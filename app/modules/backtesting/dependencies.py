@@ -12,7 +12,9 @@ if TYPE_CHECKING:
 
 def get_backtesting_service(request: Request) -> BacktestingService:
     service: BacktestingService | None = getattr(
-        request.app.state, "backtesting_service", None,
+        request.app.state,
+        "backtesting_service",
+        None,
     )
     if service is None:
         raise HTTPException(

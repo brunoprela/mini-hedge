@@ -34,9 +34,7 @@ class FactorRepository(BaseRepository):
     ) -> FactorDefinitionRecord | None:
         async with self._session(session) as s:
             result = await s.execute(
-                select(FactorDefinitionRecord).where(
-                    FactorDefinitionRecord.id == factor_id
-                )
+                select(FactorDefinitionRecord).where(FactorDefinitionRecord.id == factor_id)
             )
             return result.scalar_one_or_none()
 
@@ -45,9 +43,7 @@ class FactorRepository(BaseRepository):
     ) -> FactorDefinitionRecord | None:
         async with self._session(session) as s:
             result = await s.execute(
-                select(FactorDefinitionRecord).where(
-                    FactorDefinitionRecord.name == name
-                )
+                select(FactorDefinitionRecord).where(FactorDefinitionRecord.name == name)
             )
             return result.scalar_one_or_none()
 
@@ -105,9 +101,7 @@ class FactorRepository(BaseRepository):
         session: AsyncSession | None = None,
     ) -> list[FactorReturnRecord]:
         async with self._session(session) as s:
-            stmt = select(FactorReturnRecord).where(
-                FactorReturnRecord.factor_id == factor_id
-            )
+            stmt = select(FactorReturnRecord).where(FactorReturnRecord.factor_id == factor_id)
             if start_date is not None:
                 stmt = stmt.where(FactorReturnRecord.return_date >= start_date)
             if end_date is not None:

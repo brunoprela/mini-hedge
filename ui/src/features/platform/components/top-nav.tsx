@@ -1,17 +1,9 @@
 "use client";
 
-import {
-  Briefcase,
-  ChevronDown,
-  LogOut,
-  Moon,
-  Search,
-  Sun,
-} from "lucide-react";
+import { Briefcase, ChevronDown, LogOut, Moon, Search, Sun } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 import { CommandPalette, useCommandPalette } from "@/shared/components/command-palette";
 import { ConnectionStatus } from "@/shared/components/connection-status";
@@ -97,7 +89,10 @@ export function TopNav() {
 
   return (
     <>
-      <header className="flex h-12 items-center border-b border-[var(--border)] bg-[var(--sidebar)]" style={{ backgroundImage: "var(--sidebar-gradient)" }}>
+      <header
+        className="flex h-12 items-center border-b border-[var(--border)] bg-[var(--sidebar)]"
+        style={{ backgroundImage: "var(--sidebar-gradient)" }}
+      >
         {/* Left: Logo + Fund */}
         <div className="flex items-center gap-3 border-r border-[var(--border)] px-4">
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--primary)]">
@@ -122,9 +117,7 @@ export function TopNav() {
             if (section.href !== undefined && !section.children) {
               const fullHref = `/${fundSlug}${section.href}`;
               const active =
-                section.href === ""
-                  ? pathname === `/${fundSlug}`
-                  : pathname.startsWith(fullHref);
+                section.href === "" ? pathname === `/${fundSlug}` : pathname.startsWith(fullHref);
 
               return (
                 <Link
@@ -147,7 +140,7 @@ export function TopNav() {
               <NavDropdown
                 key={section.label}
                 label={section.label}
-                items={visibleChildren!}
+                items={visibleChildren ?? []}
                 fundSlug={fundSlug}
                 pathname={pathname}
               />

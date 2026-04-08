@@ -100,6 +100,9 @@ _FUND_SCOPED_MODULES = [
     "capital_accounts",
     "corporate_actions",
     "fx_hedging",
+    "fund_structures",
+    "regulatory",
+    "investor_operations",
 ]
 
 

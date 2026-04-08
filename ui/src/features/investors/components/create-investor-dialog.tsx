@@ -65,7 +65,10 @@ export function CreateInvestorDialog({ onClose }: Props) {
 
         {/* Name */}
         <div className="mb-4">
-          <label htmlFor="ci-name" className="block text-xs font-medium text-[var(--muted-foreground)] mb-1">
+          <label
+            htmlFor="ci-name"
+            className="block text-xs font-medium text-[var(--muted-foreground)] mb-1"
+          >
             Name
           </label>
           <input
@@ -80,7 +83,10 @@ export function CreateInvestorDialog({ onClose }: Props) {
 
         {/* Entity Type */}
         <div className="mb-4">
-          <label htmlFor="ci-entity-type" className="block text-xs font-medium text-[var(--muted-foreground)] mb-1">
+          <label
+            htmlFor="ci-entity-type"
+            className="block text-xs font-medium text-[var(--muted-foreground)] mb-1"
+          >
             Entity Type
           </label>
           <select
@@ -99,7 +105,10 @@ export function CreateInvestorDialog({ onClose }: Props) {
 
         {/* Email */}
         <div className="mb-4">
-          <label htmlFor="ci-email" className="block text-xs font-medium text-[var(--muted-foreground)] mb-1">
+          <label
+            htmlFor="ci-email"
+            className="block text-xs font-medium text-[var(--muted-foreground)] mb-1"
+          >
             Email
           </label>
           <input
@@ -114,7 +123,10 @@ export function CreateInvestorDialog({ onClose }: Props) {
 
         {/* Tax ID */}
         <div className="mb-4">
-          <label htmlFor="ci-tax-id" className="block text-xs font-medium text-[var(--muted-foreground)] mb-1">
+          <label
+            htmlFor="ci-tax-id"
+            className="block text-xs font-medium text-[var(--muted-foreground)] mb-1"
+          >
             Tax ID
           </label>
           <input

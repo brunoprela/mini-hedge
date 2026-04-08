@@ -54,12 +54,14 @@ export function EODRunStatus({ businessDate }: { businessDate: string }) {
         </span>
         {result.started_at && (
           <span className="text-xs text-[var(--muted-foreground)]">
-            Started {new Date(result.started_at).toLocaleTimeString(undefined, { timeZoneName: "short" })}
+            Started{" "}
+            {new Date(result.started_at).toLocaleTimeString(undefined, { timeZoneName: "short" })}
           </span>
         )}
         {result.completed_at && (
           <span className="text-xs text-[var(--muted-foreground)]">
-            &middot; Finished {new Date(result.completed_at).toLocaleTimeString(undefined, { timeZoneName: "short" })}
+            &middot; Finished{" "}
+            {new Date(result.completed_at).toLocaleTimeString(undefined, { timeZoneName: "short" })}
           </span>
         )}
       </div>

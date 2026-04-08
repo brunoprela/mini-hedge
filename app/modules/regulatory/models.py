@@ -24,20 +24,27 @@ class RegulatoryFilingRecord(Base):
     )
 
     id: Mapped[str] = mapped_column(
-        PG_UUID(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()"),
+        PG_UUID(as_uuid=False),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
     )
     filing_type: Mapped[str] = mapped_column(String(32), nullable=False)  # form_pf, 13f
     reporting_period: Mapped[datetime] = mapped_column(Date, nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
     data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     generated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(),
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
     )
     submitted_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True,
+        DateTime(timezone=True),
+        nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(),
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
     )
 
 
@@ -52,7 +59,9 @@ class InvestorStatementRecord(Base):
     )
 
     id: Mapped[str] = mapped_column(
-        PG_UUID(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()"),
+        PG_UUID(as_uuid=False),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
     )
     investor_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)
     period_start: Mapped[datetime] = mapped_column(Date, nullable=False)
@@ -60,7 +69,9 @@ class InvestorStatementRecord(Base):
     statement_type: Mapped[str] = mapped_column(String(32), nullable=False)  # quarterly, annual
     data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     generated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(),
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
     )
 
 
@@ -74,10 +85,14 @@ class PerformanceLetterRecord(Base):
     )
 
     id: Mapped[str] = mapped_column(
-        PG_UUID(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()"),
+        PG_UUID(as_uuid=False),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
     )
     period: Mapped[datetime] = mapped_column(Date, nullable=False)
     data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     generated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(),
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
     )

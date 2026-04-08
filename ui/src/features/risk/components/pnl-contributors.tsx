@@ -21,7 +21,10 @@ export function PnLContributors({ portfolioId }: { portfolioId: string }) {
 
     return {
       top: sorted.filter((p) => p.value > 0).slice(0, 10),
-      bottom: sorted.filter((p) => p.value < 0).slice(-10).reverse(),
+      bottom: sorted
+        .filter((p) => p.value < 0)
+        .slice(-10)
+        .reverse(),
     };
   }, [positions]);
 
@@ -41,7 +44,10 @@ export function PnLContributors({ portfolioId }: { portfolioId: string }) {
   return (
     <div className={`grid gap-2 ${panels.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
       {panels.map((panel) => (
-        <div key={panel.label} className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
+        <div
+          key={panel.label}
+          className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3"
+        >
           <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
             {panel.label}
           </p>

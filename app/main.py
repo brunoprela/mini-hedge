@@ -226,12 +226,17 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     await setup_fx_hedging(fastapi_app, session_factory, kafka_bus)
     await setup_investor_operations(fastapi_app, session_factory, kafka_bus, settings)
     await setup_regulatory(fastapi_app, session_factory)
-    await setup_fund_structures(fastapi_app, session_factory)
-    await setup_backtesting(fastapi_app, session_factory)
-    await setup_quant_research(fastapi_app, session_factory)
-    await setup_ai_analysis(fastapi_app, session_factory, llm_adapter=llm_adapter)
-    await setup_alt_data(fastapi_app, session_factory, alt_data_provider)
-    await setup_feature_store(fastapi_app, session_factory, settings)
+    await setup_fund_structures(fastapi_app, session_factory, kafka_bus)
+    await setup_backtesting(fastapi_app, session_factory, kafka_bus)
+    await setup_quant_research(fastapi_app, session_factory, kafka_bus)
+    await setup_ai_analysis(
+        fastapi_app,
+        session_factory,
+        llm_adapter=llm_adapter,
+        event_bus=kafka_bus,
+    )
+    await setup_alt_data(fastapi_app, session_factory, alt_data_provider, event_bus=kafka_bus)
+    await setup_feature_store(fastapi_app, session_factory, settings, event_bus=kafka_bus)
     await setup_eod(fastapi_app, session_factory, broker_adapter, fund_admin=fund_admin_adapter)
     logger.info("phase_3_modules_ready")
 

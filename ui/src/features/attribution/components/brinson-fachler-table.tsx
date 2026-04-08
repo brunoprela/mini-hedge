@@ -36,7 +36,7 @@ export function BrinsonFachlerTable({ portfolioId, start, end }: Props) {
     return <div className="text-sm text-[var(--muted-foreground)]">Loading attribution...</div>;
   }
 
-  if (!data || !data.sectors) return null;
+  if (!data?.sectors) return null;
 
   return (
     <div className="space-y-2">
@@ -102,7 +102,12 @@ export function BrinsonFachlerTable({ portfolioId, start, end }: Props) {
                   <td
                     className="px-3 py-2 text-right font-mono font-semibold"
                     style={{
-                      color: totalEffect > 0 ? "var(--success)" : totalEffect < 0 ? "var(--destructive)" : undefined,
+                      color:
+                        totalEffect > 0
+                          ? "var(--success)"
+                          : totalEffect < 0
+                            ? "var(--destructive)"
+                            : undefined,
                     }}
                   >
                     {pct(s.total_effect)}

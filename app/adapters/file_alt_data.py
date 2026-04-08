@@ -40,15 +40,11 @@ class FileAltDataProvider:
     # Public API
     # ------------------------------------------------------------------
 
-    async def fetch_data(
-        self, instrument_id: str, start: date, end: date
-    ) -> list[AltDataRecord]:
+    async def fetch_data(self, instrument_id: str, start: date, end: date) -> list[AltDataRecord]:
         """Read data points from parquet/csv files for the given instrument and date range."""
         return await asyncio.to_thread(self._read_data, instrument_id, start, end)
 
-    async def get_sentiment(
-        self, instrument_id: str, as_of: date
-    ) -> SentimentRecord | None:
+    async def get_sentiment(self, instrument_id: str, as_of: date) -> SentimentRecord | None:
         """Read sentiment from sentiment/{instrument_id}.parquet or .csv."""
         return await asyncio.to_thread(self._read_sentiment, instrument_id, as_of)
 
@@ -82,10 +78,7 @@ class FileAltDataProvider:
         try:
             import pyarrow.parquet as pq  # type: ignore[import-untyped]
         except ImportError as exc:
-            msg = (
-                "pyarrow is required to read Parquet files. "
-                "Install it with: pip install pyarrow"
-            )
+            msg = "pyarrow is required to read Parquet files. Install it with: pip install pyarrow"
             raise ImportError(msg) from exc
 
         table = pq.read_table(path)
@@ -107,9 +100,7 @@ class FileAltDataProvider:
         msg = f"Cannot parse timestamp: {raw!r}"
         raise ValueError(msg)
 
-    def _read_data(
-        self, instrument_id: str, start: date, end: date
-    ) -> list[AltDataRecord]:
+    def _read_data(self, instrument_id: str, start: date, end: date) -> list[AltDataRecord]:
         from app.shared.adapters import AltDataRecord
 
         records: list[AltDataRecord] = []
@@ -129,9 +120,7 @@ class FileAltDataProvider:
                     continue
 
                 value_str = row.get("value", "0")
-                metadata = {
-                    k: v for k, v in row.items() if k not in ("timestamp", "value")
-                }
+                metadata = {k: v for k, v in row.items() if k not in ("timestamp", "value")}
 
                 records.append(
                     AltDataRecord(
@@ -145,9 +134,7 @@ class FileAltDataProvider:
 
         return records
 
-    def _read_sentiment(
-        self, instrument_id: str, as_of: date
-    ) -> SentimentRecord | None:
+    def _read_sentiment(self, instrument_id: str, as_of: date) -> SentimentRecord | None:
         from app.shared.adapters import SentimentRecord
 
         file = self._find_file("sentiment", instrument_id)

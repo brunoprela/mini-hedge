@@ -97,7 +97,17 @@ logger = structlog.get_logger()
 # Bounded contexts whose Alembic migrations run on startup.
 # Positions are NOT here — each fund gets its own schema, created
 # by ensure_all_fund_schemas() after platform seeding discovers active funds.
-MIGRATION_CONTEXTS = ["platform", "security_master", "market_data", "eod"]
+MIGRATION_CONTEXTS = [
+    "platform",
+    "security_master",
+    "market_data",
+    "eod",
+    "backtesting",
+    "quant_research",
+    "ai_analysis",
+    "alt_data",
+    "feature_store",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -866,7 +876,6 @@ async def setup_investor_operations(
 
     # Seed fund terms in local environment
     if _is_local_env():
-
         fund_repo: FundRepository = fastapi_app.state.fund_repo
         active_funds = await fund_repo.get_all_active()
         for fund in active_funds:
@@ -998,6 +1007,7 @@ async def setup_regulatory(
 async def setup_fund_structures(
     fastapi_app: FastAPI,
     session_factory: TenantSessionFactory,
+    event_bus: EventBus | None = None,
 ) -> None:
     """Wire fund structures module (master-feeder, strategy books, fund of funds)."""
     from app.modules.fund_structures.repository import (
@@ -1016,6 +1026,7 @@ async def setup_fund_structures(
         strategy_book_repo=book_repo,
         fof_repo=fof_repo,
         session_factory=session_factory,
+        event_bus=event_bus,
     )
     fastapi_app.state.fund_structures_service = svc
     logger.info("fund_structures_module_ready")
@@ -1024,6 +1035,7 @@ async def setup_fund_structures(
 async def setup_backtesting(
     fastapi_app: FastAPI,
     session_factory: TenantSessionFactory,
+    event_bus: EventBus | None = None,
 ) -> None:
     """Wire backtesting engine module."""
     from app.modules.backtesting.engine import BacktestEngine
@@ -1037,6 +1049,7 @@ async def setup_backtesting(
         repo=repo,
         engine=engine,
         session_factory=session_factory,
+        event_bus=event_bus,
     )
     fastapi_app.state.backtesting_service = svc
     logger.info("backtesting_module_ready")
@@ -1045,6 +1058,7 @@ async def setup_backtesting(
 async def setup_quant_research(
     fastapi_app: FastAPI,
     session_factory: TenantSessionFactory,
+    event_bus: EventBus | None = None,
 ) -> None:
     """Wire quant research module (factor research + regime detection)."""
     from app.modules.quant_research.factor_engine import (
@@ -1076,6 +1090,7 @@ async def setup_quant_research(
         factor_engine_fns=factor_fns,
         regime_detector=regime_detector,
         session_factory=session_factory,
+        event_bus=event_bus,
     )
     fastapi_app.state.quant_research_service = svc
     logger.info("quant_research_module_ready")
@@ -1086,6 +1101,7 @@ async def setup_ai_analysis(
     session_factory: TenantSessionFactory,
     *,
     llm_adapter: object,
+    event_bus: EventBus | None = None,
 ) -> None:
     """Wire AI analysis module."""
     from app.modules.ai_analysis.repository import AnalysisRepository
@@ -1097,6 +1113,7 @@ async def setup_ai_analysis(
         repo=repo,
         llm_adapter=llm_adapter,
         session_factory=session_factory,
+        event_bus=event_bus,
     )
     fastapi_app.state.ai_analysis_service = svc
     logger.info("ai_analysis_module_ready")
@@ -1106,6 +1123,8 @@ async def setup_alt_data(
     fastapi_app: FastAPI,
     session_factory: TenantSessionFactory,
     alt_data_provider: AltDataProvider | None = None,
+    *,
+    event_bus: EventBus | None = None,
 ) -> None:
     """Wire alternative data module."""
     from app.modules.alt_data.repository import AltDataRepository
@@ -1121,6 +1140,7 @@ async def setup_alt_data(
         repo=repo,
         providers=providers,
         session_factory=session_factory,
+        event_bus=event_bus,
     )
     fastapi_app.state.alt_data_service = svc
     logger.info("alt_data_module_ready")
@@ -1130,6 +1150,8 @@ async def setup_feature_store(
     fastapi_app: FastAPI,
     session_factory: TenantSessionFactory,
     settings: Settings | None = None,
+    *,
+    event_bus: EventBus | None = None,
 ) -> None:
     """Wire feature store module."""
     from app.modules.feature_store.compute_engine import FeatureComputeEngine
@@ -1144,6 +1166,7 @@ async def setup_feature_store(
         repo=repo,
         compute_engine=compute_engine,
         session_factory=session_factory,
+        event_bus=event_bus,
     )
     fastapi_app.state.feature_store_service = svc
     logger.info("feature_store_module_ready")
@@ -1231,9 +1254,7 @@ async def setup_eod(
         fee_service=fee_service,
         capital_service=capital_service,
         attribution_service=attribution_service,
-        investor_ops_service=getattr(
-            fastapi_app.state, "investor_ops_service", None
-        ),
+        investor_ops_service=getattr(fastapi_app.state, "investor_ops_service", None),
     )
     fastapi_app.state.eod_orchestrator = orchestrator
     logger.info("eod_module_ready")

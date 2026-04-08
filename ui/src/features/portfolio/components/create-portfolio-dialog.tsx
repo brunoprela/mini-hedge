@@ -53,7 +53,10 @@ export function CreatePortfolioDialog({ onClose }: Props) {
 
         {/* Name */}
         <div className="mb-4">
-          <label htmlFor="cp-name" className="block text-xs font-medium text-[var(--muted-foreground)] mb-1">
+          <label
+            htmlFor="cp-name"
+            className="block text-xs font-medium text-[var(--muted-foreground)] mb-1"
+          >
             Name
           </label>
           <input
@@ -68,7 +71,10 @@ export function CreatePortfolioDialog({ onClose }: Props) {
 
         {/* Strategy */}
         <div className="mb-4">
-          <label htmlFor="cp-strategy" className="block text-xs font-medium text-[var(--muted-foreground)] mb-1">
+          <label
+            htmlFor="cp-strategy"
+            className="block text-xs font-medium text-[var(--muted-foreground)] mb-1"
+          >
             Strategy
           </label>
           <input
@@ -83,7 +89,10 @@ export function CreatePortfolioDialog({ onClose }: Props) {
 
         {/* Base Currency */}
         <div className="mb-4">
-          <label htmlFor="cp-currency" className="block text-xs font-medium text-[var(--muted-foreground)] mb-1">
+          <label
+            htmlFor="cp-currency"
+            className="block text-xs font-medium text-[var(--muted-foreground)] mb-1"
+          >
             Base Currency
           </label>
           <select

@@ -119,15 +119,11 @@ class TestSubscriptionStateMachine:
 
     def test_invalid_transition_raises(self) -> None:
         with pytest.raises(InvalidTransitionError):
-            apply_subscription_transition(
-                SubscriptionState.DRAFT, SubscriptionState.EXECUTED
-            )
+            apply_subscription_transition(SubscriptionState.DRAFT, SubscriptionState.EXECUTED)
 
     def test_cannot_transition_from_terminal(self) -> None:
         with pytest.raises(InvalidTransitionError):
-            apply_subscription_transition(
-                SubscriptionState.EXECUTED, SubscriptionState.DRAFT
-            )
+            apply_subscription_transition(SubscriptionState.EXECUTED, SubscriptionState.DRAFT)
 
 
 class TestRedemptionStateMachine:
@@ -174,9 +170,7 @@ class TestRedemptionStateMachine:
         assert result == RedemptionState.PENDING_PAYMENT
 
     def test_payment_sent_to_executed(self) -> None:
-        result = apply_redemption_transition(
-            RedemptionState.PAYMENT_SENT, RedemptionState.EXECUTED
-        )
+        result = apply_redemption_transition(RedemptionState.PAYMENT_SENT, RedemptionState.EXECUTED)
         assert result == RedemptionState.EXECUTED
 
     def test_full_happy_path(self) -> None:
@@ -201,9 +195,7 @@ class TestRedemptionStateMachine:
         apply_redemption_transition(
             RedemptionState.PENDING_GATE_CHECK, RedemptionState.GATE_APPLIED
         )
-        apply_redemption_transition(
-            RedemptionState.GATE_APPLIED, RedemptionState.QUEUED_FOR_NAV
-        )
+        apply_redemption_transition(RedemptionState.GATE_APPLIED, RedemptionState.QUEUED_FOR_NAV)
 
     def test_terminal_states_have_no_transitions(self) -> None:
         for state in [
@@ -231,12 +223,8 @@ class TestRedemptionStateMachine:
     def test_payment_sent_cannot_cancel(self) -> None:
         """Once payment is sent, cannot cancel — only EXECUTED is valid."""
         with pytest.raises(InvalidTransitionError):
-            apply_redemption_transition(
-                RedemptionState.PAYMENT_SENT, RedemptionState.CANCELLED
-            )
+            apply_redemption_transition(RedemptionState.PAYMENT_SENT, RedemptionState.CANCELLED)
 
     def test_invalid_transition_raises(self) -> None:
         with pytest.raises(InvalidTransitionError):
-            apply_redemption_transition(
-                RedemptionState.DRAFT, RedemptionState.EXECUTED
-            )
+            apply_redemption_transition(RedemptionState.DRAFT, RedemptionState.EXECUTED)
