@@ -42,7 +42,7 @@ export function CorporateActionsTable() {
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
+    <div className="overflow-x-auto rounded-md border border-[var(--border)] bg-[var(--card)]">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)] text-left text-[var(--muted-foreground)]">
@@ -101,7 +101,7 @@ function TableRow({
         <td className="px-3 py-2 font-mono text-xs">
           {action.ex_date}
         </td>
-        <td className="px-3 py-2 font-medium">
+        <td className="px-3 py-1 font-medium">
           {action.instrument_id}
         </td>
         <td className="px-3 py-2">

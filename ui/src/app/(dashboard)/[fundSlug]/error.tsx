@@ -14,9 +14,9 @@ export default function DashboardError({
   }, [error]);
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8">
       <div className="rounded-lg border border-[var(--destructive)] bg-[var(--destructive-muted)] p-6 text-center">
-        <h2 className="mb-2 text-lg font-semibold text-[var(--destructive)]">
+        <h2 className="mb-2 text-sm font-semibold text-[var(--destructive)]">
           Something went wrong
         </h2>
         <p className="mb-4 text-sm text-[var(--destructive)]">
@@ -25,7 +25,7 @@ export default function DashboardError({
         <button
           type="button"
           onClick={reset}
-          className="rounded-md bg-[var(--destructive)] px-4 py-2 text-sm font-medium text-white hover:opacity-80"
+          className="rounded-md bg-[var(--destructive)] px-3 py-1.5 text-sm font-medium text-white hover:opacity-80"
         >
           Try again
         </button>

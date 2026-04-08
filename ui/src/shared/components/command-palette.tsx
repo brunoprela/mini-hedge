@@ -168,7 +168,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       <div
         role="dialog"
         aria-label="Command palette"
-        className="relative w-full max-w-lg overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-2xl"
+        className="relative w-full max-w-lg overflow-hidden rounded-md border border-[var(--border)] bg-[var(--card)] shadow-2xl"
       >
         {/* Search input */}
         <div className="flex items-center gap-3 border-b border-[var(--border)] px-4">
@@ -233,7 +233,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center gap-4 border-t border-[var(--border)] px-4 py-2 text-xs text-[var(--muted-foreground)]">
+        <div className="flex items-center gap-3 border-t border-[var(--border)] px-3 py-1.5 text-xs text-[var(--muted-foreground)]">
           <span>
             <kbd className="rounded border border-[var(--border)] bg-[var(--muted)] px-1.5 py-0.5 font-mono text-[10px]">
               &uarr;&darr;

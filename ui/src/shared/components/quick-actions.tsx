@@ -44,7 +44,7 @@ export function QuickActions({ actions }: { actions: QuickAction[] }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 min-w-[160px] rounded-lg border border-[var(--border)] bg-[var(--background-raised)] py-1 shadow-lg">
+        <div className="absolute right-0 top-full z-50 mt-1 min-w-[160px] rounded-md border border-[var(--border)] bg-[var(--background-raised)] py-1 shadow-lg">
           {actions.map((action) => (
             <button
               key={action.label}

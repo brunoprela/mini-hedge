@@ -101,7 +101,7 @@ export function WhatIfForm({ portfolioId }: { portfolioId: string }) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Scenario Name */}
       <div>
         <label
@@ -185,34 +185,34 @@ export function WhatIfForm({ portfolioId }: { portfolioId: string }) {
         type="button"
         onClick={() => mutation.mutate()}
         disabled={!canSubmit}
-        className="rounded-md bg-[var(--foreground)] px-4 py-2 text-sm font-medium text-[var(--background)] transition-colors hover:opacity-90 disabled:opacity-50"
+        className="rounded-md bg-[var(--foreground)] px-3 py-1.5 text-sm font-medium text-[var(--background)] transition-colors hover:opacity-90 disabled:opacity-50"
       >
         {mutation.isPending ? "Running..." : "Run What-If"}
       </button>
 
       {/* Results */}
       {result && (
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Results</h3>
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold">Results</h3>
 
           {/* NAV Summary */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="rounded-lg border border-[var(--border)] p-3">
+            <div className="rounded-md border border-[var(--border)] p-3">
               <p className="text-xs text-[var(--muted-foreground)]">Current NAV</p>
-              <p className="mt-1 font-mono text-lg font-semibold">
+              <p className="mt-0.5 font-mono text-sm font-semibold">
                 {fmtCurrency(result.current_nav)}
               </p>
             </div>
-            <div className="rounded-lg border border-[var(--border)] p-3">
+            <div className="rounded-md border border-[var(--border)] p-3">
               <p className="text-xs text-[var(--muted-foreground)]">Proposed NAV</p>
-              <p className="mt-1 font-mono text-lg font-semibold">
+              <p className="mt-0.5 font-mono text-sm font-semibold">
                 {fmtCurrency(result.proposed_nav)}
               </p>
             </div>
-            <div className="rounded-lg border border-[var(--border)] p-3">
+            <div className="rounded-md border border-[var(--border)] p-3">
               <p className="text-xs text-[var(--muted-foreground)]">NAV Change</p>
               <p
-                className={`mt-1 font-mono text-lg font-semibold ${
+                className={`mt-0.5 font-mono text-sm font-semibold ${
                   parseFloat(result.nav_change) >= 0
                     ? "text-[var(--success)]"
                     : "text-[var(--destructive)]"
@@ -222,9 +222,9 @@ export function WhatIfForm({ portfolioId }: { portfolioId: string }) {
               </p>
             </div>
             {result.proposed_var_95 && (
-              <div className="rounded-lg border border-[var(--border)] p-3">
+              <div className="rounded-md border border-[var(--border)] p-3">
                 <p className="text-xs text-[var(--muted-foreground)]">Proposed VaR 95</p>
-                <p className="mt-1 font-mono text-lg font-semibold">
+                <p className="mt-0.5 font-mono text-sm font-semibold">
                   {fmtCurrency(result.proposed_var_95)}
                 </p>
               </div>

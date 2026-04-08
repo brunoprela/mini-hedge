@@ -79,9 +79,9 @@ export function CustomStressForm({ portfolioId }: { portfolioId: string }) {
   const pnl = result ? parseFloat(result.total_pnl_impact) : 0;
 
   return (
-    <div className="space-y-4">
-      <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
-        <div className="grid gap-3 sm:grid-cols-2">
+    <div className="space-y-2">
+      <form onSubmit={handleSubmit} className="space-y-2 rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
+        <div className="grid gap-2 sm:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm text-[var(--muted-foreground)]">
               Scenario Name
@@ -162,10 +162,10 @@ export function CustomStressForm({ portfolioId }: { portfolioId: string }) {
       </form>
 
       {result && (
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-3">
+        <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3 space-y-2">
           <div className="flex items-baseline justify-between">
             <h4 className="text-sm font-semibold">{result.scenario_name}</h4>
-            <div className="flex gap-4 text-sm">
+            <div className="flex gap-2 text-sm">
               <span className={`font-mono ${pnl < 0 ? "text-[var(--destructive)]" : ""}`}>
                 PnL: {fmtCurrency(result.total_pnl_impact)}
               </span>
@@ -176,23 +176,23 @@ export function CustomStressForm({ portfolioId }: { portfolioId: string }) {
           </div>
 
           {result.position_impacts.length > 0 && (
-            <div className="overflow-x-auto rounded-lg border border-[var(--border)]">
+            <div className="overflow-x-auto rounded-md border border-[var(--border)]">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
-                    <th className="px-4 py-2 text-left font-medium text-[var(--muted-foreground)]">
+                    <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
                       Instrument
                     </th>
-                    <th className="px-4 py-2 text-right font-medium text-[var(--muted-foreground)]">
+                    <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
                       Current
                     </th>
-                    <th className="px-4 py-2 text-right font-medium text-[var(--muted-foreground)]">
+                    <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
                       Stressed
                     </th>
-                    <th className="px-4 py-2 text-right font-medium text-[var(--muted-foreground)]">
+                    <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
                       PnL Impact
                     </th>
-                    <th className="px-4 py-2 text-right font-medium text-[var(--muted-foreground)]">
+                    <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
                       % Change
                     </th>
                   </tr>
@@ -205,20 +205,20 @@ export function CustomStressForm({ portfolioId }: { portfolioId: string }) {
                         key={impact.instrument_id}
                         className="border-b border-[var(--table-border)] last:border-0"
                       >
-                        <td className="px-4 py-2 font-medium">{impact.instrument_id}</td>
-                        <td className="px-4 py-2 text-right font-mono">
+                        <td className="px-3 py-1.5 font-medium">{impact.instrument_id}</td>
+                        <td className="px-3 py-1.5 text-right font-mono">
                           {fmtCurrency(impact.current_value)}
                         </td>
-                        <td className="px-4 py-2 text-right font-mono">
+                        <td className="px-3 py-1.5 text-right font-mono">
                           {fmtCurrency(impact.stressed_value)}
                         </td>
                         <td
-                          className={`px-4 py-2 text-right font-mono ${impactPnl < 0 ? "text-[var(--destructive)]" : ""}`}
+                          className={`px-3 py-1.5 text-right font-mono ${impactPnl < 0 ? "text-[var(--destructive)]" : ""}`}
                         >
                           {fmtCurrency(impact.pnl_impact)}
                         </td>
                         <td
-                          className={`px-4 py-2 text-right font-mono ${impactPnl < 0 ? "text-[var(--destructive)]" : ""}`}
+                          className={`px-3 py-1.5 text-right font-mono ${impactPnl < 0 ? "text-[var(--destructive)]" : ""}`}
                         >
                           {fmtPct(impact.pct_change)}
                         </td>

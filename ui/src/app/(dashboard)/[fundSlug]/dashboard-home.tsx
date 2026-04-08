@@ -9,7 +9,7 @@ import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { usePermission } from "@/shared/hooks/use-permission";
 import { Permission } from "@/shared/lib/permissions";
 import { clientFetch } from "@/shared/lib/api";
-import { HBarChart, StatusDot } from "./charts";
+import { HBarChart, StatusDot } from "@/shared/components/charts";
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -109,9 +109,9 @@ export function DashboardHome() {
   return (
     <div className="grid h-[calc(100vh-7rem)] grid-cols-12 grid-rows-[auto_1fr_1fr] gap-3">
       {/* Row 1: Greeting + 4 KPI cards — spans full width */}
-      <div className="col-span-12 flex items-center gap-4">
+      <div className="col-span-12 flex items-center gap-3">
         <div className="shrink-0">
-          <h1 className="text-lg font-semibold">
+          <h1 className="text-sm font-semibold">
             Hello, {userName}
           </h1>
           <p className="text-xs text-[var(--muted-foreground)]">{fundName}</p>
@@ -141,13 +141,13 @@ export function DashboardHome() {
       </div>
 
       {/* Row 2, Left (8 cols): Top & Bottom Movers */}
-      <div className="col-span-8 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+      <div className="col-span-8 overflow-hidden rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
         {movers.length > 0 ? (
           <>
             <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
               Top & Bottom Movers — Unrealized P&L
             </h3>
-            <div className="grid h-[calc(100%-24px)] grid-cols-2 gap-6">
+            <div className="grid h-[calc(100%-24px)] grid-cols-2 gap-3">
               <div>
                 <p className="mb-2 text-[10px] font-medium uppercase text-[var(--success)]">
                   Top Gainers
@@ -168,7 +168,7 @@ export function DashboardHome() {
       </div>
 
       {/* Row 2, Right (4 cols): Today's Status */}
-      <div className="col-span-4 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+      <div className="col-span-4 overflow-hidden rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
         <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
           Today&apos;s Status
         </h3>
@@ -249,9 +249,9 @@ export function DashboardHome() {
         )}
       </div>
 
-      {/* Row 3, Left (5 cols): Portfolios */}
-      <div className="col-span-5 overflow-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
-        <div className="px-4 py-3">
+      {/* Row 3, Left (4 cols): Portfolios */}
+      <div className="col-span-4 overflow-auto rounded-md border border-[var(--border)] bg-[var(--card)]">
+        <div className="px-3 py-1.5">
           <h3 className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
             Portfolios
           </h3>
@@ -299,9 +299,9 @@ export function DashboardHome() {
         )}
       </div>
 
-      {/* Row 3, Right (7 cols): Recent Orders */}
-      <div className="col-span-7 overflow-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
-        <div className="flex items-center justify-between px-4 py-3">
+      {/* Row 3, Middle (5 cols): Recent Orders */}
+      <div className="col-span-5 overflow-auto rounded-md border border-[var(--border)] bg-[var(--card)]">
+        <div className="flex items-center justify-between px-3 py-1.5">
           <h3 className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
             Recent Orders
           </h3>
@@ -362,7 +362,7 @@ export function DashboardHome() {
                     {o.state}
                   </td>
                   <td className="px-4 py-1.5 text-right text-xs text-[var(--muted-foreground)]">
-                    {new Date(o.created_at).toLocaleTimeString()}
+                    {new Date(o.created_at).toLocaleTimeString(undefined, { timeZoneName: "short" })}
                   </td>
                 </tr>
               ))}
@@ -371,6 +371,43 @@ export function DashboardHome() {
         ) : (
           <p className="px-4 pb-4 text-sm text-[var(--muted-foreground)]">No orders yet</p>
         )}
+      </div>
+
+      {/* Row 3, Right (3 cols): Running Tasks */}
+      <div className="col-span-3 overflow-auto rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
+        <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+          Running Tasks
+        </h3>
+        <div className="space-y-2">
+          <TaskRow
+            label="EOD Process"
+            status={
+              todayEod?.status === "completed"
+                ? "complete"
+                : todayEod?.status === "running"
+                  ? "running"
+                  : todayEod?.status === "failed"
+                    ? "failed"
+                    : "idle"
+            }
+            href={`/${fundSlug}/eod`}
+          />
+          <TaskRow
+            label="Price Sync"
+            status="complete"
+            href={`/${fundSlug}/market-data`}
+          />
+          <TaskRow
+            label="Compliance Scan"
+            status={violationCount > 0 ? "running" : "complete"}
+            href={`/${fundSlug}/compliance`}
+          />
+          <TaskRow
+            label="Risk Calc"
+            status="complete"
+            href={`/${fundSlug}/risk`}
+          />
+        </div>
       </div>
     </div>
   );
@@ -388,12 +425,12 @@ function KpiCard({
   color?: string;
 }) {
   return (
-    <div className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2">
+    <div className="flex-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-2">
       <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">
         {label}
       </p>
       <p
-        className="mt-0.5 font-mono text-lg font-semibold"
+        className="mt-0.5 font-mono text-sm font-semibold"
         style={color ? { color } : undefined}
       >
         {value}
@@ -423,6 +460,61 @@ function StatusRow({
         <span className="text-xs text-[var(--foreground)]">{label}</span>
       </div>
       <span className="text-xs font-medium text-[var(--muted-foreground)]">{value}</span>
+    </Link>
+  );
+}
+
+function TaskRow({
+  label,
+  status,
+  href,
+}: {
+  label: string;
+  status: "complete" | "running" | "failed" | "idle";
+  href: string;
+}) {
+  const variant: "success" | "warning" | "error" | "info" | "neutral" =
+    status === "complete"
+      ? "success"
+      : status === "running"
+        ? "info"
+        : status === "failed"
+          ? "error"
+          : "neutral";
+
+  const statusLabel =
+    status === "complete"
+      ? "Done"
+      : status === "running"
+        ? "Running"
+        : status === "failed"
+          ? "Failed"
+          : "Idle";
+
+  return (
+    <Link
+      href={href}
+      className="flex items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--muted)]"
+    >
+      <div className="flex items-center gap-2">
+        {status === "running" ? (
+          <div className="h-2 w-2 animate-pulse rounded-full bg-[var(--primary)]" />
+        ) : (
+          <StatusDot variant={variant} size={7} />
+        )}
+        <span className="text-xs text-[var(--foreground)]">{label}</span>
+      </div>
+      <span
+        className={`text-[10px] font-medium uppercase tracking-wide ${
+          status === "failed"
+            ? "text-[var(--destructive)]"
+            : status === "running"
+              ? "text-[var(--primary)]"
+              : "text-[var(--muted-foreground)]"
+        }`}
+      >
+        {statusLabel}
+      </span>
     </Link>
   );
 }

@@ -94,11 +94,11 @@ export function BlockAllocationDialog({ onClose }: BlockAllocationDialogProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div
-        className="w-full max-w-lg rounded-lg border border-[var(--border)] bg-[var(--background)] p-6 shadow-lg"
+        className="w-full max-w-lg rounded-md border border-[var(--border)] bg-[var(--background)] p-6 shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Block Allocation</h2>
+          <h2 className="text-sm font-semibold">Block Allocation</h2>
           <button
             type="button"
             onClick={onClose}
@@ -108,7 +108,7 @@ export function BlockAllocationDialog({ onClose }: BlockAllocationDialogProps) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
           {/* Instrument ID */}
           <div>
             <label className="mb-1 block text-sm font-medium">Instrument ID</label>

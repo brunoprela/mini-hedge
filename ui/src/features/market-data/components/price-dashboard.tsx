@@ -58,7 +58,7 @@ function PriceCard({
   const sparkData = history?.map((p) => Number(p.mid)) ?? [];
 
   return (
-    <div className="rounded-lg border border-[var(--border)] p-4">
+    <div className="rounded-md border border-[var(--border)] p-4">
       <div className="flex items-baseline justify-between">
         <span className="font-mono text-sm font-medium">{instrumentId}</span>
         {price && (

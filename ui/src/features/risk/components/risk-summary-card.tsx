@@ -20,7 +20,7 @@ export function RiskSummaryCard({ portfolioId }: { portfolioId: string }) {
   const { data: snapshot, isLoading } = useQuery(riskSnapshotQueryOptions(fundSlug, portfolioId));
 
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+    <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-[var(--muted-foreground)]">Risk</h3>
         <Link

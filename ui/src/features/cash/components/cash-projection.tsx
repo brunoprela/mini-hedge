@@ -32,12 +32,10 @@ export function CashProjection({ portfolioId }: { portfolioId: string }) {
     shouldShowRow(entry, i, data.entries.length),
   );
 
-  if (visibleEntries.length === 0) {
-    return <div className="text-sm text-[var(--muted-foreground)]">No projection data.</div>;
-  }
+  if (visibleEntries.length === 0) return null;
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-[var(--border)]">
+    <div className="overflow-x-auto rounded-md border border-[var(--border)]">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-[var(--border)] bg-[var(--muted-foreground)]/5">

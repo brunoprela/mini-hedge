@@ -1,10 +1,11 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import Link from "next/link";
 import { useState } from "react";
 import { AttributionDashboard } from "@/features/attribution/components/attribution-dashboard";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
+import { PortfolioSelector } from "@/shared/components/portfolio-selector";
+import { SectionPanel } from "@/shared/components/section-panel";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 
 export function AttributionPageClient() {
@@ -15,35 +16,27 @@ export function AttributionPageClient() {
   const activePortfolioId = selectedPortfolioId || portfolios?.[0]?.id || "";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold">Attribution</h1>
-          <Link
-            href={`/${fundSlug}/portfolio`}
-            className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] underline-offset-2 hover:underline"
-          >
-            View Positions →
-          </Link>
-        </div>
-        {portfolios && portfolios.length > 1 && (
-          <select
+        <h1 className="text-sm font-semibold">Attribution</h1>
+        {portfolios && (
+          <PortfolioSelector
+            portfolios={portfolios}
             value={activePortfolioId}
-            onChange={(e) => setSelectedPortfolioId(e.target.value)}
-            className="rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm"
-          >
-            {portfolios.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+            onChange={setSelectedPortfolioId}
+          />
         )}
       </div>
 
-      {isLoading && <p className="text-sm text-[var(--muted-foreground)]">Loading portfolios...</p>}
+      {isLoading && <p className="text-xs text-[var(--muted-foreground)]">Loading...</p>}
 
-      {activePortfolioId && <AttributionDashboard portfolioId={activePortfolioId} />}
+      {activePortfolioId && (
+        <SectionPanel title="Performance Attribution">
+          <div className="p-3">
+            <AttributionDashboard portfolioId={activePortfolioId} />
+          </div>
+        </SectionPanel>
+      )}
     </div>
   );
 }

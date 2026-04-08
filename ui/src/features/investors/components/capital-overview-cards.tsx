@@ -24,10 +24,10 @@ export function CapitalOverviewCards() {
       {cards.map((card) => (
         <div
           key={card.label}
-          className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4"
+          className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3"
         >
           <p className="text-xs text-[var(--muted-foreground)]">{card.label}</p>
-          <p className="mt-1 font-mono text-lg font-semibold text-[var(--foreground-bright)]">
+          <p className="mt-0.5 font-mono text-sm font-semibold text-[var(--foreground-bright)]">
             {card.value}
           </p>
         </div>

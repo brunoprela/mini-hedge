@@ -1,7 +1,6 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeftRight } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -13,6 +12,7 @@ import {
 } from "@/features/fx-hedging";
 import { triggerMTM } from "@/features/fx-hedging/api";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
+import { PortfolioSelector } from "@/shared/components/portfolio-selector";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import type { HedgeRecommendation } from "@/features/fx-hedging/types";
 
@@ -67,12 +67,9 @@ export function FXHedgingPageClient() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <ArrowLeftRight className="h-6 w-6 text-[var(--primary)]" />
-          <h1 className="text-2xl font-semibold">FX Hedging</h1>
-        </div>
+        <h1 className="text-sm font-semibold">FX Hedging</h1>
         <div className="flex items-center gap-2">
           {activePortfolioId && (
             <>
@@ -82,7 +79,7 @@ export function FXHedgingPageClient() {
                   setPrefill(undefined);
                   setShowOpenForward(true);
                 }}
-                className="rounded-md bg-[var(--primary)] px-3 py-1.5 text-sm font-medium text-white"
+                className="rounded-md bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
               >
                 + Open Forward
               </button>
@@ -90,29 +87,23 @@ export function FXHedgingPageClient() {
                 type="button"
                 onClick={() => mtmMutation.mutate()}
                 disabled={mtmMutation.isPending}
-                className="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--sidebar-active)] disabled:opacity-50"
+                className="rounded-md border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--muted)] disabled:opacity-50"
               >
                 {mtmMutation.isPending ? "Refreshing..." : "Refresh MTM"}
               </button>
             </>
           )}
-          {portfolios && portfolios.length > 1 && (
-            <select
+          {portfolios && (
+            <PortfolioSelector
+              portfolios={portfolios}
               value={activePortfolioId}
-              onChange={(e) => setSelectedPortfolioId(e.target.value)}
-              className="rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm"
-            >
-              {portfolios.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+              onChange={setSelectedPortfolioId}
+            />
           )}
         </div>
       </div>
 
-      {isLoading && <p className="text-sm text-[var(--muted-foreground)]">Loading portfolios...</p>}
+      {isLoading && <p className="text-xs text-[var(--muted-foreground)]">Loading...</p>}
 
       {activePortfolioId && (
         <>
@@ -124,7 +115,7 @@ export function FXHedgingPageClient() {
                 key={tab.key}
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
-                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                   activeTab === tab.key
                     ? "border-b-2 border-[var(--primary)] text-[var(--primary)]"
                     : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"

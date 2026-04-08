@@ -32,11 +32,11 @@ export function SettingsPageClient() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
-      <h1 className="text-2xl font-semibold">Settings</h1>
+      <h1 className="text-sm font-semibold">Settings</h1>
 
       {/* User Profile */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
-        <h2 className="mb-4 text-lg font-medium">Profile</h2>
+      <section className="rounded-md border border-[var(--border)] bg-[var(--card)] p-6">
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Profile</h2>
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm text-[var(--muted-foreground)]">Name</span>
@@ -60,8 +60,8 @@ export function SettingsPageClient() {
       </section>
 
       {/* Appearance */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
-        <h2 className="mb-4 text-lg font-medium">Appearance</h2>
+      <section className="rounded-md border border-[var(--border)] bg-[var(--card)] p-6">
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Appearance</h2>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium">Theme</p>
@@ -72,7 +72,7 @@ export function SettingsPageClient() {
           <button
             type="button"
             onClick={toggle}
-            className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-4 py-2 text-sm font-medium transition-colors hover:bg-[var(--accent)]"
+            className="rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-sm font-medium transition-colors hover:bg-[var(--accent)]"
           >
             {theme === "dark" ? "Light Mode" : "Dark Mode"}
           </button>
@@ -80,8 +80,8 @@ export function SettingsPageClient() {
       </section>
 
       {/* Table Display Preferences */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
-        <h2 className="mb-4 text-lg font-medium">Table Display</h2>
+      <section className="rounded-md border border-[var(--border)] bg-[var(--card)] p-6">
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Table Display</h2>
         <div className="space-y-5">
           {/* Density Toggle */}
           <div className="flex items-center justify-between">
@@ -91,7 +91,7 @@ export function SettingsPageClient() {
                 Adjust the spacing between table rows
               </p>
             </div>
-            <div className="flex items-center gap-1 rounded-lg border border-[var(--border)] p-0.5">
+            <div className="flex items-center gap-1 rounded-md border border-[var(--border)] p-0.5">
               {DENSITY_OPTIONS.map((opt) => (
                 <button
                   type="button"

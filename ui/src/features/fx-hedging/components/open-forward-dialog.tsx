@@ -76,8 +76,8 @@ export function OpenForwardDialog({ portfolioId, onClose, prefill }: OpenForward
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-lg border border-[var(--border)] bg-[var(--background)] p-6 shadow-lg">
-        <h2 className="text-lg font-semibold">Open FX Forward</h2>
+      <div className="w-full max-w-md rounded-md border border-[var(--border)] bg-[var(--background)] p-6 shadow-lg">
+        <h2 className="text-sm font-semibold">Open FX Forward</h2>
         <p className="mb-4 text-sm text-[var(--muted-foreground)]">
           Create a new FX forward contract.
         </p>

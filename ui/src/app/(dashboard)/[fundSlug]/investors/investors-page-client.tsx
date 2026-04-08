@@ -12,14 +12,14 @@ export function InvestorsPageClient() {
   const { can } = usePermission();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Investors</h1>
+        <h1 className="text-sm font-semibold">Investors</h1>
         {can(Permission.CAPITAL_WRITE) && (
           <button
             type="button"
             onClick={() => setShowCreate(true)}
-            className="rounded-md bg-[var(--primary)] px-4 py-1.5 text-sm font-medium text-white"
+            className="rounded-md bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
           >
             + Add Investor
           </button>

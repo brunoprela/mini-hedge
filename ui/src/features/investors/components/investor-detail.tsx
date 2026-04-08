@@ -10,6 +10,14 @@ import {
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { CapitalActionDialog } from "./capital-action-dialog";
 
+type Tab = "overview" | "history" | "transactions";
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "overview", label: "Overview" },
+  { id: "history", label: "Capital History" },
+  { id: "transactions", label: "Transactions" },
+];
+
 export function InvestorDetail({ investorId }: { investorId: string }) {
   const { fundSlug } = useFundContext();
   const { data: history, isLoading: historyLoading } = useQuery(
@@ -19,9 +27,11 @@ export function InvestorDetail({ investorId }: { investorId: string }) {
 
   const latest = history?.[0];
   const [capitalAction, setCapitalAction] = useState<"subscription" | "redemption" | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>("overview");
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
+      {/* Header */}
       <div className="flex items-center gap-2">
         <Link
           href={`/${fundSlug}/investors`}
@@ -30,7 +40,7 @@ export function InvestorDetail({ investorId }: { investorId: string }) {
           Investors
         </Link>
         <span className="text-sm text-[var(--muted-foreground)]">/</span>
-        <h1 className="text-2xl font-semibold">{latest?.investor_name ?? "Investor"}</h1>
+        <h1 className="text-sm font-semibold">{latest?.investor_name ?? "Investor"}</h1>
         <span className="ml-auto flex items-center gap-2 text-sm">
           <button
             type="button"
@@ -66,121 +76,138 @@ export function InvestorDetail({ investorId }: { investorId: string }) {
 
       {historyLoading && <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>}
 
-      {latest && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard label="Ending Capital" value={fmt(latest.ending_capital)} />
-          <StatCard label="Ownership" value={pct(latest.ownership_pct)} />
-          <StatCard label="Shares Held" value={Number(latest.shares_held).toLocaleString()} />
-          <StatCard label="Share Class" value={latest.share_class} />
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-[var(--border)]">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+              activeTab === tab.id
+                ? "border-b-2 border-[var(--primary)] text-[var(--primary)]"
+                : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      {activeTab === "overview" && latest && (
+        <div className="space-y-3">
+          {/* Hero KPI */}
+          <div className="flex items-baseline gap-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Ending Capital</p>
+              <p className="font-mono text-base font-bold">{fmt(latest.ending_capital)}</p>
+            </div>
+            <div className="h-8 w-px bg-[var(--border)]" />
+            <div className="flex flex-1 gap-3">
+              <StatCard label="Ownership" value={pct(latest.ownership_pct)} />
+              <StatCard label="Shares Held" value={Number(latest.shares_held).toLocaleString()} />
+              <StatCard label="Share Class" value={latest.share_class} />
+            </div>
+          </div>
+
+          {/* Recent history preview */}
+          {history && history.length > 0 && (
+            <div className="overflow-x-auto rounded-md border border-[var(--border)]">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[var(--border)] bg-[var(--table-header)]">
+                    <th className="px-3 py-2 text-left font-medium text-[var(--muted-foreground)]">Date</th>
+                    <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">Beginning</th>
+                    <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">P&L</th>
+                    <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">Ending</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.slice(0, 5).map((row) => (
+                    <tr
+                      key={row.id}
+                      className="border-b border-[var(--border)] transition-colors hover:bg-[var(--table-row-hover)]"
+                    >
+                      <td className="px-3 py-2">{row.effective_date}</td>
+                      <td className="px-3 py-2 text-right font-mono">{fmt(row.beginning_capital)}</td>
+                      <td className="px-3 py-2 text-right font-mono">{fmtSigned(row.pnl_allocation)}</td>
+                      <td className="px-3 py-2 text-right font-mono font-semibold">{fmt(row.ending_capital)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Capital Account History */}
-      {history && history.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-lg font-semibold">Capital History</h2>
-          <div className="overflow-x-auto rounded-lg border border-[var(--border)]">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[var(--border)] bg-[var(--table-header)]">
-                  <th className="px-3 py-2 text-left font-medium text-[var(--muted-foreground)]">
-                    Date
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">
-                    Beginning
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">
-                    Contributions
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">
-                    P&L
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">
-                    Fees
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">
-                    Ending
-                  </th>
+      {activeTab === "history" && history && history.length > 0 && (
+        <div className="overflow-x-auto rounded-md border border-[var(--border)]">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[var(--border)] bg-[var(--table-header)]">
+                <th className="px-3 py-2 text-left font-medium text-[var(--muted-foreground)]">Date</th>
+                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">Beginning</th>
+                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">Contributions</th>
+                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">P&L</th>
+                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">Fees</th>
+                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">Ending</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.map((row) => (
+                <tr
+                  key={row.id}
+                  className="border-b border-[var(--border)] transition-colors hover:bg-[var(--table-row-hover)]"
+                >
+                  <td className="px-3 py-2">{row.effective_date}</td>
+                  <td className="px-3 py-2 text-right font-mono">{fmt(row.beginning_capital)}</td>
+                  <td className="px-3 py-2 text-right font-mono">{fmt(row.contributions)}</td>
+                  <td className="px-3 py-2 text-right font-mono">{fmtSigned(row.pnl_allocation)}</td>
+                  <td className="px-3 py-2 text-right font-mono">{fmt(row.management_fee_allocation)}</td>
+                  <td className="px-3 py-2 text-right font-mono font-semibold">{fmt(row.ending_capital)}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {history.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="border-b border-[var(--border)] transition-colors hover:bg-[var(--table-row-hover)]"
-                  >
-                    <td className="px-3 py-2">{row.effective_date}</td>
-                    <td className="px-3 py-2 text-right font-mono">{fmt(row.beginning_capital)}</td>
-                    <td className="px-3 py-2 text-right font-mono">{fmt(row.contributions)}</td>
-                    <td className="px-3 py-2 text-right font-mono">
-                      {fmtSigned(row.pnl_allocation)}
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono">
-                      {fmt(row.management_fee_allocation)}
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono font-semibold">
-                      {fmt(row.ending_capital)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
-      {/* Transactions */}
-      {transactions && transactions.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-lg font-semibold">Transactions</h2>
-          <div className="overflow-x-auto rounded-lg border border-[var(--border)]">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[var(--border)] bg-[var(--table-header)]">
-                  <th className="px-3 py-2 text-left font-medium text-[var(--muted-foreground)]">
-                    Date
-                  </th>
-                  <th className="px-3 py-2 text-left font-medium text-[var(--muted-foreground)]">
-                    Type
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">
-                    Amount
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">
-                    Shares
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">
-                    NAV/Share
-                  </th>
-                  <th className="px-3 py-2 text-left font-medium text-[var(--muted-foreground)]">
-                    Notes
-                  </th>
+      {activeTab === "transactions" && transactions && transactions.length > 0 && (
+        <div className="overflow-x-auto rounded-md border border-[var(--border)]">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[var(--border)] bg-[var(--table-header)]">
+                <th className="px-3 py-2 text-left font-medium text-[var(--muted-foreground)]">Date</th>
+                <th className="px-3 py-2 text-left font-medium text-[var(--muted-foreground)]">Type</th>
+                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">Amount</th>
+                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">Shares</th>
+                <th className="px-3 py-2 text-right font-medium text-[var(--muted-foreground)]">NAV/Share</th>
+                <th className="px-3 py-2 text-left font-medium text-[var(--muted-foreground)]">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {transactions.map((tx) => (
+                <tr
+                  key={tx.id}
+                  className="border-b border-[var(--border)] transition-colors hover:bg-[var(--table-row-hover)]"
+                >
+                  <td className="px-3 py-2">{tx.business_date}</td>
+                  <td className="px-3 py-2">
+                    <span className="rounded-full bg-[var(--badge-bg)] px-2 py-0.5 text-xs">
+                      {tx.transaction_type.replace(/_/g, " ")}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono">{fmt(tx.amount)}</td>
+                  <td className="px-3 py-2 text-right font-mono">{Number(tx.shares).toLocaleString()}</td>
+                  <td className="px-3 py-2 text-right font-mono">{fmt(tx.nav_per_share)}</td>
+                  <td className="px-3 py-2 text-[var(--muted-foreground)]">{tx.notes ?? "-"}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {transactions.map((tx) => (
-                  <tr
-                    key={tx.id}
-                    className="border-b border-[var(--border)] transition-colors hover:bg-[var(--table-row-hover)]"
-                  >
-                    <td className="px-3 py-2">{tx.business_date}</td>
-                    <td className="px-3 py-2">
-                      <span className="rounded-full bg-[var(--badge-bg)] px-2 py-0.5 text-xs">
-                        {tx.transaction_type.replace(/_/g, " ")}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono">{fmt(tx.amount)}</td>
-                    <td className="px-3 py-2 text-right font-mono">
-                      {Number(tx.shares).toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono">{fmt(tx.nav_per_share)}</td>
-                    <td className="px-3 py-2 text-[var(--muted-foreground)]">{tx.notes ?? "-"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
@@ -188,9 +215,9 @@ export function InvestorDetail({ investorId }: { investorId: string }) {
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
+    <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
       <p className="text-xs text-[var(--muted-foreground)]">{label}</p>
-      <p className="mt-1 font-mono text-lg font-semibold text-[var(--foreground-bright)]">
+      <p className="mt-0.5 font-mono text-sm font-semibold text-[var(--foreground-bright)]">
         {value}
       </p>
     </div>

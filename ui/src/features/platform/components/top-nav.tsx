@@ -234,7 +234,7 @@ function NavDropdown({
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 min-w-[180px] rounded-lg border border-[var(--border)] bg-[var(--background-raised)] py-1 shadow-xl">
+        <div className="absolute left-0 top-full z-50 mt-1 min-w-[180px] rounded-md border border-[var(--border)] bg-[var(--background-raised)] py-1 shadow-xl">
           {items.map((item) => {
             const href = `/${fundSlug}${item.href}`;
             const active = pathname.startsWith(href);
@@ -291,14 +291,14 @@ function UserMenu({ userName, userInitials }: { userName: string; userInitials: 
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--warning)] text-[10px] font-bold text-black transition-opacity hover:opacity-80"
+        className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--primary)] text-[10px] font-bold text-white transition-opacity hover:opacity-80"
         title={userName}
       >
         {userInitials}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-lg border border-[var(--border)] bg-[var(--background-raised)] py-1 shadow-xl">
+        <div className="absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-md border border-[var(--border)] bg-[var(--background-raised)] py-1 shadow-xl">
           <div className="border-b border-[var(--border)] px-3 py-2">
             <p className="text-xs font-medium text-[var(--foreground)]">{userName}</p>
             <p className="text-[10px] text-[var(--muted-foreground)]">Manager</p>

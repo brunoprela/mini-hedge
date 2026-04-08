@@ -43,42 +43,38 @@ export function StressTable({ portfolioId }: { portfolioId: string }) {
     return <div className="text-sm text-[var(--muted-foreground)]">Loading stress tests...</div>;
   }
 
-  if (!results || results.length === 0) {
-    return (
-      <p className="text-sm text-[var(--muted-foreground)]">No stress test results available.</p>
-    );
-  }
+  if (!results || results.length === 0) return null;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="flex justify-end">
         <button
           type="button"
           onClick={handleExport}
           title="Export to CSV"
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+          className="inline-flex h-9 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
         >
           <Download className="h-4 w-4" />
           CSV
         </button>
       </div>
-      <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
+      <div className="overflow-x-auto rounded-md border border-[var(--border)] bg-[var(--card)]">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
-              <th className="px-4 py-2 text-left font-medium text-[var(--muted-foreground)]">
+              <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
                 Scenario
               </th>
-              <th className="px-4 py-2 text-right font-medium text-[var(--muted-foreground)]">
+              <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
                 PnL Impact
               </th>
-              <th className="px-4 py-2 text-right font-medium text-[var(--muted-foreground)]">
+              <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
                 % Change
               </th>
-              <th className="px-4 py-2 text-left font-medium text-[var(--muted-foreground)]">
+              <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
                 Actions
               </th>
-              <th className="w-10 px-4 py-2" />
+              <th className="w-10 px-3 py-1.5" />
             </tr>
           </thead>
           <tbody>
@@ -116,18 +112,18 @@ function StressRow({
         className="border-b border-[var(--table-border)] last:border-0 cursor-pointer hover:bg-[var(--table-row-hover)]"
         onClick={() => hasImpacts && setExpanded(!expanded)}
       >
-        <td className="px-4 py-2 font-medium">{result.scenario_name}</td>
+        <td className="px-3 py-1.5 font-medium">{result.scenario_name}</td>
         <td
-          className={`px-4 py-2 text-right font-mono ${pnl < 0 ? "text-[var(--destructive)]" : ""}`}
+          className={`px-3 py-1.5 text-right font-mono ${pnl < 0 ? "text-[var(--destructive)]" : ""}`}
         >
           {fmtCurrency(result.total_pnl_impact)}
         </td>
         <td
-          className={`px-4 py-2 text-right font-mono ${pnl < 0 ? "text-[var(--destructive)]" : ""}`}
+          className={`px-3 py-1.5 text-right font-mono ${pnl < 0 ? "text-[var(--destructive)]" : ""}`}
         >
           {fmtPct(result.total_pct_change)}
         </td>
-        <td className="px-4 py-2">
+        <td className="px-3 py-1.5">
           {pnl < -10000 && (
             <div className="flex gap-2">
               <Link
@@ -145,7 +141,7 @@ function StressRow({
             </div>
           )}
         </td>
-        <td className="px-4 py-2 text-center text-[var(--muted-foreground)]">
+        <td className="px-3 py-1.5 text-center text-[var(--muted-foreground)]">
           {hasImpacts ? (expanded ? "▾" : "▸") : ""}
         </td>
       </tr>

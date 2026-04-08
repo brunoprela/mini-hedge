@@ -111,7 +111,7 @@ export function RuleTable() {
 
   return (
     <>
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-3">
         <div className="w-72">
           <TableSearch
             value={table.search}
@@ -123,14 +123,14 @@ export function RuleTable() {
           <button
             type="button"
             onClick={openCreate}
-            className="rounded-md bg-[var(--foreground)] px-4 py-2 text-sm font-medium text-[var(--background)] transition-colors hover:opacity-90"
+            className="rounded-md bg-[var(--foreground)] px-3 py-1.5 text-sm font-medium text-[var(--background)] transition-colors hover:opacity-90"
           >
             + Add Rule
           </button>
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
+      <div className="overflow-x-auto rounded-md border border-[var(--border)] bg-[var(--card)]">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
@@ -193,19 +193,19 @@ export function RuleTable() {
                   key={rule.id}
                   className="border-b border-[var(--table-border)] last:border-0 hover:bg-[var(--table-row-hover)]"
                 >
-                  <td className="px-4 py-3 font-medium">{rule.name}</td>
-                  <td className="px-4 py-3">{formatRuleType(rule.rule_type)}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-1.5 font-medium">{rule.name}</td>
+                  <td className="px-3 py-1.5">{formatRuleType(rule.rule_type)}</td>
+                  <td className="px-3 py-1.5">
                     <span
                       className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${SEVERITY_BADGE[rule.severity] ?? ""}`}
                     >
                       {rule.severity}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-[var(--muted-foreground)]">
+                  <td className="px-3 py-1.5 text-[var(--muted-foreground)]">
                     {formatParameters(rule.rule_type, rule.parameters)}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-1.5">
                     <button
                       type="button"
                       disabled={!canWrite || toggleMutation.isPending}
@@ -222,7 +222,7 @@ export function RuleTable() {
                     </button>
                   </td>
                   {canWrite && (
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-1.5">
                       <button
                         type="button"
                         onClick={() => openEdit(rule)}

@@ -2,98 +2,109 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
+import { LineChart } from "@/shared/components/charts";
 import { riskHistoryQueryOptions } from "@/features/risk/api";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 
-const fmtCurrency = (v: string | number) =>
-  Number(v).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+const fmtCurrency = (v: number) =>
+  Math.abs(v) >= 1_000_000
+    ? `$${(v / 1_000_000).toFixed(1)}M`
+    : `$${(v / 1_000).toFixed(0)}K`;
+
+/** Hook to check if risk history has enough data for a chart. */
+export function useHasRiskHistory(portfolioId: string): boolean {
+  const { fundSlug } = useFundContext();
+  const { data } = useQuery(riskHistoryQueryOptions(fundSlug, portfolioId));
+  return !!data && data.length >= 2;
+}
 
 export function RiskHistoryChart({ portfolioId }: { portfolioId: string }) {
   const { fundSlug } = useFundContext();
   const { data, isLoading } = useQuery(riskHistoryQueryOptions(fundSlug, portfolioId));
 
-  const maxVaR = useMemo(() => {
-    if (!data || data.length === 0) return 1;
-    return Math.max(
-      ...data.flatMap((s) => [
-        Math.abs(Number(s.var_95_1d)),
-        Math.abs(Number(s.var_99_1d)),
-      ]),
-      1,
+  const series = useMemo(() => {
+    if (!data || data.length < 2) return [];
+    const sorted = [...data].sort(
+      (a, b) => new Date(a.snapshot_at).getTime() - new Date(b.snapshot_at).getTime(),
     );
+    return [
+      {
+        label: "VaR 95%",
+        color: "var(--warning)",
+        data: sorted.map((s) => ({
+          x: new Date(s.snapshot_at).toISOString().slice(0, 10),
+          y: Math.abs(Number(s.var_95_1d)),
+        })),
+      },
+      {
+        label: "VaR 99%",
+        color: "var(--destructive)",
+        data: sorted.map((s) => ({
+          x: new Date(s.snapshot_at).toISOString().slice(0, 10),
+          y: Math.abs(Number(s.var_99_1d)),
+        })),
+      },
+      {
+        label: "ES 95%",
+        color: "var(--primary)",
+        dashed: true,
+        data: sorted.map((s) => ({
+          x: new Date(s.snapshot_at).toISOString().slice(0, 10),
+          y: Math.abs(Number(s.expected_shortfall_95)),
+        })),
+      },
+    ];
   }, [data]);
+
+  // Latest values for the summary strip
+  const latest = data && data.length > 0
+    ? [...data].sort((a, b) => new Date(b.snapshot_at).getTime() - new Date(a.snapshot_at).getTime())[0]
+    : null;
 
   if (isLoading) {
     return <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>;
   }
 
-  if (!data || data.length === 0) {
-    return <p className="text-sm text-[var(--muted-foreground)]">No risk history available</p>;
+  if (!data || data.length < 2) {
+    return (
+      <div className="flex items-center justify-center rounded-md border border-dashed border-[var(--border)] p-6">
+        <p className="text-xs text-[var(--muted-foreground)]">
+          {data?.length === 1 ? "1 snapshot — chart needs 2+" : "Take snapshots to build risk history"}
+        </p>
+      </div>
+    );
   }
 
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
-      <h3 className="mb-3 text-sm font-medium text-[var(--muted-foreground)]">Historical Risk Snapshots</h3>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-[var(--table-border)] text-left text-xs text-[var(--muted-foreground)]">
-              <th className="bg-[var(--table-header)] px-3 py-2 font-medium">Date</th>
-              <th className="bg-[var(--table-header)] px-3 py-2 font-medium text-right">VaR 95%</th>
-              <th className="bg-[var(--table-header)] px-3 py-2 font-medium" style={{ minWidth: 80 }} />
-              <th className="bg-[var(--table-header)] px-3 py-2 font-medium text-right">VaR 99%</th>
-              <th className="bg-[var(--table-header)] px-3 py-2 font-medium" style={{ minWidth: 80 }} />
-              <th className="bg-[var(--table-header)] px-3 py-2 font-medium text-right">ES 95%</th>
-              <th className="bg-[var(--table-header)] px-3 py-2 font-medium text-right">NAV</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((snapshot, idx) => {
-              const var95 = Math.abs(Number(snapshot.var_95_1d));
-              const var99 = Math.abs(Number(snapshot.var_99_1d));
-              const es95 = Math.abs(Number(snapshot.expected_shortfall_95));
-              const var95Pct = (var95 / maxVaR) * 100;
-              const var99Pct = (var99 / maxVaR) * 100;
+    <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
+      {/* Latest values strip */}
+      {latest && (
+        <div className="mb-3 flex items-center gap-3 text-xs">
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block h-2 w-4 rounded-sm" style={{ backgroundColor: "var(--warning)" }} />
+            <span className="text-[var(--muted-foreground)]">VaR 95%:</span>
+            <span className="font-mono font-semibold">{fmtCurrency(Math.abs(Number(latest.var_95_1d)))}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block h-2 w-4 rounded-sm" style={{ backgroundColor: "var(--destructive)" }} />
+            <span className="text-[var(--muted-foreground)]">VaR 99%:</span>
+            <span className="font-mono font-semibold">{fmtCurrency(Math.abs(Number(latest.var_99_1d)))}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block h-2 w-4 rounded-sm border border-dashed border-[var(--primary)]" />
+            <span className="text-[var(--muted-foreground)]">ES 95%:</span>
+            <span className="font-mono font-semibold">{fmtCurrency(Math.abs(Number(latest.expected_shortfall_95)))}</span>
+          </div>
+        </div>
+      )}
 
-              const prev95 = idx > 0 ? Math.abs(Number(data[idx - 1].var_95_1d)) : var95;
-              const increasing95 = var95 > prev95;
-              const prev99 = idx > 0 ? Math.abs(Number(data[idx - 1].var_99_1d)) : var99;
-              const increasing99 = var99 > prev99;
-
-              const barColor95 = increasing95 ? "var(--destructive)" : "#f59e0b";
-              const barColor99 = increasing99 ? "var(--destructive)" : "#f59e0b";
-
-              const dateStr = new Date(snapshot.snapshot_at).toISOString().slice(0, 10);
-
-              return (
-                <tr key={snapshot.id ?? idx} className="border-b border-[var(--table-border)] hover:bg-[var(--table-row-hover)]">
-                  <td className="px-3 py-1.5 font-mono text-xs">{dateStr}</td>
-                  <td className="px-3 py-1.5 text-right">{fmtCurrency(var95)}</td>
-                  <td className="px-3 py-1.5">
-                    <div className="h-2.5 w-full rounded bg-[var(--border)]">
-                      <div
-                        className="h-2.5 rounded"
-                        style={{ width: `${var95Pct}%`, backgroundColor: barColor95 }}
-                      />
-                    </div>
-                  </td>
-                  <td className="px-3 py-1.5 text-right">{fmtCurrency(var99)}</td>
-                  <td className="px-3 py-1.5">
-                    <div className="h-2.5 w-full rounded bg-[var(--border)]">
-                      <div
-                        className="h-2.5 rounded"
-                        style={{ width: `${var99Pct}%`, backgroundColor: barColor99 }}
-                      />
-                    </div>
-                  </td>
-                  <td className="px-3 py-1.5 text-right">{fmtCurrency(es95)}</td>
-                  <td className="px-3 py-1.5 text-right">{fmtCurrency(snapshot.nav)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <LineChart
+        series={series}
+        height={220}
+        showXLabels
+        xLabelInterval={Math.max(1, Math.floor(series[0].data.length / 8))}
+        formatY={fmtCurrency}
+      />
     </div>
   );
 }

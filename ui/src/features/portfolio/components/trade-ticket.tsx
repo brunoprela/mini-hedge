@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle, ShieldAlert, ShieldCheck, XCircle } from "lucide-react";
+import { ShieldAlert, ShieldCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { runWhatIf } from "@/features/alpha/api";
@@ -169,10 +169,13 @@ export function TradeTicket({ portfolioId, onClose, defaults }: TradeTicketProps
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="flex w-full max-w-lg flex-col rounded-lg border border-[var(--border)] bg-[var(--background)] shadow-lg" style={{ maxHeight: "90vh" }}>
+      <div className="flex w-full max-w-2xl flex-col rounded-md border border-[var(--border)] bg-[var(--background)] shadow-lg" style={{ maxHeight: "90vh" }}>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-3">
-          <h2 className="text-lg font-semibold">New Order</h2>
+          <div>
+            <h2 className="text-sm font-semibold">New Order</h2>
+            <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Order Details</p>
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -213,34 +216,38 @@ export function TradeTicket({ portfolioId, onClose, defaults }: TradeTicketProps
             </div>
           )}
 
-          {/* Side toggle */}
-          <div className="mb-4 flex gap-2">
-            <button
-              type="button"
-              onClick={() => setSide("buy")}
-              className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
-                side === "buy"
-                  ? "bg-[var(--success)] text-white"
-                  : "border border-[var(--border)] text-[var(--muted-foreground)]"
-              }`}
-            >
-              Buy
-            </button>
-            <button
-              type="button"
-              onClick={() => setSide("sell")}
-              className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
-                side === "sell"
-                  ? "bg-[var(--destructive)] text-white"
-                  : "border border-[var(--border)] text-[var(--muted-foreground)]"
-              }`}
-            >
-              Sell
-            </button>
-          </div>
+          {/* Side + Instrument row */}
+          <div className="mb-4 grid grid-cols-[auto_1fr] gap-3">
+            <div>
+              <span className="mb-1 block text-sm text-[var(--muted-foreground)]">Side</span>
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => setSide("buy")}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                    side === "buy"
+                      ? "bg-[var(--success)] text-white"
+                      : "border border-[var(--border)] text-[var(--muted-foreground)]"
+                  }`}
+                >
+                  Buy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSide("sell")}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                    side === "sell"
+                      ? "bg-[var(--destructive)] text-white"
+                      : "border border-[var(--border)] text-[var(--muted-foreground)]"
+                  }`}
+                >
+                  Sell
+                </button>
+              </div>
+            </div>
 
-          {/* Instrument search */}
-          <div className="relative mb-4">
+            {/* Instrument search */}
+            <div className="relative">
             <span className="mb-1 block text-sm text-[var(--muted-foreground)]">Instrument</span>
             {instrumentId ? (
               <div className="flex items-center gap-2">
@@ -284,6 +291,7 @@ export function TradeTicket({ portfolioId, onClose, defaults }: TradeTicketProps
                 ))}
               </div>
             )}
+            </div>
           </div>
 
           {/* Quantity + Price side by side */}
@@ -341,7 +349,10 @@ export function TradeTicket({ portfolioId, onClose, defaults }: TradeTicketProps
             </p>
           )}
 
-          {/* Algo toggle */}
+          {/* Execution section */}
+          <div className="mb-3 border-t border-[var(--border)] pt-3">
+            <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Execution</p>
+          </div>
           <div className="mb-4">
             <label className="flex cursor-pointer items-center gap-2 text-sm">
               <input
@@ -449,7 +460,7 @@ export function TradeTicket({ portfolioId, onClose, defaults }: TradeTicketProps
 
           {/* ─── Compliance Pre-Check Results (Broadridge-style) ─── */}
           {(complianceCheck || complianceLoading) && (
-            <div className="mb-4 rounded-lg border border-[var(--border)] bg-[var(--muted)] p-3">
+            <div className="mb-4 rounded-md border border-[var(--border)] bg-[var(--muted)] p-3">
               <div className="mb-2 flex items-center gap-2">
                 {complianceLoading ? (
                   <>
@@ -476,36 +487,42 @@ export function TradeTicket({ portfolioId, onClose, defaults }: TradeTicketProps
               </div>
 
               {complianceCheck && (
-                <div className="space-y-1">
-                  {complianceCheck.results.map((r) => (
-                    <div
-                      key={r.rule_id}
-                      className="flex items-start gap-2 rounded-md px-2 py-1 text-xs"
-                    >
-                      {r.passed ? (
-                        <CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--success)]" />
-                      ) : (
-                        <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--destructive)]" />
-                      )}
-                      <div className="min-w-0 flex-1">
+                <div className="space-y-1.5">
+                  {complianceCheck.results.map((r) => {
+                    const badgeLabel = r.passed
+                      ? "PASS"
+                      : r.severity === "block"
+                        ? "BLOCK"
+                        : "WARN";
+                    const badgeColor = r.passed
+                      ? "bg-[var(--success)] text-white"
+                      : r.severity === "block"
+                        ? "bg-[var(--destructive)] text-white"
+                        : "bg-[var(--warning)] text-[var(--warning-foreground)]";
+                    return (
+                      <div
+                        key={r.rule_id}
+                        className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs"
+                      >
                         <span
-                          className={
-                            r.passed
-                              ? "font-medium text-[var(--foreground)]"
-                              : "font-medium text-[var(--destructive)]"
-                          }
+                          className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${badgeColor}`}
                         >
-                          {r.rule_name}
+                          {badgeLabel}
                         </span>
-                        <p className="text-[var(--muted-foreground)]">{r.message}</p>
-                        {r.current_value && r.limit_value && (
-                          <p className="mt-0.5 font-mono text-[10px] text-[var(--muted-foreground)]">
-                            Current: {r.current_value} / Limit: {r.limit_value}
-                          </p>
-                        )}
+                        <div className="min-w-0 flex-1">
+                          <span className="font-medium text-[var(--foreground)]">
+                            {r.rule_name}
+                          </span>
+                          <p className="text-[var(--muted-foreground)]">{r.message}</p>
+                          {r.current_value && r.limit_value && (
+                            <p className="mt-0.5 font-mono text-[10px] text-[var(--muted-foreground)]">
+                              Current: {r.current_value} / Limit: {r.limit_value}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

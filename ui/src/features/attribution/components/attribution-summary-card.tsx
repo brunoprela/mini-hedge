@@ -27,17 +27,17 @@ export function AttributionSummaryCard({ portfolioId }: { portfolioId: string })
   const pct = (v: string) => `${(parseFloat(v) * 100).toFixed(2)}%`;
 
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
+    <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
       <p className="inline-flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
         Active Return (30d)
         <InfoTooltip text="Portfolio return minus benchmark return over the last 30 days" />
       </p>
       {isLoading ? (
-        <p className="mt-1 font-mono text-lg font-semibold text-[var(--muted-foreground)]">--</p>
+        <p className="mt-0.5 font-mono text-sm font-semibold text-[var(--muted-foreground)]">--</p>
       ) : data ? (
-        <p className="mt-1 font-mono text-lg font-semibold">{pct(data.active_return)}</p>
+        <p className="mt-0.5 font-mono text-sm font-semibold">{pct(data.active_return)}</p>
       ) : (
-        <p className="mt-1 font-mono text-lg font-semibold text-[var(--muted-foreground)]">N/A</p>
+        <p className="mt-0.5 font-mono text-sm font-semibold text-[var(--muted-foreground)]">N/A</p>
       )}
       <Link
         href={`/${fundSlug}/attribution`}

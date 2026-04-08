@@ -15,8 +15,8 @@ export default async function PortfolioListPage({
 
   return (
     <HydrationBoundary state={dehydratedState}>
-      <div className="space-y-4">
-        <h1 className="text-2xl font-semibold">Portfolios</h1>
+      <div className="space-y-3">
+        <h1 className="text-sm font-semibold">Portfolios</h1>
         <PortfolioList />
       </div>
     </HydrationBoundary>

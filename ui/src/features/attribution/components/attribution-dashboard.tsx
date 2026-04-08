@@ -19,7 +19,7 @@ export function AttributionDashboard({ portfolioId }: { portfolioId: string }) {
   const [activeTab, setActiveTab] = useState<"brinson" | "risk" | "fx">("brinson");
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-1.5 text-sm text-[var(--muted-foreground)]">
           Start
@@ -41,40 +41,25 @@ export function AttributionDashboard({ portfolioId }: { portfolioId: string }) {
         </label>
       </div>
 
-      <div className="flex gap-1 rounded-xl border border-[var(--border)] bg-[var(--card)] p-1 w-fit">
-        <button
-          type="button"
-          onClick={() => setActiveTab("brinson")}
-          className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-            activeTab === "brinson"
-              ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
-              : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-          }`}
-        >
-          Brinson-Fachler
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("risk")}
-          className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-            activeTab === "risk"
-              ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
-              : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-          }`}
-        >
-          Risk-Based
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("fx")}
-          className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-            activeTab === "fx"
-              ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
-              : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-          }`}
-        >
-          FX
-        </button>
+      <div className="flex gap-1 border-b border-[var(--border)]">
+        {([
+          { id: "brinson" as const, label: "Brinson-Fachler" },
+          { id: "risk" as const, label: "Risk-Based" },
+          { id: "fx" as const, label: "FX" },
+        ]).map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+              activeTab === tab.id
+                ? "border-b-2 border-[var(--primary)] text-[var(--primary)]"
+                : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {activeTab === "brinson" && (

@@ -67,9 +67,9 @@ function EditDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-lg border border-[var(--border)] bg-[var(--background)] p-6 shadow-lg">
+      <div className="w-full max-w-md rounded-md border border-[var(--border)] bg-[var(--background)] p-6 shadow-lg">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Edit Fee Schedule</h2>
+          <h2 className="text-sm font-semibold">Edit Fee Schedule</h2>
           <button
             type="button"
             onClick={onClose}
@@ -79,7 +79,7 @@ function EditDialog({
           </button>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div>
             <label htmlFor="fee-bps" className={labelClass}>
               Management Fee (bps)
@@ -210,7 +210,7 @@ export function FeeScheduleCard() {
 
   if (!schedule) {
     return (
-      <div className="rounded-lg border border-[var(--border)] p-6 text-center text-sm text-[var(--muted-foreground)]">
+      <div className="rounded-md border border-[var(--border)] p-6 text-center text-sm text-[var(--muted-foreground)]">
         No fee schedule configured for this fund.
       </div>
     );
@@ -229,7 +229,7 @@ export function FeeScheduleCard() {
   ];
 
   return (
-    <div className="rounded-lg border border-[var(--border)] p-4">
+    <div className="rounded-md border border-[var(--border)] p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold">Fee Schedule</h3>
         <button

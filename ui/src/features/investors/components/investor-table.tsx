@@ -18,7 +18,7 @@ export function InvestorTable() {
 
   if (!investors?.length) {
     return (
-      <div className="rounded-lg border border-[var(--border)] p-8 text-center text-sm text-[var(--muted-foreground)]">
+      <div className="rounded-md border border-[var(--border)] p-8 text-center text-sm text-[var(--muted-foreground)]">
         No investors found. Capital accounts will appear here after subscriptions are processed.
       </div>
     );
@@ -28,21 +28,21 @@ export function InvestorTable() {
   const accountMap = new Map(accounts?.map((a) => [a.investor_id, a]));
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-[var(--border)]">
+    <div className="overflow-x-auto rounded-md border border-[var(--border)]">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-[var(--border)] bg-[var(--table-header)]">
-            <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">
+            <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
               Investor
             </th>
-            <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">Type</th>
-            <th className="px-4 py-3 text-right font-medium text-[var(--muted-foreground)]">
+            <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">Type</th>
+            <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
               Ending Capital
             </th>
-            <th className="px-4 py-3 text-right font-medium text-[var(--muted-foreground)]">
+            <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
               Ownership
             </th>
-            <th className="px-4 py-3 text-right font-medium text-[var(--muted-foreground)]">
+            <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
               Shares
             </th>
           </tr>
@@ -55,7 +55,7 @@ export function InvestorTable() {
                 key={inv.id}
                 className="border-b border-[var(--border)] transition-colors hover:bg-[var(--table-row-hover)]"
               >
-                <td className="px-4 py-3">
+                <td className="px-3 py-1.5">
                   <Link
                     href={`/${fundSlug}/investors/${inv.id}`}
                     className="font-medium text-[var(--primary)] hover:underline"
@@ -63,18 +63,18 @@ export function InvestorTable() {
                     {inv.name}
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-[var(--muted-foreground)]">
+                <td className="px-3 py-1.5 text-[var(--muted-foreground)]">
                   <span className="rounded-full bg-[var(--badge-bg)] px-2 py-0.5 text-xs">
                     {inv.entity_type.replace(/_/g, " ")}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-right font-mono">
+                <td className="px-3 py-1.5 text-right font-mono">
                   {account ? fmt(account.ending_capital) : "-"}
                 </td>
-                <td className="px-4 py-3 text-right font-mono">
+                <td className="px-3 py-1.5 text-right font-mono">
                   {account ? pct(account.ownership_pct) : "-"}
                 </td>
-                <td className="px-4 py-3 text-right font-mono">
+                <td className="px-3 py-1.5 text-right font-mono">
                   {account ? Number(account.shares_held).toLocaleString() : "-"}
                 </td>
               </tr>

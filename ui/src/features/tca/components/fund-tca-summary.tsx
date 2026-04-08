@@ -29,7 +29,7 @@ export function FundTCASummaryCard() {
   const { data: summary, isLoading } = useQuery(fundTCASummaryQueryOptions(fundSlug, days));
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {/* Period selector */}
       <div className="flex items-center gap-1">
         {PERIOD_OPTIONS.map((opt) => (
@@ -52,53 +52,50 @@ export function FundTCASummaryCard() {
         <div className="text-sm text-[var(--muted-foreground)]">Loading TCA summary...</div>
       )}
 
-      {!isLoading && !summary && (
-        <p className="text-sm text-[var(--muted-foreground)]">No TCA summary available.</p>
-      )}
+      {!isLoading && !summary && null}
 
       {summary && (
-        <>
-          {/* Top-level stats */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
+        <div className="grid grid-cols-12 gap-2">
+          {/* KPI cards — left 5 cols */}
+          <div className="col-span-5 grid grid-cols-3 gap-2">
+            <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
               <p className="text-xs text-[var(--muted-foreground)]">Total Orders</p>
-              <p className="mt-1 font-mono text-lg font-semibold">{summary.total_orders}</p>
+              <p className="mt-0.5 font-mono text-sm font-semibold">{summary.total_orders}</p>
             </div>
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
+            <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
               <p className="text-xs text-[var(--muted-foreground)]">Avg Total Cost</p>
-              <p className="mt-1 font-mono text-lg font-semibold">
+              <p className="mt-0.5 font-mono text-sm font-semibold">
                 {fmtBps(summary.avg_total_cost_bps)}{" "}
                 <span className="text-xs font-normal text-[var(--muted-foreground)]">bps</span>
               </p>
             </div>
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
+            <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
               <p className="text-xs text-[var(--muted-foreground)]">Total Cost</p>
-              <p className="mt-1 font-mono text-lg font-semibold">
+              <p className="mt-0.5 font-mono text-sm font-semibold">
                 {fmtCurrency(summary.total_cost_usd)}
               </p>
             </div>
           </div>
 
-          {/* Cost breakdown bar */}
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
-            <p className="mb-3 text-xs font-medium text-[var(--muted-foreground)]">
-              Average Cost Breakdown (bps)
-            </p>
+          {/* Cost breakdown bar — right 7 cols */}
+          <div className="col-span-7 rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-medium text-[var(--muted-foreground)]">
+                Average Cost Breakdown (bps)
+              </p>
+              <p className="text-[10px] text-[var(--muted-foreground)]">
+                {new Date(summary.period_start).toLocaleDateString()} – {new Date(summary.period_end).toLocaleDateString()}
+              </p>
+            </div>
             <CostBar summary={summary} />
-            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
               <Legend color="#6366f1" label="Commission" value={fmtBps(summary.avg_commission_bps)} />
               <Legend color="#f59e0b" label="Spread" value={fmtBps(summary.avg_spread_cost_bps)} />
               <Legend color="#ef4444" label="Timing" value={fmtBps(summary.avg_timing_cost_bps)} />
               <Legend color="#8b5cf6" label="Impact" value={fmtBps(summary.avg_impact_cost_bps)} />
             </div>
           </div>
-
-          {/* Period info */}
-          <p className="text-xs text-[var(--muted-foreground)]">
-            Period: {new Date(summary.period_start).toLocaleDateString()} &ndash;{" "}
-            {new Date(summary.period_end).toLocaleDateString()}
-          </p>
-        </>
+        </div>
       )}
     </div>
   );

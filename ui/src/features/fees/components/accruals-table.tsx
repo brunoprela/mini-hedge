@@ -34,29 +34,29 @@ export function AccrualsTable({ portfolioId }: { portfolioId: string }) {
 
   if (!accruals || accruals.length === 0) {
     return (
-      <div className="rounded-lg border border-[var(--border)] p-6 text-center text-sm text-[var(--muted-foreground)]">
+      <div className="rounded-md border border-[var(--border)] p-6 text-center text-sm text-[var(--muted-foreground)]">
         No fee accruals found. Accruals are created during the EOD process.
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-[var(--border)]">
+    <div className="overflow-x-auto rounded-md border border-[var(--border)]">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-[var(--border)] bg-[var(--card)]">
-            <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">Date</th>
-            <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">Type</th>
-            <th className="px-4 py-3 text-right font-medium text-[var(--muted-foreground)]">
+            <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">Date</th>
+            <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">Type</th>
+            <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
               NAV Basis
             </th>
-            <th className="px-4 py-3 text-right font-medium text-[var(--muted-foreground)]">
+            <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
               Accrued
             </th>
-            <th className="px-4 py-3 text-right font-medium text-[var(--muted-foreground)]">
+            <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
               Cumulative
             </th>
-            <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">
+            <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
               Status
             </th>
           </tr>
@@ -67,8 +67,8 @@ export function AccrualsTable({ portfolioId }: { portfolioId: string }) {
               key={a.id ?? i}
               className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--sidebar-active)]"
             >
-              <td className="px-4 py-3">{a.accrual_date}</td>
-              <td className="px-4 py-3">
+              <td className="px-3 py-1.5">{a.accrual_date}</td>
+              <td className="px-3 py-1.5">
                 <span
                   className={cn(
                     "inline-block rounded px-1.5 py-0.5 text-xs font-medium",
@@ -78,12 +78,12 @@ export function AccrualsTable({ portfolioId }: { portfolioId: string }) {
                   {a.fee_type}
                 </span>
               </td>
-              <td className="px-4 py-3 text-right tabular-nums">{fmtAmount(a.nav_basis)}</td>
-              <td className="px-4 py-3 text-right tabular-nums">{fmtAmount(a.accrued_amount)}</td>
-              <td className="px-4 py-3 text-right tabular-nums">
+              <td className="px-3 py-1.5 text-right tabular-nums">{fmtAmount(a.nav_basis)}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums">{fmtAmount(a.accrued_amount)}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums">
                 {fmtAmount(a.cumulative_amount)}
               </td>
-              <td className="px-4 py-3">
+              <td className="px-3 py-1.5">
                 <span
                   className={cn(
                     "text-xs font-medium",

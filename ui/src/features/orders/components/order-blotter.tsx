@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { StatusDot } from "@/shared/components/charts";
-import { QuickActions, type QuickAction } from "@/shared/components/quick-actions";
+import { SectionPanel, ToolbarTab } from "@/shared/components/section-panel";
 import { SortableHeader, TablePagination, TableSearch } from "@/shared/components/table-controls";
 import { useExportCSV } from "@/shared/hooks/use-export-csv";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
@@ -131,8 +131,11 @@ export function OrderBlotter({ portfolioId }: { portfolioId: string }) {
       side: o.side,
       type: o.order_type,
       quantity: o.quantity,
+      limit_price: o.limit_price ?? "",
       filled_quantity: o.filled_quantity,
       avg_fill_price: o.avg_fill_price ?? "",
+      time_in_force: o.time_in_force ?? "",
+      broker_id: o.broker_id ?? "",
       state: o.state,
       created_at: o.created_at,
     }));
@@ -149,52 +152,48 @@ export function OrderBlotter({ portfolioId }: { portfolioId: string }) {
 
   return (
     <div className="space-y-3">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between gap-4">
-        {/* Status filter tabs */}
-        <div className="flex items-center gap-1">
-          {STATUS_TABS.map((tab) => (
+      <SectionPanel
+        title="Order Blotter"
+        tabs={
+          <>
+            {STATUS_TABS.map((tab) => (
+              <ToolbarTab
+                key={tab.value}
+                label={tab.label}
+                active={statusFilter === tab.value}
+                onClick={() => {
+                  setStatusFilter(tab.value);
+                  table.setPage(0);
+                }}
+              />
+            ))}
+          </>
+        }
+        actions={
+          <>
+            <span className="text-[10px] font-medium text-[var(--muted-foreground)]">
+              {table.totalFiltered} results
+            </span>
+            <div className="w-48">
+              <TableSearch
+                value={table.search}
+                onChange={table.setSearch}
+                placeholder="Search orders..."
+              />
+            </div>
             <button
               type="button"
-              key={tab.value}
-              onClick={() => {
-                setStatusFilter(tab.value);
-                table.setPage(0);
-              }}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                statusFilter === tab.value
-                  ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
-                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-              }`}
+              onClick={handleExport}
+              title="Export to CSV"
+              className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
             >
-              {tab.label}
+              <Download className="h-3.5 w-3.5" />
+              CSV
             </button>
-          ))}
-        </div>
-
-        {/* Search + Export */}
-        <div className="flex items-center gap-2">
-          <div className="w-64">
-            <TableSearch
-              value={table.search}
-              onChange={table.setSearch}
-              placeholder="Search orders..."
-            />
-          </div>
-          <button
-            type="button"
-            onClick={handleExport}
-            title="Export to CSV"
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-          >
-            <Download className="h-4 w-4" />
-            CSV
-          </button>
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
+          </>
+        }
+      >
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)] text-left text-[var(--muted-foreground)]">
@@ -234,8 +233,29 @@ export function OrderBlotter({ portfolioId }: { portfolioId: string }) {
                 onSort={table.onSort}
               />
               <SortableHeader
-                label="Avg Price"
+                label="Limit"
+                sortKey="limit_price"
+                currentSort={table.sortKey}
+                direction={table.sortDirection}
+                onSort={table.onSort}
+              />
+              <SortableHeader
+                label="Avg Fill"
                 sortKey="avg_fill_price"
+                currentSort={table.sortKey}
+                direction={table.sortDirection}
+                onSort={table.onSort}
+              />
+              <SortableHeader
+                label="TIF"
+                sortKey="time_in_force"
+                currentSort={table.sortKey}
+                direction={table.sortDirection}
+                onSort={table.onSort}
+              />
+              <SortableHeader
+                label="Broker"
+                sortKey="broker_id"
                 currentSort={table.sortKey}
                 direction={table.sortDirection}
                 onSort={table.onSort}
@@ -263,28 +283,6 @@ export function OrderBlotter({ portfolioId }: { portfolioId: string }) {
               const state = order.state as string;
               const isCancellable = CANCELLABLE_STATES.has(state);
               const orderId = order.id as string;
-
-              const actions: QuickAction[] = [
-                {
-                  label: "View Details",
-                  onClick: () => window.location.assign(`/${fundSlug}/orders/${orderId}/tca`),
-                },
-              ];
-              if (state === "filled") {
-                actions.push({
-                  label: "View TCA",
-                  variant: "primary",
-                  onClick: () => window.location.assign(`/${fundSlug}/orders/${orderId}/tca`),
-                });
-              }
-              if (isCancellable && canCancel) {
-                actions.push({
-                  label: "Cancel Order",
-                  variant: "danger",
-                  onClick: () => cancelMutation.mutate(orderId),
-                  disabled: cancellingId === orderId,
-                });
-              }
 
               return (
                 <tr
@@ -334,25 +332,54 @@ export function OrderBlotter({ portfolioId }: { portfolioId: string }) {
                     ) : null}
                   </td>
                   <td className="px-3 py-2 pr-4 text-right font-mono">
+                    {order.limit_price
+                      ? `$${parseFloat(order.limit_price as string).toFixed(2)}`
+                      : "\u2014"}
+                  </td>
+                  <td className="px-3 py-2 pr-4 text-right font-mono">
                     {order.avg_fill_price
                       ? `$${parseFloat(order.avg_fill_price as string).toFixed(2)}`
                       : "\u2014"}
+                  </td>
+                  <td className="px-3 py-2 pr-4 text-xs uppercase text-[var(--muted-foreground)]">
+                    {(order.time_in_force as string) ?? "\u2014"}
+                  </td>
+                  <td className="px-3 py-2 pr-4 text-xs text-[var(--muted-foreground)]">
+                    {(order.broker_id as string) ?? "\u2014"}
                   </td>
                   <td className="px-3 py-2 pr-4">
                     <OrderStateBadge state={state} />
                   </td>
                   <td className="px-3 py-2 text-xs text-[var(--muted-foreground)]">
-                    {new Date(order.created_at as string).toLocaleTimeString()}
+                    {new Date(order.created_at as string).toLocaleTimeString(undefined, { timeZoneName: "short" })}
                   </td>
                   <td className="px-3 py-2">
-                    <QuickActions actions={actions} />
+                    <div className="flex items-center gap-1">
+                      <Link
+                        href={`/${fundSlug}/orders/${orderId}/tca`}
+                        className="rounded px-1.5 py-0.5 text-[10px] font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary-muted)]"
+                      >
+                        {state === "filled" ? "TCA" : "Details"}
+                      </Link>
+                      {isCancellable && canCancel && (
+                        <button
+                          type="button"
+                          onClick={() => cancelMutation.mutate(orderId)}
+                          disabled={cancellingId === orderId}
+                          className="rounded px-1.5 py-0.5 text-[10px] font-medium text-[var(--destructive)] transition-colors hover:bg-[var(--destructive-muted)] disabled:opacity-40"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
-      </div>
+        </div>
+      </SectionPanel>
 
       {/* Pagination */}
       {table.totalPages > 1 && (

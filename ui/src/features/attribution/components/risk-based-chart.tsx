@@ -32,32 +32,26 @@ export function RiskBasedChart({ portfolioId, start, end }: Props) {
     );
   }
 
-  if (!data) {
-    return (
-      <div className="text-sm text-[var(--muted-foreground)]">
-        No risk attribution data available.
-      </div>
-    );
-  }
+  if (!data || !data.factor_contributions) return null;
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className="space-y-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <SummaryCard label="Total PnL" value={currency(data.total_pnl)} />
         <SummaryCard label="Systematic PnL" value={currency(data.systematic_pnl)} />
         <SummaryCard label="Idiosyncratic PnL" value={currency(data.idiosyncratic_pnl)} />
         <SummaryCard label="Systematic %" value={pct(data.systematic_pct)} />
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
+      <div className="overflow-x-auto rounded-md border border-[var(--border)] bg-[var(--card)]">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)] text-left text-xs text-[var(--muted-foreground)]">
-              <th className="px-3 py-2 font-medium">Factor</th>
-              <th className="px-3 py-2 font-medium text-right">Factor Return</th>
-              <th className="px-3 py-2 font-medium text-right">Portfolio Exposure</th>
-              <th className="px-3 py-2 font-medium text-right">PnL Contribution</th>
-              <th className="px-3 py-2 font-medium text-right">% of Total</th>
+              <th className="px-3 py-1 font-medium">Factor</th>
+              <th className="px-3 py-1 font-medium text-right">Factor Return</th>
+              <th className="px-3 py-1 font-medium text-right">Portfolio Exposure</th>
+              <th className="px-3 py-1 font-medium text-right">PnL Contribution</th>
+              <th className="px-3 py-1 font-medium text-right">% of Total</th>
             </tr>
           </thead>
           <tbody>
@@ -88,9 +82,9 @@ export function RiskBasedChart({ portfolioId, start, end }: Props) {
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
+    <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
       <p className="text-xs text-[var(--muted-foreground)]">{label}</p>
-      <p className="mt-1 font-mono text-lg font-semibold">{value}</p>
+      <p className="mt-0.5 font-mono text-sm font-semibold">{value}</p>
     </div>
   );
 }

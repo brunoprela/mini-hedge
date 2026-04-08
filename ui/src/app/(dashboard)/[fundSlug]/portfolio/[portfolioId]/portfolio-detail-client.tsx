@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AttributionSummaryCard } from "@/features/attribution/components/attribution-summary-card";
 import { cumulativeQueryOptions } from "@/features/attribution/api";
@@ -57,13 +58,13 @@ export function PortfolioDetailClient({ portfolioId }: { portfolioId: string }) 
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <ComplianceBanner portfolioId={portfolioId} />
 
       {/* Sticky header: title + actions + tabs */}
       <div className="sticky top-0 z-10 -mx-6 border-b border-[var(--border)] bg-[var(--background)] px-6 pb-0 pt-2">
         <div className="mb-3 flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Portfolio</h1>
+          <h1 className="text-sm font-semibold">Portfolio</h1>
           <ActionBar portfolioId={portfolioId} fundSlug={fundSlug} onSwitchTab={switchTab} />
         </div>
         <div className="flex gap-1">
@@ -73,7 +74,7 @@ export function PortfolioDetailClient({ portfolioId }: { portfolioId: string }) 
               type="button"
               onClick={() => switchTab(tab.id)}
               className={cn(
-                "rounded-t-lg px-4 py-2 text-sm font-medium transition-colors",
+                "rounded-t-lg px-3 py-1.5 text-sm font-medium transition-colors",
                 activeTab === tab.id
                   ? "border-b-2 border-[var(--primary)] text-[var(--primary)]"
                   : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
@@ -144,7 +145,7 @@ function ActionBar({
       <button
         type="button"
         onClick={() => onSwitchTab("risk")}
-        className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]"
+        className="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]"
       >
         Run Stress Test
       </button>
@@ -159,18 +160,11 @@ function ActionBar({
   );
 }
 
-function TradeTicketLazy({
-  portfolioId,
-  onClose,
-  defaults,
-}: {
-  portfolioId: string;
-  onClose: () => void;
-  defaults?: { instrument?: string; side?: string; quantity?: string };
-}) {
-  const { TradeTicket } = require("@/features/portfolio/components/trade-ticket");
-  return <TradeTicket portfolioId={portfolioId} onClose={onClose} defaults={defaults} />;
-}
+const TradeTicketLazy = dynamic(
+  () =>
+    import("@/features/portfolio/components/trade-ticket").then((mod) => mod.TradeTicket),
+  { ssr: false },
+);
 
 // ─── Overview Tab (Broadridge-style) ────────────────────────
 
@@ -252,12 +246,24 @@ function OverviewTab({ portfolioId }: { portfolioId: string }) {
 
   return (
     <div className="space-y-5">
-      {/* Summary strip */}
-      {stripItems.length > 0 && <SummaryStrip items={stripItems} />}
+      {/* Hero KPI + Summary strip */}
+      {summary && (
+        <div className="flex items-baseline gap-3">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Total Market Value</p>
+            <p className="font-mono text-base font-bold">{fmtCurrency(summary.total_market_value)}</p>
+          </div>
+          <div className="h-8 w-px bg-[var(--border)]" />
+          <div className="flex-1">
+            {stripItems.length > 0 && <SummaryStrip items={stripItems.slice(1)} />}
+          </div>
+        </div>
+      )}
+      {!summary && stripItems.length > 0 && <SummaryStrip items={stripItems} />}
 
       {/* Performance chart + VaR gauge side by side */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_280px]">
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_280px]">
+        <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
           <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
             Performance (30 days)
           </h3>
@@ -275,8 +281,8 @@ function OverviewTab({ portfolioId }: { portfolioId: string }) {
           )}
         </div>
 
-        <div className="space-y-4">
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+        <div className="space-y-3">
+          <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
             <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
               Risk
             </h3>
@@ -305,11 +311,11 @@ function OverviewTab({ portfolioId }: { portfolioId: string }) {
 
       {/* Top & Bottom Movers */}
       {(movers.top.length > 0 || movers.bottom.length > 0) && (
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+        <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
           <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
             Top & Bottom Movers
           </h3>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
               <p className="mb-2 text-[10px] font-medium uppercase text-[var(--success)]">Gainers</p>
               <HBarChart items={movers.top} />
@@ -337,23 +343,23 @@ function OrdersTab({ portfolioId }: { portfolioId: string }) {
 
 function RiskTab({ portfolioId }: { portfolioId: string }) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <section>
-        <h2 className="mb-3 text-lg font-semibold">Risk Summary</h2>
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Risk Summary</h2>
         <RiskSummaryCard portfolioId={portfolioId} />
       </section>
       <section>
-        <h2 className="mb-3 text-lg font-semibold">Exposure</h2>
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Exposure</h2>
         <ExposureSummary portfolioId={portfolioId} />
       </section>
       <ExposureHistoryChart portfolioId={portfolioId} />
       <RiskHistoryChart portfolioId={portfolioId} />
       <section>
-        <h2 className="mb-3 text-lg font-semibold">Stress Tests</h2>
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Stress Tests</h2>
         <StressTable portfolioId={portfolioId} />
       </section>
       <section>
-        <h2 className="mb-3 text-lg font-semibold">Custom Stress Test</h2>
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Custom Stress Test</h2>
         <CustomStressForm portfolioId={portfolioId} />
       </section>
     </div>
@@ -362,17 +368,17 @@ function RiskTab({ portfolioId }: { portfolioId: string }) {
 
 function CashTab({ portfolioId }: { portfolioId: string }) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <section>
-        <h2 className="mb-3 text-lg font-semibold">Cash Balances</h2>
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Cash Balances</h2>
         <CashSummaryCard portfolioId={portfolioId} />
       </section>
       <section>
-        <h2 className="mb-3 text-lg font-semibold">FX Hedging</h2>
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">FX Hedging</h2>
         <FXSummaryCards portfolioId={portfolioId} />
       </section>
       <section>
-        <h2 className="mb-3 text-lg font-semibold">FX Forwards</h2>
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">FX Forwards</h2>
         <ForwardsTable portfolioId={portfolioId} />
       </section>
     </div>
@@ -381,13 +387,13 @@ function CashTab({ portfolioId }: { portfolioId: string }) {
 
 function AttributionTab({ portfolioId }: { portfolioId: string }) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <section>
-        <h2 className="mb-3 text-lg font-semibold">Attribution Summary</h2>
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Attribution Summary</h2>
         <AttributionSummaryCard portfolioId={portfolioId} />
       </section>
       <section>
-        <h2 className="mb-3 text-lg font-semibold">Transaction Cost Analysis</h2>
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Transaction Cost Analysis</h2>
         <TCADashboard portfolioId={portfolioId} />
       </section>
     </div>

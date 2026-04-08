@@ -1,78 +1,105 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import Link from "next/link";
 import { useState } from "react";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
 import { FactorBreakdown } from "@/features/risk/components/factor-breakdown";
-import { RiskDashboard } from "@/features/risk/components/risk-dashboard";
+import { PnLContributors } from "@/features/risk/components/pnl-contributors";
+import { SnapshotButton, useRiskSummary, RiskSnapshotPrompt } from "@/features/risk/components/risk-dashboard";
 import { CustomStressForm } from "@/features/risk/components/custom-stress-form";
-import { RiskHistoryChart } from "@/features/risk/components/risk-history-chart";
+import { RiskHistoryChart, useHasRiskHistory } from "@/features/risk/components/risk-history-chart";
 import { StressTable } from "@/features/risk/components/stress-table";
+import { VaRContributions } from "@/features/risk/components/var-contributions";
+import { PortfolioSelector } from "@/shared/components/portfolio-selector";
+import { SectionPanel, ToolbarTab } from "@/shared/components/section-panel";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
+
+type RiskTab = "overview" | "pnl" | "stress";
+
+const TABS: { id: RiskTab; label: string }[] = [
+  { id: "overview", label: "Overview" },
+  { id: "pnl", label: "P&L & VaR" },
+  { id: "stress", label: "Stress Tests" },
+];
 
 export function RiskPageClient() {
   const { fundSlug } = useFundContext();
   const { data: portfolios, isLoading } = useQuery(portfoliosQueryOptions(fundSlug));
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<RiskTab>("overview");
 
   const activePortfolioId = selectedPortfolioId || portfolios?.[0]?.id || "";
+  const hasHistory = useHasRiskHistory(activePortfolioId);
+  const riskSummary = useRiskSummary(activePortfolioId);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
+      {/* Header */}
       <div className="flex items-center justify-between">
+        <h1 className="text-sm font-semibold">Risk</h1>
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold">Risk</h1>
-          <Link
-            href={`/${fundSlug}/exposure`}
-            className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] underline-offset-2 hover:underline"
-          >
-            View Exposure →
-          </Link>
+          {activePortfolioId && <SnapshotButton portfolioId={activePortfolioId} />}
+          {portfolios && (
+            <PortfolioSelector
+              portfolios={portfolios}
+              value={activePortfolioId}
+              onChange={setSelectedPortfolioId}
+            />
+          )}
         </div>
-        {portfolios && portfolios.length > 1 && (
-          <select
-            value={activePortfolioId}
-            onChange={(e) => setSelectedPortfolioId(e.target.value)}
-            className="rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm"
-          >
-            {portfolios.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        )}
       </div>
 
-      {isLoading && <p className="text-sm text-[var(--muted-foreground)]">Loading portfolios...</p>}
+      {isLoading && <p className="text-xs text-[var(--muted-foreground)]">Loading...</p>}
 
       {activePortfolioId && (
         <>
-          <section>
-            <h2 className="mb-3 text-lg font-semibold">Snapshot</h2>
-            <RiskDashboard portfolioId={activePortfolioId} />
-          </section>
+          <RiskSnapshotPrompt portfolioId={activePortfolioId} />
 
-          <section>
-            <h2 className="mb-3 text-lg font-semibold">Risk Trend</h2>
-            <RiskHistoryChart portfolioId={activePortfolioId} />
-          </section>
+          {riskSummary && (
+            <SectionPanel
+              title="Risk Overview"
+              tabs={
+                <>
+                  {TABS.map((tab) => (
+                    <ToolbarTab
+                      key={tab.id}
+                      label={tab.label}
+                      active={activeTab === tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                    />
+                  ))}
+                </>
+              }
+              summary={riskSummary}
+            >
+              <div className="p-3">
+                {activeTab === "overview" && (
+                  <div className="space-y-3">
+                    {hasHistory && <RiskHistoryChart portfolioId={activePortfolioId} />}
+                    <FactorBreakdown portfolioId={activePortfolioId} fullWidth={true} />
+                  </div>
+                )}
 
-          <section>
-            <h2 className="mb-3 text-lg font-semibold">Stress Tests</h2>
-            <StressTable portfolioId={activePortfolioId} />
-          </section>
+                {activeTab === "pnl" && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <PnLContributors portfolioId={activePortfolioId} />
+                    <VaRContributions portfolioId={activePortfolioId} />
+                  </div>
+                )}
 
-          <section>
-            <h2 className="mb-3 text-lg font-semibold">Custom Stress Test</h2>
-            <CustomStressForm portfolioId={activePortfolioId} />
-          </section>
-
-          <section>
-            <h2 className="mb-3 text-lg font-semibold">Factor Decomposition</h2>
-            <FactorBreakdown portfolioId={activePortfolioId} />
-          </section>
+                {activeTab === "stress" && (
+                  <div className="grid grid-cols-12 gap-3">
+                    <div className="col-span-8">
+                      <StressTable portfolioId={activePortfolioId} />
+                    </div>
+                    <div className="col-span-4">
+                      <CustomStressForm portfolioId={activePortfolioId} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </SectionPanel>
+          )}
         </>
       )}
     </div>

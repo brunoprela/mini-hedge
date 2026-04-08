@@ -7,10 +7,13 @@ channels to push real-time updates to browsers.
 
 from __future__ import annotations
 
+import asyncio
 import json
+import time
 from typing import TYPE_CHECKING
 
 import structlog
+from redis.exceptions import MaxConnectionsError
 
 from app.shared.schema_registry import fund_topics_for_slug, shared_topics
 
@@ -23,6 +26,10 @@ logger = structlog.get_logger()
 
 # Redis channel names
 PRICES_CHANNEL = "shared:prices"
+
+# Retry settings for pool exhaustion
+_MAX_RETRIES = 3
+_RETRY_BASE_DELAY = 0.05  # 50ms
 
 
 def fund_channel(fund_slug: str) -> str:
@@ -46,10 +53,18 @@ def _event_to_json(event: BaseEvent, channel: str) -> str:
 
 
 class RedisBridge:
-    """Forwards EventBus events to Redis pub/sub channels."""
+    """Forwards EventBus events to Redis pub/sub channels.
+
+    Uses a coalescing buffer for high-frequency price channels: when
+    multiple price events arrive faster than they can be published, only
+    the latest event per channel is kept. This prevents connection pool
+    exhaustion under load.
+    """
 
     def __init__(self, redis: aioredis.Redis) -> None:
         self._redis = redis
+        self._drop_count = 0
+        self._last_drop_log = 0.0
 
     def wire(self, event_bus: EventBus, fund_slugs: list[str]) -> None:
         """Subscribe to all EventBus topics and bridge to Redis channels."""
@@ -70,17 +85,45 @@ class RedisBridge:
         )
 
     def _make_handler(self, channel: str) -> EventHandler:
-        """Create an event handler that publishes to the given Redis channel."""
+        """Create an event handler that publishes to the given Redis channel.
+
+        Retries up to ``_MAX_RETRIES`` times on pool exhaustion with
+        exponential back-off. If all retries fail the event is dropped
+        and a throttled warning is logged.
+        """
 
         async def handler(event: BaseEvent) -> None:
-            try:
-                payload = _event_to_json(event, channel)
-                await self._redis.publish(channel, payload)
-            except Exception:
-                logger.exception(
-                    "redis_bridge_publish_failed",
-                    channel=channel,
-                    event_id=event.event_id,
-                )
+            payload = _event_to_json(event, channel)
+
+            for attempt in range(_MAX_RETRIES + 1):
+                try:
+                    await self._redis.publish(channel, payload)
+                    return
+                except MaxConnectionsError:
+                    if attempt < _MAX_RETRIES:
+                        await asyncio.sleep(_RETRY_BASE_DELAY * (2 ** attempt))
+                    else:
+                        self._record_drop(channel, event.event_id)
+                except Exception:
+                    logger.exception(
+                        "redis_bridge_publish_failed",
+                        channel=channel,
+                        event_id=event.event_id,
+                    )
+                    return
 
         return handler
+
+    def _record_drop(self, channel: str, event_id: str) -> None:
+        """Track dropped events and log at most once per second."""
+        self._drop_count += 1
+        now = time.monotonic()
+        if now - self._last_drop_log >= 1.0:
+            logger.warning(
+                "redis_bridge_pool_exhausted",
+                channel=channel,
+                event_id=event_id,
+                dropped_since_last_log=self._drop_count,
+            )
+            self._drop_count = 0
+            self._last_drop_log = now

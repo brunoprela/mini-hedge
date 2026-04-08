@@ -25,9 +25,7 @@ export function PnLChart({ portfolioId }: { portfolioId: string }) {
     return <p className="text-sm text-(--muted-foreground)">Loading P&L data...</p>;
   }
 
-  if (!data || !data.periods || data.periods.length === 0) {
-    return <p className="text-sm text-(--muted-foreground)">No P&L history available</p>;
-  }
+  if (!data || !data.periods || data.periods.length === 0) return null;
 
   const returns = data.periods.map((p) => ({
     date: p.period_end,
@@ -37,7 +35,7 @@ export function PnLChart({ portfolioId }: { portfolioId: string }) {
   const maxAbs = Math.max(...returns.map((r) => Math.abs(r.pnl)), 0.0001);
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-(--border) bg-(--card)">
+    <div className="overflow-x-auto rounded-lg border border-(--border) bg-(--card)">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-(--table-border) bg-(--table-header) text-left text-(--muted-foreground)">

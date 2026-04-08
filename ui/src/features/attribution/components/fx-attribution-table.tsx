@@ -36,31 +36,27 @@ export function FXAttributionTable({ portfolioId, start, end }: Props) {
     return <div className="text-sm text-[var(--muted-foreground)]">Loading FX attribution...</div>;
   }
 
-  if (!data) {
-    return (
-      <div className="text-sm text-[var(--muted-foreground)]">No FX attribution data available.</div>
-    );
-  }
+  if (!data || !data.entries) return null;
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
+    <div className="space-y-2">
+      <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
         <p className="text-xs text-[var(--muted-foreground)]">Total FX Impact</p>
-        <p className={`mt-1 font-mono text-lg font-semibold ${fxColor(data.total_fx_impact)}`}>
+        <p className={`mt-0.5 font-mono text-sm font-semibold ${fxColor(data.total_fx_impact)}`}>
           {pct(data.total_fx_impact)}
         </p>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
+      <div className="overflow-x-auto rounded-md border border-[var(--border)] bg-[var(--card)]">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)] text-left text-xs text-[var(--muted-foreground)]">
-              <th className="px-3 py-2 font-medium">Currency</th>
-              <th className="px-3 py-2 font-medium text-right">Weight (%)</th>
-              <th className="px-3 py-2 font-medium text-right">Local Return (%)</th>
-              <th className="px-3 py-2 font-medium text-right">FX Return (%)</th>
-              <th className="px-3 py-2 font-medium text-right">Total Return (%)</th>
-              <th className="px-3 py-2 font-medium text-right">Contribution (bps)</th>
+              <th className="px-3 py-1 font-medium">Currency</th>
+              <th className="px-3 py-1 font-medium text-right">Weight (%)</th>
+              <th className="px-3 py-1 font-medium text-right">Local Return (%)</th>
+              <th className="px-3 py-1 font-medium text-right">FX Return (%)</th>
+              <th className="px-3 py-1 font-medium text-right">Total Return (%)</th>
+              <th className="px-3 py-1 font-medium text-right">Contribution (bps)</th>
             </tr>
           </thead>
           <tbody>

@@ -49,7 +49,7 @@ export function OrderIntentsTable({ portfolioId }: { portfolioId: string }) {
   }
 
   if (!intents || intents.length === 0) {
-    return <p className="text-sm text-[var(--muted-foreground)]">No pending order intents.</p>;
+    return <p className="text-xs text-[var(--muted-foreground)]">No pending order intents. Run an optimization or what-if scenario to generate intents.</p>;
   }
 
   return (

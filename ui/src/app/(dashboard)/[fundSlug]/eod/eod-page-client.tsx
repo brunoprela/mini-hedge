@@ -1,14 +1,16 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Calendar } from "lucide-react";
 import { useState } from "react";
 import { EODHistory, EODRunStatus, triggerEODRun } from "@/features/eod";
+import { StatusDot } from "@/shared/components/charts";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
+
+const EOD_STEPS = ["Price Sync", "P&L Calc", "NAV", "Compliance", "Complete"];
 
 export function EODPageClient() {
   const { fundSlug } = useFundContext();
@@ -26,46 +28,64 @@ export function EODPageClient() {
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Calendar className="h-6 w-6 text-[var(--primary)]" />
-        <h1 className="text-2xl font-semibold">EOD & NAV</h1>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h1 className="text-sm font-semibold">EOD &amp; NAV</h1>
       </div>
 
-      {/* Trigger EOD */}
-      <div className="flex items-end gap-3 rounded-lg border border-[var(--border)] p-4">
-        <div>
-          <label
-            htmlFor="eod-date"
-            className="mb-1 block text-xs font-medium text-[var(--muted-foreground)]"
+      {/* Trigger EOD + Progress Steps */}
+      <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
+        <div className="flex items-end gap-3">
+          <div>
+            <label
+              htmlFor="eod-date"
+              className="mb-1 block text-xs font-medium text-[var(--muted-foreground)]"
+            >
+              Business Date
+            </label>
+            <input
+              id="eod-date"
+              type="date"
+              value={runDate}
+              onChange={(e) => setRunDate(e.target.value)}
+              className="rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => runMutation.mutate()}
+            disabled={runMutation.isPending}
+            className="rounded-md bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
-            Business Date
-          </label>
-          <input
-            id="eod-date"
-            type="date"
-            value={runDate}
-            onChange={(e) => setRunDate(e.target.value)}
-            className="rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm"
-          />
+            {runMutation.isPending ? "Running..." : "Run EOD"}
+          </button>
+          {runMutation.isError && (
+            <p className="text-xs text-red-400">{(runMutation.error as Error).message}</p>
+          )}
         </div>
-        <button
-          type="button"
-          onClick={() => runMutation.mutate()}
-          disabled={runMutation.isPending}
-          className="rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-        >
-          {runMutation.isPending ? "Running..." : "Run EOD"}
-        </button>
-        {runMutation.isError && (
-          <p className="text-xs text-red-400">{(runMutation.error as Error).message}</p>
+
+        {/* Step progress bar */}
+        {runMutation.isPending && (
+          <div className="mt-4 flex items-center gap-1">
+            {EOD_STEPS.map((step, i) => (
+              <div key={step} className="flex flex-1 items-center gap-1.5">
+                <StatusDot variant={i === 0 ? "info" : "neutral"} size={7} />
+                <span className="text-[10px] font-medium text-[var(--muted-foreground)]">
+                  {step}
+                </span>
+                {i < EOD_STEPS.length - 1 && (
+                  <div className="h-px flex-1 bg-[var(--border)]" />
+                )}
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
       {/* Current run status */}
       <div>
-        <div className="mb-3 flex items-center gap-3">
-          <h2 className="text-lg font-medium">Run Status</h2>
+        <div className="mb-2 flex items-center gap-3">
+          <h2 className="text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Run Status</h2>
           <input
             type="date"
             value={selectedDate}
@@ -78,7 +98,7 @@ export function EODPageClient() {
 
       {/* History */}
       <div>
-        <h2 className="mb-3 text-lg font-medium">Run History</h2>
+        <h2 className="mb-1 text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Run History</h2>
         <EODHistory onSelectDate={setSelectedDate} />
       </div>
     </div>

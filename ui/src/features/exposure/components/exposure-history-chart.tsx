@@ -37,7 +37,7 @@ export function ExposureHistoryChart({ portfolioId }: { portfolioId: string }) {
   }, [data]);
 
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
+    <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-medium text-[var(--muted-foreground)]">Exposure Over Time</h3>
         <div className="flex gap-1">
@@ -57,23 +57,19 @@ export function ExposureHistoryChart({ portfolioId }: { portfolioId: string }) {
         </div>
       </div>
 
-      {isLoading && <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>}
-
-      {!isLoading && (!data || data.length === 0) && (
-        <p className="text-sm text-[var(--muted-foreground)]">No exposure history available</p>
-      )}
+      {isLoading && <p className="text-xs text-[var(--muted-foreground)]">Loading...</p>}
 
       {!isLoading && data && data.length > 0 && (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--table-border)] text-left text-xs text-[var(--muted-foreground)]">
-                <th className="bg-[var(--table-header)] px-3 py-2 font-medium">Date</th>
-                <th className="bg-[var(--table-header)] px-3 py-2 font-medium text-right">Long</th>
-                <th className="bg-[var(--table-header)] px-3 py-2 font-medium text-right">Short</th>
-                <th className="bg-[var(--table-header)] px-3 py-2 font-medium text-right">Net</th>
-                <th className="bg-[var(--table-header)] px-3 py-2 font-medium text-right">Gross</th>
-                <th className="bg-[var(--table-header)] px-3 py-2 font-medium" style={{ minWidth: 120 }}>
+                <th className="bg-[var(--table-header)] px-3 py-1 font-medium">Date</th>
+                <th className="bg-[var(--table-header)] px-3 py-1 font-medium text-right">Long</th>
+                <th className="bg-[var(--table-header)] px-3 py-1 font-medium text-right">Short</th>
+                <th className="bg-[var(--table-header)] px-3 py-1 font-medium text-right">Net</th>
+                <th className="bg-[var(--table-header)] px-3 py-1 font-medium text-right">Gross</th>
+                <th className="bg-[var(--table-header)] px-3 py-1 font-medium" style={{ minWidth: 120 }}>
                   Net / Gross
                 </th>
               </tr>

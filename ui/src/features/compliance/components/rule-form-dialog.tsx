@@ -283,9 +283,9 @@ export function RuleFormDialog({ rule, onClose }: RuleFormDialogProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-lg border border-[var(--border)] bg-[var(--background)] p-6 shadow-lg">
+      <div className="w-full max-w-md rounded-md border border-[var(--border)] bg-[var(--background)] p-6 shadow-lg">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{isEdit ? "Edit Rule" : "New Rule"}</h2>
+          <h2 className="text-sm font-semibold">{isEdit ? "Edit Rule" : "New Rule"}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -295,7 +295,7 @@ export function RuleFormDialog({ rule, onClose }: RuleFormDialogProps) {
           </button>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           {/* Name */}
           <div>
             <label htmlFor="rule-name" className={labelClass}>

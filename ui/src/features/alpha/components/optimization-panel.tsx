@@ -48,9 +48,9 @@ export function OptimizationPanel({ portfolioId }: { portfolioId: string }) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Objective Selector */}
-      <div className="flex items-end gap-4">
+      <div className="flex items-end gap-3">
         <div>
           <label htmlFor="objective" className="mb-1 block text-sm text-[var(--muted-foreground)]">
             Objective
@@ -72,7 +72,7 @@ export function OptimizationPanel({ portfolioId }: { portfolioId: string }) {
           type="button"
           onClick={() => mutation.mutate()}
           disabled={mutation.isPending}
-          className="rounded-md bg-[var(--foreground)] px-4 py-2 text-sm font-medium text-[var(--background)] transition-colors hover:opacity-90 disabled:opacity-50"
+          className="rounded-md bg-[var(--foreground)] px-3 py-1.5 text-sm font-medium text-[var(--background)] transition-colors hover:opacity-90 disabled:opacity-50"
         >
           {mutation.isPending ? "Running..." : "Run Optimization"}
         </button>
@@ -80,25 +80,25 @@ export function OptimizationPanel({ portfolioId }: { portfolioId: string }) {
 
       {/* Results */}
       {result && (
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Results</h3>
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold">Results</h3>
 
           {/* Summary Cards */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <div className="rounded-lg border border-[var(--border)] p-3">
+            <div className="rounded-md border border-[var(--border)] p-3">
               <p className="text-xs text-[var(--muted-foreground)]">Expected Return</p>
-              <p className="mt-1 font-mono text-lg font-semibold">
+              <p className="mt-0.5 font-mono text-sm font-semibold">
                 {fmtPct(result.expected_return)}
               </p>
             </div>
-            <div className="rounded-lg border border-[var(--border)] p-3">
+            <div className="rounded-md border border-[var(--border)] p-3">
               <p className="text-xs text-[var(--muted-foreground)]">Expected Risk</p>
-              <p className="mt-1 font-mono text-lg font-semibold">{fmtPct(result.expected_risk)}</p>
+              <p className="mt-0.5 font-mono text-sm font-semibold">{fmtPct(result.expected_risk)}</p>
             </div>
             {result.sharpe_ratio && (
-              <div className="rounded-lg border border-[var(--border)] p-3">
+              <div className="rounded-md border border-[var(--border)] p-3">
                 <p className="text-xs text-[var(--muted-foreground)]">Sharpe Ratio</p>
-                <p className="mt-1 font-mono text-lg font-semibold">
+                <p className="mt-0.5 font-mono text-sm font-semibold">
                   {parseFloat(result.sharpe_ratio).toFixed(3)}
                 </p>
               </div>

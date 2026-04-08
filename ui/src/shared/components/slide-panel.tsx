@@ -44,7 +44,7 @@ export function SlidePanel({
         style={{ width }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-3 py-1.5">
           <h2 className="text-sm font-semibold text-[var(--foreground)]">{title}</h2>
           <div className="flex items-center gap-2">
             {actions}

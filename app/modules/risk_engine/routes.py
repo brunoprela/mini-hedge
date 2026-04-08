@@ -119,7 +119,7 @@ async def run_predefined_stress_tests(
     request_context: RequestContext = require_permission(Permission.RISK_READ),
     _access: None = require_access(Portfolio.relation("can_view")),
     risk_service: RiskService = Depends(get_risk_service),
-    session: AsyncSession = Depends(get_read_db),
+    session: AsyncSession = Depends(get_db),
 ) -> list[StressTestResult]:
     results = []
     for scenario in PREDEFINED_SCENARIOS:

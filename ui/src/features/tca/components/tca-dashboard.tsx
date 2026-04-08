@@ -39,18 +39,12 @@ export function TCADashboard({ portfolioId }: { portfolioId: string }) {
     return <div className="text-sm text-[var(--muted-foreground)]">Loading TCA data...</div>;
   }
 
-  if (!report || !report.reports || report.reports.length === 0) {
-    return (
-      <p className="text-sm text-[var(--muted-foreground)]">
-        No TCA data available for this portfolio.
-      </p>
-    );
-  }
+  if (!report || !report.reports || report.reports.length === 0) return null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <SummaryCard label="Avg Total Cost" value={`${fmtBps(report.avg_total_cost_bps)} bps`} />
         <SummaryCard label="Avg Spread Cost" value={`${fmtBps(report.avg_spread_cost_bps)} bps`} />
         <SummaryCard label="Avg Impact Cost" value={`${fmtBps(report.avg_impact_cost_bps)} bps`} />
@@ -58,7 +52,7 @@ export function TCADashboard({ portfolioId }: { portfolioId: string }) {
       </div>
 
       {/* Reports table */}
-      <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
+      <div className="overflow-x-auto rounded-md border border-[var(--border)]">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)] text-left text-xs text-[var(--muted-foreground)]">
@@ -125,9 +119,9 @@ export function TCADashboard({ portfolioId }: { portfolioId: string }) {
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
+    <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
       <p className="text-xs text-[var(--muted-foreground)]">{label}</p>
-      <p className="mt-1 font-mono text-lg font-semibold">{value}</p>
+      <p className="mt-0.5 font-mono text-sm font-semibold">{value}</p>
     </div>
   );
 }

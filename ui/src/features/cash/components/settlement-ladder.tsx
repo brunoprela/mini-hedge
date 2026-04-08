@@ -35,7 +35,7 @@ export function SettlementLadder({ portfolioId }: { portfolioId: string }) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-[var(--border)]">
+    <div className="overflow-x-auto rounded-md border border-[var(--border)]">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-[var(--border)] bg-[var(--muted-foreground)]/5">

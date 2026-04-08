@@ -34,7 +34,7 @@ export function InterestRatesPanel() {
 
   if (!rates || rates.length === 0) {
     return (
-      <div className="rounded-lg border border-[var(--border)] p-6 text-center text-sm text-[var(--muted-foreground)]">
+      <div className="rounded-md border border-[var(--border)] p-6 text-center text-sm text-[var(--muted-foreground)]">
         No interest rate data available.
       </div>
     );
@@ -56,7 +56,7 @@ export function InterestRatesPanel() {
         const isEditing = editingCurrency === ccy;
 
         return (
-          <div key={ccy} className="rounded-lg border border-[var(--border)] p-3">
+          <div key={ccy} className="rounded-md border border-[var(--border)] p-3">
             <p className="text-sm font-semibold">{ccy}</p>
             {isEditing ? (
               <div className="mt-1">

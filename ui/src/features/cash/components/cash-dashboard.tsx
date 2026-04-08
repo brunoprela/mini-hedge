@@ -31,7 +31,7 @@ export function CashDashboard({ portfolioId }: { portfolioId: string }) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {balances.map((b) => (
-        <div key={b.currency} className="rounded-lg border border-[var(--border)] p-4">
+        <div key={b.currency} className="rounded-md border border-[var(--border)] p-4">
           <p className="text-sm font-medium">{b.currency}</p>
           <div className="mt-3 space-y-2">
             <Row label="Available" value={fmt(b.available_balance, b.currency)} />

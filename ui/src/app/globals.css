@@ -55,9 +55,12 @@
   --accent-orange-muted: rgba(249, 115, 22, 0.15);
 
   /* Table */
-  --table-header: #0f1219;
+  --table-header: #0d1018;
   --table-row-hover: #161c2a;
   --table-border: #1a2030;
+
+  /* Info */
+  --info: #3b82f6;
 
   /* Input */
   --input: #161c2a;
@@ -140,10 +143,17 @@ body {
     system-ui,
     -apple-system,
     sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
   background: var(--background);
   color: var(--foreground);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Professional table density */
+table {
+  font-size: 12px;
 }
 
 /* Scrollbar */

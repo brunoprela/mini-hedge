@@ -21,6 +21,7 @@ import { usePermission } from "@/shared/hooks/use-permission";
 import { Permission } from "@/shared/lib/permissions";
 import { clientFetch } from "@/shared/lib/api";
 import { cn } from "@/shared/lib/cn";
+import { PortfolioSelector } from "@/shared/components/portfolio-selector";
 
 type TabId = "violations" | "rules";
 
@@ -122,11 +123,11 @@ export function CompliancePageClient() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold">Compliance</h1>
+          <h1 className="text-sm font-semibold">Compliance</h1>
           {violations && violations.length > 0 && (
             <div className="flex items-center gap-2">
               {blockCount > 0 && (
@@ -146,21 +147,15 @@ export function CompliancePageClient() {
         </div>
 
         {/* Portfolio selector */}
-        {portfolios && portfolios.length > 1 && (
-          <select
+        {portfolios && (
+          <PortfolioSelector
+            portfolios={portfolios}
             value={activePortfolioId}
-            onChange={(e) => {
-              setSelectedPortfolioId(e.target.value);
+            onChange={(id) => {
+              setSelectedPortfolioId(id);
               setSelectedViolationId(null);
             }}
-            className="rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm"
-          >
-            {portfolios.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+          />
         )}
       </div>
 
@@ -177,7 +172,7 @@ export function CompliancePageClient() {
             type="button"
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "rounded-t-lg px-4 py-2 text-sm font-medium transition-colors",
+              "px-3 py-1.5 text-xs font-medium transition-colors",
               activeTab === tab.id
                 ? "border-b-2 border-[var(--primary)] text-[var(--primary)]"
                 : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
@@ -192,7 +187,7 @@ export function CompliancePageClient() {
       {activeTab === "rules" ? (
         <RuleTable />
       ) : (
-        <div className="flex gap-4">
+        <div className="flex gap-3">
           {/* Left: Violations list */}
           <div className="min-w-0 flex-1 space-y-3">
             {/* Toolbar */}
@@ -220,7 +215,7 @@ export function CompliancePageClient() {
                 type="button"
                 onClick={handleExport}
                 title="Export to CSV"
-                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
               >
                 <Download className="h-3.5 w-3.5" />
                 CSV
@@ -231,7 +226,7 @@ export function CompliancePageClient() {
             {isLoading ? (
               <p className="text-sm text-[var(--muted-foreground)]">Loading violations...</p>
             ) : !filteredViolations.length ? (
-              <div className="flex flex-col items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-12">
+              <div className="flex flex-col items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--card)] px-4 py-12">
                 <ShieldCheck className="h-8 w-8 text-[var(--success)]" />
                 <p className="text-sm text-[var(--muted-foreground)]">No active violations</p>
               </div>
@@ -287,162 +282,129 @@ export function CompliancePageClient() {
             )}
           </div>
 
-          {/* Right: Detail panel */}
-          <div className="hidden w-[380px] shrink-0 lg:block">
-            {selectedViolation ? (
-              <div className="sticky top-4 space-y-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
-                {/* Header */}
-                <div>
-                  <div className="flex items-center gap-2">
-                    <StatusDot variant={severityDotVariant(selectedViolation.severity)} size={10} />
-                    <h3 className="text-sm font-semibold text-[var(--foreground)]">
-                      {selectedViolation.rule_name}
-                    </h3>
-                  </div>
-                  <span
-                    className={cn(
-                      "mt-2 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium",
-                      SEVERITY_BADGE[selectedViolation.severity] ?? "",
-                    )}
+          {/* Right: Stacked alert cards (Broadridge-style) */}
+          <div className="hidden w-[400px] shrink-0 space-y-2 overflow-y-auto lg:block" style={{ maxHeight: "calc(100vh - 12rem)" }}>
+            <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+              Alerts ({filteredViolations.length})
+            </p>
+            {filteredViolations.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-[var(--border)] bg-[var(--card)] px-4 py-16">
+                <ShieldCheck className="h-8 w-8 text-[var(--success)]" />
+                <p className="text-sm text-[var(--muted-foreground)]">All clear</p>
+              </div>
+            ) : (
+              filteredViolations.map((v) => {
+                const isExpanded = selectedViolationId === v.id;
+                return (
+                  <div
+                    key={v.id}
+                    className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--card)] transition-colors"
                   >
-                    {selectedViolation.severity}
-                  </span>
-                </div>
-
-                {/* Message */}
-                <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
-                    Description
-                  </p>
-                  <p className="mt-1 text-sm text-[var(--foreground)]">
-                    {selectedViolation.message}
-                  </p>
-                </div>
-
-                {/* Compliance check visual */}
-                {(selectedViolation.current_value || selectedViolation.limit_value) && (
-                  <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-3">
-                    <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
-                      Compliance Check
-                    </p>
-                    <div className="mt-2 grid grid-cols-2 gap-3">
-                      {selectedViolation.current_value && (
-                        <div>
-                          <p className="text-[10px] text-[var(--muted-foreground)]">Current</p>
-                          <p className="font-mono text-sm font-semibold text-[var(--destructive)]">
-                            {selectedViolation.current_value}
-                          </p>
-                        </div>
+                    {/* Colored severity header bar */}
+                    <div
+                      className={cn(
+                        "px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider",
+                        v.severity === "block"
+                          ? "bg-[var(--destructive)] text-white"
+                          : v.severity === "warning"
+                            ? "bg-[var(--warning)] text-black"
+                            : "bg-[var(--accent-orange)] text-white",
                       )}
-                      {selectedViolation.limit_value && (
-                        <div>
-                          <p className="text-[10px] text-[var(--muted-foreground)]">Limit</p>
-                          <p className="font-mono text-sm font-semibold text-[var(--foreground)]">
-                            {selectedViolation.limit_value}
-                          </p>
-                        </div>
-                      )}
+                    >
+                      {v.severity === "block" ? "Compliance Check Failed" : v.severity === "warning" ? "Compliance Warning" : "Compliance Breach"}
                     </div>
-                    {selectedViolation.current_value && selectedViolation.limit_value && (
-                      <div className="mt-2">
-                        <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--muted)]">
-                          <div
-                            className="h-full rounded-full bg-[var(--destructive)] transition-all"
-                            style={{
-                              width: `${Math.min(
-                                100,
-                                (parseFloat(selectedViolation.current_value) /
-                                  parseFloat(selectedViolation.limit_value)) *
-                                  100,
-                              )}%`,
-                            }}
-                          />
-                        </div>
+
+                    {/* Card body — always visible */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedViolationId(isExpanded ? null : v.id);
+                        setWaiveReason("");
+                      }}
+                      className="flex w-full items-start gap-3 px-3 py-2.5 text-left"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <span className="text-xs font-semibold text-[var(--foreground)]">
+                          {v.rule_name}
+                        </span>
+                        <p className="mt-0.5 text-[11px] text-[var(--muted-foreground)]">
+                          {v.message}
+                        </p>
+                      </div>
+                    </button>
+
+                    {/* Expanded detail */}
+                    {isExpanded && (
+                      <div className="border-t border-[var(--border)] px-3 py-2.5 space-y-2.5">
+                        {/* Current vs Limit */}
+                        {(v.current_value || v.limit_value) && (
+                          <div className="flex gap-3 text-xs">
+                            {v.current_value && (
+                              <div>
+                                <p className="text-[10px] text-[var(--muted-foreground)]">Current</p>
+                                <p className="font-mono font-semibold text-[var(--destructive)]">{v.current_value}</p>
+                              </div>
+                            )}
+                            {v.limit_value && (
+                              <div>
+                                <p className="text-[10px] text-[var(--muted-foreground)]">Limit</p>
+                                <p className="font-mono font-semibold">{v.limit_value}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <p className="text-[10px] text-[var(--muted-foreground)]">
+                          Detected: {new Date(v.detected_at).toLocaleString()}
+                          {v.deadline_at && ` — Deadline: ${new Date(v.deadline_at).toLocaleString()}`}
+                        </p>
+
+                        {/* Action buttons — Broadridge circle-button style */}
+                        {canWrite && (
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => resolveMutation.mutate(v.id)}
+                              disabled={resolveMutation.isPending}
+                              title="Approve / Resolve"
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--success)] text-white transition-opacity hover:opacity-80 disabled:opacity-50"
+                            >
+                              &#10003;
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (waiveReason.trim()) {
+                                  waiveMutation.mutate({ violationId: v.id, reason: waiveReason });
+                                }
+                              }}
+                              disabled={!waiveReason.trim() || waiveMutation.isPending}
+                              title="Waive"
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--warning)] text-black transition-opacity hover:opacity-80 disabled:opacity-50"
+                            >
+                              &#8943;
+                            </button>
+                            <Link
+                              href={`/${fundSlug}/portfolio/${v.portfolio_id}?tab=positions`}
+                              title="View Portfolio"
+                              className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border)] text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)]"
+                            >
+                              &#8594;
+                            </Link>
+                            <input
+                              type="text"
+                              value={waiveReason}
+                              onChange={(e) => setWaiveReason(e.target.value)}
+                              placeholder="Waiver reason..."
+                              className="ml-1 flex-1 rounded-md border border-[var(--border)] bg-transparent px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                )}
-
-                {/* Metadata */}
-                <div className="space-y-1.5 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-[var(--muted-foreground)]">Detected</span>
-                    <span className="text-[var(--foreground)]">
-                      {new Date(selectedViolation.detected_at).toLocaleString()}
-                    </span>
-                  </div>
-                  {selectedViolation.deadline_at && (
-                    <div className="flex justify-between">
-                      <span className="text-[var(--muted-foreground)]">Deadline</span>
-                      <span className="text-[var(--foreground)]">
-                        {new Date(selectedViolation.deadline_at).toLocaleString()}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span className="text-[var(--muted-foreground)]">Breach Type</span>
-                    <span className="text-[var(--foreground)]">
-                      {selectedViolation.breach_type}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                {canWrite && (
-                  <div className="space-y-2 border-t border-[var(--border)] pt-3">
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => resolveMutation.mutate(selectedViolation.id)}
-                        disabled={resolveMutation.isPending}
-                        className="flex-1 rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-[var(--primary-foreground)] transition-colors hover:opacity-90 disabled:opacity-50"
-                      >
-                        Resolve
-                      </button>
-                      <Link
-                        href={`/${fundSlug}/portfolio/${selectedViolation.portfolio_id}?tab=positions`}
-                        className="flex-1 rounded-lg border border-[var(--border)] px-3 py-1.5 text-center text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]"
-                      >
-                        View Portfolio
-                      </Link>
-                    </div>
-
-                    {/* Waive section */}
-                    <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-3">
-                      <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
-                        Waive Violation
-                      </p>
-                      <textarea
-                        value={waiveReason}
-                        onChange={(e) => setWaiveReason(e.target.value)}
-                        placeholder="Reason for waiver..."
-                        rows={2}
-                        className="mt-2 w-full rounded-md border border-[var(--border)] bg-transparent px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
-                      />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          waiveMutation.mutate({
-                            violationId: selectedViolation.id,
-                            reason: waiveReason,
-                          })
-                        }
-                        disabled={!waiveReason.trim() || waiveMutation.isPending}
-                        className="mt-2 w-full rounded-lg border border-[var(--warning)] px-3 py-1.5 text-xs font-medium text-[var(--warning)] transition-colors hover:bg-[var(--warning-muted)] disabled:opacity-50"
-                      >
-                        {waiveMutation.isPending ? "Waiving..." : "Waive"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-[var(--border)] bg-[var(--card)] px-4 py-16">
-                <Shield className="h-8 w-8 text-[var(--muted-foreground)]" />
-                <p className="text-sm text-[var(--muted-foreground)]">
-                  Select a violation to view details
-                </p>
-              </div>
+                );
+              })
             )}
           </div>
         </div>

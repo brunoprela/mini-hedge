@@ -13,14 +13,14 @@ export function CorporateActionsPageClient() {
   const canProcess = can(Permission.POSITIONS_WRITE);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Corporate Actions</h1>
+        <h1 className="text-sm font-semibold">Corporate Actions</h1>
         {canProcess && (
           <button
             type="button"
             onClick={() => setShowDialog(true)}
-            className="rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--primary-foreground)] transition-colors hover:brightness-110"
+            className="rounded-md bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
           >
             + Process Actions
           </button>

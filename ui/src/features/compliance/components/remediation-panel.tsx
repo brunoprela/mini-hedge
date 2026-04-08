@@ -20,23 +20,23 @@ export function RemediationPanel({ portfolioId }: { portfolioId: string; fundSlu
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-semibold text-[var(--foreground)]">Suggested Remediation Trades</h3>
-      <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
+      <div className="overflow-x-auto rounded-md border border-[var(--border)] bg-[var(--card)]">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+              <th className="px-3 py-1.5 text-left text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
                 Instrument
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+              <th className="px-3 py-1.5 text-left text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
                 Side
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+              <th className="px-3 py-1.5 text-left text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
                 Quantity
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+              <th className="px-3 py-1.5 text-left text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
                 Reason
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+              <th className="px-3 py-1.5 text-left text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
                 Action
               </th>
             </tr>
@@ -47,8 +47,8 @@ export function RemediationPanel({ portfolioId }: { portfolioId: string; fundSlu
                 key={`${s.violation_id}-${s.instrument_id}`}
                 className="border-b border-[var(--table-border)] last:border-0 hover:bg-[var(--table-row-hover)]"
               >
-                <td className="px-4 py-3 font-medium">{s.instrument_id}</td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-1.5 font-medium">{s.instrument_id}</td>
+                <td className="px-3 py-1.5">
                   <span
                     className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                       s.side.toLowerCase() === "buy"
@@ -59,9 +59,9 @@ export function RemediationPanel({ portfolioId }: { portfolioId: string; fundSlu
                     {s.side}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-[var(--muted-foreground)]">{s.quantity}</td>
-                <td className="px-4 py-3 text-[var(--muted-foreground)]">{s.reason}</td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-1.5 text-[var(--muted-foreground)]">{s.quantity}</td>
+                <td className="px-3 py-1.5 text-[var(--muted-foreground)]">{s.reason}</td>
+                <td className="px-3 py-1.5">
                   <Link
                     href={`/${fundSlug}/portfolio/${portfolioId}?tab=positions&trade_instrument=${encodeURIComponent(s.instrument_id)}&trade_side=${s.side.toLowerCase()}&trade_qty=${s.quantity}`}
                     className="text-sm text-[var(--primary)] underline-offset-2 hover:underline"

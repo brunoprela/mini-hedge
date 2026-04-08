@@ -18,31 +18,45 @@ export function PortfolioList() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <span />
+      <div className="mb-2 flex items-center justify-end">
         <button
           type="button"
           onClick={() => setShowCreate(true)}
-          className="rounded-md bg-[var(--primary)] px-4 py-1.5 text-sm font-medium text-white"
+          className="rounded-md bg-[var(--primary)] px-3 py-1 text-xs font-medium text-white"
         >
           + Create Portfolio
         </button>
       </div>
 
       {!portfolios || portfolios.length === 0 ? (
-        <p className="text-sm text-[var(--muted-foreground)]">No portfolios found.</p>
+        <p className="text-xs text-[var(--muted-foreground)]">No portfolios found.</p>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {portfolios.map((p) => (
-            <Link
-              key={p.id}
-              href={`/${fundSlug}/portfolio/${p.id}`}
-              className="rounded-lg border border-[var(--border)] p-4 transition-colors hover:bg-[var(--muted)]"
-            >
-              <h3 className="font-medium">{p.name}</h3>
-              <p className="text-sm text-[var(--muted-foreground)]">{p.strategy ?? "No strategy"}</p>
-            </Link>
-          ))}
+        <div className="overflow-x-auto rounded-md border border-[var(--border)]">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)] text-left text-xs text-[var(--muted-foreground)]">
+                <th className="px-3 py-1.5 font-medium">Name</th>
+                <th className="px-3 py-1.5 font-medium">Strategy</th>
+                <th className="px-3 py-1.5 text-right font-medium" />
+              </tr>
+            </thead>
+            <tbody>
+              {portfolios.map((p) => (
+                <tr key={p.id} className="border-b border-[var(--table-border)] last:border-b-0 hover:bg-[var(--table-row-hover)]">
+                  <td className="px-3 py-1.5 font-medium">{p.name}</td>
+                  <td className="px-3 py-1.5 font-mono text-xs text-[var(--muted-foreground)]">{p.strategy ?? "—"}</td>
+                  <td className="px-3 py-1.5 text-right">
+                    <Link
+                      href={`/${fundSlug}/portfolio/${p.id}`}
+                      className="text-xs font-medium text-[var(--primary)] hover:underline"
+                    >
+                      Open →
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 

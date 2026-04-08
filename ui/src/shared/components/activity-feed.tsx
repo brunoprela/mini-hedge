@@ -84,8 +84,8 @@ export function ActivityFeed() {
   });
 
   return (
-    <div className="rounded-lg border border-[var(--border)]">
-      <div className="border-b border-[var(--border)] px-4 py-2">
+    <div className="rounded-md border border-[var(--border)]">
+      <div className="border-b border-[var(--border)] px-3 py-1.5">
         <h3 className="text-sm font-medium">Live Activity</h3>
       </div>
       <div className="max-h-80 overflow-y-auto">
@@ -96,7 +96,7 @@ export function ActivityFeed() {
         ) : (
           <ul className="divide-y divide-[var(--border)]">
             {items.map((item) => (
-              <li key={item.id} className="flex items-start gap-3 px-4 py-2">
+              <li key={item.id} className="flex items-start gap-3 px-3 py-1.5">
                 <EventDot type={item.type} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm">{item.message}</p>

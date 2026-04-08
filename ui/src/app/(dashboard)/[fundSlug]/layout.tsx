@@ -10,7 +10,7 @@ export default function FundLayout({ children }: { children: ReactNode }) {
       <RealtimeToasts />
       <div className="flex h-screen flex-col bg-[var(--background)]">
         <TopNav />
-        <main className="flex-1 overflow-y-auto px-6 py-4">
+        <main className="flex-1 overflow-y-auto px-4 py-3">
           <Breadcrumbs />
           {children}
         </main>

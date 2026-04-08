@@ -2,15 +2,19 @@
 
 import { useQueries, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useMemo } from "react";
+import { ordersQueryOptions } from "@/features/orders/api";
+import { violationsQueryOptions } from "@/features/compliance/api";
 import { portfolioSummaryQueryOptions, portfoliosQueryOptions } from "@/features/portfolio/api";
 import type { PortfolioInfo, PortfolioSummary } from "@/features/portfolio/types";
-import { InfoTooltip } from "@/shared/components/table-controls";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { formatPnL, pnlColorClass } from "@/shared/lib/formatters";
 
 export function FundOverview({ fundSlug }: { fundSlug: string }) {
   const { fundName, role } = useFundContext();
   const { data: portfolios } = useQuery(portfoliosQueryOptions(fundSlug));
+
+  const firstPortfolioId = portfolios?.[0]?.id ?? "";
 
   const summaryResults = useQueries({
     queries: (portfolios ?? []).map((p) => portfolioSummaryQueryOptions(fundSlug, p.id)),
@@ -19,93 +23,168 @@ export function FundOverview({ fundSlug }: { fundSlug: string }) {
     .map((r) => r.data)
     .filter((d): d is PortfolioSummary => d !== undefined);
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-[var(--foreground-bright)]">{fundName}</h1>
-        <p className="text-sm text-[var(--muted-foreground)]">
-          {role ?? "loading..."} &middot; {portfolios?.length ?? 0} portfolio
-          {portfolios?.length !== 1 ? "s" : ""}
-        </p>
-      </div>
+  // Operational data for widgets
+  const { data: orders } = useQuery({
+    ...ordersQueryOptions(fundSlug, firstPortfolioId),
+    enabled: !!firstPortfolioId,
+  });
+  const { data: violations } = useQuery({
+    ...violationsQueryOptions(fundSlug, firstPortfolioId),
+    enabled: !!firstPortfolioId,
+  });
 
-      {summaries.length > 0 && <AggregateMetrics summaries={summaries} />}
+  const orderStats = useMemo(() => {
+    if (!orders) return null;
+    const today = new Date().toISOString().slice(0, 10);
+    const todayOrders = orders.filter((o) => o.created_at.slice(0, 10) === today);
+    return {
+      total: todayOrders.length,
+      filled: todayOrders.filter((o) => o.state === "filled").length,
+      working: todayOrders.filter((o) => ["working", "partially_filled", "sent"].includes(o.state)).length,
+      rejected: todayOrders.filter((o) => o.state === "rejected").length,
+    };
+  }, [orders]);
 
-      {portfolios && portfolios.length > 0 && (
-        <div>
-          <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
-            Portfolios
-          </h2>
-          <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)]">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
-                  <th className="px-4 py-3 text-left text-xs font-medium text-[var(--muted-foreground)]">
-                    Portfolio
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-[var(--muted-foreground)]">
-                    NAV
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-[var(--muted-foreground)]">
-                    P&L
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-[var(--muted-foreground)]">
-                    Positions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {portfolios.map((p) => {
-                  const summary = summaries.find((s) => s.portfolio_id === p.id);
-                  return (
-                    <PortfolioRow key={p.id} fundSlug={fundSlug} portfolio={p} summary={summary} />
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+  const complianceStats = useMemo(() => {
+    if (!violations) return null;
+    return {
+      total: violations.length,
+      blocks: violations.filter((v) => v.severity === "block").length,
+      warnings: violations.filter((v) => v.severity === "warning").length,
+    };
+  }, [violations]);
 
-function AggregateMetrics({ summaries }: { summaries: PortfolioSummary[] }) {
-  const totalMarketValue = summaries.reduce((acc, s) => acc + Number(s.total_market_value), 0);
-  const totalCostBasis = summaries.reduce((acc, s) => acc + Number(s.total_cost_basis), 0);
-  const totalRealizedPnl = summaries.reduce((acc, s) => acc + Number(s.total_realized_pnl), 0);
-  const totalUnrealizedPnl = summaries.reduce((acc, s) => acc + Number(s.total_unrealized_pnl), 0);
+  const totalAUM = summaries.reduce((acc, s) => acc + Number(s.total_market_value), 0);
+  const totalPnL = summaries.reduce((acc, s) => acc + Number(s.total_unrealized_pnl), 0);
   const totalPositions = summaries.reduce((acc, s) => acc + s.position_count, 0);
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-      <MetricCard
-        label="Total AUM"
-        value={formatPnL(String(totalMarketValue))}
-        info="Assets Under Management — total market value across all portfolios"
-      />
-      <MetricCard
-        label="Cost Basis"
-        value={formatPnL(String(totalCostBasis))}
-        info="Total amount invested at original purchase prices"
-      />
-      <MetricCard
-        label="Realized P&L"
-        value={formatPnL(String(totalRealizedPnl))}
-        valueClass={pnlColorClass(String(totalRealizedPnl))}
-        info="Profit/loss from closed positions"
-      />
-      <MetricCard
-        label="Unrealized P&L"
-        value={formatPnL(String(totalUnrealizedPnl))}
-        valueClass={pnlColorClass(String(totalUnrealizedPnl))}
-        info="Profit/loss on open positions at current market prices"
-      />
-      <MetricCard
-        label="Positions"
-        value={String(totalPositions)}
-        info="Total number of open positions across all portfolios"
-      />
+    <div className="space-y-3">
+      {/* Greeting */}
+      <div>
+        <h1 className="text-lg font-semibold text-[var(--foreground-bright)]">{fundName}</h1>
+        <p className="text-xs text-[var(--muted-foreground)]">
+          {role ?? "loading..."} &middot; {portfolios?.length ?? 0} portfolio{portfolios?.length !== 1 ? "s" : ""}
+        </p>
+      </div>
+
+      {/* Widget grid — Broadridge-style operational dashboard */}
+      <div className="grid grid-cols-12 gap-3">
+        {/* AUM & P&L summary widget */}
+        <div className="col-span-4 rounded-md border border-[var(--border)] bg-[var(--card)]">
+          <div className="border-b border-[var(--border)] bg-[var(--primary-muted)] px-3 py-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--foreground)]">Fund Summary</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 p-3">
+            <div>
+              <p className="text-[10px] text-[var(--muted-foreground)]">Total AUM</p>
+              <p className="font-mono text-sm font-semibold">{formatPnL(String(totalAUM))}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-[var(--muted-foreground)]">Unrealized P&L</p>
+              <p className={`font-mono text-sm font-semibold ${pnlColorClass(String(totalPnL))}`}>
+                {formatPnL(String(totalPnL))}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] text-[var(--muted-foreground)]">Positions</p>
+              <p className="font-mono text-sm font-semibold">{totalPositions}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-[var(--muted-foreground)]">Portfolios</p>
+              <p className="font-mono text-sm font-semibold">{portfolios?.length ?? 0}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Today's Orders widget */}
+        <div className="col-span-4 rounded-md border border-[var(--border)] bg-[var(--card)]">
+          <div className="border-b border-[var(--border)] bg-[var(--primary-muted)] px-3 py-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--foreground)]">Today&apos;s Orders</span>
+          </div>
+          <div className="p-3">
+            {orderStats ? (
+              <div className="flex items-center gap-3">
+                <CountBadge count={orderStats.total} label="Total" color="var(--foreground)" />
+                <CountBadge count={orderStats.filled} label="Filled" color="var(--success)" />
+                <CountBadge count={orderStats.working} label="Working" color="var(--primary)" />
+                <CountBadge count={orderStats.rejected} label="Rejected" color="var(--destructive)" />
+              </div>
+            ) : (
+              <p className="text-xs text-[var(--muted-foreground)]">No orders data</p>
+            )}
+            <Link
+              href={`/${fundSlug}/orders`}
+              className="mt-2 inline-block text-[10px] text-[var(--primary)] hover:underline"
+            >
+              View Order Blotter &rarr;
+            </Link>
+          </div>
+        </div>
+
+        {/* Compliance widget */}
+        <div className="col-span-4 rounded-md border border-[var(--border)] bg-[var(--card)]">
+          <div className="border-b border-[var(--border)] bg-[var(--primary-muted)] px-3 py-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--foreground)]">Compliance</span>
+          </div>
+          <div className="p-3">
+            {complianceStats ? (
+              complianceStats.total === 0 ? (
+                <p className="text-xs text-[var(--success)]">All clear — no violations</p>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <CountBadge count={complianceStats.total} label="Active" color="var(--foreground)" />
+                  <CountBadge count={complianceStats.blocks} label="Blocks" color="var(--destructive)" />
+                  <CountBadge count={complianceStats.warnings} label="Warnings" color="var(--warning)" />
+                </div>
+              )
+            ) : (
+              <p className="text-xs text-[var(--muted-foreground)]">Loading...</p>
+            )}
+            <Link
+              href={`/${fundSlug}/compliance`}
+              className="mt-2 inline-block text-[10px] text-[var(--primary)] hover:underline"
+            >
+              View Compliance &rarr;
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Portfolios table */}
+      {portfolios && portfolios.length > 0 && (
+        <div className="overflow-hidden rounded-md border border-[var(--border)]">
+          <div className="border-b border-[var(--border)] bg-[var(--primary-muted)] px-3 py-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--foreground)]">Portfolios</span>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
+                <th className="px-3 py-1.5 text-left text-xs font-medium text-[var(--muted-foreground)]">
+                  Portfolio
+                </th>
+                <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">
+                  NAV
+                </th>
+                <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">
+                  P&L
+                </th>
+                <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">
+                  Positions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {portfolios.map((p) => {
+                const summary = summaries.find((s) => s.portfolio_id === p.id);
+                return (
+                  <PortfolioRow key={p.id} fundSlug={fundSlug} portfolio={p} summary={summary} />
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -121,7 +200,7 @@ function PortfolioRow({
 }) {
   return (
     <tr className="border-b border-[var(--table-border)] last:border-0 transition-colors hover:bg-[var(--table-row-hover)]">
-      <td className="px-4 py-3">
+      <td className="px-3 py-1.5">
         <Link
           href={`/${fundSlug}/portfolio/${portfolio.id}`}
           className="font-medium text-[var(--foreground-bright)] hover:text-[var(--primary)]"
@@ -132,10 +211,10 @@ function PortfolioRow({
           <p className="text-xs text-[var(--muted-foreground)]">{portfolio.strategy}</p>
         )}
       </td>
-      <td className="px-4 py-3 text-right font-mono text-sm">
+      <td className="px-3 py-1.5 text-right font-mono text-sm">
         {summary ? formatPnL(summary.total_market_value) : "—"}
       </td>
-      <td className="px-4 py-3 text-right">
+      <td className="px-3 py-1.5 text-right">
         {summary ? (
           <span className={`font-mono text-sm ${pnlColorClass(summary.total_unrealized_pnl)}`}>
             {formatPnL(summary.total_unrealized_pnl)}
@@ -144,31 +223,18 @@ function PortfolioRow({
           "—"
         )}
       </td>
-      <td className="px-4 py-3 text-right text-sm text-[var(--muted-foreground)]">
+      <td className="px-3 py-1.5 text-right text-sm text-[var(--muted-foreground)]">
         {summary?.position_count ?? "—"}
       </td>
     </tr>
   );
 }
 
-function MetricCard({
-  label,
-  value,
-  valueClass = "",
-  info,
-}: {
-  label: string;
-  value: string;
-  valueClass?: string;
-  info?: string;
-}) {
+function CountBadge({ count, label, color }: { count: number; label: string; color: string }) {
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
-      <p className="inline-flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
-        {label}
-        {info && <InfoTooltip text={info} />}
-      </p>
-      <p className={`mt-1 font-mono text-lg font-semibold ${valueClass}`}>{value}</p>
+    <div className="text-center">
+      <p className="font-mono text-lg font-bold" style={{ color }}>{count}</p>
+      <p className="text-[9px] uppercase tracking-wider text-[var(--muted-foreground)]">{label}</p>
     </div>
   );
 }

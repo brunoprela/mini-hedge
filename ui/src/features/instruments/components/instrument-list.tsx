@@ -16,7 +16,7 @@ export function InstrumentList() {
   const isLoading = search.length >= 1 ? searchQuery.isLoading : allQuery.isLoading;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <input
         type="text"
         placeholder="Search instruments..."
@@ -28,22 +28,22 @@ export function InstrumentList() {
       {isLoading ? (
         <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-[var(--border)]">
+        <div className="overflow-x-auto rounded-md border border-[var(--border)]">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--muted)]">
-                <th className="px-4 py-2 text-left font-medium">Ticker</th>
-                <th className="px-4 py-2 text-left font-medium">Name</th>
-                <th className="px-4 py-2 text-left font-medium">Class</th>
-                <th className="px-4 py-2 text-left font-medium">Exchange</th>
-                <th className="px-4 py-2 text-left font-medium">Currency</th>
+                <th className="px-3 py-1.5 text-left font-medium">Ticker</th>
+                <th className="px-3 py-1.5 text-left font-medium">Name</th>
+                <th className="px-3 py-1.5 text-left font-medium">Class</th>
+                <th className="px-3 py-1.5 text-left font-medium">Exchange</th>
+                <th className="px-3 py-1.5 text-left font-medium">Currency</th>
               </tr>
             </thead>
             <tbody>
               {instruments?.map((inst) => (
                 <tr key={inst.id} className="border-b border-[var(--border)] last:border-0">
-                  <td className="px-4 py-2 font-mono font-medium">{inst.ticker}</td>
-                  <td className="px-4 py-2">
+                  <td className="px-3 py-1.5 font-mono font-medium">{inst.ticker}</td>
+                  <td className="px-3 py-1.5">
                     <Link
                       href={`/${fundSlug}/market-data`}
                       className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] underline-offset-2 hover:underline"
@@ -51,9 +51,9 @@ export function InstrumentList() {
                       {inst.name}
                     </Link>
                   </td>
-                  <td className="px-4 py-2">{inst.asset_class}</td>
-                  <td className="px-4 py-2">{inst.exchange}</td>
-                  <td className="px-4 py-2">{inst.currency}</td>
+                  <td className="px-3 py-1.5">{inst.asset_class}</td>
+                  <td className="px-3 py-1.5">{inst.exchange}</td>
+                  <td className="px-3 py-1.5">{inst.currency}</td>
                 </tr>
               ))}
               {instruments?.length === 0 && (

@@ -212,6 +212,144 @@ export function HBarChart({ items, formatValue }: HBarChartProps) {
   );
 }
 
+// ─── Waterfall Chart ────────────────────────────────────────
+
+interface WaterfallItem {
+  label: string;
+  value: number;
+  isTotal?: boolean;
+}
+
+interface WaterfallChartProps {
+  items: WaterfallItem[];
+  height?: number;
+  formatValue?: (v: number) => string;
+}
+
+export function WaterfallChart({
+  items,
+  height = 200,
+  formatValue,
+}: WaterfallChartProps) {
+  if (items.length === 0) {
+    return <p className="text-sm text-[var(--muted-foreground)]">No data</p>;
+  }
+
+  const fmt = formatValue ?? ((v: number) => `${(v * 100).toFixed(2)}%`);
+
+  // Compute running cumulative for positioning
+  let cumulative = 0;
+  const bars = items.map((item) => {
+    if (item.isTotal) {
+      const bar = { ...item, start: 0, end: item.value };
+      cumulative = item.value;
+      return bar;
+    }
+    const start = cumulative;
+    cumulative += item.value;
+    return { ...item, start, end: cumulative };
+  });
+
+  const allValues = bars.flatMap((b) => [b.start, b.end, 0]);
+  const minVal = Math.min(...allValues);
+  const maxVal = Math.max(...allValues);
+  const range = maxVal - minVal || 1;
+
+  const padTop = 20;
+  const padBot = 40;
+  const padLeft = 8;
+  const padRight = 8;
+  const viewW = 600;
+  const chartH = height - padTop - padBot;
+  const chartW = viewW - padLeft - padRight;
+  const barW = (chartW / items.length) * 0.6;
+  const gap = (chartW / items.length) * 0.4;
+
+  function toY(v: number) {
+    return padTop + chartH - ((v - minVal) / range) * chartH;
+  }
+
+  const zeroY = toY(0);
+
+  return (
+    <svg viewBox={`0 0 ${viewW} ${height}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+      {/* Zero line */}
+      <line
+        x1={padLeft}
+        x2={viewW - padRight}
+        y1={zeroY}
+        y2={zeroY}
+        stroke="var(--muted-foreground)"
+        strokeWidth={0.5}
+        strokeDasharray="4,3"
+      />
+
+      {bars.map((bar, i) => {
+        const x = padLeft + i * (barW + gap) + gap / 2;
+        const top = Math.min(toY(bar.start), toY(bar.end));
+        const bottom = Math.max(toY(bar.start), toY(bar.end));
+        const barH = Math.max(bottom - top, 1);
+        const isPositive = bar.value >= 0;
+        const fill = bar.isTotal
+          ? "var(--primary)"
+          : isPositive
+            ? "var(--success)"
+            : "var(--destructive)";
+
+        // Connector line to next bar
+        const connector =
+          !bar.isTotal && i < bars.length - 1 ? (
+            <line
+              x1={x + barW}
+              x2={x + barW + gap}
+              y1={toY(bar.end)}
+              y2={toY(bar.end)}
+              stroke="var(--border)"
+              strokeWidth={0.5}
+              strokeDasharray="2,2"
+            />
+          ) : null;
+
+        return (
+          <g key={bar.label}>
+            <rect
+              x={x}
+              y={top}
+              width={barW}
+              height={barH}
+              rx={2}
+              fill={fill}
+              opacity={0.8}
+            />
+            {/* Value label */}
+            <text
+              x={x + barW / 2}
+              y={isPositive || bar.isTotal ? top - 4 : bottom + 11}
+              textAnchor="middle"
+              fontSize={9}
+              fontFamily="monospace"
+              fill={fill}
+            >
+              {bar.isTotal ? "" : (isPositive ? "+" : "")}{fmt(bar.value)}
+            </text>
+            {/* X label */}
+            <text
+              x={x + barW / 2}
+              y={height - 4}
+              textAnchor="middle"
+              fontSize={8}
+              fill="var(--muted-foreground)"
+            >
+              {bar.label}
+            </text>
+            {connector}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 // ─── Gauge Bar ──────────────────────────────────────────────
 
 interface GaugeBarProps {
@@ -287,7 +425,7 @@ interface SummaryStripItem {
 
 export function SummaryStrip({ items }: { items: SummaryStripItem[] }) {
   return (
-    <div className="flex flex-wrap items-center gap-6 rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-3">
+    <div className="flex flex-wrap items-center gap-3 rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-2">
       {items.map((item) => (
         <div key={item.label}>
           <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">

@@ -16,7 +16,7 @@ export function EODHistory({ onSelectDate }: { onSelectDate: (date: string) => v
 
   if (!history || history.length === 0) {
     return (
-      <div className="rounded-lg border border-[var(--border)] p-6 text-center text-sm text-[var(--muted-foreground)]">
+      <div className="rounded-md border border-[var(--border)] p-6 text-center text-sm text-[var(--muted-foreground)]">
         No EOD runs found. Trigger your first EOD run above.
       </div>
     );
@@ -32,21 +32,21 @@ export function EODHistory({ onSelectDate }: { onSelectDate: (date: string) => v
           View Fee Accruals →
         </Link>
       </div>
-      <div className="overflow-x-auto rounded-lg border border-[var(--border)]">
+      <div className="overflow-x-auto rounded-md border border-[var(--border)]">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-[var(--border)] bg-[var(--card)]">
-            <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">Date</th>
-            <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">
+            <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">Date</th>
+            <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
               Status
             </th>
-            <th className="px-4 py-3 text-right font-medium text-[var(--muted-foreground)]">
+            <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
               Steps
             </th>
-            <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">
+            <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
               Started
             </th>
-            <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">
+            <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
               Duration
             </th>
           </tr>
@@ -67,8 +67,8 @@ export function EODHistory({ onSelectDate }: { onSelectDate: (date: string) => v
                 className="cursor-pointer border-b border-[var(--border)] last:border-0 hover:bg-[var(--sidebar-active)]"
                 onClick={() => onSelectDate(run.business_date)}
               >
-                <td className="px-4 py-3 font-medium">{run.business_date}</td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-1.5 font-medium">{run.business_date}</td>
+                <td className="px-3 py-1.5">
                   <span
                     className={cn(
                       "inline-block rounded-full px-2 py-0.5 text-xs font-medium",
@@ -80,13 +80,13 @@ export function EODHistory({ onSelectDate }: { onSelectDate: (date: string) => v
                     {run.is_successful ? "Success" : "Failed"}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-right tabular-nums">
+                <td className="px-3 py-1.5 text-right tabular-nums">
                   {run.steps_completed}/{run.steps_total}
                 </td>
-                <td className="px-4 py-3 text-[var(--muted-foreground)]">
-                  {run.started_at ? new Date(run.started_at).toLocaleTimeString() : "--"}
+                <td className="px-3 py-1.5 text-[var(--muted-foreground)]">
+                  {run.started_at ? new Date(run.started_at).toLocaleTimeString(undefined, { timeZoneName: "short" }) : "--"}
                 </td>
-                <td className="px-4 py-3 text-[var(--muted-foreground)]">
+                <td className="px-3 py-1.5 text-[var(--muted-foreground)]">
                   {duration !== null ? `${duration}s` : "--"}
                 </td>
               </tr>

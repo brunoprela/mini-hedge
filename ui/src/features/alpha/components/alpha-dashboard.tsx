@@ -12,14 +12,14 @@ export function AlphaDashboard({ portfolioId }: { portfolioId: string }) {
   const [activeTab, setActiveTab] = useState<Tab>("What-If");
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex gap-1 border-b border-[var(--border)]">
         {TABS.map((tab) => (
           <button
             key={tab}
             type="button"
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
+            className={`px-3 py-1.5 text-sm font-medium transition-colors ${
               activeTab === tab
                 ? "border-b-2 border-[var(--foreground)] text-[var(--foreground)]"
                 : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"

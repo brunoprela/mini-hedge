@@ -156,7 +156,7 @@ export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
             type="button"
             onClick={handleExport}
             title="Export to CSV"
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
           >
             <Download className="h-4 w-4" />
             CSV
@@ -166,7 +166,7 @@ export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
               type="button"
               onClick={handleResolveAll}
               disabled={resolveMutation.isPending}
-              className="shrink-0 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors disabled:opacity-50"
+              className="shrink-0 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors disabled:opacity-50"
             >
               Resolve All
             </button>
@@ -175,7 +175,7 @@ export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
+      <div className="overflow-x-auto rounded-md border border-[var(--border)] bg-[var(--card)]">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
@@ -207,11 +207,11 @@ export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
                 direction={table.sortDirection}
                 onSort={table.onSort}
               />
-              <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">
+              <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
                 View
               </th>
               {canWrite && (
-                <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">
+                <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
                   Actions
                 </th>
               )}
@@ -225,19 +225,19 @@ export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
                   key={v.id}
                   className="border-b border-[var(--table-border)] last:border-0 hover:bg-[var(--table-row-hover)]"
                 >
-                  <td className="px-4 py-3 font-medium">{v.rule_name}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-1.5 font-medium">{v.rule_name}</td>
+                  <td className="px-3 py-1.5">
                     <span
                       className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${SEVERITY_BADGE[v.severity] ?? ""}`}
                     >
                       {v.severity}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-[var(--muted-foreground)]">{v.message}</td>
-                  <td className="px-4 py-3 text-xs text-[var(--muted-foreground)]">
+                  <td className="px-3 py-1.5 text-[var(--muted-foreground)]">{v.message}</td>
+                  <td className="px-3 py-1.5 text-xs text-[var(--muted-foreground)]">
                     {new Date(v.detected_at).toLocaleString()}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-1.5">
                     <Link
                       href={`/${fundSlug}/portfolio/${v.portfolio_id}#positions`}
                       className="text-[var(--foreground)] underline-offset-2 hover:underline"
@@ -246,7 +246,7 @@ export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
                     </Link>
                   </td>
                   {canWrite && (
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-1.5">
                       <button
                         type="button"
                         onClick={() => resolveMutation.mutate(v.id)}
@@ -285,8 +285,8 @@ export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
       {/* Waive dialog */}
       {waiveTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-xl">
-            <h3 className="text-lg font-semibold">Waive Violation</h3>
+          <div className="w-full max-w-md rounded-md border border-[var(--border)] bg-[var(--card)] p-6 shadow-xl">
+            <h3 className="text-sm font-semibold">Waive Violation</h3>
             <p className="mt-1 text-sm text-[var(--muted-foreground)]">
               Provide a reason for waiving this compliance violation.
             </p>
@@ -295,13 +295,13 @@ export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
               onChange={(e) => setWaiveReason(e.target.value)}
               placeholder="Reason for waiver..."
               rows={3}
-              className="mt-3 w-full rounded-lg border border-[var(--border)] bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+              className="mt-3 w-full rounded-md border border-[var(--border)] bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
             />
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => { setWaiveTarget(null); setWaiveReason(""); }}
-                className="rounded-lg px-4 py-2 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                className="rounded-lg px-3 py-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
               >
                 Cancel
               </button>
@@ -309,7 +309,7 @@ export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
                 type="button"
                 onClick={() => waiveMutation.mutate({ violationId: waiveTarget, reason: waiveReason })}
                 disabled={!waiveReason.trim() || waiveMutation.isPending}
-                className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--primary-foreground)] disabled:opacity-50"
+                className="rounded-lg bg-[var(--primary)] px-3 py-1.5 text-sm font-medium text-[var(--primary-foreground)] disabled:opacity-50"
               >
                 {waiveMutation.isPending ? "Waiving..." : "Waive"}
               </button>

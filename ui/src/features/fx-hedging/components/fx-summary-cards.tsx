@@ -39,7 +39,7 @@ export function FXSummaryCards({ portfolioId }: { portfolioId: string }) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {cards.map((card) => (
-        <div key={card.label} className="rounded-lg border border-[var(--border)] p-4">
+        <div key={card.label} className="rounded-md border border-[var(--border)] p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
             {card.label}
           </p>

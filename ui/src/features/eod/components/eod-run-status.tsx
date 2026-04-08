@@ -35,14 +35,14 @@ export function EODRunStatus({ businessDate }: { businessDate: string }) {
 
   if (!result) {
     return (
-      <div className="rounded-lg border border-[var(--border)] p-8 text-center text-sm text-[var(--muted-foreground)]">
+      <div className="rounded-md border border-[var(--border)] p-8 text-center text-sm text-[var(--muted-foreground)]">
         No EOD run found for {businessDate}.
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-center gap-3">
         <span
           className={cn(
@@ -54,12 +54,12 @@ export function EODRunStatus({ businessDate }: { businessDate: string }) {
         </span>
         {result.started_at && (
           <span className="text-xs text-[var(--muted-foreground)]">
-            Started {new Date(result.started_at).toLocaleTimeString()}
+            Started {new Date(result.started_at).toLocaleTimeString(undefined, { timeZoneName: "short" })}
           </span>
         )}
         {result.completed_at && (
           <span className="text-xs text-[var(--muted-foreground)]">
-            &middot; Finished {new Date(result.completed_at).toLocaleTimeString()}
+            &middot; Finished {new Date(result.completed_at).toLocaleTimeString(undefined, { timeZoneName: "short" })}
           </span>
         )}
       </div>
@@ -68,7 +68,7 @@ export function EODRunStatus({ businessDate }: { businessDate: string }) {
         {result.steps.map((step) => (
           <div
             key={step.step}
-            className="flex items-center justify-between rounded-lg border border-[var(--border)] px-4 py-2"
+            className="flex items-center justify-between rounded-md border border-[var(--border)] px-3 py-1.5"
           >
             <span className="text-sm">{STEP_LABELS[step.step] ?? step.step}</span>
             <span

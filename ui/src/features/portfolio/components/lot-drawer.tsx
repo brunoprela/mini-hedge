@@ -17,7 +17,7 @@ export function LotDrawer({ portfolioId, instrumentId }: LotDrawerProps) {
   if (isLoading) {
     return (
       <tr>
-        <td colSpan={7} className="px-4 py-2 text-xs text-[var(--muted-foreground)]">
+        <td colSpan={7} className="px-3 py-1.5 text-xs text-[var(--muted-foreground)]">
           Loading lots...
         </td>
       </tr>
@@ -27,7 +27,7 @@ export function LotDrawer({ portfolioId, instrumentId }: LotDrawerProps) {
   if (!lots || lots.length === 0) {
     return (
       <tr>
-        <td colSpan={7} className="px-4 py-2 text-xs text-[var(--muted-foreground)]">
+        <td colSpan={7} className="px-3 py-1.5 text-xs text-[var(--muted-foreground)]">
           No lots
         </td>
       </tr>

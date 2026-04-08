@@ -19,7 +19,7 @@ export function CashSummaryCard({ portfolioId }: { portfolioId: string }) {
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+      <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
         <p className="text-sm text-[var(--muted-foreground)]">Loading cash summary...</p>
       </div>
     );
@@ -36,12 +36,12 @@ export function CashSummaryCard({ portfolioId }: { portfolioId: string }) {
   });
 
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+    <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
       <p className="inline-flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
         Cash Available
         <InfoTooltip text="Total cash available for trading across all currencies" />
       </p>
-      <p className="mt-1 font-mono text-lg font-semibold">{fmtTotal}</p>
+      <p className="mt-0.5 font-mono text-sm font-semibold">{fmtTotal}</p>
       <p className="mt-1 inline-flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
         {pendingCount} pending settlement{pendingCount !== 1 ? "s" : ""}
         <InfoTooltip text="Trades awaiting T+2 settlement that will affect cash balance" />
