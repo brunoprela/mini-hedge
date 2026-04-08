@@ -25,15 +25,16 @@ class AccrualStatus(StrEnum):
 
 @dataclass(frozen=True)
 class FeeSchedule:
-    """Defines the fee structure for a fund."""
+    """Defines the fee structure for a fund share class."""
 
     fund_slug: str
-    management_fee_bps: int  # e.g., 200 = 2%
-    performance_fee_pct: Decimal  # e.g., 20 = 20%
-    hurdle_rate_pct: Decimal  # annual hurdle rate, e.g., 0 or 4
-    high_water_mark: bool  # whether HWM applies
-    crystallization_frequency: str  # "annual", "quarterly"
-    payment_frequency: str  # "quarterly", "monthly"
+    share_class: str = "default"
+    management_fee_bps: int = 200  # e.g., 200 = 2%
+    performance_fee_pct: Decimal = Decimal("20")  # e.g., 20 = 20%
+    hurdle_rate_pct: Decimal = Decimal("0")  # annual hurdle rate
+    high_water_mark: bool = True
+    crystallization_frequency: str = "quarterly"
+    payment_frequency: str = "quarterly"
 
 
 class FeeAccrual(BaseModel):

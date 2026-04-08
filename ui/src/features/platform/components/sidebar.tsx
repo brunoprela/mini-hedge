@@ -8,6 +8,7 @@ import {
   Briefcase,
   Calendar,
   ChevronDown,
+  ClipboardCheck,
   ClipboardList,
   FileText,
   LayoutDashboard,
@@ -38,6 +39,7 @@ const ICONS = {
   Search,
   TrendingUp,
   ShieldCheck,
+  ClipboardCheck,
   ClipboardList,
   BarChart3,
   AlertTriangle,
@@ -69,7 +71,7 @@ function groupNavItems(items: NavItem[]): NavGroup[] {
     ["/risk", "/exposure", "/compliance", "/alpha"].includes(i.href),
   );
   const operations = items.filter((i) =>
-    ["/corporate-actions", "/cash", "/eod", "/fees"].includes(i.href),
+    ["/operations", "/corporate-actions", "/cash", "/eod", "/fees"].includes(i.href),
   );
   const investors = items.filter((i) => ["/investors"].includes(i.href));
   const analytics = items.filter((i) =>

@@ -167,7 +167,7 @@ export function CompliancePageClient() {
       {activeTab === "dashboard" && (
         <SectionPanel title="Compliance Officer Dashboard" tabs={tabs}>
           <div className="p-3 space-y-3">
-            {/* KPI Strip — Broadridge CCO style */}
+            {/* KPI Strip */}
             <div className="grid grid-cols-5 gap-3">
               <KpiTile
                 label="Total Violations"
@@ -376,7 +376,7 @@ export function CompliancePageClient() {
                 )}
               </div>
 
-              {/* Right: Stacked alert cards (Broadridge-style) */}
+              {/* Right: Stacked alert cards */}
               <div className="hidden w-[400px] shrink-0 space-y-2 overflow-y-auto lg:block" style={{ maxHeight: "calc(100vh - 16rem)" }}>
                 <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
                   Alerts ({filteredViolations.length})

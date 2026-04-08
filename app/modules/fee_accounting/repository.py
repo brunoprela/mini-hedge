@@ -23,19 +23,42 @@ class FeeScheduleRepository(BaseRepository):
     """CRUD for fee schedules."""
 
     async def get_by_fund_slug(
-        self, fund_slug: str, *, session: AsyncSession | None = None
+        self,
+        fund_slug: str,
+        *,
+        share_class: str = "default",
+        session: AsyncSession | None = None,
     ) -> FeeScheduleRecord | None:
         async with self._session(session) as session:
-            stmt = select(FeeScheduleRecord).where(FeeScheduleRecord.fund_slug == fund_slug)
+            stmt = select(FeeScheduleRecord).where(
+                FeeScheduleRecord.fund_slug == fund_slug,
+                FeeScheduleRecord.share_class == share_class,
+            )
             result = await session.execute(stmt)
             return result.scalar_one_or_none()
+
+    async def get_all_by_fund(
+        self, fund_slug: str, *, session: AsyncSession | None = None
+    ) -> list[FeeScheduleRecord]:
+        """Get fee schedules for all share classes in a fund."""
+        async with self._session(session) as session:
+            stmt = (
+                select(FeeScheduleRecord)
+                .where(FeeScheduleRecord.fund_slug == fund_slug)
+                .order_by(FeeScheduleRecord.share_class)
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
 
     async def upsert(
         self, record: FeeScheduleRecord, *, session: AsyncSession | None = None
     ) -> FeeScheduleRecord:
         async with self._session(session) as session:
             existing = await session.execute(
-                select(FeeScheduleRecord).where(FeeScheduleRecord.fund_slug == record.fund_slug)
+                select(FeeScheduleRecord).where(
+                    FeeScheduleRecord.fund_slug == record.fund_slug,
+                    FeeScheduleRecord.share_class == record.share_class,
+                )
             )
             existing_record = existing.scalar_one_or_none()
             if existing_record is not None:
@@ -84,6 +107,7 @@ class FeeAccrualRepository(BaseRepository):
         portfolio_id: UUID,
         fee_type: str,
         *,
+        share_class: str = "default",
         session: AsyncSession | None = None,
     ) -> FeeAccrualRecord | None:
         async with self._session(session) as session:
@@ -92,6 +116,7 @@ class FeeAccrualRepository(BaseRepository):
                 .where(
                     FeeAccrualRecord.portfolio_id == str(portfolio_id),
                     FeeAccrualRecord.fee_type == fee_type,
+                    FeeAccrualRecord.share_class == share_class,
                 )
                 .order_by(FeeAccrualRecord.accrual_date.desc())
                 .limit(1)
@@ -130,12 +155,19 @@ class HighWaterMarkRepository(BaseRepository):
     """CRUD for high water marks."""
 
     async def get_latest(
-        self, portfolio_id: UUID, *, session: AsyncSession | None = None
+        self,
+        portfolio_id: UUID,
+        *,
+        share_class: str = "default",
+        session: AsyncSession | None = None,
     ) -> HighWaterMarkRecord | None:
         async with self._session(session) as session:
             stmt = (
                 select(HighWaterMarkRecord)
-                .where(HighWaterMarkRecord.portfolio_id == str(portfolio_id))
+                .where(
+                    HighWaterMarkRecord.portfolio_id == str(portfolio_id),
+                    HighWaterMarkRecord.share_class == share_class,
+                )
                 .order_by(HighWaterMarkRecord.hwm_date.desc())
                 .limit(1)
             )

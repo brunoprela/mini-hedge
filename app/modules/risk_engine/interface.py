@@ -199,6 +199,104 @@ PREDEFINED_SCENARIOS: list[StressScenario] = [
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# 3A. Counterparty & Credit Risk
+# ---------------------------------------------------------------------------
+
+
+class CounterpartyType(StrEnum):
+    BROKER = "broker"
+    PRIME_BROKER = "prime_broker"
+    CUSTODIAN = "custodian"
+    OTC_COUNTERPARTY = "otc_counterparty"
+
+
+@dataclass(frozen=True)
+class CounterpartyInfo:
+    id: UUID
+    name: str
+    counterparty_type: CounterpartyType
+    credit_rating: str | None
+    credit_limit: Decimal
+    netting_eligible: bool
+    is_active: bool
+
+
+class CounterpartyExposure(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    counterparty_id: UUID
+    counterparty_name: str
+    portfolio_id: UUID
+    business_date: datetime
+    gross_exposure: Decimal
+    net_exposure: Decimal
+    collateral_held: Decimal
+    collateral_posted: Decimal
+    credit_limit: Decimal
+    utilization_pct: Decimal
+    breach: bool
+
+
+# ---------------------------------------------------------------------------
+# 3B. Liquidity Risk
+# ---------------------------------------------------------------------------
+
+
+class LiquidityProfile(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    portfolio_id: UUID
+    business_date: datetime
+    total_nav: Decimal
+    pct_1_day: Decimal
+    pct_1_week: Decimal
+    pct_1_month: Decimal
+    pct_3_months: Decimal
+    pct_illiquid: Decimal
+    weighted_days_to_liquidate: Decimal
+    redemption_coverage_pct: Decimal
+    position_details: list[dict] = []
+
+
+@dataclass(frozen=True)
+class PositionLiquidity:
+    instrument_id: str
+    market_value: Decimal
+    avg_daily_volume_usd: Decimal
+    days_to_liquidate: Decimal
+    liquidity_bucket: str  # "1d", "1w", "1m", "3m", "illiquid"
+    pct_of_nav: Decimal
+
+
+# ---------------------------------------------------------------------------
+# 3C. Margin Management
+# ---------------------------------------------------------------------------
+
+
+class MarginSummary(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    portfolio_id: UUID
+    business_date: datetime
+    initial_margin: Decimal
+    maintenance_margin: Decimal
+    margin_available: Decimal
+    margin_excess_deficit: Decimal
+    margin_utilization_pct: Decimal
+    margin_call_triggered: bool
+    position_margins: list[dict] = []
+
+
+@dataclass(frozen=True)
+class PositionMargin:
+    instrument_id: str
+    market_value: Decimal
+    margin_rate: Decimal  # percentage (e.g. 0.50 = 50%)
+    initial_margin: Decimal
+    maintenance_margin: Decimal
+
+
 class RiskReader(Protocol):
     """Public read interface for other modules."""
 

@@ -13,6 +13,7 @@ the reconciliation break detection path.
 from __future__ import annotations
 
 import random
+import uuid
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
@@ -34,6 +35,8 @@ class FundAdminService:
 
     def __init__(self, execution_engine: ExecutionEngine) -> None:
         self._engine = execution_engine
+        self._subscriptions: dict[str, dict] = {}  # request_id -> info
+        self._redemptions: dict[str, dict] = {}  # request_id -> info
 
     def get_positions(self) -> dict[str, Decimal]:
         """Compute positions from fills, with occasional deliberate mismatches.
@@ -102,3 +105,71 @@ class FundAdminService:
         total_cash = sum(cash.values())
 
         return market_value + total_cash
+
+    # --- Subscription / Redemption wire simulation ---
+
+    def register_subscription(
+        self,
+        request_id: str,
+        investor_id: str,
+        amount: Decimal,
+    ) -> str:
+        """Register a subscription and return a wire reference."""
+        wire_ref = f"WIRE-SUB-{uuid.uuid4().hex[:8].upper()}"
+        self._subscriptions[request_id] = {
+            "investor_id": investor_id,
+            "amount": amount,
+            "wire_reference": wire_ref,
+            "wire_confirmed": False,
+        }
+        logger.info(
+            "admin_subscription_registered",
+            request_id=request_id,
+            wire_reference=wire_ref,
+        )
+        return wire_ref
+
+    def confirm_wire_receipt(self, wire_reference: str) -> bool:
+        """Simulate bank wire confirmation — always succeeds."""
+        for info in self._subscriptions.values():
+            if info["wire_reference"] == wire_reference:
+                info["wire_confirmed"] = True
+                logger.info(
+                    "admin_wire_confirmed",
+                    wire_reference=wire_reference,
+                )
+                return True
+        return False
+
+    def register_redemption(
+        self,
+        request_id: str,
+        investor_id: str,
+        amount: Decimal,
+    ) -> None:
+        """Register a pending redemption payment."""
+        self._redemptions[request_id] = {
+            "investor_id": investor_id,
+            "amount": amount,
+            "payment_sent": False,
+            "payment_reference": None,
+        }
+        logger.info(
+            "admin_redemption_registered",
+            request_id=request_id,
+        )
+
+    def send_redemption_payment(self, request_id: str) -> str | None:
+        """Simulate sending a wire out for a redemption — returns payment reference."""
+        info = self._redemptions.get(request_id)
+        if info is None:
+            return None
+        pay_ref = f"WIRE-RED-{uuid.uuid4().hex[:8].upper()}"
+        info["payment_sent"] = True
+        info["payment_reference"] = pay_ref
+        logger.info(
+            "admin_redemption_payment_sent",
+            request_id=request_id,
+            payment_reference=pay_ref,
+        )
+        return pay_ref

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import numpy as np
 import structlog
@@ -13,11 +13,18 @@ import structlog
 from app.modules.risk_engine.calculator import (
     calculate_factor_decomposition,
     calculate_historical_var,
+    calculate_liquidity_profile,
+    calculate_margin_requirements,
     calculate_parametric_var,
     run_stress_test,
 )
 from app.modules.risk_engine.interface import (
+    CounterpartyExposure,
+    CounterpartyInfo,
+    CounterpartyType,
     FactorDecomposition,
+    LiquidityProfile,
+    MarginSummary,
     RiskSnapshot,
     StressScenario,
     StressTestResult,
@@ -25,6 +32,9 @@ from app.modules.risk_engine.interface import (
     VaRResult,
 )
 from app.modules.risk_engine.models import (
+    CounterpartyExposureRecord,
+    LiquidityProfileRecord,
+    MarginRequirementRecord,
     RiskSnapshotRecord,
     StressPositionImpactRecord,
     StressTestResultRecord,
@@ -503,3 +513,261 @@ class RiskService:
         ]
 
         await self._risk_repo.save_stress_result(result_record, impacts, session=session)
+
+    # ------------------------------------------------------------------
+    # 3A. Counterparty & Credit Risk
+    # ------------------------------------------------------------------
+
+    async def get_counterparty_exposures(
+        self,
+        portfolio_id: UUID,
+        *,
+        session: AsyncSession | None = None,
+    ) -> list[CounterpartyExposure]:
+        """Get latest counterparty exposure for a portfolio."""
+        records = await self._risk_repo.get_counterparty_exposures(
+            portfolio_id, session=session,
+        )
+        cpty_map = await self._risk_repo.get_counterparty_map(session=session)
+        return [
+            CounterpartyExposure(
+                counterparty_id=UUID(r.counterparty_id),
+                counterparty_name=cpty_map.get(r.counterparty_id, "Unknown"),
+                portfolio_id=UUID(r.portfolio_id),
+                business_date=r.business_date,
+                gross_exposure=r.gross_exposure,
+                net_exposure=r.net_exposure,
+                collateral_held=r.collateral_held,
+                collateral_posted=r.collateral_posted,
+                credit_limit=r.credit_limit,
+                utilization_pct=r.utilization_pct,
+                breach=r.breach,
+            )
+            for r in records
+        ]
+
+    async def list_counterparties(
+        self, *, session: AsyncSession | None = None
+    ) -> list[CounterpartyInfo]:
+        records = await self._risk_repo.list_counterparties(session=session)
+        return [
+            CounterpartyInfo(
+                id=UUID(r.id),
+                name=r.name,
+                counterparty_type=CounterpartyType(r.counterparty_type),
+                credit_rating=r.credit_rating,
+                credit_limit=r.credit_limit,
+                netting_eligible=r.netting_eligible,
+                is_active=r.is_active,
+            )
+            for r in records
+        ]
+
+    async def record_counterparty_exposure(
+        self,
+        *,
+        counterparty_id: str,
+        portfolio_id: UUID,
+        business_date: datetime,
+        gross_exposure: Decimal,
+        net_exposure: Decimal,
+        collateral_held: Decimal = ZERO,
+        collateral_posted: Decimal = ZERO,
+        session: AsyncSession | None = None,
+    ) -> None:
+        """Record or update counterparty exposure snapshot."""
+        cpty = await self._risk_repo.get_counterparty(counterparty_id, session=session)
+        credit_limit = cpty.credit_limit if cpty else ZERO
+        util = net_exposure / credit_limit if credit_limit > 0 else Decimal(999)
+        breach = net_exposure > credit_limit if credit_limit > 0 else False
+
+        record = CounterpartyExposureRecord(
+            id=str(uuid4()),
+            counterparty_id=counterparty_id,
+            portfolio_id=str(portfolio_id),
+            business_date=business_date,
+            gross_exposure=gross_exposure,
+            net_exposure=net_exposure,
+            collateral_held=collateral_held,
+            collateral_posted=collateral_posted,
+            credit_limit=credit_limit,
+            utilization_pct=util,
+            breach=breach,
+        )
+        await self._risk_repo.save_counterparty_exposure(record, session=session)
+
+        if breach:
+            logger.warning(
+                "counterparty_limit_breach",
+                counterparty_id=counterparty_id,
+                net_exposure=str(net_exposure),
+                credit_limit=str(credit_limit),
+            )
+
+    # ------------------------------------------------------------------
+    # 3B. Liquidity Risk
+    # ------------------------------------------------------------------
+
+    async def calculate_liquidity(
+        self,
+        portfolio_id: UUID,
+        fund_slug: str | None = None,
+        *,
+        pending_redemptions: Decimal = ZERO,
+        session: AsyncSession | None = None,
+    ) -> LiquidityProfile:
+        """Compute and persist liquidity risk profile."""
+        positions = await self._position_service.get_positions(portfolio_id, session=session)
+        if not positions:
+            now = datetime.now(UTC)
+            return LiquidityProfile(
+                portfolio_id=portfolio_id,
+                business_date=now,
+                total_nav=ZERO,
+                pct_1_day=ZERO, pct_1_week=ZERO, pct_1_month=ZERO,
+                pct_3_months=ZERO, pct_illiquid=ZERO,
+                weighted_days_to_liquidate=ZERO,
+                redemption_coverage_pct=Decimal(1),
+            )
+
+        # Build position data with ADV estimates
+        pos_data: list[tuple[str, Decimal, Decimal]] = []
+        total_nav = ZERO
+        for p in positions:
+            mv = (
+                p.market_value if hasattr(p, "market_value")
+                else p.quantity * getattr(p, "current_price", ZERO)
+            )
+            total_nav += mv
+            # Estimate ADV from security master or use a heuristic
+            sec = await self._security_master_service.get_instrument(
+                p.instrument_id, session=session,
+            )
+            adv = Decimal(str(getattr(sec, "avg_daily_volume", 0) or 0))
+            # Convert ADV shares to USD
+            price = getattr(p, "current_price", ZERO) or ZERO
+            adv_usd = adv * price if price > 0 else adv
+            pos_data.append((p.instrument_id, mv, adv_usd))
+
+        now = datetime.now(UTC)
+        profile, details = calculate_liquidity_profile(
+            portfolio_id=portfolio_id,
+            positions=pos_data,
+            total_nav=total_nav,
+            business_date=now,
+            pending_redemptions=pending_redemptions,
+        )
+
+        # Persist
+        record = LiquidityProfileRecord(
+            id=str(uuid4()),
+            portfolio_id=str(portfolio_id),
+            business_date=now,
+            total_nav=total_nav,
+            pct_1_day=profile.pct_1_day,
+            pct_1_week=profile.pct_1_week,
+            pct_1_month=profile.pct_1_month,
+            pct_3_months=profile.pct_3_months,
+            pct_illiquid=profile.pct_illiquid,
+            weighted_days_to_liquidate=profile.weighted_days_to_liquidate,
+            redemption_coverage_pct=profile.redemption_coverage_pct,
+            details=[
+                {
+                    "instrument_id": d.instrument_id,
+                    "market_value": str(d.market_value),
+                    "adv": str(d.avg_daily_volume_usd),
+                    "days": str(d.days_to_liquidate),
+                    "bucket": d.liquidity_bucket,
+                }
+                for d in details
+            ],
+        )
+        await self._risk_repo.save_liquidity_profile(record, session=session)
+
+        logger.info(
+            "liquidity_profile_calculated",
+            portfolio_id=str(portfolio_id),
+            pct_illiquid=str(profile.pct_illiquid),
+            days_to_liquidate=str(profile.weighted_days_to_liquidate),
+        )
+        return profile
+
+    # ------------------------------------------------------------------
+    # 3C. Margin Management
+    # ------------------------------------------------------------------
+
+    async def calculate_margin(
+        self,
+        portfolio_id: UUID,
+        fund_slug: str | None = None,
+        *,
+        session: AsyncSession | None = None,
+    ) -> MarginSummary:
+        """Compute and persist margin requirements."""
+        positions = await self._position_service.get_positions(portfolio_id, session=session)
+
+        pos_data: list[tuple[str, Decimal, str]] = []
+        for p in positions:
+            mv = (
+                p.market_value if hasattr(p, "market_value")
+                else p.quantity * getattr(p, "current_price", ZERO)
+            )
+            sec = await self._security_master_service.get_instrument(
+                p.instrument_id, session=session,
+            )
+            asset_class = getattr(sec, "asset_class", "equity") or "equity"
+            pos_data.append((p.instrument_id, mv, asset_class))
+
+        # Get cash balance for margin available
+        cash_balance = ZERO
+        # Try to get from cash_management if available
+        try:
+
+            cash_svc = getattr(self, "_cash_service", None)
+            if cash_svc:
+                bal = await cash_svc.get_total_balance(portfolio_id, session=session)
+                cash_balance = bal
+        except Exception:
+            # Estimate from position_service if cash not available
+            nav = sum(abs(mv) for _, mv, _ in pos_data)
+            cash_balance = nav * Decimal("0.6")  # Assume 60% equity/40% leverage
+
+        now = datetime.now(UTC)
+        summary, pos_margins = calculate_margin_requirements(
+            portfolio_id=portfolio_id,
+            positions=pos_data,
+            cash_balance=cash_balance,
+            business_date=now,
+        )
+
+        # Persist
+        record = MarginRequirementRecord(
+            id=str(uuid4()),
+            portfolio_id=str(portfolio_id),
+            business_date=now,
+            initial_margin=summary.initial_margin,
+            maintenance_margin=summary.maintenance_margin,
+            margin_available=cash_balance,
+            margin_excess_deficit=summary.margin_excess_deficit,
+            margin_utilization_pct=summary.margin_utilization_pct,
+            margin_call_triggered=summary.margin_call_triggered,
+            details=[
+                {
+                    "instrument_id": m.instrument_id,
+                    "market_value": str(m.market_value),
+                    "margin_rate": str(m.margin_rate),
+                    "initial_margin": str(m.initial_margin),
+                }
+                for m in pos_margins
+            ],
+        )
+        await self._risk_repo.save_margin_requirement(record, session=session)
+
+        if summary.margin_call_triggered:
+            logger.warning(
+                "margin_call_triggered",
+                portfolio_id=str(portfolio_id),
+                deficit=str(summary.margin_excess_deficit),
+            )
+
+        return summary

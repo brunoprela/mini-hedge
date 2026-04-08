@@ -16,6 +16,7 @@ from app.modules.capital_accounts.interface import (
     CapitalTransaction,
     FundCapitalOverview,
     InvestorInfo,
+    ShareClassSummary,
 )
 from app.shared.auth import Permission, require_permission
 from app.shared.database import get_db
@@ -51,6 +52,7 @@ class RedemptionRequest(BaseModel):
     business_date: date
     portfolio_id: str | None = None
     currency: str = "USD"
+    share_class: str = "default"
     notes: str | None = None
 
 
@@ -145,10 +147,36 @@ async def process_redemption(
         business_date=body.business_date,
         portfolio_id=UUID(body.portfolio_id) if body.portfolio_id else None,
         currency=body.currency,
+        share_class=body.share_class,
         notes=body.notes,
         session=session,
     )
     return await _record_to_summary(record, capital_service, session)
+
+
+@router.get("/share-classes", response_model=list[ShareClassSummary])
+async def list_share_classes(
+    _ctx: RequestContext = require_permission(Permission.CAPITAL_READ),
+    capital_service: CapitalAccountService = Depends(get_capital_account_service),
+    session: AsyncSession = Depends(get_db),
+) -> list[ShareClassSummary]:
+    classes = await capital_service.list_share_classes(session=session)
+    result: list[ShareClassSummary] = []
+    for cls in classes:
+        aum, shares, nav = await capital_service.get_share_class_nav(cls, session=session)
+        accounts = await capital_service._accounts.get_latest_by_share_class(
+            cls, session=session,
+        )
+        result.append(
+            ShareClassSummary(
+                share_class=cls,
+                total_aum=aum,
+                total_shares=shares,
+                nav_per_share=nav,
+                investor_count=len(accounts),
+            )
+        )
+    return result
 
 
 async def _record_to_summary(

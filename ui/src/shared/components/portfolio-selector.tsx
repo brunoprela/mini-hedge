@@ -17,7 +17,7 @@ interface PortfolioSelectorProps {
 export function PortfolioSelector({ portfolios, value, onChange }: PortfolioSelectorProps) {
   if (portfolios.length <= 1) return null;
 
-  // Pill tabs for small sets (Broadridge/HedgeFund style)
+  // Pill tabs for small sets
   if (portfolios.length <= 6) {
     return (
       <div className="flex items-center gap-1">

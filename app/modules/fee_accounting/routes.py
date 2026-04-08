@@ -32,6 +32,7 @@ router = APIRouter(prefix="/funds/{fund_slug}/fees", tags=["fees"])
 
 class FeeScheduleResponse(BaseModel):
     fund_slug: str
+    share_class: str
     management_fee_bps: int
     performance_fee_pct: Decimal
     hurdle_rate_pct: Decimal
@@ -41,6 +42,7 @@ class FeeScheduleResponse(BaseModel):
 
 
 class FeeScheduleUpdate(BaseModel):
+    share_class: str = "default"
     management_fee_bps: int
     performance_fee_pct: Decimal
     hurdle_rate_pct: Decimal
@@ -93,21 +95,26 @@ async def list_accruals(
 @router.get("/schedule", response_model=FeeScheduleResponse)
 async def get_fee_schedule(
     fund_slug: str,
+    share_class: str = Query("default"),
     schedule_repo: FeeScheduleRepository = Depends(get_fee_schedule_repo),
     session: AsyncSession = Depends(get_db),
 ) -> FeeScheduleResponse:
-    record = await schedule_repo.get_by_fund_slug(fund_slug, session=session)
+    record = await schedule_repo.get_by_fund_slug(
+        fund_slug, share_class=share_class, session=session,
+    )
     if record is None:
         raise HTTPException(status_code=404, detail="Fee schedule not found")
-    return FeeScheduleResponse(
-        fund_slug=record.fund_slug,
-        management_fee_bps=record.management_fee_bps,
-        performance_fee_pct=record.performance_fee_pct,
-        hurdle_rate_pct=record.hurdle_rate_pct,
-        high_water_mark=record.high_water_mark,
-        crystallization_frequency=record.crystallization_frequency,
-        payment_frequency=record.payment_frequency,
-    )
+    return _schedule_to_response(record)
+
+
+@router.get("/schedules", response_model=list[FeeScheduleResponse])
+async def list_fee_schedules(
+    fund_slug: str,
+    schedule_repo: FeeScheduleRepository = Depends(get_fee_schedule_repo),
+    session: AsyncSession = Depends(get_db),
+) -> list[FeeScheduleResponse]:
+    records = await schedule_repo.get_all_by_fund(fund_slug, session=session)
+    return [_schedule_to_response(r) for r in records]
 
 
 @router.put("/schedule", response_model=FeeScheduleResponse)
@@ -119,6 +126,7 @@ async def update_fee_schedule(
 ) -> FeeScheduleResponse:
     record = FeeScheduleRecord(
         fund_slug=fund_slug,
+        share_class=body.share_class,
         management_fee_bps=body.management_fee_bps,
         performance_fee_pct=body.performance_fee_pct,
         hurdle_rate_pct=body.hurdle_rate_pct,
@@ -127,12 +135,17 @@ async def update_fee_schedule(
         payment_frequency=body.payment_frequency,
     )
     saved = await schedule_repo.upsert(record, session=session)
+    return _schedule_to_response(saved)
+
+
+def _schedule_to_response(record: FeeScheduleRecord) -> FeeScheduleResponse:
     return FeeScheduleResponse(
-        fund_slug=saved.fund_slug,
-        management_fee_bps=saved.management_fee_bps,
-        performance_fee_pct=saved.performance_fee_pct,
-        hurdle_rate_pct=saved.hurdle_rate_pct,
-        high_water_mark=saved.high_water_mark,
-        crystallization_frequency=saved.crystallization_frequency,
-        payment_frequency=saved.payment_frequency,
+        fund_slug=record.fund_slug,
+        share_class=record.share_class,
+        management_fee_bps=record.management_fee_bps,
+        performance_fee_pct=record.performance_fee_pct,
+        hurdle_rate_pct=record.hurdle_rate_pct,
+        high_water_mark=record.high_water_mark,
+        crystallization_frequency=record.crystallization_frequency,
+        payment_frequency=record.payment_frequency,
     )

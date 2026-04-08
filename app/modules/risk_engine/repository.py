@@ -9,7 +9,11 @@ from uuid import UUID
 from sqlalchemy import select
 
 from app.modules.risk_engine.models import (
+    CounterpartyExposureRecord,
+    CounterpartyRecord,
     FactorExposureRecord,
+    LiquidityProfileRecord,
+    MarginRequirementRecord,
     RiskSnapshotRecord,
     StressPositionImpactRecord,
     StressTestResultRecord,
@@ -165,3 +169,99 @@ class RiskRepository(BaseRepository):
                 select(FactorExposureRecord).where(FactorExposureRecord.snapshot_id == snapshot_id)
             )
             return list(result.scalars().all())
+
+    # -- Counterparty --
+
+    async def list_counterparties(
+        self, *, session: AsyncSession | None = None
+    ) -> list[CounterpartyRecord]:
+        async with self._session(session) as session:
+            result = await session.execute(
+                select(CounterpartyRecord)
+                .where(CounterpartyRecord.is_active.is_(True))
+                .order_by(CounterpartyRecord.name)
+            )
+            return list(result.scalars().all())
+
+    async def get_counterparty(
+        self, counterparty_id: str, *, session: AsyncSession | None = None
+    ) -> CounterpartyRecord | None:
+        async with self._session(session) as session:
+            result = await session.execute(
+                select(CounterpartyRecord).where(CounterpartyRecord.id == counterparty_id)
+            )
+            return result.scalar_one_or_none()
+
+    async def get_counterparty_map(
+        self, *, session: AsyncSession | None = None
+    ) -> dict[str, str]:
+        records = await self.list_counterparties(session=session)
+        return {r.id: r.name for r in records}
+
+    async def save_counterparty(
+        self, record: CounterpartyRecord, *, session: AsyncSession | None = None
+    ) -> None:
+        async with self._session(session) as session:
+            session.add(record)
+            await session.commit()
+
+    async def get_counterparty_exposures(
+        self, portfolio_id: UUID, *, session: AsyncSession | None = None
+    ) -> list[CounterpartyExposureRecord]:
+        async with self._session(session) as session:
+            result = await session.execute(
+                select(CounterpartyExposureRecord)
+                .where(CounterpartyExposureRecord.portfolio_id == str(portfolio_id))
+                .order_by(CounterpartyExposureRecord.business_date.desc())
+                .limit(50)
+            )
+            return list(result.scalars().all())
+
+    async def save_counterparty_exposure(
+        self, record: CounterpartyExposureRecord, *, session: AsyncSession | None = None
+    ) -> None:
+        async with self._session(session) as session:
+            session.add(record)
+            await session.commit()
+
+    # -- Liquidity --
+
+    async def save_liquidity_profile(
+        self, record: LiquidityProfileRecord, *, session: AsyncSession | None = None
+    ) -> None:
+        async with self._session(session) as session:
+            session.add(record)
+            await session.commit()
+
+    async def get_latest_liquidity(
+        self, portfolio_id: UUID, *, session: AsyncSession | None = None
+    ) -> LiquidityProfileRecord | None:
+        async with self._session(session) as session:
+            result = await session.execute(
+                select(LiquidityProfileRecord)
+                .where(LiquidityProfileRecord.portfolio_id == str(portfolio_id))
+                .order_by(LiquidityProfileRecord.business_date.desc())
+                .limit(1)
+            )
+            return result.scalar_one_or_none()
+
+    # -- Margin --
+
+    async def save_margin_requirement(
+        self, record: MarginRequirementRecord, *, session: AsyncSession | None = None
+    ) -> None:
+        async with self._session(session) as session:
+            session.add(record)
+            await session.commit()
+
+    async def get_latest_margin(
+        self, portfolio_id: UUID, *, session: AsyncSession | None = None
+    ) -> MarginRequirementRecord | None:
+        async with self._session(session) as session:
+            result = await session.execute(
+                select(MarginRequirementRecord)
+                .where(MarginRequirementRecord.portfolio_id == str(portfolio_id))
+                .order_by(MarginRequirementRecord.business_date.desc())
+                .limit(1)
+            )
+            return result.scalar_one_or_none()

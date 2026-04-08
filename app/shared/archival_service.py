@@ -18,7 +18,7 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
-from app.modules.platform.models import ArchivalRecord
+from app.shared.models import ArchivalRecord
 
 if TYPE_CHECKING:
     from app.modules.platform.audit_repository import AuditLogRepository

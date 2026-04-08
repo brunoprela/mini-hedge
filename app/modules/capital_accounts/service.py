@@ -182,6 +182,28 @@ class CapitalAccountService:
             last_allocation_date=last_date,
         )
 
+    async def get_share_class_nav(
+        self,
+        share_class: str,
+        *,
+        session: AsyncSession | None = None,
+    ) -> tuple[Decimal, Decimal, Decimal]:
+        """Get (total_aum, total_shares, nav_per_share) for a share class."""
+        accounts = await self._accounts.get_latest_by_share_class(
+            share_class, session=session,
+        )
+        total_aum = sum((a.ending_capital for a in accounts), ZERO)
+        total_shares = sum((a.shares_held for a in accounts), ZERO)
+        nav = total_aum / total_shares if total_shares > ZERO else ZERO
+        return total_aum, total_shares, nav
+
+    async def list_share_classes(
+        self, *, session: AsyncSession | None = None
+    ) -> list[str]:
+        """Get distinct share classes with active capital accounts."""
+        accounts = await self._accounts.get_latest_by_fund(session=session)
+        return sorted({a.share_class for a in accounts})
+
     async def get_total_shares(self, *, session: AsyncSession | None = None) -> Decimal:
         """Total shares outstanding across all investors."""
         return await self._accounts.get_total_shares(session=session)
@@ -198,11 +220,19 @@ class CapitalAccountService:
         performance_fee: Decimal,
         nav_per_share: Decimal,
         business_date: date,
+        class_fees: dict[str, tuple[Decimal, Decimal]] | None = None,
         session: AsyncSession | None = None,
     ) -> int:
         """Run daily capital allocation: distribute P&L and fees, create new snapshots.
 
         Called by the EOD orchestrator after NAV calculation and fee accrual.
+
+        Args:
+            class_fees: Optional per-class fee overrides mapping
+                share_class → (management_fee, performance_fee). When provided,
+                fees are allocated per share class instead of using the
+                fund-level management_fee/performance_fee.
+
         Returns the number of accounts allocated.
         """
         current = await self._accounts.get_latest_by_fund(session=session)
@@ -212,53 +242,98 @@ class CapitalAccountService:
         # Build allocation inputs
         inputs = [(a.id, a.ending_capital, a.ownership_pct) for a in current]
 
-        # 1. Allocate P&L
+        # 1. Allocate P&L proportional to ownership (shared across all classes)
         pnl_results = allocate_pnl(inputs, fund_pnl)
+        pnl_map = {aid: pnl for aid, pnl, _ in pnl_results}
+        post_pnl_cap = {aid: cap for aid, _, cap in pnl_results}
 
-        # Update ending capitals after P&L
-        post_pnl = [
-            (aid, new_cap, pct)
-            for (aid, _, pct), (_, _, new_cap) in zip(inputs, pnl_results, strict=True)
-        ]
+        # 2. Allocate fees — per-class if class_fees provided, else fund-level
+        mgmt_map: dict[str, Decimal] = {}
+        perf_map: dict[str, Decimal] = {}
+        final_cap: dict[str, Decimal] = {}
 
-        # 2. Allocate management fees
-        mgmt_results = allocate_fees(post_pnl, management_fee)
+        if class_fees:
+            # Group accounts by share class
+            classes: dict[str, list[tuple[str, Decimal, Decimal]]] = {}
+            for a in current:
+                cls = a.share_class
+                classes.setdefault(cls, []).append(
+                    (a.id, post_pnl_cap[a.id], a.ownership_pct)
+                )
 
-        # 3. Allocate performance fees (from post-mgmt capitals)
-        post_mgmt = [
-            (aid, new_cap, pct)
-            for (aid, _, pct), (_, _, new_cap) in zip(post_pnl, mgmt_results, strict=True)
-        ]
-        perf_results = allocate_fees(post_mgmt, performance_fee)
+            for cls, cls_accounts in classes.items():
+                cls_mgmt, cls_perf = class_fees.get(cls, (ZERO, ZERO))
+                # Recompute intra-class ownership for fee allocation
+                cls_total = sum(cap for _, cap, _ in cls_accounts)
+                if cls_total > ZERO:
+                    cls_inputs = [
+                        (aid, cap, cap / cls_total) for aid, cap, _ in cls_accounts
+                    ]
+                else:
+                    cls_inputs = cls_accounts
+                cls_mgmt_results = allocate_fees(cls_inputs, cls_mgmt)
+                post_mgmt = [
+                    (aid, new_cap, pct)
+                    for (aid, _, pct), (_, _, new_cap) in zip(
+                        cls_inputs, cls_mgmt_results, strict=True
+                    )
+                ]
+                cls_perf_results = allocate_fees(post_mgmt, cls_perf)
+                for (aid, m, _), (_, p, fc) in zip(
+                    cls_mgmt_results, cls_perf_results, strict=True
+                ):
+                    mgmt_map[aid] = m
+                    perf_map[aid] = p
+                    final_cap[aid] = fc
+        else:
+            # Legacy fund-level allocation
+            post_pnl = [
+                (aid, post_pnl_cap[aid], pct)
+                for aid, _, pct in inputs
+            ]
+            mgmt_results = allocate_fees(post_pnl, management_fee)
+            post_mgmt = [
+                (aid, new_cap, pct)
+                for (aid, _, pct), (_, _, new_cap) in zip(
+                    post_pnl, mgmt_results, strict=True
+                )
+            ]
+            perf_results = allocate_fees(post_mgmt, performance_fee)
+            for (aid, m, _), (_, p, fc) in zip(
+                mgmt_results, perf_results, strict=True
+            ):
+                mgmt_map[aid] = m
+                perf_map[aid] = p
+                final_cap[aid] = fc
 
-        # 4. Recompute ownership from final capitals
-        final_capitals = [(aid, new_cap) for aid, _, new_cap in perf_results]
+        # 3. Recompute ownership from final capitals
+        final_capitals = [(a.id, final_cap[a.id]) for a in current]
         ownership = recompute_ownership(final_capitals)
         ownership_map = dict(ownership)
 
-        # 5. Create new snapshots + transactions
-        old_map = {a.id: a for a in current}
+        # 4. Create new snapshots + transactions
         count = 0
 
-        for i, (aid, pnl_alloc, _) in enumerate(pnl_results):
-            old = old_map[aid]
-            _, mgmt_alloc, _ = mgmt_results[i]
-            _, perf_alloc, final_capital = perf_results[i]
+        for a in current:
+            aid = a.id
+            pnl_alloc = pnl_map[aid]
+            mgmt_alloc = mgmt_map[aid]
+            perf_alloc = perf_map[aid]
             new_pct = ownership_map.get(aid, ZERO)
 
             new_account = CapitalAccountRecord(
                 id=str(uuid4()),
-                investor_id=old.investor_id,
-                share_class=old.share_class,
-                beginning_capital=old.ending_capital,
+                investor_id=a.investor_id,
+                share_class=a.share_class,
+                beginning_capital=a.ending_capital,
                 contributions=ZERO,
                 withdrawals=ZERO,
                 pnl_allocation=pnl_alloc,
                 management_fee_allocation=mgmt_alloc,
                 performance_fee_allocation=perf_alloc,
-                ending_capital=final_capital,
+                ending_capital=final_cap[aid],
                 ownership_pct=new_pct,
-                shares_held=old.shares_held,
+                shares_held=a.shares_held,
                 effective_date=business_date,
             )
             await self._accounts.insert(new_account, session=session)
@@ -269,7 +344,7 @@ class CapitalAccountService:
                     CapitalTransactionRecord(
                         id=str(uuid4()),
                         capital_account_id=new_account.id,
-                        investor_id=old.investor_id,
+                        investor_id=a.investor_id,
                         transaction_type=TransactionType.PNL_ALLOCATION,
                         amount=pnl_alloc,
                         shares=ZERO,
@@ -285,7 +360,7 @@ class CapitalAccountService:
                     CapitalTransactionRecord(
                         id=str(uuid4()),
                         capital_account_id=new_account.id,
-                        investor_id=old.investor_id,
+                        investor_id=a.investor_id,
                         transaction_type=TransactionType.MGMT_FEE_ALLOCATION,
                         amount=mgmt_alloc,
                         shares=ZERO,
@@ -300,7 +375,7 @@ class CapitalAccountService:
                     CapitalTransactionRecord(
                         id=str(uuid4()),
                         capital_account_id=new_account.id,
-                        investor_id=old.investor_id,
+                        investor_id=a.investor_id,
                         transaction_type=TransactionType.PERF_FEE_ALLOCATION,
                         amount=perf_alloc,
                         shares=ZERO,
@@ -317,8 +392,6 @@ class CapitalAccountService:
             business_date=str(business_date),
             accounts=count,
             fund_pnl=str(fund_pnl),
-            mgmt_fee=str(management_fee),
-            perf_fee=str(performance_fee),
         )
         return count
 
@@ -346,13 +419,15 @@ class CapitalAccountService:
         """
         shares = compute_subscription_shares(amount, nav_per_share)
 
-        existing = await self._accounts.get_latest_for_investor(investor_id, session=session)
+        existing = await self._accounts.get_latest_for_investor(
+            investor_id, share_class=share_class, session=session,
+        )
 
         if existing:
             new_account = CapitalAccountRecord(
                 id=str(uuid4()),
                 investor_id=investor_id,
-                share_class=existing.share_class,
+                share_class=share_class,
                 beginning_capital=existing.ending_capital,
                 contributions=amount,
                 withdrawals=ZERO,
@@ -434,6 +509,7 @@ class CapitalAccountService:
         business_date: date,
         portfolio_id: UUID | None = None,
         currency: str = "USD",
+        share_class: str = "default",
         notes: str | None = None,
         session: AsyncSession | None = None,
     ) -> CapitalAccountRecord:
@@ -442,7 +518,9 @@ class CapitalAccountService:
         If *portfolio_id* and a ``CashManagementService`` are configured, a
         corresponding cash debit is recorded automatically.
         """
-        existing = await self._accounts.get_latest_for_investor(investor_id, session=session)
+        existing = await self._accounts.get_latest_for_investor(
+            investor_id, share_class=share_class, session=session,
+        )
         if existing is None:
             msg = f"No capital account found for investor {investor_id}"
             raise ValueError(msg)

@@ -156,6 +156,22 @@ export function DashboardHome() {
       .slice(0, 8);
   }, [exposure]);
 
+  // Currency exposure bars
+  const currencyBars = useMemo(() => {
+    const currBreakdowns = exposure?.breakdowns?.currency;
+    if (!currBreakdowns || currBreakdowns.length === 0) return [];
+    return currBreakdowns
+      .map((b) => ({
+        label: b.key,
+        long: Math.abs(Number(b.long_value)),
+        short: Math.abs(Number(b.short_value)),
+        net: Number(b.net_value),
+      }))
+      .filter((b) => b.long > 0 || b.short > 0)
+      .sort((a, b) => b.long + b.short - (a.long + a.short))
+      .slice(0, 6);
+  }, [exposure]);
+
   // Top/bottom movers
   const movers = useMemo(() => {
     const sorted = (positions ?? [])
@@ -174,7 +190,7 @@ export function DashboardHome() {
 
   return (
     <div className="space-y-3">
-      {/* Greeting + Date (Broadridge-style) */}
+      {/* Greeting + Date */}
       <div>
         <h1 className="text-lg font-semibold text-[var(--foreground-bright)]">
           Hello, {userName}
@@ -288,6 +304,59 @@ export function DashboardHome() {
             </SectionPanel>
           </div>
 
+          {/* Currency Exposure Bars */}
+          {currencyBars.length > 0 && (
+            <SectionPanel title="Currency Exposure">
+              <div className="p-3">
+                <div className="space-y-2">
+                  {(() => {
+                    const maxVal = Math.max(...currencyBars.map((b) => Math.max(b.long, b.short)), 1);
+                    return currencyBars.map((b) => (
+                      <div key={b.label} className="flex items-center gap-3 text-xs">
+                        <span className="w-10 font-mono font-medium text-[var(--foreground)]">{b.label}</span>
+                        <div className="flex-1">
+                          <div className="flex gap-0.5">
+                            <div
+                              className="h-4 rounded-l-sm"
+                              style={{
+                                width: `${Math.max((b.long / maxVal) * 100, 1)}%`,
+                                backgroundColor: "var(--primary)",
+                                opacity: 0.8,
+                              }}
+                            />
+                            {b.short > 0 && (
+                              <div
+                                className="h-4 rounded-r-sm"
+                                style={{
+                                  width: `${Math.max((b.short / maxVal) * 100, 1)}%`,
+                                  backgroundColor: "var(--destructive)",
+                                  opacity: 0.6,
+                                }}
+                              />
+                            )}
+                          </div>
+                        </div>
+                        <span
+                          className={`w-20 text-right font-mono ${b.net >= 0 ? "text-[var(--success)]" : "text-[var(--destructive)]"}`}
+                        >
+                          {fmtCurrency(String(b.net))}
+                        </span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+                <div className="mt-2 flex items-center gap-4 text-[10px] text-[var(--muted-foreground)]">
+                  <span className="flex items-center gap-1">
+                    <span className="inline-block h-2 w-4 rounded-sm bg-[var(--primary)] opacity-80" /> Long
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="inline-block h-2 w-4 rounded-sm bg-[var(--destructive)] opacity-60" /> Short
+                  </span>
+                </div>
+              </div>
+            </SectionPanel>
+          )}
+
           {/* Recent Orders */}
           <SectionPanel
             title="Recent Orders"
@@ -366,7 +435,7 @@ export function DashboardHome() {
 
         {/* Right column (4 cols): Status + Compliance + Tasks */}
         <div className="col-span-4 space-y-3">
-          {/* Today's Orders Summary (Broadridge icon-badge style) */}
+          {/* Today's Orders Summary */}
           <SectionPanel title="Order Activity" actions={<PeriodSelect value={ordersPeriod} onChange={setOrdersPeriod} />}>
             <div className="p-3">
               <div className="grid grid-cols-4 gap-2 text-center">
@@ -457,12 +526,15 @@ export function DashboardHome() {
       {/* Portfolios table — full width at bottom */}
       {portfolios && portfolios.length > 0 && (
         <SectionPanel title="Portfolios">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
                 <th className="px-3 py-1.5 text-left text-xs font-medium text-[var(--muted-foreground)]">Portfolio</th>
                 <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">NAV</th>
-                <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">P&L</th>
+                <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">Unrealized P&L</th>
+                <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">Realized P&L</th>
+                <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">Cost Basis</th>
                 <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">Positions</th>
                 <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]" />
               </tr>
@@ -483,7 +555,7 @@ export function DashboardHome() {
                         {p.name}
                       </Link>
                       {p.strategy && (
-                        <p className="text-[10px] text-[var(--muted-foreground)]">{p.strategy}</p>
+                        <span className="ml-2 text-[10px] text-[var(--muted-foreground)]">{p.strategy}</span>
                       )}
                     </td>
                     <td className="px-3 py-1.5 text-right font-mono text-sm">
@@ -497,6 +569,18 @@ export function DashboardHome() {
                       ) : (
                         "—"
                       )}
+                    </td>
+                    <td className="px-3 py-1.5 text-right">
+                      {summary ? (
+                        <span className={`font-mono text-sm ${pnlColorClass(summary.total_realized_pnl)}`}>
+                          {formatPnL(summary.total_realized_pnl)}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="px-3 py-1.5 text-right font-mono text-sm text-[var(--muted-foreground)]">
+                      {summary ? formatPnL(summary.total_cost_basis) : "—"}
                     </td>
                     <td className="px-3 py-1.5 text-right text-sm text-[var(--muted-foreground)]">
                       {summary?.position_count ?? "—"}
@@ -514,6 +598,7 @@ export function DashboardHome() {
               })}
             </tbody>
           </table>
+          </div>
         </SectionPanel>
       )}
     </div>

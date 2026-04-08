@@ -21,7 +21,8 @@ export interface NavItem {
     | "Calendar"
     | "Receipt"
     | "Activity"
-    | "FileText";
+    | "FileText"
+    | "ClipboardCheck";
   permission?: Permission;
 }
 
@@ -85,6 +86,12 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Investors",
     href: "/investors",
     icon: "Users",
+    permission: Permission.CAPITAL_READ,
+  },
+  {
+    label: "Operations",
+    href: "/operations",
+    icon: "ClipboardCheck",
     permission: Permission.CAPITAL_READ,
   },
   {

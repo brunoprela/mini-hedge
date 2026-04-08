@@ -19,6 +19,8 @@ if TYPE_CHECKING:
     from datetime import date, datetime
     from decimal import Decimal
 
+    from app.modules.investor_operations.interface import KYCScreeningResult
+
 
 # ---------------------------------------------------------------------------
 #  Value objects returned by adapters (vendor-agnostic)
@@ -257,3 +259,146 @@ class FundAdminAdapter(Protocol):
     async def get_cash_balances(self) -> dict[str, Decimal]:
         """Return currency -> cash balance from the admin's books."""
         ...
+
+    async def register_subscription(
+        self, request_id: str, investor_id: str, amount: Decimal
+    ) -> str:
+        """Register a subscription and return a wire reference."""
+        ...
+
+    async def confirm_wire_receipt(self, wire_reference: str) -> bool:
+        """Confirm bank wire receipt. Returns True on success."""
+        ...
+
+    async def register_redemption(
+        self, request_id: str, investor_id: str, amount: Decimal
+    ) -> None:
+        """Register a pending redemption payment."""
+        ...
+
+    async def send_redemption_payment(self, request_id: str) -> str | None:
+        """Send a wire for a redemption. Returns payment reference."""
+        ...
+
+
+class KYCScreeningAdapter(Protocol):
+    """Vendor-agnostic KYC/AML screening interface.
+
+    Implementations: mock-kyc, Onfido, ComplyAdvantage, Refinitiv World-Check.
+    """
+
+    async def screen_investor(
+        self,
+        *,
+        investor_id: str,
+        name: str,
+        entity_type: str,
+        tax_jurisdiction: str | None = None,
+    ) -> KYCScreeningResult: ...
+
+
+# ---------------------------------------------------------------------------
+#  Alternative data
+# ---------------------------------------------------------------------------
+
+
+class AltDataRecord:
+    """A single alternative data observation."""
+
+    __slots__ = ("instrument_id", "timestamp", "value", "source", "metadata")
+
+    def __init__(
+        self,
+        *,
+        instrument_id: str | None,
+        timestamp: datetime,
+        value: Decimal,
+        source: str,
+        metadata: dict | None = None,
+    ) -> None:
+        self.instrument_id = instrument_id
+        self.timestamp = timestamp
+        self.value = value
+        self.source = source
+        self.metadata = metadata
+
+
+class SentimentRecord:
+    """Sentiment observation for an instrument."""
+
+    __slots__ = (
+        "instrument_id",
+        "source",
+        "timestamp",
+        "sentiment_score",
+        "volume",
+        "positive_mentions",
+        "negative_mentions",
+        "neutral_mentions",
+    )
+
+    def __init__(
+        self,
+        *,
+        instrument_id: str,
+        source: str,
+        timestamp: datetime,
+        sentiment_score: Decimal,
+        volume: int,
+        positive_mentions: int,
+        negative_mentions: int,
+        neutral_mentions: int,
+    ) -> None:
+        self.instrument_id = instrument_id
+        self.source = source
+        self.timestamp = timestamp
+        self.sentiment_score = sentiment_score
+        self.volume = volume
+        self.positive_mentions = positive_mentions
+        self.negative_mentions = negative_mentions
+        self.neutral_mentions = neutral_mentions
+
+
+class AltDataProvider(Protocol):
+    """Vendor-agnostic alternative data source.
+
+    Implementations: file-based (Parquet/CSV), FMP, mock.
+    """
+
+    async def fetch_data(
+        self, instrument_id: str, start: date, end: date
+    ) -> list[AltDataRecord]: ...
+
+    async def get_sentiment(
+        self, instrument_id: str, as_of: date
+    ) -> SentimentRecord | None: ...
+
+    @property
+    def source_name(self) -> str: ...
+
+
+# ---------------------------------------------------------------------------
+#  LLM inference
+# ---------------------------------------------------------------------------
+
+
+class LLMResponse:
+    """Raw response from an LLM backend."""
+
+    __slots__ = ("text", "model", "tokens_used")
+
+    def __init__(self, *, text: str, model: str, tokens_used: int) -> None:
+        self.text = text
+        self.model = model
+        self.tokens_used = tokens_used
+
+
+class LLMAdapter(Protocol):
+    """Vendor-agnostic LLM inference interface.
+
+    Implementations: ollama (local), anthropic (Claude API), mock.
+    """
+
+    async def generate(
+        self, prompt: str, *, max_tokens: int = 2048, temperature: float = 0.7
+    ) -> LLMResponse: ...

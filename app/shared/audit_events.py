@@ -81,3 +81,11 @@ class AuditEventType(StrEnum):
     CAPITAL_SUBSCRIPTION = "capital.subscription"
     CAPITAL_REDEMPTION = "capital.redemption"
     CAPITAL_ALLOCATION = "capital.allocation"
+
+    # -- Investor Operations -----------------------------------------------
+    SUBSCRIPTION_SUBMITTED = "investor_ops.subscription.submitted"
+    SUBSCRIPTION_KYC_DECIDED = "investor_ops.subscription.kyc_decided"
+    SUBSCRIPTION_EXECUTED = "investor_ops.subscription.executed"
+    REDEMPTION_SUBMITTED = "investor_ops.redemption.submitted"
+    REDEMPTION_GATE_APPLIED = "investor_ops.redemption.gate_applied"
+    REDEMPTION_EXECUTED = "investor_ops.redemption.executed"

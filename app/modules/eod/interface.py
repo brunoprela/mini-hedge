@@ -19,6 +19,7 @@ class EODStepName(StrEnum):
     EOD_RISK = "eod_risk"
     FEE_ACCRUAL = "fee_accrual"
     CAPITAL_ALLOCATION = "capital_allocation"
+    DEALING_DATE_EXECUTION = "dealing_date_execution"
     PERFORMANCE_ATTRIBUTION = "performance_attribution"
 
 
@@ -137,6 +138,68 @@ class ReconciliationResult(BaseModel):
     cash_breaks: list[CashBreak] = []
     is_clean: bool
     reconciled_at: datetime
+
+
+class BreakStatus(StrEnum):
+    OPEN = "open"
+    INVESTIGATING = "investigating"
+    RESOLVED = "resolved"
+    ESCALATED = "escalated"
+
+
+class SLAStatus(StrEnum):
+    WITHIN_SLA = "within_sla"
+    WARNING = "warning"
+    BREACHED = "breached"
+
+
+class AutoResolutionResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    auto_resolved: int
+    auto_escalated: int
+    rules_applied: list[str]
+
+
+class AgingBucket(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    label: str
+    count: int
+    total_difference: Decimal
+
+
+class AgingSummary(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    buckets: list[AgingBucket]
+    oldest_break_hours: float
+    sla_breached_count: int
+
+
+class TrackedBreak(BaseModel):
+    """A reconciliation break with resolution lifecycle."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: UUID
+    portfolio_id: UUID
+    business_date: date
+    instrument_id: str | None = None
+    break_type: BreakType
+    internal_quantity: Decimal
+    broker_quantity: Decimal
+    admin_quantity: Decimal | None = None
+    difference: Decimal
+    is_material: bool
+    currency: str | None = None
+    internal_balance: Decimal | None = None
+    admin_balance: Decimal | None = None
+    status: BreakStatus
+    assigned_to: str | None = None
+    resolution_note: str | None = None
+    created_at: datetime
+    resolved_at: datetime | None = None
 
 
 # --- EOD Run ---

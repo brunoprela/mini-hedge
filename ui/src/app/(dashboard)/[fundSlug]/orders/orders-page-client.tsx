@@ -1,23 +1,63 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { Plus } from "lucide-react";
+import { useMemo, useState } from "react";
 import { BlockAllocationDialog } from "@/features/orders/components/block-allocation-dialog";
 import { OrderBlotter } from "@/features/orders/components/order-blotter";
+import { OrderDetailPanel } from "@/features/orders/components/order-detail-panel";
+import { ordersQueryOptions } from "@/features/orders/api";
+import type { OrderSummary } from "@/features/orders/types";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { usePermission } from "@/shared/hooks/use-permission";
 import { Permission } from "@/shared/lib/permissions";
 import { PortfolioSelector } from "@/shared/components/portfolio-selector";
+import { useTradeTicket } from "@/shared/components/trade-ticket-provider";
 
 export function OrdersPageClient() {
   const { fundSlug } = useFundContext();
   const { can } = usePermission();
+  const { openTradeTicket } = useTradeTicket();
   const { data: portfolios, isLoading } = useQuery(portfoliosQueryOptions(fundSlug));
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string>("");
   const [showBlockAllocation, setShowBlockAllocation] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   const activePortfolioId = selectedPortfolioId || portfolios?.[0]?.id || "";
+
+  const { data: orders } = useQuery({
+    ...ordersQueryOptions(fundSlug, activePortfolioId),
+    enabled: !!activePortfolioId,
+  });
+
+  // Summary metrics
+  const summary = useMemo(() => {
+    if (!orders) return null;
+    const working = orders.filter((o) =>
+      ["pending", "pending_compliance", "approved", "sent", "working", "partially_filled", "draft"].includes(o.state),
+    );
+    const filled = orders.filter((o) => o.state === "filled");
+    const rejected = orders.filter((o) => o.state === "rejected");
+    const totalNotional = orders.reduce((sum, o) => {
+      const price = Number(o.avg_fill_price || o.limit_price || 0);
+      return sum + Number(o.quantity) * price;
+    }, 0);
+
+    return {
+      total: orders.length,
+      working: working.length,
+      filled: filled.length,
+      rejected: rejected.length,
+      notional: totalNotional,
+      fillRate: orders.length > 0 ? ((filled.length / orders.length) * 100).toFixed(0) : "0",
+    };
+  }, [orders]);
+
+  const selectedOrder = useMemo(() => {
+    if (!selectedOrderId || !orders) return null;
+    return orders.find((o) => o.id === selectedOrderId) ?? null;
+  }, [selectedOrderId, orders]);
 
   return (
     <div className="space-y-3">
@@ -25,7 +65,25 @@ export function OrdersPageClient() {
       <div className="flex items-center justify-between">
         <h1 className="text-sm font-semibold">Orders</h1>
         <div className="flex items-center gap-2">
-          {/* Portfolio selector */}
+          {can(Permission.ORDERS_CREATE) && (
+            <button
+              type="button"
+              onClick={() => setShowBlockAllocation(true)}
+              className="rounded-md border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]"
+            >
+              Block Allocation
+            </button>
+          )}
+          {can(Permission.TRADES_EXECUTE) && (
+            <button
+              type="button"
+              onClick={() => openTradeTicket({ portfolioId: activePortfolioId })}
+              className="inline-flex items-center gap-1.5 rounded-md bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              New Order
+            </button>
+          )}
           {portfolios && (
             <PortfolioSelector
               portfolios={portfolios}
@@ -36,34 +94,73 @@ export function OrdersPageClient() {
         </div>
       </div>
 
-      {/* Quick Actions toolbar */}
-      <div className="flex items-center gap-2">
-        {can(Permission.TRADES_EXECUTE) && activePortfolioId && (
-          <a
-            href={`/${fundSlug}/portfolio/${activePortfolioId}?tab=positions&trade_instrument=`}
-            className="rounded-md bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90"
-          >
-            New Order
-          </a>
-        )}
-        {can(Permission.ORDERS_CREATE) && (
-          <button
-            type="button"
-            onClick={() => setShowBlockAllocation(true)}
-            className="rounded-md border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]"
-          >
-            Block Allocation
-          </button>
-        )}
-      </div>
+      {/* Summary strip */}
+      {summary && (
+        <div className="flex items-center gap-4 rounded-md border border-[var(--border)] bg-[var(--card)] px-4 py-2">
+          <SummaryItem label="Total" value={String(summary.total)} />
+          <Divider />
+          <SummaryItem label="Working" value={String(summary.working)} color="var(--primary)" />
+          <Divider />
+          <SummaryItem label="Filled" value={String(summary.filled)} color="var(--success)" />
+          <Divider />
+          <SummaryItem label="Rejected" value={String(summary.rejected)} color="var(--destructive)" />
+          <Divider />
+          <SummaryItem label="Fill Rate" value={`${summary.fillRate}%`} />
+          <Divider />
+          <SummaryItem
+            label="Notional"
+            value={summary.notional > 0 ? `$${(summary.notional / 1_000_000).toFixed(1)}M` : "$0"}
+          />
+        </div>
+      )}
 
       {isLoading && <p className="text-xs text-[var(--muted-foreground)]">Loading...</p>}
 
-      {activePortfolioId && <OrderBlotter portfolioId={activePortfolioId} />}
+      {/* Main area: blotter + optional detail panel */}
+      <div className="flex gap-3">
+        <div className="min-w-0 flex-1">
+          {activePortfolioId && (
+            <OrderBlotter
+              portfolioId={activePortfolioId}
+              onSelectOrder={setSelectedOrderId}
+              selectedOrderId={selectedOrderId}
+            />
+          )}
+        </div>
+
+        {/* Order detail side panel */}
+        {selectedOrder && (
+          <OrderDetailPanel
+            order={selectedOrder}
+            onClose={() => setSelectedOrderId(null)}
+            onClone={(o) => {
+              openTradeTicket({
+                instrument: o.instrument_id,
+                side: o.side as "buy" | "sell",
+                quantity: o.quantity,
+                portfolioId: activePortfolioId,
+              });
+            }}
+          />
+        )}
+      </div>
 
       {showBlockAllocation && (
         <BlockAllocationDialog onClose={() => setShowBlockAllocation(false)} />
       )}
     </div>
   );
+}
+
+function SummaryItem({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <div className="text-center">
+      <p className="font-mono text-sm font-bold" style={color ? { color } : undefined}>{value}</p>
+      <p className="text-[9px] uppercase tracking-wider text-[var(--muted-foreground)]">{label}</p>
+    </div>
+  );
+}
+
+function Divider() {
+  return <div className="h-6 w-px bg-[var(--border)]" />;
 }

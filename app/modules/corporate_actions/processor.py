@@ -53,7 +53,9 @@ def compute_adjustments(
     if action_type == ActionType.REVERSE_SPLIT:
         return _reverse_split(action, quantity, cost_basis)
     if action_type == ActionType.SPINOFF:
-        return _spinoff(action)
+        return _spinoff(action, quantity, cost_basis)
+    if action_type == ActionType.MERGER:
+        return _merger(action, quantity, cost_basis)
 
     logger.warning("unknown_action_type", action_type=action.action_type)
     return []
@@ -123,11 +125,69 @@ def _reverse_split(
     ]
 
 
-def _spinoff(action: CorporateAction) -> list[PositionAdjustment]:
-    """Spinoff — not yet implemented; returns empty adjustments."""
-    logger.info(
-        "spinoff_skipped",
-        action_id=action.action_id,
-        instrument_id=action.instrument_id,
-    )
-    return []
+def _spinoff(
+    action: CorporateAction,
+    quantity: Decimal,
+    cost_basis: Decimal,
+) -> list[PositionAdjustment]:
+    """Spinoff — allocate a fraction of cost basis to the new entity.
+
+    ``action.amount`` is the cost basis allocation ratio (e.g. 0.20 means
+    20% of the parent's cost basis transfers to the spun-off entity).
+    The parent retains the remaining 80%.
+
+    Two adjustments are returned:
+    1. Parent instrument — reduce cost basis by the allocated fraction.
+    2. Child instrument — new position with allocated cost basis.
+       The child instrument_id is encoded as ``<parent>-SPINOFF`` by the
+       mock exchange; a real feed would supply the actual new ticker.
+    """
+    ratio = action.amount or Decimal("0.20")  # default 20% allocation
+    allocated_basis = cost_basis * ratio
+
+    child_instrument_id = f"{action.instrument_id}-SPINOFF"
+
+    return [
+        # Parent: reduce cost basis, no share change
+        PositionAdjustment(
+            instrument_id=action.instrument_id,
+            quantity_delta=Decimal(0),
+            cost_basis_adjustment=-allocated_basis,
+            cash_amount=Decimal(0),
+        ),
+        # Child: new position with same share count, allocated cost basis
+        PositionAdjustment(
+            instrument_id=child_instrument_id,
+            quantity_delta=quantity,
+            cost_basis_adjustment=allocated_basis,
+            cash_amount=Decimal(0),
+        ),
+    ]
+
+
+def _merger(
+    action: CorporateAction,
+    quantity: Decimal,
+    cost_basis: Decimal,
+) -> list[PositionAdjustment]:
+    """Merger — position is closed out at the merger consideration price.
+
+    ``action.amount`` is the cash consideration per share. The entire
+    position is liquidated: shares go to zero, and the holder receives
+    cash = quantity × amount.
+
+    If the merger is stock-for-stock (no cash consideration), amount will
+    be zero and no cash is credited — the acquirer shares would be
+    handled as a separate corporate action from the feed.
+    """
+    cash_per_share = action.amount or Decimal(0)
+    cash_proceeds = quantity * cash_per_share
+
+    return [
+        PositionAdjustment(
+            instrument_id=action.instrument_id,
+            quantity_delta=-quantity,  # close out entire position
+            cost_basis_adjustment=-cost_basis,  # remove all cost basis
+            cash_amount=cash_proceeds,
+        ),
+    ]

@@ -76,6 +76,18 @@ class Settings(BaseSettings):
     fix_host: str = "localhost"
     fix_port: int = 9878
 
+    # LLM adapter configuration
+    llm_adapter: str = "ollama"  # "ollama" | "anthropic" | "mock"
+    ollama_url: str = "http://localhost:11434"
+    ollama_model: str = "llama3.1:8b"
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-sonnet-4-20250514"
+
+    # Alternative data configuration
+    alt_data_provider: str = "mock"  # "mock" | "file" | "fmp"
+    alt_data_dir: str = "data/alt"  # for file provider
+    fmp_api_key: str = ""  # for FMP provider
+
     keycloak_url: str = "http://localhost:8180"
     # Browser-facing URL for issuer validation; defaults to keycloak_url
     keycloak_browser_url: str = ""

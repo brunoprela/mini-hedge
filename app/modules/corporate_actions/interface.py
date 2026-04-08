@@ -16,6 +16,7 @@ class ActionType(StrEnum):
     STOCK_SPLIT = "stock_split"
     REVERSE_SPLIT = "reverse_split"
     SPINOFF = "spinoff"
+    MERGER = "merger"
 
 
 class ProcessingStatus(StrEnum):

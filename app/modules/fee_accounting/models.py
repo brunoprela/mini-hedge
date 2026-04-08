@@ -25,7 +25,7 @@ from app.shared.models import Base as Base
 class FeeScheduleRecord(Base):
     __tablename__ = "fee_schedules"
     __table_args__ = (
-        Index("ix_fee_schedules_fund_slug", "fund_slug", unique=True),
+        Index("ix_fee_schedules_fund_class", "fund_slug", "share_class", unique=True),
         {"schema": "positions"},
     )
 
@@ -34,7 +34,8 @@ class FeeScheduleRecord(Base):
         primary_key=True,
         server_default=text("gen_random_uuid()"),
     )
-    fund_slug: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    fund_slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    share_class: Mapped[str] = mapped_column(String(32), nullable=False, default="default")
     management_fee_bps: Mapped[int] = mapped_column(Integer, nullable=False)
     performance_fee_pct: Mapped[Decimal] = mapped_column(Numeric(8, 4), nullable=False)
     hurdle_rate_pct: Mapped[Decimal] = mapped_column(Numeric(8, 4), nullable=False)
@@ -71,6 +72,7 @@ class FeeAccrualRecord(Base):
         server_default=text("gen_random_uuid()"),
     )
     portfolio_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)
+    share_class: Mapped[str] = mapped_column(String(32), nullable=False, default="default")
     fee_type: Mapped[str] = mapped_column(String(16), nullable=False)
     accrual_date: Mapped[datetime] = mapped_column(Date, nullable=False)
     nav_basis: Mapped[Decimal] = mapped_column(Numeric(20, 2), nullable=False)
@@ -97,6 +99,7 @@ class HighWaterMarkRecord(Base):
         server_default=text("gen_random_uuid()"),
     )
     portfolio_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)
+    share_class: Mapped[str] = mapped_column(String(32), nullable=False, default="default")
     hwm_date: Mapped[datetime] = mapped_column(Date, nullable=False)
     hwm_nav: Mapped[Decimal] = mapped_column(Numeric(20, 2), nullable=False)
     peak_nav: Mapped[Decimal] = mapped_column(Numeric(20, 2), nullable=False)

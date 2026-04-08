@@ -14,9 +14,12 @@ if TYPE_CHECKING:
     from app.config import Settings
     from app.modules.orders.broker_registry import BrokerRegistry
     from app.shared.adapters import (
+        AltDataProvider,
         BrokerAdapter,
         CorporateActionsAdapter,
         FundAdminAdapter,
+        KYCScreeningAdapter,
+        LLMAdapter,
         MarketDataAdapter,
         ReferenceDataAdapter,
     )
@@ -139,6 +142,51 @@ def _build_mock_exchange_fund_admin(
     return MockExchangeFundAdminAdapter(base_url=cfg.mock_exchange_url)
 
 
+def _build_mock_kyc_screening(
+    cfg: Settings,
+    **_kwargs: object,
+) -> KYCScreeningAdapter:
+    from app.adapters.mock_kyc_screening import MockKYCScreeningAdapter
+
+    return MockKYCScreeningAdapter()
+
+
+def _build_ollama_llm(cfg: Settings, **_kwargs: object) -> LLMAdapter:
+    from app.adapters.ollama_llm import OllamaLLMAdapter
+
+    return OllamaLLMAdapter(base_url=cfg.ollama_url, model=cfg.ollama_model)
+
+
+def _build_anthropic_llm(cfg: Settings, **_kwargs: object) -> LLMAdapter:
+    from app.adapters.anthropic_llm import AnthropicLLMAdapter
+
+    return AnthropicLLMAdapter(api_key=cfg.anthropic_api_key, model=cfg.anthropic_model)
+
+
+def _build_mock_llm(cfg: Settings, **_kwargs: object) -> LLMAdapter:
+    from app.adapters.mock_llm import MockLLMAdapter
+
+    return MockLLMAdapter()
+
+
+def _build_mock_alt_data(cfg: Settings, **_kwargs: object) -> AltDataProvider:
+    from app.adapters.mock_alt_data import MockAltDataProvider
+
+    return MockAltDataProvider()
+
+
+def _build_file_alt_data(cfg: Settings, **_kwargs: object) -> AltDataProvider:
+    from app.adapters.file_alt_data import FileAltDataProvider
+
+    return FileAltDataProvider(data_dir=cfg.alt_data_dir)
+
+
+def _build_fmp_alt_data(cfg: Settings, **_kwargs: object) -> AltDataProvider:
+    from app.adapters.fmp_alt_data import FMPAltDataProvider
+
+    return FMPAltDataProvider(api_key=cfg.fmp_api_key)
+
+
 # ---------------------------------------------------------------------------
 #  Registries — one per adapter type
 # ---------------------------------------------------------------------------
@@ -166,6 +214,22 @@ _CORPORATE_ACTIONS_REGISTRY: dict[str, Callable[..., CorporateActionsAdapter]] =
 
 _FUND_ADMIN_REGISTRY: dict[str, Callable[..., FundAdminAdapter]] = {
     "mock-exchange": _build_mock_exchange_fund_admin,
+}
+
+_KYC_SCREENING_REGISTRY: dict[str, Callable[..., KYCScreeningAdapter]] = {
+    "mock-kyc": _build_mock_kyc_screening,
+}
+
+_LLM_REGISTRY: dict[str, Callable[..., LLMAdapter]] = {
+    "ollama": _build_ollama_llm,
+    "anthropic": _build_anthropic_llm,
+    "mock": _build_mock_llm,
+}
+
+_ALT_DATA_REGISTRY: dict[str, Callable[..., AltDataProvider]] = {
+    "mock": _build_mock_alt_data,
+    "file": _build_file_alt_data,
+    "fmp": _build_fmp_alt_data,
 }
 
 
@@ -220,6 +284,18 @@ def build_fund_admin_adapter(config: Settings) -> FundAdminAdapter:
     return factory(config)
 
 
+def build_kyc_screening_adapter(config: Settings) -> KYCScreeningAdapter:
+    source = getattr(config, "kyc_screening_source", "mock-kyc")
+    factory = _KYC_SCREENING_REGISTRY.get(source)
+    if factory is None:
+        msg = (
+            f"Unknown kyc_screening_source: {source!r}. "
+            f"Available: {sorted(_KYC_SCREENING_REGISTRY)}"
+        )
+        raise ValueError(msg)
+    return factory(config)
+
+
 def build_corporate_actions_adapter(
     config: Settings,
 ) -> CorporateActionsAdapter:
@@ -229,6 +305,28 @@ def build_corporate_actions_adapter(
         msg = (
             f"Unknown corporate_actions_source: {source!r}. "
             f"Available: {sorted(_CORPORATE_ACTIONS_REGISTRY)}"
+        )
+        raise ValueError(msg)
+    return factory(config)
+
+
+def build_llm_adapter(config: Settings) -> LLMAdapter:
+    factory = _LLM_REGISTRY.get(config.llm_adapter)
+    if factory is None:
+        msg = (
+            f"Unknown llm_adapter: {config.llm_adapter!r}. "
+            f"Available: {sorted(_LLM_REGISTRY)}"
+        )
+        raise ValueError(msg)
+    return factory(config)
+
+
+def build_alt_data_provider(config: Settings) -> AltDataProvider:
+    factory = _ALT_DATA_REGISTRY.get(config.alt_data_provider)
+    if factory is None:
+        msg = (
+            f"Unknown alt_data_provider: {config.alt_data_provider!r}. "
+            f"Available: {sorted(_ALT_DATA_REGISTRY)}"
         )
         raise ValueError(msg)
     return factory(config)

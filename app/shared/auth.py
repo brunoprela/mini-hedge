@@ -91,6 +91,7 @@ class Permission(StrEnum):
 
     # Phase 3: Risk
     RISK_READ = "risk:read"
+    RISK_WRITE = "risk:write"
 
     # Phase 3: Cash Management
     CASH_READ = "cash:read"
@@ -172,6 +173,7 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.COMPLIANCE_WRITE,
             Permission.EXPOSURE_READ,
             Permission.RISK_READ,
+            Permission.RISK_WRITE,
             Permission.CASH_READ,
             Permission.CASH_WRITE,
             Permission.ATTRIBUTION_READ,
@@ -197,6 +199,7 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.COMPLIANCE_READ,
             Permission.EXPOSURE_READ,
             Permission.RISK_READ,
+            Permission.RISK_WRITE,
             Permission.CASH_READ,
             Permission.CASH_WRITE,
             Permission.ATTRIBUTION_READ,
@@ -234,6 +237,7 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.COMPLIANCE_READ,
             Permission.EXPOSURE_READ,
             Permission.RISK_READ,
+            Permission.RISK_WRITE,
             Permission.CASH_READ,
             Permission.ATTRIBUTION_READ,
             Permission.ALPHA_READ,

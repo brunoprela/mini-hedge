@@ -69,7 +69,15 @@ const CANCELLABLE_STATES = new Set([
   "partially_filled",
 ]);
 
-export function OrderBlotter({ portfolioId }: { portfolioId: string }) {
+export function OrderBlotter({
+  portfolioId,
+  onSelectOrder,
+  selectedOrderId,
+}: {
+  portfolioId: string;
+  onSelectOrder?: (orderId: string | null) => void;
+  selectedOrderId?: string | null;
+}) {
   const { fundSlug } = useFundContext();
   const { can } = usePermission();
   const queryClient = useQueryClient();
@@ -287,7 +295,8 @@ export function OrderBlotter({ portfolioId }: { portfolioId: string }) {
               return (
                 <tr
                   key={orderId}
-                  className={`border-b border-[var(--table-border)] last:border-0 hover:bg-[var(--table-row-hover)] ${stateRowClass(state)}`}
+                  onClick={() => onSelectOrder?.(selectedOrderId === orderId ? null : orderId)}
+                  className={`border-b border-[var(--table-border)] last:border-0 hover:bg-[var(--table-row-hover)] ${stateRowClass(state)} ${onSelectOrder ? "cursor-pointer" : ""} ${selectedOrderId === orderId ? "ring-1 ring-inset ring-[var(--primary)]" : ""}`}
                 >
                   <td className="px-3 py-2 pr-4 font-medium">
                     <span className="flex items-center gap-2">

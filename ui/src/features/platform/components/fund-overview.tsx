@@ -68,7 +68,7 @@ export function FundOverview({ fundSlug }: { fundSlug: string }) {
         </p>
       </div>
 
-      {/* Widget grid — Broadridge-style operational dashboard */}
+      {/* Widget grid — operational dashboard */}
       <div className="grid grid-cols-12 gap-3">
         {/* AUM & P&L summary widget */}
         <div className="col-span-4 rounded-md border border-[var(--border)] bg-[var(--card)]">

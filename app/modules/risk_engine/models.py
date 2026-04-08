@@ -7,6 +7,8 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
+    Boolean,
+    Date,
     DateTime,
     Float,
     Index,
@@ -173,3 +175,123 @@ class FactorExposureRecord(Base):
     beta: Mapped[Decimal] = mapped_column(Numeric(10, 6), nullable=False)
     exposure_value: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
     pct_of_total: Mapped[Decimal] = mapped_column(Numeric(10, 6), nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# 3A. Counterparty & Credit Risk
+# ---------------------------------------------------------------------------
+
+
+class CounterpartyRecord(Base):
+    """Counterparty (broker, prime broker, custodian) definition."""
+
+    __tablename__ = "risk_counterparties"
+    __table_args__ = (
+        Index("ix_cpty_name", "name"),
+        {"schema": "positions"},
+    )
+
+    id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), primary_key=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    counterparty_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    credit_rating: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    credit_limit: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0)
+    netting_eligible: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(),
+    )
+
+
+class CounterpartyExposureRecord(Base):
+    """Point-in-time exposure to a counterparty."""
+
+    __tablename__ = "risk_counterparty_exposures"
+    __table_args__ = (
+        Index("ix_cpty_exp_cpty", "counterparty_id"),
+        Index("ix_cpty_exp_date", "business_date"),
+        {"schema": "positions"},
+    )
+
+    id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), primary_key=True)
+    counterparty_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)
+    portfolio_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)
+    business_date: Mapped[datetime] = mapped_column(Date, nullable=False)
+    gross_exposure: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    net_exposure: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    collateral_held: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0)
+    collateral_posted: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0)
+    credit_limit: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    utilization_pct: Mapped[Decimal] = mapped_column(Numeric(8, 4), nullable=False)
+    breach: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(),
+    )
+
+
+# ---------------------------------------------------------------------------
+# 3B. Liquidity Risk
+# ---------------------------------------------------------------------------
+
+
+class LiquidityProfileRecord(Base):
+    """Portfolio liquidity profile snapshot."""
+
+    __tablename__ = "risk_liquidity_profiles"
+    __table_args__ = (
+        Index("ix_liq_portfolio", "portfolio_id"),
+        Index("ix_liq_date", "business_date"),
+        {"schema": "positions"},
+    )
+
+    id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), primary_key=True)
+    portfolio_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)
+    business_date: Mapped[datetime] = mapped_column(Date, nullable=False)
+    total_nav: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    pct_1_day: Mapped[Decimal] = mapped_column(Numeric(8, 4), nullable=False)
+    pct_1_week: Mapped[Decimal] = mapped_column(Numeric(8, 4), nullable=False)
+    pct_1_month: Mapped[Decimal] = mapped_column(Numeric(8, 4), nullable=False)
+    pct_3_months: Mapped[Decimal] = mapped_column(Numeric(8, 4), nullable=False)
+    pct_illiquid: Mapped[Decimal] = mapped_column(Numeric(8, 4), nullable=False)
+    weighted_days_to_liquidate: Mapped[Decimal] = mapped_column(
+        Numeric(10, 2), nullable=False,
+    )
+    redemption_coverage_pct: Mapped[Decimal] = mapped_column(
+        Numeric(8, 4), nullable=False, default=Decimal("1.0"),
+    )
+    details: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(),
+    )
+
+
+# ---------------------------------------------------------------------------
+# 3C. Margin Management
+# ---------------------------------------------------------------------------
+
+
+class MarginRequirementRecord(Base):
+    """Portfolio-level margin requirements and utilization."""
+
+    __tablename__ = "risk_margin_requirements"
+    __table_args__ = (
+        Index("ix_margin_portfolio", "portfolio_id"),
+        Index("ix_margin_date", "business_date"),
+        {"schema": "positions"},
+    )
+
+    id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), primary_key=True)
+    portfolio_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)
+    business_date: Mapped[datetime] = mapped_column(Date, nullable=False)
+    initial_margin: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    maintenance_margin: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    margin_available: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    margin_excess_deficit: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    margin_utilization_pct: Mapped[Decimal] = mapped_column(Numeric(8, 4), nullable=False)
+    margin_call_triggered: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False,
+    )
+    details: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(),
+    )

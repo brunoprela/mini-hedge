@@ -89,6 +89,18 @@ class FundCapitalOverview(BaseModel):
     last_allocation_date: date | None = None
 
 
+class ShareClassSummary(BaseModel):
+    """Per-class aggregate metrics."""
+
+    model_config = ConfigDict(frozen=True)
+
+    share_class: str
+    total_aum: Decimal
+    total_shares: Decimal
+    nav_per_share: Decimal
+    investor_count: int
+
+
 # ---------------------------------------------------------------------------
 # Calculator inputs/outputs
 # ---------------------------------------------------------------------------

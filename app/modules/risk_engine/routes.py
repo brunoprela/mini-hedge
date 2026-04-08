@@ -10,7 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.risk_engine.dependencies import get_risk_service
 from app.modules.risk_engine.interface import (
     PREDEFINED_SCENARIOS,
+    CounterpartyExposure,
     FactorDecomposition,
+    LiquidityProfile,
+    MarginSummary,
     RiskSnapshot,
     StressScenario,
     StressScenarioType,
@@ -176,3 +179,71 @@ async def list_predefined_scenarios(
         }
         for s in PREDEFINED_SCENARIOS
     ]
+
+
+# ---------------------------------------------------------------------------
+# 3A. Counterparty & Credit Risk
+# ---------------------------------------------------------------------------
+
+
+@router.get("/counterparties", response_model=list[dict[str, object]])
+async def list_counterparties(
+    request_context: RequestContext = require_permission(Permission.RISK_READ),
+    risk_service: RiskService = Depends(get_risk_service),
+    session: AsyncSession = Depends(get_read_db),
+) -> list[dict[str, object]]:
+    items = await risk_service.list_counterparties(session=session)
+    return [
+        {
+            "id": str(i.id),
+            "name": i.name,
+            "type": i.counterparty_type,
+            "credit_rating": i.credit_rating,
+            "credit_limit": str(i.credit_limit),
+            "netting_eligible": i.netting_eligible,
+        }
+        for i in items
+    ]
+
+
+@router.get(
+    "/counterparty-exposures",
+    response_model=list[CounterpartyExposure],
+)
+async def get_counterparty_exposures(
+    portfolio_id: UUID = Query(...),
+    request_context: RequestContext = require_permission(Permission.RISK_READ),
+    risk_service: RiskService = Depends(get_risk_service),
+    session: AsyncSession = Depends(get_read_db),
+) -> list[CounterpartyExposure]:
+    return await risk_service.get_counterparty_exposures(portfolio_id, session=session)
+
+
+# ---------------------------------------------------------------------------
+# 3B. Liquidity Risk
+# ---------------------------------------------------------------------------
+
+
+@router.get("/liquidity", response_model=LiquidityProfile)
+async def get_liquidity_profile(
+    portfolio_id: UUID = Query(...),
+    request_context: RequestContext = require_permission(Permission.RISK_READ),
+    risk_service: RiskService = Depends(get_risk_service),
+    session: AsyncSession = Depends(get_db),
+) -> LiquidityProfile:
+    return await risk_service.calculate_liquidity(portfolio_id, session=session)
+
+
+# ---------------------------------------------------------------------------
+# 3C. Margin Management
+# ---------------------------------------------------------------------------
+
+
+@router.get("/margin", response_model=MarginSummary)
+async def get_margin_summary(
+    portfolio_id: UUID = Query(...),
+    request_context: RequestContext = require_permission(Permission.RISK_READ),
+    risk_service: RiskService = Depends(get_risk_service),
+    session: AsyncSession = Depends(get_db),
+) -> MarginSummary:
+    return await risk_service.calculate_margin(portfolio_id, session=session)

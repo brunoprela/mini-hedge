@@ -44,7 +44,7 @@ depends_on = ["app.shared", "app.modules.positions"]
 
 [[modules]]
 path = "app.modules.orders"
-depends_on = ["app.shared", "app.modules.compliance", "app.modules.market_data"]
+depends_on = ["app.shared", "app.modules.compliance"]
 
 [[modules]]
 path = "app.modules.risk_engine"
@@ -64,7 +64,7 @@ depends_on = ["app.shared"]
 
 [[modules]]
 path = "app.modules.eod"
-depends_on = ["app.shared", "app.modules.positions", "app.modules.cash_management", "app.modules.fee_accounting", "app.modules.capital_accounts", "app.modules.risk_engine"]
+depends_on = ["app.shared"]
 
 [[modules]]
 path = "app.modules.fee_accounting"
@@ -72,16 +72,48 @@ depends_on = ["app.shared"]
 
 [[modules]]
 path = "app.modules.capital_accounts"
-depends_on = ["app.shared", "app.modules.cash_management"]
+depends_on = ["app.shared", "app.modules.cash_management", "app.modules.platform"]
 
 [[modules]]
 path = "app.modules.fx_hedging"
 depends_on = ["app.shared", "app.modules.exposure"]
 
 [[modules]]
+path = "app.modules.investor_operations"
+depends_on = ["app.shared"]
+
+[[modules]]
+path = "app.modules.regulatory"
+depends_on = ["app.shared"]
+
+[[modules]]
+path = "app.modules.fund_structures"
+depends_on = ["app.shared"]
+
+[[modules]]
+path = "app.modules.backtesting"
+depends_on = ["app.shared"]
+
+[[modules]]
+path = "app.modules.quant_research"
+depends_on = ["app.shared"]
+
+[[modules]]
+path = "app.modules.ai_analysis"
+depends_on = ["app.shared"]
+
+[[modules]]
+path = "app.modules.alt_data"
+depends_on = ["app.shared"]
+
+[[modules]]
+path = "app.modules.feature_store"
+depends_on = ["app.shared"]
+
+[[modules]]
 path = "app.adapters"
-depends_on = ["app.shared", "app.modules.orders", "app.modules.security_master"]
+depends_on = ["app.shared", "app.modules.orders", "app.modules.security_master", "app.modules.investor_operations"]
 
 [[modules]]
 path = "app.setup"
-depends_on = ["app.shared", "app.modules.platform", "app.modules.security_master", "app.modules.market_data", "app.modules.positions", "app.modules.exposure", "app.modules.compliance", "app.modules.orders", "app.modules.risk_engine", "app.modules.cash_management", "app.modules.attribution", "app.modules.alpha_engine", "app.modules.fx_hedging", "app.modules.eod", "app.modules.fee_accounting", "app.modules.capital_accounts"]
+depends_on = ["app.shared", "app.adapters", "app.modules.platform", "app.modules.security_master", "app.modules.market_data", "app.modules.positions", "app.modules.exposure", "app.modules.compliance", "app.modules.orders", "app.modules.risk_engine", "app.modules.cash_management", "app.modules.attribution", "app.modules.alpha_engine", "app.modules.fx_hedging", "app.modules.eod", "app.modules.fee_accounting", "app.modules.capital_accounts", "app.modules.investor_operations", "app.modules.regulatory", "app.modules.fund_structures", "app.modules.backtesting", "app.modules.quant_research", "app.modules.ai_analysis", "app.modules.alt_data", "app.modules.feature_store"]

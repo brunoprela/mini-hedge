@@ -18,9 +18,11 @@ from sqlalchemy import text
 from starlette.routing import Route
 
 from app.adapters.factory import (
+    build_alt_data_provider,
     build_broker_adapter,
     build_broker_registry,
     build_fund_admin_adapter,
+    build_llm_adapter,
     build_market_data_adapter,
     build_reference_data_adapter,
 )
@@ -29,16 +31,23 @@ from app.exception_handlers import register_exception_handlers
 from app.middleware.auth import AuthMiddleware
 from app.middleware.rate_limit import build_limiter, rate_limit_exceeded_handler
 from app.middleware.timeout import TimeoutMiddleware
+from app.modules.ai_analysis.routes import router as ai_analysis_router
 from app.modules.alpha_engine.routes import router as alpha_router
+from app.modules.alt_data.routes import router as alt_data_router
 from app.modules.attribution.routes import router as attribution_router
+from app.modules.backtesting.routes import router as backtesting_router
 from app.modules.capital_accounts.routes import router as capital_router
 from app.modules.cash_management.routes import router as cash_router
 from app.modules.compliance.routes import router as compliance_router
 from app.modules.corporate_actions.routes import router as corporate_actions_router
+from app.modules.eod.recon_routes import router as recon_router
 from app.modules.eod.routes import router as eod_router
 from app.modules.exposure.routes import router as exposure_router
+from app.modules.feature_store.routes import router as feature_store_router
 from app.modules.fee_accounting.routes import router as fee_router
+from app.modules.fund_structures.routes import router as fund_structures_router
 from app.modules.fx_hedging.routes import router as fx_hedging_router
+from app.modules.investor_operations.routes import router as investor_ops_router
 from app.modules.market_data.routes import fx_router
 from app.modules.market_data.routes import router as market_data_router
 from app.modules.orders.allocation_routes import router as allocation_router
@@ -49,26 +58,36 @@ from app.modules.platform.admin_routes import router as admin_router
 from app.modules.platform.audit_repository import AuditLogRepository
 from app.modules.platform.routes import router as platform_router
 from app.modules.positions.routes import router as positions_router
+from app.modules.quant_research.routes import router as quant_research_router
 from app.modules.realtime.routes import router as realtime_router
+from app.modules.regulatory.routes import router as regulatory_router
 from app.modules.risk_engine.routes import router as risk_router
 from app.modules.security_master.routes import router as security_master_router
 from app.setup import (
     _run_migrations,
+    setup_ai_analysis,
     setup_alpha_engine,
+    setup_alt_data,
     setup_attribution,
+    setup_backtesting,
     setup_capital_accounts,
     setup_cash_management,
     setup_compliance,
     setup_corporate_actions,
     setup_eod,
     setup_exposure,
+    setup_feature_store,
     setup_fee_accounting,
     setup_fga,
+    setup_fund_structures,
     setup_fx_hedging,
+    setup_investor_operations,
     setup_market_data,
     setup_orders,
     setup_platform,
     setup_positions,
+    setup_quant_research,
+    setup_regulatory,
     setup_risk_engine,
     setup_security_master,
 )
@@ -143,6 +162,8 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     reference_adapter = build_reference_data_adapter(settings)
     market_data_adapter = build_market_data_adapter(settings, event_bus=kafka_bus)
     fund_admin_adapter = build_fund_admin_adapter(settings)
+    llm_adapter = build_llm_adapter(settings)
+    alt_data_provider = build_alt_data_provider(settings)
 
     # --- Module setup ---
     # FGA must init before platform (AuthService depends on FGAClient)
@@ -203,6 +224,14 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     await setup_capital_accounts(fastapi_app, session_factory)
     await setup_corporate_actions(fastapi_app, session_factory, kafka_bus, settings)
     await setup_fx_hedging(fastapi_app, session_factory, kafka_bus)
+    await setup_investor_operations(fastapi_app, session_factory, kafka_bus, settings)
+    await setup_regulatory(fastapi_app, session_factory)
+    await setup_fund_structures(fastapi_app, session_factory)
+    await setup_backtesting(fastapi_app, session_factory)
+    await setup_quant_research(fastapi_app, session_factory)
+    await setup_ai_analysis(fastapi_app, session_factory, llm_adapter=llm_adapter)
+    await setup_alt_data(fastapi_app, session_factory, alt_data_provider)
+    await setup_feature_store(fastapi_app, session_factory, settings)
     await setup_eod(fastapi_app, session_factory, broker_adapter, fund_admin=fund_admin_adapter)
     logger.info("phase_3_modules_ready")
 
@@ -431,6 +460,7 @@ app.include_router(cash_router, prefix="/api/v1")
 app.include_router(attribution_router, prefix="/api/v1")
 app.include_router(alpha_router, prefix="/api/v1")
 app.include_router(eod_router, prefix="/api/v1")
+app.include_router(recon_router, prefix="/api/v1")
 app.include_router(fee_router, prefix="/api/v1")
 app.include_router(capital_router, prefix="/api/v1")
 app.include_router(corporate_actions_router, prefix="/api/v1")
@@ -438,6 +468,14 @@ app.include_router(allocation_router, prefix="/api/v1")
 app.include_router(broker_router, prefix="/api/v1")
 app.include_router(tca_router, prefix="/api/v1")
 app.include_router(fx_hedging_router, prefix="/api/v1")
+app.include_router(investor_ops_router, prefix="/api/v1")
+app.include_router(regulatory_router, prefix="/api/v1")
+app.include_router(fund_structures_router, prefix="/api/v1")
+app.include_router(backtesting_router, prefix="/api/v1")
+app.include_router(quant_research_router, prefix="/api/v1")
+app.include_router(ai_analysis_router, prefix="/api/v1")
+app.include_router(alt_data_router, prefix="/api/v1")
+app.include_router(feature_store_router, prefix="/api/v1")
 
 # Prometheus metrics endpoint — plain Starlette route (bypasses auth via PUBLIC_PATHS)
 app.routes.append(Route("/metrics", metrics_route))

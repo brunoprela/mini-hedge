@@ -1,9 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
-import dynamic from "next/dynamic";
-import { useRouter, useSearchParams } from "next/navigation";
+import { ChevronDown, Plus } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
 import { AttributionSummaryCard } from "@/features/attribution/components/attribution-summary-card";
 import { cumulativeQueryOptions } from "@/features/attribution/api";
 import { CashSummaryCard } from "@/features/cash/components/cash-summary-card";
@@ -22,180 +21,31 @@ import { CustomStressForm } from "@/features/risk/components/custom-stress-form"
 import { TCADashboard } from "@/features/tca/components/tca-dashboard";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { usePermission } from "@/shared/hooks/use-permission";
-import { cn } from "@/shared/lib/cn";
-import { LineChart, HBarChart, GaugeBar, SummaryStrip, DonutChart } from "@/shared/components/charts";
+import { LineChart, HBarChart, GaugeBar, DonutChart } from "@/shared/components/charts";
 import { exposureQueryOptions } from "@/features/exposure/api";
 import { SectionPanel } from "@/shared/components/section-panel";
-
-const TABS = [
-  { id: "overview", label: "Overview" },
-  { id: "positions", label: "Positions" },
-  { id: "orders", label: "Orders" },
-  { id: "risk", label: "Risk & Exposure" },
-  { id: "cash", label: "Cash & FX" },
-  { id: "attribution", label: "Attribution" },
-] as const;
-
-type TabId = (typeof TABS)[number]["id"];
+import { useTradeTicket } from "@/shared/components/trade-ticket-provider";
+import { Permission } from "@/shared/lib/permissions";
 
 const fmtCurrency = (v: string | number) =>
   Number(v).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
+const fmtPct = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
+
 // ─── Main Component ─────────────────────────────────────────
 
 export function PortfolioDetailClient({ portfolioId }: { portfolioId: string }) {
-  const searchParams = useSearchParams();
-  const router = useRouter();
   const { fundSlug } = useFundContext();
-  const initialTab = (searchParams.get("tab") as TabId) || "overview";
-  const [activeTab, setActiveTab] = useState<TabId>(
-    TABS.some((t) => t.id === initialTab) ? initialTab : "overview",
-  );
-
-  function switchTab(tab: TabId) {
-    setActiveTab(tab);
-    const url = new URL(window.location.href);
-    url.searchParams.set("tab", tab);
-    router.replace(url.pathname + url.search, { scroll: false });
-  }
-
-  return (
-    <div className="space-y-3">
-      <ComplianceBanner portfolioId={portfolioId} />
-
-      {/* Sticky header: title + actions + tabs */}
-      <div className="sticky top-0 z-10 -mx-6 border-b border-[var(--border)] bg-[var(--background)] px-6 pb-0 pt-2">
-        <div className="mb-3 flex items-center justify-between">
-          <h1 className="text-sm font-semibold">Portfolio</h1>
-          <ActionBar portfolioId={portfolioId} fundSlug={fundSlug} onSwitchTab={switchTab} />
-        </div>
-        <div className="flex gap-1">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => switchTab(tab.id)}
-              className={cn(
-                "rounded-t-lg px-3 py-1.5 text-sm font-medium transition-colors",
-                activeTab === tab.id
-                  ? "border-b-2 border-[var(--primary)] text-[var(--primary)]"
-                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="pt-2">
-        {activeTab === "overview" && <OverviewTab portfolioId={portfolioId} />}
-        {activeTab === "positions" && <PositionsTab portfolioId={portfolioId} />}
-        {activeTab === "orders" && <OrdersTab portfolioId={portfolioId} />}
-        {activeTab === "risk" && <RiskTab portfolioId={portfolioId} />}
-        {activeTab === "cash" && <CashTab portfolioId={portfolioId} />}
-        {activeTab === "attribution" && <AttributionTab portfolioId={portfolioId} />}
-      </div>
-    </div>
-  );
-}
-
-// ─── Action Bar ─────────────────────────────────────────────
-
-function ActionBar({
-  portfolioId,
-  fundSlug,
-  onSwitchTab,
-}: {
-  portfolioId: string;
-  fundSlug: string;
-  onSwitchTab: (tab: TabId) => void;
-}) {
   const { can } = usePermission();
-  const searchParams = useSearchParams();
-  const [showTradeTicket, setShowTradeTicket] = useState(false);
-  const [tradeDefaults, setTradeDefaults] = useState<{
-    instrument?: string;
-    side?: string;
-    quantity?: string;
-  }>({});
+  const { openTradeTicket } = useTradeTicket();
 
-  useEffect(() => {
-    const instrument = searchParams.get("trade_instrument");
-    const side = searchParams.get("trade_side");
-    const qty = searchParams.get("trade_qty");
-    if (instrument) {
-      setTradeDefaults({ instrument, side: side || undefined, quantity: qty || undefined });
-      setShowTradeTicket(true);
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  return (
-    <div className="flex items-center gap-2">
-      {can("trades:execute") && (
-        <button
-          type="button"
-          onClick={() => {
-            setTradeDefaults({});
-            setShowTradeTicket(true);
-          }}
-          className="rounded-lg bg-[var(--primary)] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90"
-        >
-          New Trade
-        </button>
-      )}
-      <button
-        type="button"
-        onClick={() => onSwitchTab("risk")}
-        className="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]"
-      >
-        Run Stress Test
-      </button>
-      {showTradeTicket && (
-        <TradeTicketLazy
-          portfolioId={portfolioId}
-          onClose={() => setShowTradeTicket(false)}
-          defaults={tradeDefaults}
-        />
-      )}
-    </div>
-  );
-}
-
-const TradeTicketLazy = dynamic(
-  () =>
-    import("@/features/portfolio/components/trade-ticket").then((mod) => mod.TradeTicket),
-  { ssr: false },
-);
-
-// ─── Overview Tab (Broadridge-style) ────────────────────────
-
-const DONUT_COLORS = [
-  "var(--primary)",
-  "var(--success)",
-  "var(--warning)",
-  "#6366f1",
-  "#06b6d4",
-  "var(--destructive)",
-  "#8b5cf6",
-  "#ec4899",
-  "var(--accent-orange)",
-  "#14b8a6",
-];
-
-function OverviewTab({ portfolioId }: { portfolioId: string }) {
-  const { fundSlug } = useFundContext();
-
-  // Portfolio summary
+  // Data queries
   const { data: summary } = useQuery(portfolioSummaryQueryOptions(fundSlug, portfolioId));
-
-  // Risk snapshot
   const { data: risk } = useQuery(riskSnapshotQueryOptions(fundSlug, portfolioId));
-
-  // Exposure for donut
   const { data: exposure } = useQuery(exposureQueryOptions(fundSlug, portfolioId));
+  const { data: positions } = useQuery(positionsQueryOptions(fundSlug, portfolioId));
 
-  // Performance data for line chart
+  // Performance data
   const end = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const start = useMemo(() => {
     const d = new Date();
@@ -204,10 +54,10 @@ function OverviewTab({ portfolioId }: { portfolioId: string }) {
   }, []);
   const { data: perfData } = useQuery(cumulativeQueryOptions(fundSlug, portfolioId, start, end));
 
-  // Positions for movers
-  const { data: positions } = useQuery(positionsQueryOptions(fundSlug, portfolioId));
+  // Derived data
+  const varValue = risk ? Math.abs(Number(risk.var_95_1d)) : 0;
+  const varLimit = 200_000;
 
-  // Performance line chart data
   const perfSeries = useMemo(() => {
     if (!perfData?.periods) return [];
     return [
@@ -231,7 +81,6 @@ function OverviewTab({ portfolioId }: { portfolioId: string }) {
     ];
   }, [perfData]);
 
-  // Currency exposure bars
   const currencyBars = useMemo(() => {
     const currBreakdowns = exposure?.breakdowns?.currency;
     if (!currBreakdowns || currBreakdowns.length === 0) return [];
@@ -243,11 +92,10 @@ function OverviewTab({ portfolioId }: { portfolioId: string }) {
         net: Number(b.net_value),
       }))
       .filter((b) => b.long > 0 || b.short > 0)
-      .sort((a, b) => (b.long + b.short) - (a.long + a.short))
+      .sort((a, b) => b.long + b.short - (a.long + a.short))
       .slice(0, 8);
   }, [exposure]);
 
-  // Sector donut segments
   const sectorSegments = useMemo(() => {
     const sectorBreakdowns = exposure?.breakdowns?.sector;
     if (!sectorBreakdowns || sectorBreakdowns.length === 0) return [];
@@ -262,7 +110,6 @@ function OverviewTab({ portfolioId }: { portfolioId: string }) {
       .slice(0, 8);
   }, [exposure]);
 
-  // Top/bottom movers
   const movers = useMemo(() => {
     if (!positions) return { top: [], bottom: [] };
     const sorted = positions
@@ -271,50 +118,85 @@ function OverviewTab({ portfolioId }: { portfolioId: string }) {
     return { top: sorted.slice(0, 5), bottom: sorted.slice(-5).reverse() };
   }, [positions]);
 
-  // VaR gauge
-  const varValue = risk ? Math.abs(Number(risk.var_95_1d)) : 0;
-  const varLimit = 200_000;
+  // Net exposure for summary strip
+  const netExposure = useMemo(() => {
+    if (!exposure) return null;
+    return Number(exposure.net_exposure ?? 0);
+  }, [exposure]);
+
+  const grossExposure = useMemo(() => {
+    if (!exposure) return null;
+    return Number(exposure.gross_exposure ?? 0);
+  }, [exposure]);
 
   return (
     <div className="space-y-3">
-      {/* Hero KPI Strip — Broadridge client dashboard style */}
+      <ComplianceBanner portfolioId={portfolioId} />
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-sm font-semibold">Portfolio</h1>
+        <div className="flex items-center gap-2">
+          {can(Permission.TRADES_EXECUTE) && (
+            <button
+              type="button"
+              onClick={() => openTradeTicket({ portfolioId })}
+              className="inline-flex items-center gap-1.5 rounded-md bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              New Order
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Dense summary strip */}
       {summary && (
-        <div className="grid grid-cols-4 gap-3">
-          <div className="rounded-md border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-            <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Market Value</p>
-            <p className="mt-1 font-mono text-xl font-bold">{fmtCurrency(summary.total_market_value)}</p>
-          </div>
-          <div className="rounded-md border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-            <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Unrealized P&L</p>
-            <p
-              className="mt-1 font-mono text-xl font-bold"
-              style={{ color: Number(summary.total_unrealized_pnl) >= 0 ? "var(--success)" : "var(--destructive)" }}
-            >
-              {fmtCurrency(summary.total_unrealized_pnl)}
-            </p>
-          </div>
-          <div className="rounded-md border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-            <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Realized P&L</p>
-            <p
-              className="mt-1 font-mono text-xl font-bold"
-              style={{ color: Number(summary.total_realized_pnl) >= 0 ? "var(--success)" : "var(--destructive)" }}
-            >
-              {fmtCurrency(summary.total_realized_pnl)}
-            </p>
-          </div>
-          <div className="rounded-md border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-            <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">Positions</p>
-            <p className="mt-1 font-mono text-xl font-bold">{summary.position_count}</p>
-            <p className="mt-0.5 text-[10px] text-[var(--muted-foreground)]">
-              Cost Basis: {fmtCurrency(summary.total_cost_basis)}
-            </p>
-          </div>
+        <div className="flex items-center gap-4 rounded-md border border-[var(--border)] bg-[var(--card)] px-4 py-2">
+          <StripItem label="Market Value" value={fmtCurrency(summary.total_market_value)} />
+          <StripDivider />
+          <StripItem
+            label="Unrealized P&L"
+            value={fmtCurrency(summary.total_unrealized_pnl)}
+            color={Number(summary.total_unrealized_pnl) >= 0 ? "var(--success)" : "var(--destructive)"}
+          />
+          <StripDivider />
+          <StripItem
+            label="Realized P&L"
+            value={fmtCurrency(summary.total_realized_pnl)}
+            color={Number(summary.total_realized_pnl) >= 0 ? "var(--success)" : "var(--destructive)"}
+          />
+          <StripDivider />
+          <StripItem label="Positions" value={String(summary.position_count)} />
+          <StripDivider />
+          <StripItem label="Cost Basis" value={fmtCurrency(summary.total_cost_basis)} />
+          {risk && (
+            <>
+              <StripDivider />
+              <StripItem label="VaR 95%" value={fmtCurrency(risk.var_95_1d)} color="var(--warning)" />
+            </>
+          )}
+          {grossExposure !== null && (
+            <>
+              <StripDivider />
+              <StripItem label="Gross Exp" value={fmtCurrency(grossExposure)} />
+            </>
+          )}
+          {netExposure !== null && (
+            <>
+              <StripDivider />
+              <StripItem
+                label="Net Exp"
+                value={fmtCurrency(netExposure)}
+                color={netExposure >= 0 ? "var(--success)" : "var(--destructive)"}
+              />
+            </>
+          )}
         </div>
       )}
 
-      {/* Main grid: Performance + Allocation Donut + Risk */}
+      {/* ── Charts Row: Performance + Sector + Risk ── */}
       <div className="grid grid-cols-12 gap-3">
-        {/* Performance chart */}
         <div className="col-span-5">
           <SectionPanel title="Performance (30d)">
             <div className="p-3">
@@ -326,15 +208,12 @@ function OverviewTab({ portfolioId }: { portfolioId: string }) {
                   xLabelInterval={7}
                 />
               ) : (
-                <p className="py-8 text-center text-xs text-[var(--muted-foreground)]">
-                  No performance data
-                </p>
+                <p className="py-8 text-center text-xs text-[var(--muted-foreground)]">No performance data</p>
               )}
             </div>
           </SectionPanel>
         </div>
 
-        {/* Sector Allocation Donut */}
         <div className="col-span-4">
           <SectionPanel title="Sector Allocation">
             <div className="p-3">
@@ -347,23 +226,16 @@ function OverviewTab({ portfolioId }: { portfolioId: string }) {
                   thickness={26}
                 />
               ) : (
-                <p className="py-8 text-center text-xs text-[var(--muted-foreground)]">
-                  No exposure data
-                </p>
+                <p className="py-8 text-center text-xs text-[var(--muted-foreground)]">No exposure data</p>
               )}
             </div>
           </SectionPanel>
         </div>
 
-        {/* Risk panel */}
         <div className="col-span-3">
           <SectionPanel title="Risk">
             <div className="p-3">
-              <GaugeBar
-                value={varValue}
-                max={varLimit}
-                label="VaR 95% (1d) Utilization"
-              />
+              <GaugeBar value={varValue} max={varLimit} label="VaR 95% (1d) Utilization" />
               {risk && (
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                   <div>
@@ -384,7 +256,7 @@ function OverviewTab({ portfolioId }: { portfolioId: string }) {
         </div>
       </div>
 
-      {/* Currency Exposure */}
+      {/* ── Currency Exposure ── */}
       {currencyBars.length > 0 && (
         <SectionPanel title="Currency Exposure">
           <div className="p-3">
@@ -416,7 +288,9 @@ function OverviewTab({ portfolioId }: { portfolioId: string }) {
                         )}
                       </div>
                     </div>
-                    <span className={`w-20 text-right font-mono ${b.net >= 0 ? "text-[var(--success)]" : "text-[var(--destructive)]"}`}>
+                    <span
+                      className={`w-20 text-right font-mono ${b.net >= 0 ? "text-[var(--success)]" : "text-[var(--destructive)]"}`}
+                    >
                       {fmtCurrency(String(b.net))}
                     </span>
                   </div>
@@ -435,7 +309,7 @@ function OverviewTab({ portfolioId }: { portfolioId: string }) {
         </SectionPanel>
       )}
 
-      {/* Top & Bottom Movers */}
+      {/* ── Top & Bottom Movers ── */}
       {(movers.top.length > 0 || movers.bottom.length > 0) && (
         <SectionPanel title="Top & Bottom Movers">
           <div className="p-3">
@@ -452,75 +326,99 @@ function OverviewTab({ portfolioId }: { portfolioId: string }) {
           </div>
         </SectionPanel>
       )}
+
+      {/* ── Positions ── */}
+      <PositionTable portfolioId={portfolioId} />
+
+      {/* ── Orders ── */}
+      <OrderBlotter portfolioId={portfolioId} />
+
+      {/* ── Collapsible: Risk & Exposure Details ── */}
+      <CollapsibleSection title="Risk & Exposure Details" defaultOpen={false}>
+        <div className="space-y-3">
+          <RiskSummaryCard portfolioId={portfolioId} />
+          <ExposureSummary portfolioId={portfolioId} />
+          <ExposureHistoryChart portfolioId={portfolioId} />
+          <RiskHistoryChart portfolioId={portfolioId} />
+          <StressTable portfolioId={portfolioId} />
+          <CustomStressForm portfolioId={portfolioId} />
+        </div>
+      </CollapsibleSection>
+
+      {/* ── Collapsible: Cash & FX ── */}
+      <CollapsibleSection title="Cash & FX" defaultOpen={false}>
+        <div className="space-y-3">
+          <CashSummaryCard portfolioId={portfolioId} />
+          <FXSummaryCards portfolioId={portfolioId} />
+          <ForwardsTable portfolioId={portfolioId} />
+        </div>
+      </CollapsibleSection>
+
+      {/* ── Collapsible: Attribution & TCA ── */}
+      <CollapsibleSection title="Attribution & TCA" defaultOpen={false}>
+        <div className="space-y-3">
+          <AttributionSummaryCard portfolioId={portfolioId} />
+          <TCADashboard portfolioId={portfolioId} />
+        </div>
+      </CollapsibleSection>
     </div>
   );
 }
 
-// ─── Other Tabs ─────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────
 
-function PositionsTab({ portfolioId }: { portfolioId: string }) {
-  return <PositionTable portfolioId={portfolioId} />;
-}
+const DONUT_COLORS = [
+  "var(--primary)",
+  "var(--success)",
+  "var(--warning)",
+  "#6366f1",
+  "#06b6d4",
+  "var(--destructive)",
+  "#8b5cf6",
+  "#ec4899",
+  "var(--accent-orange)",
+  "#14b8a6",
+];
 
-function OrdersTab({ portfolioId }: { portfolioId: string }) {
-  return <OrderBlotter portfolioId={portfolioId} />;
-}
-
-function RiskTab({ portfolioId }: { portfolioId: string }) {
+function StripItem({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div className="space-y-3">
-      <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Risk Summary</h2>
-        <RiskSummaryCard portfolioId={portfolioId} />
-      </section>
-      <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Exposure</h2>
-        <ExposureSummary portfolioId={portfolioId} />
-      </section>
-      <ExposureHistoryChart portfolioId={portfolioId} />
-      <RiskHistoryChart portfolioId={portfolioId} />
-      <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Stress Tests</h2>
-        <StressTable portfolioId={portfolioId} />
-      </section>
-      <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Custom Stress Test</h2>
-        <CustomStressForm portfolioId={portfolioId} />
-      </section>
+    <div className="text-center">
+      <p className="font-mono text-sm font-bold" style={color ? { color } : undefined}>
+        {value}
+      </p>
+      <p className="text-[9px] uppercase tracking-wider text-[var(--muted-foreground)]">{label}</p>
     </div>
   );
 }
 
-function CashTab({ portfolioId }: { portfolioId: string }) {
-  return (
-    <div className="space-y-3">
-      <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Cash Balances</h2>
-        <CashSummaryCard portfolioId={portfolioId} />
-      </section>
-      <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">FX Hedging</h2>
-        <FXSummaryCards portfolioId={portfolioId} />
-      </section>
-      <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">FX Forwards</h2>
-        <ForwardsTable portfolioId={portfolioId} />
-      </section>
-    </div>
-  );
+function StripDivider() {
+  return <div className="h-6 w-px bg-[var(--border)]" />;
 }
 
-function AttributionTab({ portfolioId }: { portfolioId: string }) {
+function CollapsibleSection({
+  title,
+  defaultOpen,
+  children,
+}: {
+  title: string;
+  defaultOpen: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
   return (
-    <div className="space-y-3">
-      <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Attribution Summary</h2>
-        <AttributionSummaryCard portfolioId={portfolioId} />
-      </section>
-      <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">Transaction Cost Analysis</h2>
-        <TCADashboard portfolioId={portfolioId} />
-      </section>
+    <div className="rounded-md border border-[var(--border)]">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between bg-[var(--primary-muted)] px-3 py-2 text-left"
+      >
+        <span className="text-xs font-semibold text-[var(--foreground)]">{title}</span>
+        <ChevronDown
+          className={`h-4 w-4 text-[var(--muted-foreground)] transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && <div className="bg-[var(--card)] p-3">{children}</div>}
     </div>
   );
 }

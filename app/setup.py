@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from app.modules.fx_hedging.service import FXHedgingService
     from app.modules.orders.broker_registry import BrokerRegistry
     from app.shared.adapters import (
+        AltDataProvider,
         BrokerAdapter,
         ExternalInstrument,
         FundAdminAdapter,
@@ -815,14 +816,83 @@ async def setup_corporate_actions(
     repo = CorporateActionsRepository(session_factory)
     adapter = build_corporate_actions_adapter(settings)
 
+    position_service = fastapi_app.state.position_service
+
     service = CorporateActionsService(
         session_factory=session_factory,
         repo=repo,
         corporate_actions_adapter=adapter,
         event_bus=event_bus,
+        position_service=position_service,
     )
     fastapi_app.state.corporate_actions_service = service
     logger.info("corporate_actions_module_ready")
+
+
+async def setup_investor_operations(
+    fastapi_app: FastAPI,
+    session_factory: TenantSessionFactory,
+    event_bus: EventBus,
+    settings: Settings,
+) -> None:
+    """Wire investor operations module: repos, KYC adapter, service."""
+    from app.adapters.factory import build_kyc_screening_adapter
+    from app.modules.investor_operations.repository import (
+        FundTermsRepository,
+        InvestorKYCRepository,
+        RedemptionRequestRepository,
+        SubscriptionRequestRepository,
+    )
+    from app.modules.investor_operations.service import InvestorOperationsService
+
+    sub_repo = SubscriptionRequestRepository(session_factory)
+    red_repo = RedemptionRequestRepository(session_factory)
+    terms_repo = FundTermsRepository(session_factory)
+    kyc_repo = InvestorKYCRepository(session_factory)
+
+    kyc_adapter = build_kyc_screening_adapter(settings)
+    capital_service = fastapi_app.state.capital_account_service
+
+    service = InvestorOperationsService(
+        subscription_repo=sub_repo,
+        redemption_repo=red_repo,
+        fund_terms_repo=terms_repo,
+        kyc_repo=kyc_repo,
+        capital_service=capital_service,
+        kyc_adapter=kyc_adapter,
+        event_bus=event_bus,
+    )
+    fastapi_app.state.investor_ops_service = service
+
+    # Seed fund terms in local environment
+    if _is_local_env():
+
+        fund_repo: FundRepository = fastapi_app.state.fund_repo
+        active_funds = await fund_repo.get_all_active()
+        for fund in active_funds:
+            async with session_factory.fund_scope(fund.slug), session_factory() as session:
+                existing = await terms_repo.get_all_active(session=session)
+                if not existing:
+                    await service.upsert_fund_terms(
+                        share_class="default",
+                        lock_up_months=12,
+                        notice_period_days=45,
+                        redemption_frequency="quarterly",
+                        gate_pct=Decimal("0.25"),
+                        minimum_subscription=Decimal("1000000"),
+                        minimum_redemption=Decimal("100000"),
+                        dealing_day=-1,
+                        payment_days=30,
+                        session=session,
+                    )
+                    await session.commit()
+                    logger.info(
+                        "fund_terms_seeded",
+                        fund=fund.slug,
+                        share_class="default",
+                    )
+
+    logger.info("investor_operations_module_ready")
 
 
 async def setup_fee_accounting(
@@ -870,11 +940,27 @@ async def setup_fee_accounting(
             async with session_factory.fund_scope(fund.slug), session_factory() as session:
                 existing = await schedule_repo.get_by_fund_slug(fund.slug, session=session)
                 if existing is None:
+                    # Default class (standard 2/20)
                     await schedule_repo.upsert(
                         FeeScheduleRecord(
                             fund_slug=fund.slug,
+                            share_class="default",
                             management_fee_bps=config[0],
                             performance_fee_pct=config[1],
+                            hurdle_rate_pct=config[2],
+                            high_water_mark=config[3],
+                            crystallization_frequency=config[4],
+                            payment_frequency=config[5],
+                        ),
+                        session=session,
+                    )
+                    # Founders class (reduced fees — 1/10)
+                    await schedule_repo.upsert(
+                        FeeScheduleRecord(
+                            fund_slug=fund.slug,
+                            share_class="founders",
+                            management_fee_bps=100,
+                            performance_fee_pct=Decimal("0.10"),
                             hurdle_rate_pct=config[2],
                             high_water_mark=config[3],
                             crystallization_frequency=config[4],
@@ -885,6 +971,182 @@ async def setup_fee_accounting(
         logger.info("fee_schedules_seeded", fund_count=len(active_funds))
 
     logger.info("fee_accounting_module_ready")
+
+
+async def setup_regulatory(
+    fastapi_app: FastAPI,
+    session_factory: TenantSessionFactory,
+) -> None:
+    """Wire regulatory reporting module."""
+    from app.modules.regulatory.repository import RegulatoryRepository
+    from app.modules.regulatory.service import RegulatoryService
+
+    repo = RegulatoryRepository(session_factory)
+
+    svc = RegulatoryService(
+        repo=repo,
+        position_service=getattr(fastapi_app.state, "position_service", None),
+        capital_service=getattr(fastapi_app.state, "capital_service", None),
+        risk_service=getattr(fastapi_app.state, "risk_service", None),
+        exposure_service=getattr(fastapi_app.state, "exposure_service", None),
+        security_master_service=getattr(fastapi_app.state, "sm_service", None),
+    )
+    fastapi_app.state.regulatory_service = svc
+    logger.info("regulatory_module_ready")
+
+
+async def setup_fund_structures(
+    fastapi_app: FastAPI,
+    session_factory: TenantSessionFactory,
+) -> None:
+    """Wire fund structures module (master-feeder, strategy books, fund of funds)."""
+    from app.modules.fund_structures.repository import (
+        FundOfFundsRepository,
+        MasterFeederRepository,
+        StrategyBookRepository,
+    )
+    from app.modules.fund_structures.service import FundStructuresService
+
+    mf_repo = MasterFeederRepository(session_factory)
+    book_repo = StrategyBookRepository(session_factory)
+    fof_repo = FundOfFundsRepository(session_factory)
+
+    svc = FundStructuresService(
+        master_feeder_repo=mf_repo,
+        strategy_book_repo=book_repo,
+        fof_repo=fof_repo,
+        session_factory=session_factory,
+    )
+    fastapi_app.state.fund_structures_service = svc
+    logger.info("fund_structures_module_ready")
+
+
+async def setup_backtesting(
+    fastapi_app: FastAPI,
+    session_factory: TenantSessionFactory,
+) -> None:
+    """Wire backtesting engine module."""
+    from app.modules.backtesting.engine import BacktestEngine
+    from app.modules.backtesting.repository import BacktestRepository
+    from app.modules.backtesting.service import BacktestingService
+
+    repo = BacktestRepository(session_factory)
+    engine = BacktestEngine()
+
+    svc = BacktestingService(
+        repo=repo,
+        engine=engine,
+        session_factory=session_factory,
+    )
+    fastapi_app.state.backtesting_service = svc
+    logger.info("backtesting_module_ready")
+
+
+async def setup_quant_research(
+    fastapi_app: FastAPI,
+    session_factory: TenantSessionFactory,
+) -> None:
+    """Wire quant research module (factor research + regime detection)."""
+    from app.modules.quant_research.factor_engine import (
+        compute_momentum_factor,
+        compute_quality_factor,
+        compute_size_factor,
+        compute_value_factor,
+        compute_volatility_factor,
+    )
+    from app.modules.quant_research.regime_detector import RegimeDetector
+    from app.modules.quant_research.repository import FactorRepository, RegimeRepository
+    from app.modules.quant_research.service import QuantResearchService
+
+    factor_repo = FactorRepository(session_factory)
+    regime_repo = RegimeRepository(session_factory)
+    regime_detector = RegimeDetector()
+
+    factor_fns = {
+        "momentum": compute_momentum_factor,
+        "value": compute_value_factor,
+        "size": compute_size_factor,
+        "quality": compute_quality_factor,
+        "volatility": compute_volatility_factor,
+    }
+
+    svc = QuantResearchService(
+        factor_repo=factor_repo,
+        regime_repo=regime_repo,
+        factor_engine_fns=factor_fns,
+        regime_detector=regime_detector,
+        session_factory=session_factory,
+    )
+    fastapi_app.state.quant_research_service = svc
+    logger.info("quant_research_module_ready")
+
+
+async def setup_ai_analysis(
+    fastapi_app: FastAPI,
+    session_factory: TenantSessionFactory,
+    *,
+    llm_adapter: object,
+) -> None:
+    """Wire AI analysis module."""
+    from app.modules.ai_analysis.repository import AnalysisRepository
+    from app.modules.ai_analysis.service import AIAnalysisService
+
+    repo = AnalysisRepository(session_factory)
+
+    svc = AIAnalysisService(
+        repo=repo,
+        llm_adapter=llm_adapter,
+        session_factory=session_factory,
+    )
+    fastapi_app.state.ai_analysis_service = svc
+    logger.info("ai_analysis_module_ready")
+
+
+async def setup_alt_data(
+    fastapi_app: FastAPI,
+    session_factory: TenantSessionFactory,
+    alt_data_provider: AltDataProvider | None = None,
+) -> None:
+    """Wire alternative data module."""
+    from app.modules.alt_data.repository import AltDataRepository
+    from app.modules.alt_data.service import AltDataService
+
+    repo = AltDataRepository(session_factory)
+
+    providers: list[AltDataProvider] = []
+    if alt_data_provider is not None:
+        providers.append(alt_data_provider)
+
+    svc = AltDataService(
+        repo=repo,
+        providers=providers,
+        session_factory=session_factory,
+    )
+    fastapi_app.state.alt_data_service = svc
+    logger.info("alt_data_module_ready")
+
+
+async def setup_feature_store(
+    fastapi_app: FastAPI,
+    session_factory: TenantSessionFactory,
+    settings: Settings | None = None,
+) -> None:
+    """Wire feature store module."""
+    from app.modules.feature_store.compute_engine import FeatureComputeEngine
+    from app.modules.feature_store.repository import FeatureRepository
+    from app.modules.feature_store.service import FeatureStoreService
+
+    repo = FeatureRepository(session_factory)
+    data_dir = getattr(settings, "alt_data_dir", None) if settings else None
+    compute_engine = FeatureComputeEngine(data_dir=data_dir)
+
+    svc = FeatureStoreService(
+        repo=repo,
+        compute_engine=compute_engine,
+        session_factory=session_factory,
+    )
+    fastapi_app.state.feature_store_service = svc
+    logger.info("feature_store_module_ready")
 
 
 async def setup_eod(
@@ -904,6 +1166,7 @@ async def setup_eod(
         FinalizedPriceRepository,
         NAVSnapshotRepository,
         PnLSnapshotRepository,
+        ReconciliationBreakRepository,
         ReconciliationRepository,
     )
 
@@ -912,6 +1175,7 @@ async def setup_eod(
     nav_repo = NAVSnapshotRepository(session_factory)
     pnl_repo = PnLSnapshotRepository(session_factory)
     recon_repo = ReconciliationRepository(session_factory)
+    break_repo = ReconciliationBreakRepository(session_factory)
 
     position_service = fastapi_app.state.position_service
     cash_service = fastapi_app.state.cash_service
@@ -948,9 +1212,12 @@ async def setup_eod(
         position_service=position_service,
         broker_adapter=broker,
         recon_repo=recon_repo,
+        break_repo=break_repo,
         fund_admin_adapter=fund_admin,
         cash_service=cash_service,
     )
+    fastapi_app.state.recon_repo = recon_repo
+    fastapi_app.state.break_repo = break_repo
 
     orchestrator = EODOrchestrator(
         run_repo=run_repo,
@@ -964,6 +1231,9 @@ async def setup_eod(
         fee_service=fee_service,
         capital_service=capital_service,
         attribution_service=attribution_service,
+        investor_ops_service=getattr(
+            fastapi_app.state, "investor_ops_service", None
+        ),
     )
     fastapi_app.state.eod_orchestrator = orchestrator
     logger.info("eod_module_ready")

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Broadridge-style section panel with blue toolbar ribbon header.
+ * Section panel with blue toolbar ribbon header.
  * Combines toolbar + optional summary strip + content into one integrated panel.
  */
 

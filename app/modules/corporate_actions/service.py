@@ -6,7 +6,7 @@ from dataclasses import asdict
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import structlog
 
@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.modules.corporate_actions.repository import CorporateActionsRepository
+    from app.modules.positions.service import PositionService
     from app.shared.adapters import CorporateActionsAdapter
     from app.shared.database import TenantSessionFactory
     from app.shared.events import EventBus
@@ -43,11 +44,13 @@ class CorporateActionsService:
         repo: CorporateActionsRepository,
         corporate_actions_adapter: CorporateActionsAdapter,
         event_bus: EventBus,
+        position_service: PositionService,
     ) -> None:
         self._session_factory = session_factory
         self._repo = repo
         self._adapter = corporate_actions_adapter
         self._event_bus = event_bus
+        self._position_service = position_service
 
     async def fetch_and_process(
         self,
@@ -107,10 +110,12 @@ class CorporateActionsService:
             )
             return self._to_processed_action(existing)
 
-        # 2. Compute adjustments (using zero position as default —
-        #    real implementation would query position service)
-        quantity = Decimal(0)
-        cost_basis = Decimal(0)
+        # 2. Look up current position for this instrument
+        position = await self._position_service.get_position(
+            UUID(portfolio_id), action.instrument_id, session=session
+        )
+        quantity = position.quantity if position else Decimal(0)
+        cost_basis = position.cost_basis if position else Decimal(0)
 
         try:
             action_type = ActionType(action.action_type)
@@ -155,10 +160,7 @@ class CorporateActionsService:
             return self._to_processed_action(record)
 
         # 3. Determine status
-        if action_type == ActionType.SPINOFF:
-            status = ProcessingStatus.SKIPPED
-        else:
-            status = ProcessingStatus.PROCESSED
+        status = ProcessingStatus.SKIPPED if not adjustments else ProcessingStatus.PROCESSED
 
         # 4. Publish trade events for splits (position changes)
         for adj in adjustments:
@@ -251,8 +253,6 @@ class CorporateActionsService:
     def _to_processed_action(
         record: ProcessedCorporateActionRecord,
     ) -> ProcessedAction:
-        from uuid import UUID
-
         return ProcessedAction(
             id=UUID(record.id),
             action_id=record.action_id,

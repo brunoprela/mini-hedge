@@ -16,6 +16,10 @@ from scipy import stats  # type: ignore[import-untyped]
 from app.modules.risk_engine.interface import (
     FactorDecomposition,
     FactorExposure,
+    LiquidityProfile,
+    MarginSummary,
+    PositionLiquidity,
+    PositionMargin,
     RiskFactor,
     StressPositionImpact,
     StressScenario,
@@ -431,3 +435,150 @@ def calculate_factor_decomposition(
         factor_exposures=all_exposures,
         calculated_at=datetime.now(UTC),
     )
+
+
+# ---------------------------------------------------------------------------
+# 3B. Liquidity Risk — pure functions
+# ---------------------------------------------------------------------------
+
+# Default margin rates by asset class
+_MARGIN_RATES: dict[str, float] = {
+    "equity": 0.50,
+    "fixed_income": 0.10,
+    "fx": 0.03,
+    "commodity": 0.15,
+    "option": 1.00,
+    "default": 0.50,
+}
+
+# Participation rate: max fraction of ADV we can trade per day
+_PARTICIPATION_RATE = 0.20  # 20% of ADV
+
+
+def calculate_liquidity_profile(
+    *,
+    portfolio_id: UUID,
+    positions: list[tuple[str, Decimal, Decimal]],  # (instrument_id, market_value, adv_usd)
+    total_nav: Decimal,
+    business_date: datetime,
+    pending_redemptions: Decimal = ZERO,
+) -> tuple[LiquidityProfile, list[PositionLiquidity]]:
+    """Compute portfolio liquidity bucketing.
+
+    For each position, estimate days to liquidate at the participation rate.
+    Then bucket by: 1 day, 1 week, 1 month, 3 months, illiquid.
+    """
+    details: list[PositionLiquidity] = []
+    buckets = {"1d": ZERO, "1w": ZERO, "1m": ZERO, "3m": ZERO, "illiquid": ZERO}
+
+    for inst_id, mv, adv in positions:
+        abs_mv = abs(mv)
+        if adv > 0:
+            daily_capacity = adv * Decimal(str(_PARTICIPATION_RATE))
+            days = abs_mv / daily_capacity if daily_capacity > 0 else Decimal(999)
+        else:
+            days = Decimal(999)
+
+        if days <= 1:
+            bucket = "1d"
+        elif days <= 5:
+            bucket = "1w"
+        elif days <= 21:
+            bucket = "1m"
+        elif days <= 63:
+            bucket = "3m"
+        else:
+            bucket = "illiquid"
+
+        buckets[bucket] += abs_mv
+        pct = abs_mv / total_nav if total_nav > 0 else ZERO
+        details.append(PositionLiquidity(
+            instrument_id=inst_id,
+            market_value=mv,
+            avg_daily_volume_usd=adv,
+            days_to_liquidate=days.quantize(_Q4),
+            liquidity_bucket=bucket,
+            pct_of_nav=pct.quantize(_Q4),
+        ))
+
+    total_abs = sum(buckets.values())
+    pct_fn = lambda v: (v / total_abs).quantize(_Q4) if total_abs > 0 else ZERO  # noqa: E731
+
+    # Weighted days to liquidate
+    if total_abs > 0:
+        w_days = sum(
+            d.days_to_liquidate * abs(d.market_value) / total_abs for d in details
+        ).quantize(Decimal("0.01"))
+    else:
+        w_days = ZERO
+
+    # Redemption coverage: what fraction of pending redemptions can be met
+    # by liquidating positions within 1 week
+    liquid_1w = buckets["1d"] + buckets["1w"]
+    red_cov = (
+        min(liquid_1w / pending_redemptions, Decimal(1))
+        if pending_redemptions > 0
+        else Decimal(1)
+    ).quantize(_Q4)
+
+    profile = LiquidityProfile(
+        portfolio_id=portfolio_id,
+        business_date=business_date,
+        total_nav=total_nav,
+        pct_1_day=pct_fn(buckets["1d"]),
+        pct_1_week=pct_fn(buckets["1w"]),
+        pct_1_month=pct_fn(buckets["1m"]),
+        pct_3_months=pct_fn(buckets["3m"]),
+        pct_illiquid=pct_fn(buckets["illiquid"]),
+        weighted_days_to_liquidate=w_days,
+        redemption_coverage_pct=red_cov,
+    )
+    return profile, details
+
+
+# ---------------------------------------------------------------------------
+# 3C. Margin Management — pure functions
+# ---------------------------------------------------------------------------
+
+
+def calculate_margin_requirements(
+    *,
+    portfolio_id: UUID,
+    positions: list[tuple[str, Decimal, str]],  # (instrument_id, market_value, asset_class)
+    cash_balance: Decimal,
+    business_date: datetime,
+) -> tuple[MarginSummary, list[PositionMargin]]:
+    """Compute portfolio margin requirements from position values and margin rates."""
+    pos_margins: list[PositionMargin] = []
+    total_initial = ZERO
+    total_maintenance = ZERO
+
+    for inst_id, mv, asset_class in positions:
+        rate = Decimal(str(_MARGIN_RATES.get(asset_class, _MARGIN_RATES["default"])))
+        initial = (abs(mv) * rate).quantize(Decimal("0.01"))
+        maint = (initial * Decimal("0.75")).quantize(Decimal("0.01"))  # 75% of initial
+        total_initial += initial
+        total_maintenance += maint
+        pos_margins.append(PositionMargin(
+            instrument_id=inst_id,
+            market_value=mv,
+            margin_rate=rate,
+            initial_margin=initial,
+            maintenance_margin=maint,
+        ))
+
+    excess = cash_balance - total_initial
+    util = (total_initial / cash_balance).quantize(_Q4) if cash_balance > 0 else Decimal(999)
+    margin_call = excess < 0
+
+    summary = MarginSummary(
+        portfolio_id=portfolio_id,
+        business_date=business_date,
+        initial_margin=total_initial,
+        maintenance_margin=total_maintenance,
+        margin_available=cash_balance,
+        margin_excess_deficit=excess,
+        margin_utilization_pct=util,
+        margin_call_triggered=margin_call,
+    )
+    return summary, pos_margins

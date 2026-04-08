@@ -6,6 +6,7 @@ last incomplete step. Each step writes completion status to ``eod.run_steps``.
 
 from __future__ import annotations
 
+import contextlib
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
     from app.modules.eod.reconciler import PositionReconciler
     from app.modules.eod.repository import EODRunRepository
     from app.modules.fee_accounting.service import FeeAccountingService
+    from app.modules.investor_operations.service import InvestorOperationsService
     from app.modules.platform.fund_repository import FundRepository
     from app.modules.platform.portfolio_repository import PortfolioRepository
     from app.modules.risk_engine.service import RiskService
@@ -43,6 +45,7 @@ STEP_ORDER: list[EODStepName] = [
     EODStepName.FEE_ACCRUAL,
     EODStepName.PNL_SNAPSHOT,  # must precede CAPITAL_ALLOCATION (provides fund_pnl)
     EODStepName.CAPITAL_ALLOCATION,
+    EODStepName.DEALING_DATE_EXECUTION,
     EODStepName.EOD_RISK,
     EODStepName.PERFORMANCE_ATTRIBUTION,
 ]
@@ -65,6 +68,7 @@ class EODOrchestrator:
         fee_service: FeeAccountingService | None = None,
         capital_service: CapitalAccountService | None = None,
         attribution_service: AttributionService | None = None,
+        investor_ops_service: InvestorOperationsService | None = None,
     ) -> None:
         self._run_repo = run_repo
         self._fund_repo = fund_repo
@@ -77,6 +81,7 @@ class EODOrchestrator:
         self._fee_service = fee_service
         self._capital_service = capital_service
         self._attribution_service = attribution_service
+        self._investor_ops_service = investor_ops_service
 
     async def run_eod(
         self,
@@ -294,23 +299,63 @@ class EODOrchestrator:
             nav_snapshots = step_data.get("nav_snapshots", {})
             total_mgmt_fee = Decimal(0)
             total_perf_fee = Decimal(0)
+            # Per-class fee accumulator: share_class → (mgmt, perf)
+            class_fees: dict[str, tuple[Decimal, Decimal]] = {}
+
+            # Determine active share classes
+            share_classes = ["default"]
+            if self._capital_service is not None:
+                with contextlib.suppress(Exception):
+                    share_classes = (
+                        await self._capital_service.list_share_classes()
+                    ) or ["default"]
+
             for pid in portfolio_ids:
                 pid_key = str(pid)
                 nav_snap = nav_snapshots.get(pid_key)
                 nav_value = nav_snap.nav if nav_snap else Decimal(0)
                 try:
-                    accruals = await self._fee_service.accrue_daily_fees(
-                        portfolio_id=pid,
-                        fund_slug=fund_slug,
-                        nav=nav_value,
-                        business_date=business_date,
-                    )
-                    fee_details[pid_key] = str(len(accruals))
-                    for accrual in accruals:
-                        if accrual.fee_type == "management":
-                            total_mgmt_fee += accrual.accrued_amount
-                        elif accrual.fee_type == "performance":
-                            total_perf_fee += accrual.accrued_amount
+                    for cls in share_classes:
+                        # Compute per-class NAV proportion
+                        if self._capital_service and len(share_classes) > 1:
+                            cls_aum, _, _ = (
+                                await self._capital_service.get_share_class_nav(cls)
+                            )
+                            # Scale NAV to this class's share
+                            all_accounts = (
+                                await self._capital_service._accounts.get_latest_by_fund()
+                            )
+                            total_aum = sum(
+                                (a.ending_capital for a in all_accounts), Decimal(0)
+                            )
+                            cls_nav = (
+                                nav_value * cls_aum / total_aum
+                                if total_aum > 0
+                                else nav_value
+                            )
+                        else:
+                            cls_nav = nav_value
+
+                        accruals = await self._fee_service.accrue_daily_fees(
+                            portfolio_id=pid,
+                            fund_slug=fund_slug,
+                            nav=cls_nav,
+                            business_date=business_date,
+                            share_class=cls,
+                        )
+                        cls_mgmt = Decimal(0)
+                        cls_perf = Decimal(0)
+                        for accrual in accruals:
+                            if accrual.fee_type == "management":
+                                cls_mgmt += accrual.accrued_amount
+                                total_mgmt_fee += accrual.accrued_amount
+                            elif accrual.fee_type == "performance":
+                                cls_perf += accrual.accrued_amount
+                                total_perf_fee += accrual.accrued_amount
+                        prev_m, prev_p = class_fees.get(cls, (Decimal(0), Decimal(0)))
+                        class_fees[cls] = (prev_m + cls_mgmt, prev_p + cls_perf)
+
+                    fee_details[pid_key] = "ok"
                 except Exception:
                     logger.warning(
                         "eod_fee_accrual_failed",
@@ -320,6 +365,7 @@ class EODOrchestrator:
                     fee_details[pid_key] = "skipped"
             step_data["management_fee"] = total_mgmt_fee
             step_data["performance_fee"] = total_perf_fee
+            step_data["class_fees"] = class_fees
             return fee_details
 
         if step == EODStepName.CAPITAL_ALLOCATION:
@@ -340,8 +386,45 @@ class EODOrchestrator:
                 performance_fee=step_data.get("performance_fee", Decimal(0)),
                 nav_per_share=nav_per_share,
                 business_date=business_date,
+                class_fees=step_data.get("class_fees"),
             )
             return {"accounts_allocated": count}
+
+        if step == EODStepName.DEALING_DATE_EXECUTION:
+            if self._investor_ops_service is None:
+                return {"message": "investor_ops_service_not_configured"}
+
+            # Get NAV per share from previous step data
+            nav_snapshots = step_data.get("nav_snapshots", {})
+            total_nav = Decimal(0)
+            total_shares = Decimal(0)
+            for snap in nav_snapshots.values():
+                total_nav += snap.nav
+                total_shares += snap.shares_outstanding
+            nav_per_share = (
+                total_nav / total_shares if total_shares > 0 else Decimal(1)
+            )
+
+            # Use the first portfolio for execution
+            portfolio_id = portfolio_ids[0] if portfolio_ids else None
+            if portfolio_id is None:
+                return {"message": "no_portfolios_for_dealing_execution"}
+
+            subs = await self._investor_ops_service.execute_subscriptions(
+                dealing_date=business_date,
+                nav_per_share=nav_per_share,
+                portfolio_id=portfolio_id,
+            )
+            reds = await self._investor_ops_service.execute_redemptions(
+                dealing_date=business_date,
+                nav_per_share=nav_per_share,
+                portfolio_id=portfolio_id,
+            )
+            return {
+                "subscriptions_executed": len(subs),
+                "redemptions_executed": len(reds),
+                "nav_per_share": str(nav_per_share),
+            }
 
         if step == EODStepName.PERFORMANCE_ATTRIBUTION:
             if self._attribution_service is None:

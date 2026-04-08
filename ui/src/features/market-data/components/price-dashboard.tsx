@@ -1,10 +1,13 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { instrumentsQueryOptions } from "@/features/instruments/api";
 import { Sparkline } from "@/shared/components/sparkline";
+import { SectionPanel } from "@/shared/components/section-panel";
+import { SortableHeader, TableSearch } from "@/shared/components/table-controls";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
+import { useTableState } from "@/shared/hooks/use-table-state";
 import { formatPrice, formatTimestamp } from "@/shared/lib/formatters";
 import { latestPriceQueryOptions, priceHistoryQueryOptions } from "../api";
 
@@ -19,32 +22,12 @@ export function PriceDashboard() {
   const { fundSlug } = useFundContext();
   const { data: instruments, isLoading } = useQuery(instrumentsQueryOptions(fundSlug));
 
-  if (isLoading) {
-    return <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>;
-  }
+  // Fetch latest prices for all instruments
+  const priceResults = useQueries({
+    queries: (instruments ?? []).slice(0, 30).map((inst) => latestPriceQueryOptions(fundSlug, inst.ticker)),
+  });
 
-  return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {instruments?.slice(0, 12).map((inst) => (
-        <PriceCard key={inst.id} fundSlug={fundSlug} instrumentId={inst.ticker} name={inst.name} />
-      ))}
-    </div>
-  );
-}
-
-function PriceCard({
-  fundSlug,
-  instrumentId,
-  name,
-}: {
-  fundSlug: string;
-  instrumentId: string;
-  name: string;
-}) {
-  const { data: price } = useQuery(latestPriceQueryOptions(fundSlug, instrumentId));
-
-  // Stable time window for sparkline — rounded to 5-min boundary so
-  // the query key doesn't change on every render.
+  // Stable time window for sparklines
   const { start, end } = useMemo(() => {
     const now = new Date();
     return {
@@ -53,46 +36,136 @@ function PriceCard({
     };
   }, []);
 
-  const { data: history } = useQuery(priceHistoryQueryOptions(fundSlug, instrumentId, start, end));
+  // Fetch sparkline history for all instruments
+  const historyResults = useQueries({
+    queries: (instruments ?? []).slice(0, 30).map((inst) => priceHistoryQueryOptions(fundSlug, inst.ticker, start, end)),
+  });
 
-  const sparkData = history?.map((p) => Number(p.mid)) ?? [];
+  // Build rows with instrument + price data merged
+  const rows = useMemo(() => {
+    if (!instruments) return [];
+    return instruments.slice(0, 30).map((inst, i) => {
+      const price = priceResults[i]?.data;
+      const history = historyResults[i]?.data;
+      const sparkData = history?.map((p) => Number(p.mid)) ?? [];
+      const bid = price ? Number(price.bid) : null;
+      const ask = price ? Number(price.ask) : null;
+      const mid = price ? Number(price.mid) : null;
+      const spread = bid !== null && ask !== null ? ask - bid : null;
+      const spreadBps = mid && spread !== null ? (spread / mid) * 10000 : null;
+
+      return {
+        ticker: inst.ticker,
+        name: inst.name,
+        sector: inst.sector ?? "",
+        currency: inst.currency,
+        bid: bid ?? 0,
+        ask: ask ?? 0,
+        mid: mid ?? 0,
+        spread: spread ?? 0,
+        spreadBps: spreadBps ?? 0,
+        volume: price?.volume ? Number(price.volume) : 0,
+        timestamp: price?.timestamp ?? "",
+        sparkData,
+      };
+    });
+  }, [instruments, priceResults, historyResults]);
+
+  const table = useTableState({
+    data: rows as unknown as Record<string, unknown>[],
+    initialSort: { key: "ticker", direction: "asc" },
+    pageSize: 30,
+    searchKeys: ["ticker", "name", "sector"],
+  });
+
+  if (isLoading) {
+    return <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>;
+  }
 
   return (
-    <div className="rounded-md border border-[var(--border)] p-4">
-      <div className="flex items-baseline justify-between">
-        <span className="font-mono text-sm font-medium">{instrumentId}</span>
-        {price && (
-          <span className="text-xs text-[var(--muted-foreground)]">
-            {formatTimestamp(price.timestamp)}
+    <SectionPanel
+      title="Watchlist"
+      actions={
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-medium text-[var(--muted-foreground)]">
+            {table.totalFiltered} instruments
           </span>
-        )}
-      </div>
-      <p className="text-xs text-[var(--muted-foreground)]">{name}</p>
-      {price ? (
-        <>
-          <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
-            <div>
-              <p className="text-xs text-[var(--muted-foreground)]">Bid</p>
-              <p className="font-mono">{formatPrice(price.bid)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-[var(--muted-foreground)]">Mid</p>
-              <p className="font-mono font-medium">{formatPrice(price.mid)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-[var(--muted-foreground)]">Ask</p>
-              <p className="font-mono">{formatPrice(price.ask)}</p>
-            </div>
+          <div className="w-48">
+            <TableSearch
+              value={table.search}
+              onChange={table.setSearch}
+              placeholder="Search instruments..."
+            />
           </div>
-          {sparkData.length >= 2 && (
-            <div className="mt-2">
-              <Sparkline data={sparkData} width={240} height={32} />
-            </div>
-          )}
-        </>
-      ) : (
-        <p className="mt-2 text-xs text-[var(--muted-foreground)]">Awaiting price data...</p>
-      )}
-    </div>
+        </div>
+      }
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)] text-left text-[var(--muted-foreground)]">
+              <SortableHeader label="Ticker" sortKey="ticker" currentSort={table.sortKey} direction={table.sortDirection} onSort={table.onSort} />
+              <th className="px-3 py-1.5 text-xs font-medium">Name</th>
+              <SortableHeader label="Bid" sortKey="bid" currentSort={table.sortKey} direction={table.sortDirection} onSort={table.onSort} />
+              <SortableHeader label="Mid" sortKey="mid" currentSort={table.sortKey} direction={table.sortDirection} onSort={table.onSort} />
+              <SortableHeader label="Ask" sortKey="ask" currentSort={table.sortKey} direction={table.sortDirection} onSort={table.onSort} />
+              <SortableHeader label="Spread (bps)" sortKey="spreadBps" currentSort={table.sortKey} direction={table.sortDirection} onSort={table.onSort} />
+              <th className="px-3 py-1.5 text-xs font-medium">1h</th>
+              <th className="px-3 py-1.5 text-xs font-medium">Sector</th>
+              <th className="px-3 py-1.5 text-xs font-medium text-right">Updated</th>
+            </tr>
+          </thead>
+          <tbody>
+            {table.rows.map((row) => {
+              const r = row as unknown as (typeof rows)[number];
+              return (
+                <tr
+                  key={r.ticker}
+                  className="border-b border-[var(--table-border)] last:border-0 hover:bg-[var(--table-row-hover)]"
+                >
+                  <td className="px-3 py-1.5 font-mono text-sm font-medium text-[var(--foreground)]">
+                    {r.ticker}
+                  </td>
+                  <td className="max-w-[160px] truncate px-3 py-1.5 text-xs text-[var(--muted-foreground)]">
+                    {r.name}
+                  </td>
+                  <td className="px-3 py-1.5 text-right font-mono text-xs">
+                    {r.bid ? formatPrice(String(r.bid)) : "—"}
+                  </td>
+                  <td className="px-3 py-1.5 text-right font-mono text-xs font-medium">
+                    {r.mid ? formatPrice(String(r.mid)) : "—"}
+                  </td>
+                  <td className="px-3 py-1.5 text-right font-mono text-xs">
+                    {r.ask ? formatPrice(String(r.ask)) : "—"}
+                  </td>
+                  <td className="px-3 py-1.5 text-right font-mono text-xs">
+                    {r.spreadBps > 0 ? (
+                      <span className={r.spreadBps > 10 ? "text-[var(--warning)]" : "text-[var(--muted-foreground)]"}>
+                        {r.spreadBps.toFixed(1)}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="px-3 py-1.5">
+                    {r.sparkData.length >= 2 ? (
+                      <Sparkline data={r.sparkData} width={80} height={20} />
+                    ) : (
+                      <span className="text-[10px] text-[var(--muted-foreground)]">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-1.5 text-xs text-[var(--muted-foreground)]">
+                    {r.sector || "—"}
+                  </td>
+                  <td className="px-3 py-1.5 text-right text-xs text-[var(--muted-foreground)]">
+                    {r.timestamp ? formatTimestamp(r.timestamp) : "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </SectionPanel>
   );
 }

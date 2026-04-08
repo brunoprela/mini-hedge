@@ -18,7 +18,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import structlog
 
@@ -33,7 +33,8 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.modules.cash_management.service import CashManagementService
-    from app.modules.eod.repository import ReconciliationRepository
+    from app.modules.eod.auto_resolver import BreakAutoResolver
+    from app.modules.eod.repository import ReconciliationBreakRepository, ReconciliationRepository
     from app.modules.positions.service import PositionService
     from app.shared.adapters import BrokerAdapter, FundAdminAdapter
 
@@ -53,14 +54,18 @@ class PositionReconciler:
         position_service: PositionService,
         broker_adapter: BrokerAdapter,
         recon_repo: ReconciliationRepository,
+        break_repo: ReconciliationBreakRepository | None = None,
         fund_admin_adapter: FundAdminAdapter | None = None,
         cash_service: CashManagementService | None = None,
+        auto_resolver: BreakAutoResolver | None = None,
     ) -> None:
         self._positions = position_service
         self._broker = broker_adapter
         self._recon_repo = recon_repo
+        self._break_repo = break_repo
         self._admin = fund_admin_adapter
         self._cash = cash_service
+        self._auto_resolver = auto_resolver
 
     async def reconcile(
         self,
@@ -91,7 +96,7 @@ class PositionReconciler:
         all_instruments = set(internal_map) | set(broker_map) | set(admin_map or {})
         is_clean = len(breaks) == 0 and len(cash_breaks) == 0
 
-        # Persist
+        # Persist summary
         await self._recon_repo.upsert(
             portfolio_id=str(portfolio_id),
             business_date=business_date,
@@ -101,6 +106,24 @@ class PositionReconciler:
             breaks=[b.model_dump(mode="json") for b in breaks],
             session=session,
         )
+
+        # Persist individual break records for resolution tracking
+        if self._break_repo and (breaks or cash_breaks):
+            await self._persist_breaks(
+                portfolio_id, business_date, breaks, cash_breaks, session=session
+            )
+
+        # Run auto-resolution rules if configured
+        if self._auto_resolver is not None and self._break_repo is not None:
+            auto_result = await self._auto_resolver.process_breaks(
+                str(portfolio_id), business_date, session=session
+            )
+            logger.info(
+                "auto_resolution_after_recon",
+                portfolio_id=str(portfolio_id),
+                auto_resolved=auto_result.auto_resolved,
+                auto_escalated=auto_result.auto_escalated,
+            )
 
         result = ReconciliationResult(
             portfolio_id=portfolio_id,
@@ -288,3 +311,55 @@ class PositionReconciler:
                 )
 
         return breaks
+
+    async def _persist_breaks(
+        self,
+        portfolio_id: UUID,
+        business_date: date,
+        position_breaks: list[ReconciliationBreak],
+        cash_breaks: list[CashBreak],
+        *,
+        session: AsyncSession | None = None,
+    ) -> None:
+        """Persist individual break records for tracking and resolution."""
+        from app.modules.eod.models import ReconciliationBreakRecord
+
+        assert self._break_repo is not None
+
+        records: list[ReconciliationBreakRecord] = []
+
+        for b in position_breaks:
+            records.append(
+                ReconciliationBreakRecord(
+                    id=str(uuid4()),
+                    portfolio_id=str(portfolio_id),
+                    business_date=business_date,
+                    instrument_id=b.instrument_id,
+                    break_type=b.break_type.value,
+                    internal_quantity=b.internal_quantity,
+                    broker_quantity=b.broker_quantity,
+                    admin_quantity=b.admin_quantity,
+                    difference=b.difference,
+                    is_material=b.is_material,
+                )
+            )
+
+        for cb in cash_breaks:
+            records.append(
+                ReconciliationBreakRecord(
+                    id=str(uuid4()),
+                    portfolio_id=str(portfolio_id),
+                    business_date=business_date,
+                    break_type=BreakType.CASH_MISMATCH.value,
+                    internal_quantity=ZERO,
+                    broker_quantity=ZERO,
+                    difference=cb.difference,
+                    is_material=cb.is_material,
+                    currency=cb.currency,
+                    internal_balance=cb.internal_balance,
+                    admin_balance=cb.admin_balance,
+                )
+            )
+
+        if records:
+            await self._break_repo.create_many(records, session=session)
