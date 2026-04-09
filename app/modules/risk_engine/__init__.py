@@ -1,19 +1,21 @@
 """Risk engine bounded context — VaR, stress testing, and factor decomposition."""
 
-from app.modules.risk_engine.interface import (
-    FactorDecomposition,
-    RiskReader,
-    RiskSnapshot,
-    StressTestResult,
-    VaRMethod,
-    VaRResult,
+from app.modules.risk_engine.interfaces.factor import FactorDecomposition
+from app.modules.risk_engine.interfaces.snapshot import RiskReader, RiskSnapshot
+from app.modules.risk_engine.interfaces.stress import StressTestResult
+from app.modules.risk_engine.interfaces.var import VaRMethod, VaRResult
+from app.modules.risk_engine.services import (
+    CounterpartyRiskService,
+    LiquidityMarginService,
+    RiskSnapshotService,
 )
-from app.modules.risk_engine.service import RiskService
 
 __all__ = [
+    "CounterpartyRiskService",
     "FactorDecomposition",
+    "LiquidityMarginService",
     "RiskReader",
-    "RiskService",
+    "RiskSnapshotService",
     "RiskSnapshot",
     "StressTestResult",
     "VaRMethod",

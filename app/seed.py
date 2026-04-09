@@ -17,14 +17,13 @@ from decimal import Decimal
 import structlog
 
 from app.config import get_settings
-from app.modules.cash_management.models import CashBalanceRecord
-from app.modules.cash_management.repository import CashBalanceRepository
-from app.modules.compliance.repository import RuleRepository
+from app.modules.cash_management.models.cash_balance import CashBalanceRecord
+from app.modules.cash_management.repositories.cash_balance import CashBalanceRepository
+from app.modules.compliance.repositories.rule import RuleRepository
 from app.modules.compliance.seed import build_seed_compliance_rules
-from app.modules.platform.fund_repository import FundRepository
-from app.modules.platform.portfolio_repository import PortfolioRepository
+from app.modules.platform.repositories import FundRepository, PortfolioRepository
 from app.modules.platform.seed import build_seed_portfolios
-from app.modules.security_master.repository import InstrumentRepository
+from app.modules.security_master.repositories import InstrumentRepository
 from app.modules.security_master.seed import build_seed_records
 from app.shared.database import build_engine
 from app.shared.observability.logging import setup_logging

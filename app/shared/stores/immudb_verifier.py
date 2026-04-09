@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 import structlog
 
 if TYPE_CHECKING:
-    from app.modules.platform.audit_repository import AuditLogRepository
+    from app.modules.platform.repositories import AuditLogRepository
     from app.shared.stores.immudb_client import ImmudbClient
 
 logger = structlog.get_logger()

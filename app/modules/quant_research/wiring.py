@@ -6,16 +6,21 @@ from typing import TYPE_CHECKING
 
 import structlog
 
-from app.modules.quant_research.factor_engine import (
+from app.modules.quant_research.core.factor_engine import (
     compute_momentum_factor,
     compute_quality_factor,
     compute_size_factor,
     compute_value_factor,
     compute_volatility_factor,
 )
-from app.modules.quant_research.regime_detector import RegimeDetector
-from app.modules.quant_research.repository import FactorRepository, RegimeRepository
-from app.modules.quant_research.service import QuantResearchService
+from app.modules.quant_research.core.regime_detector import RegimeDetector
+from app.modules.quant_research.repositories import (
+    FactorDefinitionRepository,
+    FactorExposureRepository,
+    FactorReturnRepository,
+    RegimeRepository,
+)
+from app.modules.quant_research.services import QuantResearchService
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -35,7 +40,9 @@ async def setup(
     **ctx,
 ) -> None:
     """Wire quant research module (factor research + regime detection)."""
-    factor_repo = FactorRepository(sf)
+    factor_def_repo = FactorDefinitionRepository(sf)
+    factor_exp_repo = FactorExposureRepository(sf)
+    factor_ret_repo = FactorReturnRepository(sf)
     regime_repo = RegimeRepository(sf)
     regime_detector = RegimeDetector()
 
@@ -48,7 +55,9 @@ async def setup(
     }
 
     svc = QuantResearchService(
-        factor_repo=factor_repo,
+        factor_def_repo=factor_def_repo,
+        factor_exp_repo=factor_exp_repo,
+        factor_ret_repo=factor_ret_repo,
         regime_repo=regime_repo,
         factor_engine_fns=factor_fns,
         regime_detector=regime_detector,

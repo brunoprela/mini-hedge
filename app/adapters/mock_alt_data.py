@@ -11,7 +11,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from app.shared.adapters import AltDataRecord, SentimentRecord
+    from app.shared.adapters.alt_data import AltDataRecord, SentimentRecord
 
 
 def _deterministic_seed(instrument_id: str, as_of: date) -> int:
@@ -28,7 +28,7 @@ class MockAltDataProvider:
 
     async def fetch_data(self, instrument_id: str, start: date, end: date) -> list[AltDataRecord]:
         """Generate deterministic data points based on hash of instrument+date."""
-        from app.shared.adapters import AltDataRecord
+        from app.shared.adapters.alt_data import AltDataRecord
 
         records: list[AltDataRecord] = []
         one_day = (end - start).days + 1
@@ -60,7 +60,7 @@ class MockAltDataProvider:
 
     async def get_sentiment(self, instrument_id: str, as_of: date) -> SentimentRecord | None:
         """Generate deterministic sentiment based on hash."""
-        from app.shared.adapters import SentimentRecord
+        from app.shared.adapters.alt_data import SentimentRecord
 
         seed = _deterministic_seed(instrument_id, as_of)
         score = Decimal(str(round((seed % 2001 - 1000) / 1000, 4)))

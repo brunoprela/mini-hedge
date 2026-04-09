@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.modules.security_master.seed import SEED_INSTRUMENTS
-from app.shared.adapters import ExternalInstrument
+from app.shared.adapters.reference_data import ExternalInstrument
 
 
 class SeedReferenceDataAdapter:

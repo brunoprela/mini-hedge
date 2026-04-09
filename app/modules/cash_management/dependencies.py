@@ -2,7 +2,7 @@
 
 from fastapi import HTTPException, Request
 
-from app.modules.cash_management.service import CashManagementService
+from app.modules.cash_management.services import CashManagementService
 
 
 def get_cash_service(request: Request) -> CashManagementService:

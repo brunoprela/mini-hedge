@@ -18,7 +18,7 @@ from app.modules.platform.seed import (
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-    from app.modules.platform.fund_repository import FundRepository
+    from app.modules.platform.repositories import FundRepository
     from app.shared.database import TenantSessionFactory
 
 logger = structlog.get_logger()
@@ -26,8 +26,9 @@ logger = structlog.get_logger()
 
 async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
     """Idempotent dev-only seeding for FX hedging."""
-    from app.modules.fx_hedging.models import FXForwardRecord, FXInterestRateRecord
-    from app.modules.fx_hedging.repository import (
+    from app.modules.fx_hedging.models.fx_forward import FXForwardRecord
+    from app.modules.fx_hedging.models.fx_interest_rate import FXInterestRateRecord
+    from app.modules.fx_hedging.repositories import (
         FXForwardRepository,
         FXInterestRateRepository,
     )

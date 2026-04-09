@@ -6,9 +6,9 @@ from typing import TYPE_CHECKING
 
 import structlog
 
-from app.modules.backtesting.engine import BacktestEngine
-from app.modules.backtesting.repository import BacktestRepository
-from app.modules.backtesting.service import BacktestingService
+from app.modules.backtesting.core.engine import BacktestEngine
+from app.modules.backtesting.repositories import BacktestRepository
+from app.modules.backtesting.services import BacktestingService
 
 if TYPE_CHECKING:
     from fastapi import FastAPI

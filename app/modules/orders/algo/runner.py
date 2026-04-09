@@ -12,7 +12,7 @@ import structlog
 
 if TYPE_CHECKING:
     from app.modules.orders.algo.strategies import ChildSlice
-    from app.modules.orders.models import OrderRecord
+    from app.modules.orders.models.order import OrderRecord
 
 
 class SubmitChildCallback(Protocol):

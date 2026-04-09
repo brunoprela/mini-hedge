@@ -8,7 +8,7 @@ from decimal import Decimal
 import httpx
 import structlog
 
-from app.shared.adapters import CorporateAction
+from app.shared.adapters.corporate_actions import CorporateAction
 from app.shared.circuit_breaker import CircuitBreaker
 
 logger = structlog.get_logger()

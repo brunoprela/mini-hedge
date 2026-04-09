@@ -14,7 +14,7 @@ import structlog
 from app.shared.schema_registry import fund_audit_topics_for_slug
 
 if TYPE_CHECKING:
-    from app.modules.platform.audit_repository import AuditLogRepository
+    from app.modules.platform.repositories import AuditLogRepository
     from app.shared.events import BaseEvent, EventBus, EventHandler
 
 logger = structlog.get_logger()

@@ -40,11 +40,11 @@ from app.modules.platform.seed import (
     USER_BETA_PM_ID,
     USER_GAMMA_PM_ID,
 )
-from app.modules.positions.event_store import EventStoreRepository
-from app.modules.positions.interface import TradeSide
-from app.modules.positions.position_projector import PositionProjector
-from app.modules.positions.position_repository import CurrentPositionRepository
-from app.modules.positions.trade_handler import TradeHandler
+from app.modules.positions.core.event_store import EventStoreRepository
+from app.modules.positions.core.position_projector import PositionProjector
+from app.modules.positions.core.trade_handler import TradeHandler
+from app.modules.positions.interfaces import TradeSide
+from app.modules.positions.repositories import CurrentPositionRepository
 from app.shared.auth.request_context import ActorType, RequestContext, set_request_context
 from app.shared.database import build_engine
 from app.shared.events import InProcessEventBus

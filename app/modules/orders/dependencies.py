@@ -2,7 +2,7 @@
 
 from fastapi import HTTPException, Request
 
-from app.modules.orders.service import OrderService
+from app.modules.orders.services import OrderService
 
 
 def get_order_service(request: Request) -> OrderService:

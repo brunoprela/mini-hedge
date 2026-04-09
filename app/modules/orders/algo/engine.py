@@ -11,11 +11,11 @@ import structlog
 
 from app.modules.orders.algo.runner import AlgoRunner
 from app.modules.orders.algo.strategies import get_strategy
-from app.modules.orders.interface import AlgoParams, AlgoType
+from app.modules.orders.interfaces import AlgoParams, AlgoType
 
 if TYPE_CHECKING:
-    from app.modules.orders.models import OrderRecord
-    from app.modules.orders.repository import OrderRepository
+    from app.modules.orders.models.order import OrderRecord
+    from app.modules.orders.repositories import OrderRepository
 
 SubmitChildFn = Callable[..., Awaitable[object]]
 

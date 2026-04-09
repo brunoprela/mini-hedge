@@ -1,12 +1,12 @@
 """Fee accounting bounded context — management and performance fee accrual."""
 
-from app.modules.fee_accounting.interface import (
+from app.modules.fee_accounting.interfaces import (
     AccrualStatus,
     FeeAccrual,
     FeeSchedule,
     FeeType,
 )
-from app.modules.fee_accounting.service import FeeAccountingService
+from app.modules.fee_accounting.services import FeeAccountingService
 
 __all__ = [
     "AccrualStatus",

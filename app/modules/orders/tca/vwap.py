@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import structlog
 
 if TYPE_CHECKING:
-    from app.modules.market_data.service import MarketDataService
+    from app.modules.market_data.services import MarketDataService
 
 logger = structlog.get_logger()
 

@@ -9,7 +9,7 @@ from app.shared.auth import Permission, require_permission  # noqa: F401
 if TYPE_CHECKING:
     from fastapi import Request
 
-    from app.modules.regulatory.service import RegulatoryService
+    from app.modules.regulatory.services import RegulatoryService
 
 
 def get_regulatory_service(request: Request) -> RegulatoryService:

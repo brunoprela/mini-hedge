@@ -9,7 +9,7 @@ Screening results are driven by the investor name:
 
 from __future__ import annotations
 
-from app.modules.investor_operations.interface import (
+from app.modules.investor_operations.interfaces import (
     AMLStatus,
     KYCScreeningResult,
     KYCStatus,

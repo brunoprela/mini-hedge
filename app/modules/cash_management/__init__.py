@@ -1,6 +1,6 @@
 """Cash management bounded context — settlement, netting, and cash projection."""
 
-from app.modules.cash_management.interface import (
+from app.modules.cash_management.interfaces import (
     CashBalance,
     CashFlowType,
     CashProjection,
@@ -8,7 +8,7 @@ from app.modules.cash_management.interface import (
     SettlementRecord,
     SettlementStatus,
 )
-from app.modules.cash_management.service import CashManagementService
+from app.modules.cash_management.services import CashManagementService
 
 __all__ = [
     "CashBalance",

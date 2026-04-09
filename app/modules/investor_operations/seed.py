@@ -10,8 +10,8 @@ import structlog
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-    from app.modules.investor_operations.service import InvestorOperationsService
-    from app.modules.platform.fund_repository import FundRepository
+    from app.modules.investor_operations.services import InvestorKYCService
+    from app.modules.platform.repositories import FundRepository
     from app.shared.database import TenantSessionFactory
 
 logger = structlog.get_logger()
@@ -19,9 +19,9 @@ logger = structlog.get_logger()
 
 async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
     """Idempotent dev-only seeding for investor operations."""
-    from app.modules.investor_operations.repository import FundTermsRepository
+    from app.modules.investor_operations.repositories.fund_terms import FundTermsRepository
 
-    service: InvestorOperationsService = app.state.investor_ops_service
+    service: InvestorKYCService = app.state.kyc_service
     terms_repo = FundTermsRepository(sf)
 
     fund_repo: FundRepository = app.state.fund_repo

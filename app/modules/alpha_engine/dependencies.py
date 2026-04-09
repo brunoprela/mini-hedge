@@ -2,7 +2,7 @@
 
 from fastapi import HTTPException, Request
 
-from app.modules.alpha_engine.service import AlphaService
+from app.modules.alpha_engine.services import AlphaService
 
 
 def get_alpha_service(request: Request) -> AlphaService:

@@ -25,8 +25,8 @@ async def setup(
 ) -> None:
     """Wire corporate actions module: repo, adapter, service."""
     from app.adapters.factory import build_corporate_actions_adapter
-    from app.modules.corporate_actions.repository import CorporateActionsRepository
-    from app.modules.corporate_actions.service import CorporateActionsService
+    from app.modules.corporate_actions.repositories import CorporateActionsRepository
+    from app.modules.corporate_actions.services import CorporateActionsService
 
     repo = CorporateActionsRepository(sf)
     adapter = build_corporate_actions_adapter(settings)

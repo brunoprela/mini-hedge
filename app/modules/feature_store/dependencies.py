@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from fastapi import HTTPException, Request
 
 if TYPE_CHECKING:
-    from app.modules.feature_store.service import FeatureStoreService
+    from app.modules.feature_store.services import FeatureStoreService
 
 
 def get_feature_store_service(request: Request) -> FeatureStoreService:

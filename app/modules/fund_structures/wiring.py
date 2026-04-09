@@ -6,12 +6,10 @@ from typing import TYPE_CHECKING
 
 import structlog
 
-from app.modules.fund_structures.repository import (
-    FundOfFundsRepository,
-    MasterFeederRepository,
-    StrategyBookRepository,
-)
-from app.modules.fund_structures.service import FundStructuresService
+from app.modules.fund_structures.repositories.fund_of_funds import FundOfFundsRepository
+from app.modules.fund_structures.repositories.master_feeder import MasterFeederRepository
+from app.modules.fund_structures.repositories.strategy_book import StrategyBookRepository
+from app.modules.fund_structures.services import FundStructuresService
 
 if TYPE_CHECKING:
     from fastapi import FastAPI

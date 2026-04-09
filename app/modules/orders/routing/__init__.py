@@ -2,7 +2,7 @@
 
 from app.modules.orders.routing.broker_registry import BrokerRegistry
 from app.modules.orders.routing.engine import RoutingEngine, RoutingSlice
-from app.modules.orders.routing.repository import RoutingRepository
+from app.modules.orders.routing.repositories import RoutingRepository
 
 __all__ = [
     "BrokerRegistry",

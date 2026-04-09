@@ -1,6 +1,6 @@
 """Orders bounded context — order lifecycle, routing, execution, and allocation."""
 
-from app.modules.orders.interface import (
+from app.modules.orders.interfaces import (
     CreateOrderRequest,
     OrderSide,
     OrderState,
@@ -8,7 +8,7 @@ from app.modules.orders.interface import (
     OrderType,
     TimeInForce,
 )
-from app.modules.orders.service import OrderService
+from app.modules.orders.services import OrderService
 
 __all__ = [
     "CreateOrderRequest",

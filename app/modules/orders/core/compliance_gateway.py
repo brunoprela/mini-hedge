@@ -1,0 +1,22 @@
+"""In-process compliance gateway — calls PreTradeGate directly."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.modules.compliance.core.pre_trade import PreTradeGate
+    from app.modules.compliance.interfaces import (
+        ComplianceDecision,
+        TradeCheckRequest,
+    )
+
+
+class ComplianceGateway:
+    """Thin wrapper calling compliance module's PreTradeGate in-process."""
+
+    def __init__(self, *, pre_trade_gate: PreTradeGate) -> None:
+        self._pre_trade_gate = pre_trade_gate
+
+    async def check(self, request: TradeCheckRequest) -> ComplianceDecision:
+        return await self._pre_trade_gate.check_trade(request)

@@ -6,13 +6,13 @@ from typing import TYPE_CHECKING
 
 import structlog
 
-from app.modules.alt_data.repository import AltDataRepository
-from app.modules.alt_data.service import AltDataService
+from app.modules.alt_data.repositories import AltDataFeedRepository, AltDataPointRepository
+from app.modules.alt_data.services import AltDataService
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-    from app.shared.adapters import AltDataProvider
+    from app.shared.adapters.alt_data import AltDataProvider
     from app.shared.database import TenantSessionFactory
     from app.shared.events import EventBus
 
@@ -30,14 +30,16 @@ async def setup(
     """Wire alternative data module."""
     alt_data_provider: AltDataProvider | None = ctx.get("alt_data_provider")
 
-    repo = AltDataRepository(sf)
+    feed_repo = AltDataFeedRepository(sf)
+    point_repo = AltDataPointRepository(sf)
 
     providers: list[AltDataProvider] = []
     if alt_data_provider is not None:
         providers.append(alt_data_provider)
 
     svc = AltDataService(
-        repo=repo,
+        feed_repo=feed_repo,
+        point_repo=point_repo,
         providers=providers,
         session_factory=sf,
         event_bus=event_bus,

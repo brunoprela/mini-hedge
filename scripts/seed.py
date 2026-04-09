@@ -17,9 +17,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import structlog
 
-from app.modules.platform.api_key_repository import APIKeyRepository
-from app.modules.platform.fund_repository import FundRepository
-from app.modules.platform.operator_repository import OperatorRepository
+from app.modules.platform.repositories import (
+    APIKeyRepository,
+    FundRepository,
+    OperatorRepository,
+    UserRepository,
+)
 from app.modules.platform.seed import (
     DEV_API_KEY,
     build_seed_api_keys,
@@ -27,8 +30,7 @@ from app.modules.platform.seed import (
     build_seed_operators,
     build_seed_users,
 )
-from app.modules.platform.user_repository import UserRepository
-from app.modules.security_master.repository import InstrumentRepository
+from app.modules.security_master.repositories import InstrumentRepository
 from app.modules.security_master.seed import build_seed_records
 from app.shared.database import TenantSessionFactory, build_engine
 

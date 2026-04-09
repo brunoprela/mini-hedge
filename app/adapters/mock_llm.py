@@ -6,7 +6,7 @@ import json
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from app.shared.adapters import LLMResponse
+    from app.shared.adapters.llm import LLMResponse
 
 # ---------------------------------------------------------------------------
 # Mock responses keyed by analysis type substring
@@ -219,7 +219,7 @@ class MockLLMAdapter:
         self, prompt: str, *, max_tokens: int = 2048, temperature: float = 0.7
     ) -> LLMResponse:
         """Generate deterministic response based on analysis type detection in prompt."""
-        from app.shared.adapters import LLMResponse
+        from app.shared.adapters.llm import LLMResponse
 
         response_data = _detect_type(prompt)
         return LLMResponse(

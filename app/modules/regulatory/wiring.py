@@ -24,16 +24,24 @@ async def setup(
     **ctx,
 ) -> None:
     """Wire regulatory reporting module."""
-    from app.modules.regulatory.repository import RegulatoryRepository
-    from app.modules.regulatory.service import RegulatoryService
+    from app.modules.regulatory.repositories import (
+        InvestorStatementRepository,
+        PerformanceLetterRepository,
+        RegulatoryFilingRepository,
+    )
+    from app.modules.regulatory.services import RegulatoryService
 
-    repo = RegulatoryRepository(sf)
+    filing_repo = RegulatoryFilingRepository(sf)
+    statement_repo = InvestorStatementRepository(sf)
+    letter_repo = PerformanceLetterRepository(sf)
 
     svc = RegulatoryService(
-        repo=repo,
+        filing_repo=filing_repo,
+        statement_repo=statement_repo,
+        letter_repo=letter_repo,
         position_service=getattr(app.state, "position_service", None),
         capital_service=getattr(app.state, "capital_service", None),
-        risk_service=getattr(app.state, "risk_service", None),
+        risk_service=getattr(app.state, "counterparty_risk_service", None),
         exposure_service=getattr(app.state, "exposure_service", None),
         security_master_service=getattr(app.state, "sm_service", None),
     )

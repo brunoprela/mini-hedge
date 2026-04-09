@@ -303,7 +303,7 @@ app/modules/eod/orchestrator.py:0: error: "PriceFinalizationResult" has no attri
 app/modules/eod/orchestrator.py:0: error: "PriceFinalizationResult" has no attribute "matched_positions"  [attr-defined]
 app/modules/eod/orchestrator.py:0: error: "PriceFinalizationResult" has no attribute "breaks"  [attr-defined]
 app/modules/eod/orchestrator.py:0: error: "PriceFinalizationResult" has no attribute "is_clean"  [attr-defined]
-app/modules/eod/orchestrator.py:0: error: Argument 1 to "take_snapshot" of "RiskService" has incompatible type "str"; expected "UUID"  [arg-type]
+app/modules/eod/orchestrator.py:0: error: Argument 1 to "take_snapshot" of "RiskSnapshotService" has incompatible type "str"; expected "UUID"  [arg-type]
 app/modules/compliance/service.py:0: error: Argument "event_type" to "insert_admin_event" of "AuditLogRepository" has incompatible type "str"; expected "AuditEventType"  [arg-type]
 app/modules/platform/routes.py:0: error: Argument "fund_slug" to "issue_agent_token" of "AuthService" has incompatible type "str | None"; expected "str"  [arg-type]
 app/modules/platform/routes.py:0: error: Argument "fund_slug" to "AgentTokenResponse" has incompatible type "str | None"; expected "str"  [arg-type]

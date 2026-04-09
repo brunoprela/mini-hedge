@@ -3,9 +3,9 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.modules.security_master.repository import InstrumentRepository
+from app.modules.security_master.repositories import InstrumentRepository
 from app.modules.security_master.seed import build_seed_records
-from app.modules.security_master.service import SecurityMasterService
+from app.modules.security_master.services import SecurityMasterService
 from app.shared.errors import NotFoundError
 
 

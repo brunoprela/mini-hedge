@@ -2,7 +2,7 @@
 
 from fastapi import HTTPException, Request
 
-from app.modules.corporate_actions.service import CorporateActionsService
+from app.modules.corporate_actions.services import CorporateActionsService
 
 
 def get_corporate_actions_service(request: Request) -> CorporateActionsService:

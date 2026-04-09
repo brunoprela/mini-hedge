@@ -2,7 +2,7 @@
 
 from fastapi import HTTPException, Request
 
-from app.modules.security_master.service import SecurityMasterService
+from app.modules.security_master.services import SecurityMasterService
 
 
 def get_security_master_service(request: Request) -> SecurityMasterService:

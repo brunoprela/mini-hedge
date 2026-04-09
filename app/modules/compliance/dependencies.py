@@ -2,7 +2,7 @@
 
 from fastapi import HTTPException, Request
 
-from app.modules.compliance.service import ComplianceService
+from app.modules.compliance.services import ComplianceService
 
 
 def get_compliance_service(

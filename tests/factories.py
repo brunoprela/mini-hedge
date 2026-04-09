@@ -4,21 +4,21 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from app.modules.market_data.interface import PriceSnapshot
-from app.modules.orders.interface import CreateOrderRequest, OrderSide, OrderType
+from app.modules.market_data.interfaces import PriceSnapshot
+from app.modules.orders.interfaces import CreateOrderRequest, OrderSide, OrderType
 from app.modules.platform.seed import (
     PORTFOLIO_ALPHA_EQUITY_LS_ID,
     PORTFOLIO_BETA_STAT_ARB_ID,
     PORTFOLIO_GAMMA_EVENT_DRIVEN_ID,
 )
-from app.modules.positions.interface import (
+from app.modules.positions.interfaces import (
     PositionEventType,
     TradeEvent,
     TradeEventData,
     TradeRequest,
     TradeSide,
 )
-from app.modules.security_master.interface import Instrument
+from app.modules.security_master.interfaces import Instrument
 from app.shared.events import BaseEvent
 from app.shared.types import AssetClass
 

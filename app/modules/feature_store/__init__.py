@@ -1,6 +1,6 @@
 """Feature store bounded context — ML feature computation and serving."""
 
-from app.modules.feature_store.interface import (
+from app.modules.feature_store.interfaces import (
     ComputeMethod,
     FeatureDefinition,
     FeatureSet,
@@ -8,7 +8,7 @@ from app.modules.feature_store.interface import (
     FeatureType,
     FeatureValue,
 )
-from app.modules.feature_store.service import FeatureStoreService
+from app.modules.feature_store.services import FeatureStoreService
 
 __all__ = [
     "ComputeMethod",

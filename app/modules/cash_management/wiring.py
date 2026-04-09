@@ -9,18 +9,16 @@ import structlog
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-    from app.modules.platform.fund_repository import FundRepository
+    from app.modules.platform.repositories import FundRepository
     from app.shared.database import TenantSessionFactory
     from app.shared.events import EventBus
 
-from app.modules.cash_management.repository import (
-    CashBalanceRepository,
-    CashJournalRepository,
-    CashProjectionRepository,
-    ScheduledFlowRepository,
-    SettlementRepository,
-)
-from app.modules.cash_management.service import CashManagementService
+from app.modules.cash_management.repositories.cash_balance import CashBalanceRepository
+from app.modules.cash_management.repositories.cash_journal import CashJournalRepository
+from app.modules.cash_management.repositories.cash_projection import CashProjectionRepository
+from app.modules.cash_management.repositories.scheduled_flow import ScheduledFlowRepository
+from app.modules.cash_management.repositories.settlement import SettlementRepository
+from app.modules.cash_management.services import CashManagementService
 from app.shared.schema_registry import fund_topic
 
 logger = structlog.get_logger()

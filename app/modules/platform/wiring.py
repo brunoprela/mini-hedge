@@ -16,13 +16,14 @@ if TYPE_CHECKING:
     from app.shared.events import EventBus
     from app.shared.fga import FGAClient
 
-from app.modules.platform.admin_service import AdminService
-from app.modules.platform.api_key_repository import APIKeyRepository
-from app.modules.platform.audit_repository import AuditLogRepository
-from app.modules.platform.auth_service import AuthService
-from app.modules.platform.fund_repository import FundRepository
-from app.modules.platform.operator_repository import OperatorRepository
-from app.modules.platform.portfolio_repository import PortfolioRepository
+from app.modules.platform.repositories import (
+    APIKeyRepository,
+    AuditLogRepository,
+    FundRepository,
+    OperatorRepository,
+    PortfolioRepository,
+    UserRepository,
+)
 from app.modules.platform.seed import (
     DEV_API_KEY,
     build_seed_api_keys,
@@ -30,7 +31,7 @@ from app.modules.platform.seed import (
     build_seed_operators,
     build_seed_users,
 )
-from app.modules.platform.user_repository import UserRepository
+from app.modules.platform.services import AdminService, AuthService
 
 logger = structlog.get_logger()
 

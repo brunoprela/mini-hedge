@@ -2,8 +2,8 @@
 
 from fastapi import HTTPException, Request
 
-from app.modules.fee_accounting.repository import FeeScheduleRepository
-from app.modules.fee_accounting.service import FeeAccountingService
+from app.modules.fee_accounting.repositories.fee_schedule import FeeScheduleRepository
+from app.modules.fee_accounting.services import FeeAccountingService
 
 
 def get_fee_accounting_service(request: Request) -> FeeAccountingService:

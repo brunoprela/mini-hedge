@@ -1,6 +1,6 @@
 """Security master bounded context — canonical instrument reference data."""
 
-from app.modules.security_master.interface import (
+from app.modules.security_master.interfaces import (
     AssetClass,
     Instrument,
     SecurityMasterReader,

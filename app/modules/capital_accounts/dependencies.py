@@ -2,7 +2,7 @@
 
 from fastapi import HTTPException, Request
 
-from app.modules.capital_accounts.service import CapitalAccountService
+from app.modules.capital_accounts.services import CapitalAccountService, CapitalTransactionService
 
 
 def get_capital_account_service(request: Request) -> CapitalAccountService:
@@ -13,5 +13,17 @@ def get_capital_account_service(request: Request) -> CapitalAccountService:
         raise HTTPException(
             status_code=503,
             detail="CapitalAccountService not initialized",
+        )
+    return service
+
+
+def get_capital_transaction_service(request: Request) -> CapitalTransactionService:
+    service: CapitalTransactionService | None = getattr(
+        request.app.state, "capital_transaction_service", None
+    )
+    if service is None:
+        raise HTTPException(
+            status_code=503,
+            detail="CapitalTransactionService not initialized",
         )
     return service

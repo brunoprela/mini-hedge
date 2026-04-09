@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 
 import structlog
 
-from app.modules.ai_analysis.repository import AnalysisRepository
-from app.modules.ai_analysis.service import AIAnalysisService
+from app.modules.ai_analysis.repositories import AnalysisResultRepository, ResearchNoteRepository
+from app.modules.ai_analysis.services import AIAnalysisService
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -29,10 +29,12 @@ async def setup(
     """Wire AI analysis module."""
     llm_adapter = ctx["llm_adapter"]
 
-    repo = AnalysisRepository(sf)
+    result_repo = AnalysisResultRepository(sf)
+    note_repo = ResearchNoteRepository(sf)
 
     svc = AIAnalysisService(
-        repo=repo,
+        result_repo=result_repo,
+        note_repo=note_repo,
         llm_adapter=llm_adapter,
         session_factory=sf,
         event_bus=event_bus,

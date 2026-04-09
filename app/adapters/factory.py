@@ -13,16 +13,14 @@ if TYPE_CHECKING:
 
     from app.config import Settings
     from app.modules.orders.routing.broker_registry import BrokerRegistry
-    from app.shared.adapters import (
-        AltDataProvider,
-        BrokerAdapter,
-        CorporateActionsAdapter,
-        FundAdminAdapter,
-        KYCScreeningAdapter,
-        LLMAdapter,
-        MarketDataAdapter,
-        ReferenceDataAdapter,
-    )
+    from app.shared.adapters.alt_data import AltDataProvider
+    from app.shared.adapters.broker import BrokerAdapter
+    from app.shared.adapters.corporate_actions import CorporateActionsAdapter
+    from app.shared.adapters.fund_admin import FundAdminAdapter
+    from app.shared.adapters.kyc import KYCScreeningAdapter
+    from app.shared.adapters.llm import LLMAdapter
+    from app.shared.adapters.market_data import MarketDataAdapter
+    from app.shared.adapters.reference_data import ReferenceDataAdapter
     from app.shared.events import EventBus
 
 

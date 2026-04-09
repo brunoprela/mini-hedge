@@ -1,0 +1,77 @@
+"""Compliance violation repository."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+from uuid import UUID
+
+from sqlalchemy import select, update
+
+from app.modules.compliance.models.compliance_violation import ComplianceViolationRecord
+from app.shared.repository import BaseRepository
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+
+class ViolationRepository(BaseRepository):
+    """CRUD for compliance violations."""
+
+    async def get_active_by_portfolio(
+        self, portfolio_id: UUID, *, session: AsyncSession | None = None
+    ) -> list[ComplianceViolationRecord]:
+        async with self._session(session) as session:
+            stmt = (
+                select(ComplianceViolationRecord)
+                .where(
+                    ComplianceViolationRecord.portfolio_id == str(portfolio_id),
+                    ComplianceViolationRecord.resolved_at.is_(None),
+                )
+                .order_by(ComplianceViolationRecord.detected_at.desc())
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
+
+    async def get_by_id(
+        self, violation_id: UUID, *, session: AsyncSession | None = None
+    ) -> ComplianceViolationRecord | None:
+        async with self._session(session) as session:
+            stmt = select(ComplianceViolationRecord).where(
+                ComplianceViolationRecord.id == str(violation_id)
+            )
+            result = await session.execute(stmt)
+            return result.scalar_one_or_none()
+
+    async def insert(
+        self, record: ComplianceViolationRecord, *, session: AsyncSession | None = None
+    ) -> ComplianceViolationRecord:
+        async with self._session(session) as session:
+            session.add(record)
+            await session.flush()
+            await session.commit()
+            await session.refresh(record)
+            return record
+
+    async def resolve(
+        self,
+        violation_id: UUID,
+        resolved_by: str,
+        resolution_type: str = "manual",
+        *,
+        session: AsyncSession | None = None,
+    ) -> ComplianceViolationRecord | None:
+        now = datetime.now(UTC)
+        async with self._session(session) as session:
+            stmt = (
+                update(ComplianceViolationRecord)
+                .where(ComplianceViolationRecord.id == str(violation_id))
+                .values(
+                    resolved_at=now,
+                    resolved_by=resolved_by,
+                    resolution_type=resolution_type,
+                )
+            )
+            await session.execute(stmt)
+            await session.commit()
+        return await self.get_by_id(violation_id)

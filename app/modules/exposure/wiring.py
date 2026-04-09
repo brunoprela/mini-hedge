@@ -10,13 +10,13 @@ import structlog
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-    from app.modules.market_data.service import MarketDataService
-    from app.modules.platform.fund_repository import FundRepository
+    from app.modules.market_data.services import MarketDataService
+    from app.modules.platform.repositories import FundRepository
     from app.shared.database import TenantSessionFactory
     from app.shared.events import BaseEvent, EventBus, EventHandler
 
-from app.modules.exposure.repository import ExposureRepository
-from app.modules.exposure.service import ExposureService
+from app.modules.exposure.repositories import ExposureRepository
+from app.modules.exposure.services import ExposureService
 from app.shared.schema_registry import fund_topic
 
 logger = structlog.get_logger()

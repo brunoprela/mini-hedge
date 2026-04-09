@@ -2,7 +2,7 @@
 
 from fastapi import HTTPException, Request
 
-from app.modules.positions.service import PositionService
+from app.modules.positions.services import PositionService
 
 
 def get_position_service(request: Request) -> PositionService:

@@ -1,6 +1,6 @@
 """Investor operations bounded context — subscription/redemption workflows, KYC, gating."""
 
-from app.modules.investor_operations.interface import (
+from app.modules.investor_operations.interfaces import (
     FundTermsSummary,
     GateCheckResult,
     KYCStatus,
@@ -9,15 +9,21 @@ from app.modules.investor_operations.interface import (
     SubscriptionRequestSummary,
     SubscriptionState,
 )
-from app.modules.investor_operations.service import InvestorOperationsService
+from app.modules.investor_operations.services import (
+    InvestorKYCService,
+    RedemptionService,
+    SubscriptionService,
+)
 
 __all__ = [
     "FundTermsSummary",
     "GateCheckResult",
-    "InvestorOperationsService",
+    "InvestorKYCService",
     "KYCStatus",
     "RedemptionRequestSummary",
+    "RedemptionService",
     "RedemptionState",
     "SubscriptionRequestSummary",
+    "SubscriptionService",
     "SubscriptionState",
 ]

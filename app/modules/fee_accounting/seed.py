@@ -10,8 +10,8 @@ import structlog
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-    from app.modules.fee_accounting.repository import FeeScheduleRepository
-    from app.modules.platform.fund_repository import FundRepository
+    from app.modules.fee_accounting.repositories.fee_schedule import FeeScheduleRepository
+    from app.modules.platform.repositories import FundRepository
     from app.shared.database import TenantSessionFactory
 
 logger = structlog.get_logger()
@@ -19,7 +19,7 @@ logger = structlog.get_logger()
 
 async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
     """Idempotent dev-only seeding for fee accounting."""
-    from app.modules.fee_accounting.models import FeeScheduleRecord
+    from app.modules.fee_accounting.models.fee_schedule import FeeScheduleRecord
 
     schedule_repo: FeeScheduleRepository = app.state.fee_schedule_repo
     fund_repo: FundRepository = app.state.fund_repo

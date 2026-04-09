@@ -2,7 +2,7 @@
 
 from fastapi import HTTPException, Request
 
-from app.modules.exposure.service import ExposureService
+from app.modules.exposure.services import ExposureService
 
 
 def get_exposure_service(request: Request) -> ExposureService:

@@ -7,11 +7,12 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from app.modules.security_master.models import EquityExtensionRecord, InstrumentRecord
+from app.modules.security_master.models.equity_extension import EquityExtensionRecord
+from app.modules.security_master.models.instrument import InstrumentRecord
 from app.shared.types import AssetClass
 
 if TYPE_CHECKING:
-    from app.shared.adapters import ExternalInstrument
+    from app.shared.adapters.reference_data import ExternalInstrument
 
 # Each entry contains instrument fields + an optional "shares_outstanding"
 # that seeds the equity_extensions table.

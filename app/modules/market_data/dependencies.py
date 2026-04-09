@@ -2,7 +2,7 @@
 
 from fastapi import HTTPException, Request
 
-from app.modules.market_data.service import MarketDataService
+from app.modules.market_data.services import MarketDataService
 
 
 def get_market_data_service(request: Request) -> MarketDataService:

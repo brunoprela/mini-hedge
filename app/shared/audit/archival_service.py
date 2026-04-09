@@ -21,8 +21,7 @@ from sqlalchemy.dialects.postgresql import insert
 from app.shared.models import ArchivalRecord
 
 if TYPE_CHECKING:
-    from app.modules.platform.audit_repository import AuditLogRepository
-    from app.modules.platform.fund_repository import FundRepository
+    from app.modules.platform.repositories import AuditLogRepository, FundRepository
     from app.shared.audit.archival import ArchivalResult, MinioArchiver
     from app.shared.database import TenantSessionFactory
 

@@ -25,12 +25,10 @@ async def setup(
     **ctx,
 ) -> None:
     """Wire fee accounting module: repos, service."""
-    from app.modules.fee_accounting.repository import (
-        FeeAccrualRepository,
-        FeeScheduleRepository,
-        HighWaterMarkRepository,
-    )
-    from app.modules.fee_accounting.service import FeeAccountingService
+    from app.modules.fee_accounting.repositories.fee_accrual import FeeAccrualRepository
+    from app.modules.fee_accounting.repositories.fee_schedule import FeeScheduleRepository
+    from app.modules.fee_accounting.repositories.high_water_mark import HighWaterMarkRepository
+    from app.modules.fee_accounting.services import FeeAccountingService
 
     schedule_repo = FeeScheduleRepository(sf)
     accrual_repo = FeeAccrualRepository(sf)

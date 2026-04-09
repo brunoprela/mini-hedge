@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from app.shared.adapters import AltDataRecord, SentimentRecord
+    from app.shared.adapters.alt_data import AltDataRecord, SentimentRecord
 
 
 class FileAltDataProvider:
@@ -101,7 +101,7 @@ class FileAltDataProvider:
         raise ValueError(msg)
 
     def _read_data(self, instrument_id: str, start: date, end: date) -> list[AltDataRecord]:
-        from app.shared.adapters import AltDataRecord
+        from app.shared.adapters.alt_data import AltDataRecord
 
         records: list[AltDataRecord] = []
 
@@ -135,7 +135,7 @@ class FileAltDataProvider:
         return records
 
     def _read_sentiment(self, instrument_id: str, as_of: date) -> SentimentRecord | None:
-        from app.shared.adapters import SentimentRecord
+        from app.shared.adapters.alt_data import SentimentRecord
 
         file = self._find_file("sentiment", instrument_id)
         if file is None:

@@ -2,11 +2,9 @@
 
 from fastapi import HTTPException, Request
 
-from app.modules.platform.admin_service import AdminService
-from app.modules.platform.audit_repository import AuditLogRepository
-from app.modules.platform.audit_verifier import AuditIntegrityVerifier
-from app.modules.platform.auth_service import AuthService
-from app.modules.platform.portfolio_repository import PortfolioRepository
+from app.modules.platform.core.audit_verifier import AuditIntegrityVerifier
+from app.modules.platform.repositories import AuditLogRepository, PortfolioRepository
+from app.modules.platform.services import AdminService, AuthService
 from app.shared.audit.archival_service import ArchivalService
 
 

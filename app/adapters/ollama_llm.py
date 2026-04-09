@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from app.shared.adapters import LLMResponse
+    from app.shared.adapters.llm import LLMResponse
 
 
 class OllamaLLMAdapter:
@@ -48,7 +48,7 @@ class OllamaLLMAdapter:
             data = resp.json()
 
         # Ollama returns: model, response, eval_count, prompt_eval_count
-        from app.shared.adapters import LLMResponse
+        from app.shared.adapters.llm import LLMResponse
 
         return LLMResponse(
             text=data.get("response", ""),

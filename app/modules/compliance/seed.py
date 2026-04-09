@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.compliance.models import ComplianceRuleRecord
+from app.modules.compliance.models.compliance_rule import ComplianceRuleRecord
 
 
 def build_seed_compliance_rules(

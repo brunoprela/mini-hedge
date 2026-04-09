@@ -13,9 +13,9 @@ if TYPE_CHECKING:
     from app.shared.database import TenantSessionFactory
     from app.shared.events import BaseEvent, EventBus, EventHandler
 
-from app.modules.market_data.interface import FXRateSnapshot, PriceSnapshot
-from app.modules.market_data.repository import FXRateRepository, PriceRepository
-from app.modules.market_data.service import MarketDataService
+from app.modules.market_data.interfaces import FXRateSnapshot, PriceSnapshot
+from app.modules.market_data.repositories import FXRateRepository, PriceRepository
+from app.modules.market_data.services import MarketDataService
 from app.shared.schema_registry import shared_topic
 
 logger = structlog.get_logger()

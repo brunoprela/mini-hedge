@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from app.shared.adapters import LLMResponse
+    from app.shared.adapters.llm import LLMResponse
 
 
 class AnthropicLLMAdapter:
@@ -56,7 +56,7 @@ class AnthropicLLMAdapter:
         usage = data.get("usage", {})
         tokens = usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
 
-        from app.shared.adapters import LLMResponse
+        from app.shared.adapters.llm import LLMResponse
 
         return LLMResponse(
             text=text,

@@ -16,8 +16,8 @@ from app.modules.platform.seed import (
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-    from app.modules.capital_accounts.service import CapitalAccountService
-    from app.modules.platform.fund_repository import FundRepository
+    from app.modules.capital_accounts.services import CapitalTransactionService
+    from app.modules.platform.repositories import FundRepository
     from app.shared.database import TenantSessionFactory
 
 logger = structlog.get_logger()
@@ -25,13 +25,13 @@ logger = structlog.get_logger()
 
 async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
     """Idempotent dev-only seeding for capital accounts."""
-    from app.modules.capital_accounts.repository import (
-        CapitalAccountRepository,
-        InvestorRepository,
+    from app.modules.capital_accounts.repositories.account import CapitalAccountRepository
+    from app.modules.capital_accounts.repositories.investor import (
+        InvestorRepository,  # noqa: TC001
     )
 
     investor_repo: InvestorRepository = app.state.investor_repo
-    capital_service: CapitalAccountService = app.state.capital_account_service
+    capital_transaction_service: CapitalTransactionService = app.state.capital_transaction_service
     account_repo = CapitalAccountRepository(sf)
 
     # Seed investors (platform-scoped)
@@ -51,7 +51,7 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
             )
             if not existing_accounts:
                 for inv_id, amount, nav in SEED_SUBSCRIPTIONS:
-                    await capital_service.process_subscription(
+                    await capital_transaction_service.process_subscription(
                         investor_id=inv_id,
                         amount=Decimal(amount),
                         nav_per_share=Decimal(nav),

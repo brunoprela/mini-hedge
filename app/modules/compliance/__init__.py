@@ -1,6 +1,6 @@
 """Compliance bounded context — pre/post-trade rules, violations, and monitoring."""
 
-from app.modules.compliance.interface import (
+from app.modules.compliance.interfaces import (
     ComplianceChecker,
     ComplianceDecision,
     RuleDefinition,
@@ -9,7 +9,7 @@ from app.modules.compliance.interface import (
     TradeCheckRequest,
     Violation,
 )
-from app.modules.compliance.service import ComplianceService
+from app.modules.compliance.services import ComplianceService
 
 __all__ = [
     "ComplianceChecker",

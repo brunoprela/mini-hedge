@@ -1,6 +1,6 @@
 """Fund structures bounded context — master-feeder, strategy books, fund of funds."""
 
-from app.modules.fund_structures.interface import (
+from app.modules.fund_structures.interfaces import (
     AllocationMethod,
     BookLevel,
     FundOfFundsHolding,
@@ -8,7 +8,7 @@ from app.modules.fund_structures.interface import (
     MasterFeederLink,
     StrategyBook,
 )
-from app.modules.fund_structures.service import FundStructuresService
+from app.modules.fund_structures.services import FundStructuresService
 
 __all__ = [
     "AllocationMethod",

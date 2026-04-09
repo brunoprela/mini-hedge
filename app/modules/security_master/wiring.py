@@ -10,12 +10,12 @@ import structlog
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-    from app.shared.adapters import ReferenceDataAdapter
+    from app.shared.adapters.reference_data import ReferenceDataAdapter
     from app.shared.database import TenantSessionFactory
 
-from app.modules.security_master.repository import InstrumentRepository
+from app.modules.security_master.repositories import InstrumentRepository
 from app.modules.security_master.seed import build_seed_records, convert_external_instruments
-from app.modules.security_master.service import SecurityMasterService
+from app.modules.security_master.services import SecurityMasterService
 
 logger = structlog.get_logger()
 

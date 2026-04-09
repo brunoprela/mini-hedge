@@ -21,12 +21,10 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
 
     from app.config import Settings
-    from app.shared.adapters import (
-        AltDataProvider,
-        BrokerAdapter,
-        FundAdminAdapter,
-        ReferenceDataAdapter,
-    )
+    from app.shared.adapters.alt_data import AltDataProvider
+    from app.shared.adapters.broker import BrokerAdapter
+    from app.shared.adapters.fund_admin import FundAdminAdapter
+    from app.shared.adapters.reference_data import ReferenceDataAdapter
     from app.shared.database import TenantSessionFactory
     from app.shared.events import EventBus
 
@@ -84,13 +82,15 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
     if not _is_local_env():
         return
 
-    from app.modules.platform.api_key_repository import APIKeyRepository
-    from app.modules.platform.fund_repository import FundRepository
-    from app.modules.platform.operator_repository import OperatorRepository
-    from app.modules.platform.portfolio_repository import PortfolioRepository
-    from app.modules.platform.user_repository import UserRepository
+    from app.modules.platform.repositories import (
+        APIKeyRepository,
+        FundRepository,
+        OperatorRepository,
+        PortfolioRepository,
+        UserRepository,
+    )
     from app.modules.platform.wiring import _seed_platform
-    from app.modules.security_master.repository import InstrumentRepository
+    from app.modules.security_master.repositories import InstrumentRepository
     from app.modules.security_master.wiring import _seed_instruments
 
     fund_repo = FundRepository(sf)

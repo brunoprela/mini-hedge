@@ -20,7 +20,7 @@ import structlog
 from aiokafka import AIOKafkaConsumer  # type: ignore[import-untyped]
 
 if TYPE_CHECKING:
-    from app.modules.platform.audit_repository import AuditLogRepository
+    from app.modules.platform.repositories import AuditLogRepository
 
 logger = structlog.get_logger()
 

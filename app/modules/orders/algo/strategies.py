@@ -11,7 +11,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
-    from app.modules.orders.interface import AlgoParams
+    from app.modules.orders.interfaces import AlgoParams
 
 ZERO = Decimal(0)
 ONE = Decimal(1)

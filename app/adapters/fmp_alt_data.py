@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 import structlog
 
 if TYPE_CHECKING:
-    from app.shared.adapters import AltDataRecord, SentimentRecord
+    from app.shared.adapters.alt_data import AltDataRecord, SentimentRecord
 
 logger = structlog.get_logger()
 
@@ -44,7 +44,7 @@ class FMPAltDataProvider:
         """Fetch analyst estimates for an instrument within the date range."""
         import httpx
 
-        from app.shared.adapters import AltDataRecord
+        from app.shared.adapters.alt_data import AltDataRecord
 
         records: list[AltDataRecord] = []
 
@@ -99,7 +99,7 @@ class FMPAltDataProvider:
         """Fetch social sentiment from FMP for the given instrument."""
         import httpx
 
-        from app.shared.adapters import SentimentRecord
+        from app.shared.adapters.alt_data import SentimentRecord
 
         url = f"{self._base_url}/historical/social-sentiment"
         params: dict[str, str | int] = {

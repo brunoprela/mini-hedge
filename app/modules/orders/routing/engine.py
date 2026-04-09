@@ -15,13 +15,13 @@ from uuid import uuid4
 
 import structlog
 
-from app.modules.orders.models import RoutingDecisionRecord
+from app.modules.orders.models.routing_decision import RoutingDecisionRecord
 
 if TYPE_CHECKING:
-    from app.modules.orders.interface import BrokerScorecard
+    from app.modules.orders.interfaces import BrokerScorecard
     from app.modules.orders.routing.broker_registry import BrokerRegistry
-    from app.modules.orders.routing.repository import RoutingRepository
-    from app.modules.orders.scorecard.service import ScorecardService
+    from app.modules.orders.routing.repositories import RoutingRepository
+    from app.modules.orders.scorecard.services import ScorecardService
 
 logger = structlog.get_logger()
 

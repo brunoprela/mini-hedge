@@ -10,15 +10,12 @@ Platform operators are seeded with their own identity records + FGA tuples.
 
 from openfga_sdk.client.models import ClientTuple
 
-from app.modules.platform.models import (
-    APIKeyRecord,
-    FundRecord,
-    FundStatus,
-    InvestorRecord,
-    OperatorRecord,
-    PortfolioRecord,
-    UserRecord,
-)
+from app.modules.platform.models.api_key import APIKeyRecord
+from app.modules.platform.models.fund import FundRecord, FundStatus
+from app.modules.platform.models.investor import InvestorRecord
+from app.modules.platform.models.operator import OperatorRecord
+from app.modules.platform.models.portfolio import PortfolioRecord
+from app.modules.platform.models.user import UserRecord
 from app.shared.auth import Role, hash_api_key
 from app.shared.auth.request_context import ActorType
 

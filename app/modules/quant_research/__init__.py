@@ -1,13 +1,13 @@
 """Quant research bounded context — factor analysis and regime detection."""
 
-from app.modules.quant_research.interface import (
+from app.modules.quant_research.interfaces import (
     FactorAnalysisResult,
     FactorType,
     MarketRegime,
     RegimeAnalysis,
     RegimeType,
 )
-from app.modules.quant_research.service import QuantResearchService
+from app.modules.quant_research.services import QuantResearchService
 
 __all__ = [
     "FactorAnalysisResult",

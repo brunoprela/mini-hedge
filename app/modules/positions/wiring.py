@@ -9,19 +9,19 @@ import structlog
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-    from app.modules.platform.admin_service import AdminService
-    from app.modules.platform.fund_repository import FundRepository
-    from app.modules.security_master.service import SecurityMasterService
+    from app.modules.platform.repositories import FundRepository
+    from app.modules.platform.services import AdminService
+    from app.modules.security_master.services import SecurityMasterService
     from app.shared.database import TenantSessionFactory
     from app.shared.events import EventBus
     from app.shared.types import AssetClass
 
-from app.modules.positions.event_store import EventStoreRepository
-from app.modules.positions.mtm_handler import MarkToMarketHandler
-from app.modules.positions.position_projector import PositionProjector
-from app.modules.positions.position_repository import CurrentPositionRepository
-from app.modules.positions.service import PositionService
-from app.modules.positions.trade_handler import TradeHandler
+from app.modules.positions.core.event_store import EventStoreRepository
+from app.modules.positions.core.mtm_handler import MarkToMarketHandler
+from app.modules.positions.core.position_projector import PositionProjector
+from app.modules.positions.core.trade_handler import TradeHandler
+from app.modules.positions.repositories import CurrentPositionRepository, LotRepository
+from app.modules.positions.services import PositionService
 from app.shared.schema_registry import fund_topic, shared_topic
 
 logger = structlog.get_logger()
@@ -40,6 +40,7 @@ async def setup(
     """Wire positions module: repos, projector, handlers, service, MTM + trade subscriptions."""
     event_store_repo = EventStoreRepository(sf)
     position_repo = CurrentPositionRepository(sf)
+    lot_repo = LotRepository(sf)
     projector = PositionProjector(position_repo)
     trade_handler = TradeHandler(
         session_factory=sf,
@@ -50,6 +51,7 @@ async def setup(
     app.state.trade_handler = trade_handler
     app.state.position_service = PositionService(
         position_repo=position_repo,
+        lot_repo=lot_repo,
         trade_handler=trade_handler,
     )
 

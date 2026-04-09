@@ -20,28 +20,27 @@ from alembic.config import Config as AlembicConfig
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from app.modules.cash_management.repository import (
-    CashBalanceRepository,
-    CashJournalRepository,
-    CashProjectionRepository,
-    ScheduledFlowRepository,
-    SettlementRepository,
-)
-from app.modules.cash_management.service import CashManagementService
-from app.modules.compliance.post_trade import PostTradeMonitor
-from app.modules.compliance.pre_trade import PreTradeGate
-from app.modules.compliance.repository import RuleRepository, ViolationRepository
-from app.modules.compliance.service import ComplianceService
-from app.modules.exposure.repository import ExposureRepository
-from app.modules.exposure.service import ExposureService
-from app.modules.market_data.interface import PriceSnapshot
-from app.modules.market_data.repository import PriceRepository
-from app.modules.market_data.service import MarketDataService
-from app.modules.orders.compliance_gateway import ComplianceGateway
-from app.modules.orders.repository import OrderRepository
-from app.modules.orders.service import OrderService
-from app.modules.platform.audit_repository import AuditLogRepository
+from app.modules.cash_management.repositories.cash_balance import CashBalanceRepository
+from app.modules.cash_management.repositories.cash_journal import CashJournalRepository
+from app.modules.cash_management.repositories.cash_projection import CashProjectionRepository
+from app.modules.cash_management.repositories.scheduled_flow import ScheduledFlowRepository
+from app.modules.cash_management.repositories.settlement import SettlementRepository
+from app.modules.cash_management.services import CashManagementService
+from app.modules.compliance.core.post_trade import PostTradeMonitor
+from app.modules.compliance.core.pre_trade import PreTradeGate
+from app.modules.compliance.repositories.rule import RuleRepository
+from app.modules.compliance.repositories.violation import ViolationRepository
+from app.modules.compliance.services import ComplianceService
+from app.modules.exposure.repositories import ExposureRepository
+from app.modules.exposure.services import ExposureService
+from app.modules.market_data.interfaces import PriceSnapshot
+from app.modules.market_data.repositories import PriceRepository
+from app.modules.market_data.services import MarketDataService
+from app.modules.orders.core.compliance_gateway import ComplianceGateway
+from app.modules.orders.repositories import OrderFillRepository, OrderRepository
+from app.modules.orders.services import OrderService
 from app.modules.platform.models import Base as PlatformBase
+from app.modules.platform.repositories import AuditLogRepository
 from app.modules.platform.seed import (
     FUND_ALPHA_ID,
     FUND_BETA_ID,
@@ -55,17 +54,28 @@ from app.modules.platform.seed import (
     build_seed_portfolios,
     build_seed_users,
 )
-from app.modules.positions.event_store import EventStoreRepository
-from app.modules.positions.mtm_handler import MarkToMarketHandler
-from app.modules.positions.position_projector import PositionProjector
-from app.modules.positions.position_repository import CurrentPositionRepository
-from app.modules.positions.service import PositionService
-from app.modules.positions.trade_handler import TradeHandler
-from app.modules.risk_engine.repository import RiskRepository
-from app.modules.risk_engine.service import RiskService
-from app.modules.security_master.repository import InstrumentRepository
+from app.modules.positions.core.event_store import EventStoreRepository
+from app.modules.positions.core.mtm_handler import MarkToMarketHandler
+from app.modules.positions.core.position_projector import PositionProjector
+from app.modules.positions.core.trade_handler import TradeHandler
+from app.modules.positions.repositories import CurrentPositionRepository
+from app.modules.positions.services import PositionService
+from app.modules.risk_engine.repositories import (
+    CounterpartyExposureRepository,
+    CounterpartyRepository,
+    FactorExposureRepository,
+    LiquidityRepository,
+    MarginRepository,
+    RiskSnapshotRepository,
+    StressPositionImpactRepository,
+    StressTestResultRepository,
+    VaRContributionRepository,
+    VaRResultRepository,
+)
+from app.modules.risk_engine.services import RiskSnapshotService
+from app.modules.security_master.repositories import InstrumentRepository
 from app.modules.security_master.seed import build_seed_records
-from app.modules.security_master.service import SecurityMasterService
+from app.modules.security_master.services import SecurityMasterService
 from app.shared.auth.request_context import ActorType, RequestContext, set_request_context
 from app.shared.database import TenantSessionFactory
 from app.shared.events import BaseEvent, EventHandler, InProcessEventBus
@@ -304,7 +314,7 @@ class WiredSystem:
     market_data_service: MarketDataService
     security_master: SecurityMasterService
     exposure_service: ExposureService
-    risk_service: RiskService
+    risk_service: RiskSnapshotService
     compliance_service: ComplianceService
     post_trade_monitor: PostTradeMonitor
     cash_service: CashManagementService
@@ -325,8 +335,18 @@ async def wired_system(session_factory: TenantSessionFactory) -> WiredSystem:
     event_store_repo = EventStoreRepository(session_factory)
     position_repo = CurrentPositionRepository(session_factory)
     order_repo = OrderRepository(session_factory)
+    order_fill_repo = OrderFillRepository(session_factory)
     exposure_repo = ExposureRepository(session_factory)
-    risk_repo = RiskRepository(session_factory)
+    snapshot_repo = RiskSnapshotRepository(session_factory)
+    var_result_repo = VaRResultRepository(session_factory)
+    var_contribution_repo = VaRContributionRepository(session_factory)
+    stress_result_repo = StressTestResultRepository(session_factory)
+    stress_impact_repo = StressPositionImpactRepository(session_factory)
+    factor_repo = FactorExposureRepository(session_factory)
+    _counterparty_repo = CounterpartyRepository(session_factory)  # noqa: F841
+    _counterparty_exposure_repo = CounterpartyExposureRepository(session_factory)  # noqa: F841
+    _liquidity_repo = LiquidityRepository(session_factory)  # noqa: F841
+    _margin_repo = MarginRepository(session_factory)  # noqa: F841
     rule_repo = RuleRepository(session_factory)
     violation_repo = ViolationRepository(session_factory)
     cash_balance_repo = CashBalanceRepository(session_factory)
@@ -390,8 +410,13 @@ async def wired_system(session_factory: TenantSessionFactory) -> WiredSystem:
         event_bus=bus,
     )
 
-    risk_service = RiskService(
-        risk_repo=risk_repo,
+    risk_service = RiskSnapshotService(
+        snapshot_repo=snapshot_repo,
+        var_result_repo=var_result_repo,
+        var_contribution_repo=var_contribution_repo,
+        stress_result_repo=stress_result_repo,
+        stress_impact_repo=stress_impact_repo,
+        factor_repo=factor_repo,
         position_service=position_service,
         market_data_service=market_data_service,
         security_master_service=security_master,
@@ -415,6 +440,7 @@ async def wired_system(session_factory: TenantSessionFactory) -> WiredSystem:
     order_service = OrderService(
         session_factory=session_factory,
         order_repo=order_repo,
+        order_fill_repo=order_fill_repo,
         compliance_gateway=compliance_gateway,
         broker=broker,
         event_bus=bus,

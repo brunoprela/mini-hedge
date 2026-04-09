@@ -2,7 +2,7 @@
 
 from fastapi import HTTPException, Request
 
-from app.modules.fx_hedging.service import FXHedgingService
+from app.modules.fx_hedging.services import FXHedgingService
 
 
 def get_fx_hedging_service(request: Request) -> FXHedgingService:

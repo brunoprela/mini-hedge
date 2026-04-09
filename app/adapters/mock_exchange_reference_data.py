@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx
 import structlog
 
-from app.shared.adapters import ExternalInstrument
+from app.shared.adapters.reference_data import ExternalInstrument
 from app.shared.circuit_breaker import CircuitBreaker
 
 logger = structlog.get_logger()

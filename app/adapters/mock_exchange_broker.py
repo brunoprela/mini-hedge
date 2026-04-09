@@ -23,7 +23,7 @@ import structlog
 from aiokafka import AIOKafkaConsumer  # type: ignore[import-untyped]
 from aiokafka.errors import KafkaError  # type: ignore[import-untyped]
 
-from app.shared.adapters import OrderAcknowledgement, OrderStatusReport
+from app.shared.adapters.broker import OrderAcknowledgement, OrderStatusReport
 from app.shared.circuit_breaker import CircuitBreaker
 
 logger = structlog.get_logger()

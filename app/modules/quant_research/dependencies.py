@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from fastapi import HTTPException, Request
 
 if TYPE_CHECKING:
-    from app.modules.quant_research.service import QuantResearchService
+    from app.modules.quant_research.services import QuantResearchService
 
 
 def get_quant_research_service(request: Request) -> QuantResearchService:

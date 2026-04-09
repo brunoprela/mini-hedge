@@ -1,12 +1,12 @@
 """Attribution bounded context — Brinson-Fachler and risk-based performance attribution."""
 
-from app.modules.attribution.interface import (
+from app.modules.attribution.interfaces import (
     AttributionMethod,
     AttributionReader,
     BrinsonFachlerResult,
     RiskBasedResult,
 )
-from app.modules.attribution.service import AttributionService
+from app.modules.attribution.services import AttributionService
 
 __all__ = [
     "AttributionMethod",

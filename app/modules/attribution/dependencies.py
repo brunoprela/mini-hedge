@@ -2,7 +2,7 @@
 
 from fastapi import HTTPException, Request
 
-from app.modules.attribution.service import AttributionService
+from app.modules.attribution.services import AttributionService
 
 
 def get_attribution_service(request: Request) -> AttributionService:

@@ -16,32 +16,44 @@ from app.modules.capital_accounts.routes import router as capital_router
 from app.modules.cash_management.routes import router as cash_router
 from app.modules.compliance.routes import router as compliance_router
 from app.modules.corporate_actions.routes import router as corporate_actions_router
-from app.modules.eod.recon_routes import router as recon_router
+from app.modules.eod.routes import break_router as eod_break_router
+from app.modules.eod.routes import recon_router
 from app.modules.eod.routes import router as eod_router
 from app.modules.exposure.routes import router as exposure_router
 from app.modules.feature_store.routes import router as feature_store_router
 from app.modules.fee_accounting.routes import router as fee_router
 from app.modules.fund_structures.routes import router as fund_structures_router
 from app.modules.fx_hedging.routes import router as fx_hedging_router
-from app.modules.investor_operations.routes import router as investor_ops_router
+from app.modules.investor_operations.routes import kyc_router as investor_kyc_router
+from app.modules.investor_operations.routes import redemption_router as investor_redemption_router
+from app.modules.investor_operations.routes import (
+    subscription_router as investor_subscription_router,
+)
 from app.modules.market_data.routes import fx_router
 from app.modules.market_data.routes import router as market_data_router
 from app.modules.orders.allocation.routes import router as allocation_router
-from app.modules.orders.broker_routes import router as broker_router
+from app.modules.orders.routes import broker_router
+from app.modules.orders.routes import execution_router as orders_execution_router
 from app.modules.orders.routes import router as orders_router
 from app.modules.orders.tca.routes import router as tca_router
-from app.modules.platform.admin_routes import router as admin_router
+from app.modules.platform.routes import admin_router
+from app.modules.platform.routes import archival_router as platform_archival_router
+from app.modules.platform.routes import dlq_router as platform_dlq_router
 from app.modules.platform.routes import router as platform_router
 from app.modules.positions.routes import router as positions_router
 from app.modules.quant_research.routes import router as quant_research_router
 from app.modules.realtime.routes import router as realtime_router
 from app.modules.regulatory.routes import router as regulatory_router
-from app.modules.risk_engine.routes import router as risk_router
+from app.modules.risk_engine.routes import counterparty_router as risk_counterparty_router
+from app.modules.risk_engine.routes import liquidity_margin_router as risk_liquidity_margin_router
+from app.modules.risk_engine.routes import snapshot_router as risk_snapshot_router
 from app.modules.security_master.routes import router as security_master_router
 
 ALL_ROUTERS = [
     platform_router,
     admin_router,
+    platform_dlq_router,
+    platform_archival_router,
     security_master_router,
     market_data_router,
     fx_router,
@@ -50,20 +62,26 @@ ALL_ROUTERS = [
     exposure_router,
     compliance_router,
     orders_router,
-    risk_router,
+    risk_snapshot_router,
+    risk_counterparty_router,
+    risk_liquidity_margin_router,
     cash_router,
     attribution_router,
     alpha_router,
     eod_router,
     recon_router,
+    eod_break_router,
     fee_router,
     capital_router,
     corporate_actions_router,
     allocation_router,
     broker_router,
+    orders_execution_router,
     tca_router,
     fx_hedging_router,
-    investor_ops_router,
+    investor_subscription_router,
+    investor_redemption_router,
+    investor_kyc_router,
     regulatory_router,
     fund_structures_router,
     backtesting_router,

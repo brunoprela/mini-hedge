@@ -1,6 +1,6 @@
 """Capital accounts bounded context — investor accounting, subscriptions, and allocations."""
 
-from app.modules.capital_accounts.interface import (
+from app.modules.capital_accounts.interfaces import (
     CapitalAccountSummary,
     CapitalTransaction,
     FundCapitalOverview,
@@ -8,10 +8,11 @@ from app.modules.capital_accounts.interface import (
     InvestorInfo,
     TransactionType,
 )
-from app.modules.capital_accounts.service import CapitalAccountService
+from app.modules.capital_accounts.services import CapitalAccountService, CapitalTransactionService
 
 __all__ = [
     "CapitalAccountService",
+    "CapitalTransactionService",
     "CapitalAccountSummary",
     "CapitalTransaction",
     "FundCapitalOverview",

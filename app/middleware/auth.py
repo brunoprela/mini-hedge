@@ -19,7 +19,7 @@ from app.shared.errors import AuthenticationError, AuthorizationError
 if TYPE_CHECKING:
     from starlette.types import ASGIApp, Receive, Scope, Send
 
-    from app.modules.platform.auth_service import AuthService
+    from app.modules.platform.services import AuthService
     from app.shared.auth.token_revocation import TokenRevocationService
 
 logger = structlog.get_logger()

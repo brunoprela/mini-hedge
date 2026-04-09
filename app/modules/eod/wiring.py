@@ -6,12 +6,12 @@ from typing import TYPE_CHECKING
 
 import structlog
 
-from app.modules.eod.nav_calculator import NAVCalculator
-from app.modules.eod.orchestrator import EODOrchestrator
-from app.modules.eod.pnl_snapshot import PnLSnapshotService
-from app.modules.eod.price_finalization import PriceFinalizationService
-from app.modules.eod.reconciler import PositionReconciler
-from app.modules.eod.repository import (
+from app.modules.eod.core.nav_calculator import NAVCalculator
+from app.modules.eod.core.orchestrator import EODOrchestrator
+from app.modules.eod.core.pnl_snapshot import PnLSnapshotService
+from app.modules.eod.core.price_finalization import PriceFinalizationService
+from app.modules.eod.core.reconciler import PositionReconciler
+from app.modules.eod.repositories import (
     EODRunRepository,
     FinalizedPriceRepository,
     NAVSnapshotRepository,
@@ -23,7 +23,8 @@ from app.modules.eod.repository import (
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-    from app.shared.adapters import BrokerAdapter, FundAdminAdapter
+    from app.shared.adapters.broker import BrokerAdapter
+    from app.shared.adapters.fund_admin import FundAdminAdapter
     from app.shared.database import TenantSessionFactory
     from app.shared.events import EventBus
 
@@ -53,11 +54,12 @@ async def setup(
     cash_service = app.state.cash_service
     market_data_service = app.state.market_data_service
     sm_service = app.state.security_master_service
-    risk_service = app.state.risk_service
+    risk_service = app.state.risk_snapshot_service
     fund_repo = app.state.fund_repo
     portfolio_repo = app.state.portfolio_repo
     fee_service = getattr(app.state, "fee_accounting_service", None)
     capital_service = getattr(app.state, "capital_account_service", None)
+    capital_transaction_service = getattr(app.state, "capital_transaction_service", None)
     attribution_service = getattr(app.state, "attribution_service", None)
 
     price_service = PriceFinalizationService(
@@ -102,8 +104,10 @@ async def setup(
         risk_service=risk_service,
         fee_service=fee_service,
         capital_service=capital_service,
+        capital_transaction_service=capital_transaction_service,
         attribution_service=attribution_service,
-        investor_ops_service=getattr(app.state, "investor_ops_service", None),
+        subscription_service=getattr(app.state, "subscription_service", None),
+        redemption_service=getattr(app.state, "redemption_service", None),
     )
     app.state.eod_orchestrator = orchestrator
     logger.info("eod_module_ready")

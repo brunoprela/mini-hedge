@@ -2,9 +2,9 @@
 
 from fastapi import HTTPException, Request
 
-from app.modules.eod.escalation import EscalationPolicy
-from app.modules.eod.orchestrator import EODOrchestrator
-from app.modules.eod.repository import ReconciliationBreakRepository, ReconciliationRepository
+from app.modules.eod.core.escalation import EscalationPolicy
+from app.modules.eod.core.orchestrator import EODOrchestrator
+from app.modules.eod.repositories import ReconciliationBreakRepository, ReconciliationRepository
 
 
 def get_eod_orchestrator(request: Request) -> EODOrchestrator:

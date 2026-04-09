@@ -1,4 +1,4 @@
-"""Investor operations module wiring — repos, KYC adapter, service."""
+"""Investor operations module wiring — repos, KYC adapter, services."""
 
 from __future__ import annotations
 
@@ -24,15 +24,21 @@ async def setup(
     settings=None,
     **ctx,
 ) -> None:
-    """Wire investor operations module: repos, KYC adapter, service."""
+    """Wire investor operations module: repos, KYC adapter, services."""
     from app.adapters.factory import build_kyc_screening_adapter
-    from app.modules.investor_operations.repository import (
-        FundTermsRepository,
-        InvestorKYCRepository,
+    from app.modules.investor_operations.repositories.fund_terms import FundTermsRepository
+    from app.modules.investor_operations.repositories.kyc import InvestorKYCRepository
+    from app.modules.investor_operations.repositories.redemption import (
         RedemptionRequestRepository,
+    )
+    from app.modules.investor_operations.repositories.subscription import (
         SubscriptionRequestRepository,
     )
-    from app.modules.investor_operations.service import InvestorOperationsService
+    from app.modules.investor_operations.services import (
+        InvestorKYCService,
+        RedemptionService,
+        SubscriptionService,
+    )
 
     sub_repo = SubscriptionRequestRepository(sf)
     red_repo = RedemptionRequestRepository(sf)
@@ -40,18 +46,32 @@ async def setup(
     kyc_repo = InvestorKYCRepository(sf)
 
     kyc_adapter = build_kyc_screening_adapter(settings)
-    capital_service = app.state.capital_account_service
+    capital_service = app.state.capital_transaction_service
 
-    service = InvestorOperationsService(
+    subscription_service = SubscriptionService(
         subscription_repo=sub_repo,
-        redemption_repo=red_repo,
         fund_terms_repo=terms_repo,
         kyc_repo=kyc_repo,
         capital_service=capital_service,
-        kyc_adapter=kyc_adapter,
         event_bus=event_bus,
     )
-    app.state.investor_ops_service = service
+
+    redemption_service = RedemptionService(
+        redemption_repo=red_repo,
+        fund_terms_repo=terms_repo,
+        capital_service=capital_service,
+        event_bus=event_bus,
+    )
+
+    kyc_service = InvestorKYCService(
+        kyc_repo=kyc_repo,
+        fund_terms_repo=terms_repo,
+        kyc_adapter=kyc_adapter,
+    )
+
+    app.state.subscription_service = subscription_service
+    app.state.redemption_service = redemption_service
+    app.state.kyc_service = kyc_service
 
     # Seed fund terms in local environment
     if os.environ.get("APP_ENV", "local") == "local":

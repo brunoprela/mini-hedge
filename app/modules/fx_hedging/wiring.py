@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING
 
 import structlog
 
-from app.modules.fx_hedging.repository import (
+from app.modules.fx_hedging.repositories import (
     FXForwardRepository,
     FXInterestRateRepository,
 )
-from app.modules.fx_hedging.service import FXHedgingService
+from app.modules.fx_hedging.services import FXHedgingService
 from app.shared.schema_registry import shared_topic
 
 if TYPE_CHECKING:

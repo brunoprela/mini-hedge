@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from fastapi import HTTPException, Request
 
 if TYPE_CHECKING:
-    from app.modules.fund_structures.service import FundStructuresService
+    from app.modules.fund_structures.services import FundStructuresService
 
 
 def get_fund_structures_service(request: Request) -> FundStructuresService:

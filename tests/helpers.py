@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from app.shared.adapters import OrderAcknowledgement, OrderStatusReport
+from app.shared.adapters.broker import OrderAcknowledgement, OrderStatusReport
 
 if TYPE_CHECKING:
     from app.shared.events import BaseEvent, EventHandler, InProcessEventBus

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from fastapi import HTTPException, Request
 
 if TYPE_CHECKING:
-    from app.modules.alt_data.service import AltDataService
+    from app.modules.alt_data.services import AltDataService
 
 
 def get_alt_data_service(request: Request) -> AltDataService:

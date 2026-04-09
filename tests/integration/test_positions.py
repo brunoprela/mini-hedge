@@ -5,12 +5,12 @@ from decimal import Decimal
 import pytest
 import pytest_asyncio
 
-from app.modules.positions.event_store import EventStoreRepository
-from app.modules.positions.interface import TradeSide
-from app.modules.positions.position_projector import PositionProjector
-from app.modules.positions.position_repository import CurrentPositionRepository
-from app.modules.positions.service import PositionService
-from app.modules.positions.trade_handler import TradeHandler
+from app.modules.positions.core.event_store import EventStoreRepository
+from app.modules.positions.core.position_projector import PositionProjector
+from app.modules.positions.core.trade_handler import TradeHandler
+from app.modules.positions.interfaces import TradeSide
+from app.modules.positions.repositories import CurrentPositionRepository
+from app.modules.positions.services import PositionService
 from app.shared.auth.request_context import RequestContext
 from app.shared.database import TenantSessionFactory
 from app.shared.events import InProcessEventBus

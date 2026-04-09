@@ -1,13 +1,13 @@
 """Backtesting bounded context — historical strategy simulation and tear sheets."""
 
-from app.modules.backtesting.interface import (
+from app.modules.backtesting.interfaces import (
     BacktestConfig,
     BacktestResult,
     BacktestStatus,
     BacktestSummary,
     RebalanceFrequency,
 )
-from app.modules.backtesting.service import BacktestingService
+from app.modules.backtesting.services import BacktestingService
 
 __all__ = [
     "BacktestConfig",

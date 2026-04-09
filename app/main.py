@@ -28,7 +28,7 @@ from app.middleware.auth import AuthMiddleware
 from app.middleware.idempotency import IdempotencyMiddleware
 from app.middleware.rate_limit import build_limiter, rate_limit_exceeded_handler
 from app.middleware.timeout import TimeoutMiddleware
-from app.modules.platform.audit_repository import AuditLogRepository
+from app.modules.platform.repositories import AuditLogRepository
 from app.routes import register_all
 from app.setup import _run_migrations, setup_all
 from app.shared.audit.archival import MinioArchiver

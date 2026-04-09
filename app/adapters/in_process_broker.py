@@ -7,7 +7,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import uuid4
 
-from app.shared.adapters import OrderAcknowledgement, OrderStatusReport
+from app.shared.adapters.broker import OrderAcknowledgement, OrderStatusReport
 
 
 class _FillRecord:

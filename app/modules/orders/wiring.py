@@ -9,15 +9,15 @@ import structlog
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-    from app.modules.market_data.service import MarketDataService
+    from app.modules.market_data.services import MarketDataService
     from app.modules.orders.routing.broker_registry import BrokerRegistry
-    from app.shared.adapters import BrokerAdapter
+    from app.shared.adapters.broker import BrokerAdapter
     from app.shared.database import TenantSessionFactory
     from app.shared.events import EventBus
 
-from app.modules.orders.compliance_gateway import ComplianceGateway
-from app.modules.orders.repository import OrderRepository
-from app.modules.orders.service import OrderService
+from app.modules.orders.core.compliance_gateway import ComplianceGateway
+from app.modules.orders.repositories import OrderFillRepository, OrderRepository
+from app.modules.orders.services import OrderService
 
 logger = structlog.get_logger()
 
@@ -34,18 +34,19 @@ async def setup(
 ) -> None:
     """Wire orders module: repo, compliance gateway, broker, service, algo engine, TCA."""
     from app.modules.orders.algo.engine import AlgoEngine
-    from app.modules.orders.allocation.repository import AllocationRepository
-    from app.modules.orders.allocation.service import AllocationService
-    from app.modules.orders.best_execution import BestExecutionService
+    from app.modules.orders.allocation.repositories import AllocationRepository
+    from app.modules.orders.allocation.services import AllocationService
+    from app.modules.orders.core.best_execution import BestExecutionService
     from app.modules.orders.routing.engine import RoutingEngine
-    from app.modules.orders.routing.repository import RoutingRepository
-    from app.modules.orders.scorecard.repository import ScorecardRepository
-    from app.modules.orders.scorecard.service import ScorecardService
-    from app.modules.orders.tca.repository import TCARepository
-    from app.modules.orders.tca.service import TCAService
+    from app.modules.orders.routing.repositories import RoutingRepository
+    from app.modules.orders.scorecard.repositories import ScorecardRepository
+    from app.modules.orders.scorecard.services import ScorecardService
+    from app.modules.orders.tca.repositories import TCARepository
+    from app.modules.orders.tca.services import TCAService
     from app.modules.orders.tca.vwap import VWAPCalculator
 
     order_repo = OrderRepository(sf)
+    order_fill_repo = OrderFillRepository(sf)
     compliance_service = app.state.compliance_service
     compliance_gateway = ComplianceGateway(pre_trade_gate=compliance_service.pre_trade_gate)
     audit_repo = app.state.audit_repo
@@ -81,6 +82,7 @@ async def setup(
     order_service = OrderService(
         session_factory=sf,
         order_repo=order_repo,
+        order_fill_repo=order_fill_repo,
         compliance_gateway=compliance_gateway,
         broker=broker,
         event_bus=event_bus,
