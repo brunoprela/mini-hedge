@@ -23,11 +23,12 @@ from tests.helpers import EventCapture
 # ---------------------------------------------------------------------------
 
 
-def _mock_position(iid: str, qty: Decimal, mv: Decimal):
+def _mock_position(iid: str, qty: Decimal, mv: Decimal, currency: str = "USD"):
     pos = MagicMock()
     pos.instrument_id = iid
     pos.quantity = qty
     pos.market_value = mv
+    pos.currency = currency
     return pos
 
 

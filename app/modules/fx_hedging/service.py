@@ -25,7 +25,7 @@ from app.modules.fx_hedging.interface import (
     RollRecommendation,
 )
 from app.modules.fx_hedging.models import FXForwardRecord, FXInterestRateRecord
-from app.shared.audit_events import AuditEventType
+from app.shared.audit.events import AuditEventType
 from app.shared.events import BaseEvent
 from app.shared.schema_registry import fund_topic
 

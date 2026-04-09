@@ -11,9 +11,9 @@ from app.modules.positions.position_projector import PositionProjector
 from app.modules.positions.position_repository import CurrentPositionRepository
 from app.modules.positions.service import PositionService
 from app.modules.positions.trade_handler import TradeHandler
+from app.shared.auth.request_context import RequestContext
 from app.shared.database import TenantSessionFactory
 from app.shared.events import InProcessEventBus
-from app.shared.request_context import RequestContext
 from tests.factories import DEFAULT_PORTFOLIO_ID, make_trade
 
 

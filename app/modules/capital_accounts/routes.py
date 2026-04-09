@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
     from app.modules.capital_accounts.models import CapitalAccountRecord
     from app.modules.capital_accounts.service import CapitalAccountService
-    from app.shared.request_context import RequestContext
+    from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(prefix="/capital", tags=["capital-accounts"])
 

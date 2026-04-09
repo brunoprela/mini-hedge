@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import io
 
-from app.shared.archival import ArchivalResult, MinioArchiver, _to_parquet_buffer
+from app.shared.audit.archival import ArchivalResult, MinioArchiver, _to_parquet_buffer
 
 
 class TestParquetConversion:

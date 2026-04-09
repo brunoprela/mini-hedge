@@ -29,7 +29,7 @@ if TYPE_CHECKING:
         ReconciliationBreakRepository,
         ReconciliationRepository,
     )
-    from app.shared.request_context import RequestContext
+    from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(prefix="/reconciliation", tags=["reconciliation"])
 

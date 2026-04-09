@@ -54,17 +54,17 @@ class CapitalAccountService:
         transaction_repo: CapitalTransactionRepository,
         cash_service: CashManagementService | None = None,
     ) -> None:
-        self._investors = investor_repo
-        self._accounts = account_repo
-        self._transactions = transaction_repo
-        self._cash = cash_service
+        self._investor_repo = investor_repo
+        self._account_repo = account_repo
+        self._transaction_repo = transaction_repo
+        self._cash_service = cash_service
 
     # ------------------------------------------------------------------
     # Queries
     # ------------------------------------------------------------------
 
     async def list_investors(self, *, session: AsyncSession | None = None) -> list[InvestorInfo]:
-        records = await self._investors.get_all_active(session=session)
+        records = await self._investor_repo.get_all_active(session=session)
         return [
             InvestorInfo(
                 id=UUID(r.id),
@@ -81,8 +81,8 @@ class CapitalAccountService:
         self, *, session: AsyncSession | None = None
     ) -> list[CapitalAccountSummary]:
         """Get latest capital account snapshot for all investors in the fund."""
-        accounts = await self._accounts.get_latest_by_fund(session=session)
-        investors = await self._investors.get_all_active(session=session)
+        accounts = await self._account_repo.get_latest_by_fund(session=session)
+        investors = await self._investor_repo.get_all_active(session=session)
         investor_map = {r.id: r.name for r in investors}
 
         return [
@@ -111,8 +111,8 @@ class CapitalAccountService:
         *,
         session: AsyncSession | None = None,
     ) -> list[CapitalAccountSummary]:
-        accounts = await self._accounts.get_by_investor(investor_id, session=session)
-        investor = await self._investors.get_by_id(investor_id, session=session)
+        accounts = await self._account_repo.get_by_investor(investor_id, session=session)
+        investor = await self._investor_repo.get_by_id(investor_id, session=session)
         name = investor.name if investor else "Unknown"
 
         return [
@@ -141,7 +141,7 @@ class CapitalAccountService:
         *,
         session: AsyncSession | None = None,
     ) -> list[CapitalTransaction]:
-        records = await self._transactions.get_by_investor(investor_id, session=session)
+        records = await self._transaction_repo.get_by_investor(investor_id, session=session)
         return [
             CapitalTransaction(
                 id=UUID(r.id),
@@ -160,7 +160,7 @@ class CapitalAccountService:
     async def get_fund_overview(
         self, *, session: AsyncSession | None = None
     ) -> FundCapitalOverview:
-        accounts = await self._accounts.get_latest_by_fund(session=session)
+        accounts = await self._account_repo.get_latest_by_fund(session=session)
         if not accounts:
             return FundCapitalOverview(
                 total_aum=ZERO,
@@ -189,7 +189,7 @@ class CapitalAccountService:
         session: AsyncSession | None = None,
     ) -> tuple[Decimal, Decimal, Decimal]:
         """Get (total_aum, total_shares, nav_per_share) for a share class."""
-        accounts = await self._accounts.get_latest_by_share_class(
+        accounts = await self._account_repo.get_latest_by_share_class(
             share_class,
             session=session,
         )
@@ -200,12 +200,12 @@ class CapitalAccountService:
 
     async def list_share_classes(self, *, session: AsyncSession | None = None) -> list[str]:
         """Get distinct share classes with active capital accounts."""
-        accounts = await self._accounts.get_latest_by_fund(session=session)
+        accounts = await self._account_repo.get_latest_by_fund(session=session)
         return sorted({a.share_class for a in accounts})
 
     async def get_total_shares(self, *, session: AsyncSession | None = None) -> Decimal:
         """Total shares outstanding across all investors."""
-        return await self._accounts.get_total_shares(session=session)
+        return await self._account_repo.get_total_shares(session=session)
 
     # ------------------------------------------------------------------
     # EOD: P&L + Fee Allocation
@@ -234,7 +234,7 @@ class CapitalAccountService:
 
         Returns the number of accounts allocated.
         """
-        current = await self._accounts.get_latest_by_fund(session=session)
+        current = await self._account_repo.get_latest_by_fund(session=session)
         if not current:
             return 0
 
@@ -322,11 +322,11 @@ class CapitalAccountService:
                 shares_held=a.shares_held,
                 effective_date=business_date,
             )
-            await self._accounts.insert(new_account, session=session)
+            await self._account_repo.insert(new_account, session=session)
 
             # Record P&L transaction
             if pnl_alloc != ZERO:
-                await self._transactions.insert(
+                await self._transaction_repo.insert(
                     CapitalTransactionRecord(
                         id=str(uuid4()),
                         capital_account_id=new_account.id,
@@ -342,7 +342,7 @@ class CapitalAccountService:
 
             # Record fee transactions
             if mgmt_alloc != ZERO:
-                await self._transactions.insert(
+                await self._transaction_repo.insert(
                     CapitalTransactionRecord(
                         id=str(uuid4()),
                         capital_account_id=new_account.id,
@@ -357,7 +357,7 @@ class CapitalAccountService:
                 )
 
             if perf_alloc != ZERO:
-                await self._transactions.insert(
+                await self._transaction_repo.insert(
                     CapitalTransactionRecord(
                         id=str(uuid4()),
                         capital_account_id=new_account.id,
@@ -405,7 +405,7 @@ class CapitalAccountService:
         """
         shares = compute_subscription_shares(amount, nav_per_share)
 
-        existing = await self._accounts.get_latest_for_investor(
+        existing = await self._account_repo.get_latest_for_investor(
             investor_id,
             share_class=share_class,
             session=session,
@@ -444,10 +444,10 @@ class CapitalAccountService:
                 effective_date=business_date,
             )
 
-        saved = await self._accounts.insert(new_account, session=session)
+        saved = await self._account_repo.insert(new_account, session=session)
 
         txn_id = str(uuid4())
-        await self._transactions.insert(
+        await self._transaction_repo.insert(
             CapitalTransactionRecord(
                 id=txn_id,
                 capital_account_id=saved.id,
@@ -463,10 +463,10 @@ class CapitalAccountService:
         )
 
         # Credit cash balance for the subscription inflow
-        if self._cash is not None and portfolio_id is not None:
+        if self._cash_service is not None and portfolio_id is not None:
             from app.modules.cash_management.interface import CashFlowType
 
-            await self._cash.credit(
+            await self._cash_service.credit(
                 portfolio_id=portfolio_id,
                 currency=currency,
                 amount=amount,
@@ -506,7 +506,7 @@ class CapitalAccountService:
         If *portfolio_id* and a ``CashManagementService`` are configured, a
         corresponding cash debit is recorded automatically.
         """
-        existing = await self._accounts.get_latest_for_investor(
+        existing = await self._account_repo.get_latest_for_investor(
             investor_id,
             share_class=share_class,
             session=session,
@@ -540,10 +540,10 @@ class CapitalAccountService:
             effective_date=business_date,
         )
 
-        saved = await self._accounts.insert(new_account, session=session)
+        saved = await self._account_repo.insert(new_account, session=session)
 
         txn_id = str(uuid4())
-        await self._transactions.insert(
+        await self._transaction_repo.insert(
             CapitalTransactionRecord(
                 id=txn_id,
                 capital_account_id=saved.id,
@@ -559,10 +559,10 @@ class CapitalAccountService:
         )
 
         # Debit cash balance for the redemption outflow
-        if self._cash is not None and portfolio_id is not None:
+        if self._cash_service is not None and portfolio_id is not None:
             from app.modules.cash_management.interface import CashFlowType
 
-            await self._cash.debit(
+            await self._cash_service.debit(
                 portfolio_id=portfolio_id,
                 currency=currency,
                 amount=amount,
@@ -590,7 +590,7 @@ class CapitalAccountService:
         session: AsyncSession | None = None,
     ) -> None:
         """Recompute ownership percentages for all accounts at a given date."""
-        accounts = await self._accounts.get_latest_by_fund(session=session)
+        accounts = await self._account_repo.get_latest_by_fund(session=session)
         if not accounts:
             return
 

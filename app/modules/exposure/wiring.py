@@ -1,0 +1,78 @@
+"""Exposure module wiring — repo, service, event subscriptions."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+from uuid import UUID
+
+import structlog
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
+
+    from app.modules.market_data.service import MarketDataService
+    from app.modules.platform.fund_repository import FundRepository
+    from app.shared.database import TenantSessionFactory
+    from app.shared.events import BaseEvent, EventBus, EventHandler
+
+from app.modules.exposure.repository import ExposureRepository
+from app.modules.exposure.service import ExposureService
+from app.shared.schema_registry import fund_topic
+
+logger = structlog.get_logger()
+
+
+async def setup(
+    app: FastAPI,
+    sf: TenantSessionFactory,
+    *,
+    event_bus: EventBus | None = None,
+    settings=None,
+    fund_repo: FundRepository | None = None,
+    **ctx,
+) -> None:
+    """Wire exposure module: repo, service, event subscriptions."""
+    exposure_repo = ExposureRepository(sf)
+    position_service = app.state.position_service
+    sm_service = app.state.security_master_service
+    market_data_service: MarketDataService = app.state.market_data_service
+    exposure_service = ExposureService(
+        exposure_repo=exposure_repo,
+        position_service=position_service,
+        security_master_service=sm_service,
+        event_bus=event_bus,
+        fx_converter=market_data_service.fx_converter,
+    )
+    app.state.exposure_service = exposure_service
+
+    # Subscribe: recalculate exposure when positions change
+    if event_bus is not None and fund_repo is not None:
+        active_funds = await fund_repo.get_all_active()
+        for fund in active_funds:
+
+            def _make_handler(slug: str) -> EventHandler:
+                async def on_position_changed(event: BaseEvent) -> None:
+                    pid_str = event.data.get("portfolio_id")
+                    if not pid_str:
+                        return
+                    try:
+                        await exposure_service.take_snapshot(
+                            UUID(pid_str),
+                            fund_slug=slug,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "exposure_reactive_snapshot_failed",
+                            portfolio_id=pid_str,
+                        )
+
+                return on_position_changed
+
+            event_bus.subscribe(
+                fund_topic(fund.slug, "positions.changed"),
+                _make_handler(fund.slug),
+            )
+        logger.info(
+            "exposure_subscribed_to_positions",
+            fund_count=len(active_funds),
+        )

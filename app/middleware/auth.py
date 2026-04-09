@@ -13,19 +13,19 @@ from typing import TYPE_CHECKING
 
 import structlog
 
+from app.shared.auth.request_context import RequestContext, set_request_context
 from app.shared.errors import AuthenticationError, AuthorizationError
-from app.shared.request_context import RequestContext, set_request_context
 
 if TYPE_CHECKING:
     from starlette.types import ASGIApp, Receive, Scope, Send
 
     from app.modules.platform.auth_service import AuthService
-    from app.shared.token_revocation import TokenRevocationService
+    from app.shared.auth.token_revocation import TokenRevocationService
 
 logger = structlog.get_logger()
 
 # Paths that skip authentication
-PUBLIC_PATHS = {"/health", "/metrics", "/docs", "/openapi.json", "/redoc"}
+PUBLIC_PATHS = {"/health", "/healthz", "/readyz", "/metrics", "/docs", "/openapi.json", "/redoc"}
 
 # Paths where the JWT is in the query string (e.g. browser EventSource API)
 _QUERY_TOKEN_PATHS = {"/api/v1/stream/events"}

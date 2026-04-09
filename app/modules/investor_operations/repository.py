@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import sqlalchemy as sa
 from sqlalchemy import select, update
 
 from app.modules.investor_operations.models import (
@@ -223,8 +224,13 @@ class FundTermsRepository(BaseRepository):
 
     async def upsert(self, record: FundTermsRecord, *, session: AsyncSession | None = None) -> None:
         async with self._session(session) as s:
-            merged = await s.merge(record)
-            s.add(merged)
+            # Avoid session.merge() — it issues implicit SELECTs that can
+            # hang with PgBouncer transaction-mode pooling.  The service
+            # layer already distinguishes insert vs update, so add() is
+            # sufficient for new records and a no-op for already-tracked ones.
+            inspected = sa.inspect(record, raiseerr=False)
+            if inspected is None or inspected.transient:
+                s.add(record)
             await s.flush()
 
 
@@ -243,6 +249,7 @@ class InvestorKYCRepository(BaseRepository):
         self, record: InvestorKYCRecord, *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as s:
-            merged = await s.merge(record)
-            s.add(merged)
+            inspected = sa.inspect(record, raiseerr=False)
+            if inspected is None or inspected.transient:
+                s.add(record)
             await s.flush()

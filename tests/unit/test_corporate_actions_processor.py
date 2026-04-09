@@ -93,12 +93,28 @@ class TestReverseSplit:
 
 
 class TestSpinoff:
-    def test_spinoff_returns_empty(self) -> None:
-        """Spinoff is not yet implemented — returns empty adjustments."""
+    def test_spinoff_returns_adjustments(self) -> None:
+        """Spinoff allocates a fraction of cost basis to the new child entity.
+
+        With ratio=0.5 and cost_basis=10000:
+        - Parent gets cost_basis_adjustment = -5000 (50% transferred out)
+        - Child gets quantity_delta = 100 shares and cost_basis_adjustment = 5000
+        """
         action = _make_action("spinoff", Decimal("0.5"))
         adjustments = compute_adjustments(action, Decimal("100"), Decimal("10000"))
 
-        assert adjustments == []
+        assert len(adjustments) == 2
+
+        parent_adj = next(a for a in adjustments if a.instrument_id == "AAPL")
+        child_adj = next(a for a in adjustments if a.instrument_id == "AAPL-SPINOFF")
+
+        assert parent_adj.quantity_delta == Decimal("0")
+        assert parent_adj.cost_basis_adjustment == Decimal("-5000")
+        assert parent_adj.cash_amount == Decimal("0")
+
+        assert child_adj.quantity_delta == Decimal("100")
+        assert child_adj.cost_basis_adjustment == Decimal("5000")
+        assert child_adj.cash_amount == Decimal("0")
 
     def test_spinoff_zero_quantity(self) -> None:
         """Zero position = no adjustment (before spinoff logic even runs)."""

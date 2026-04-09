@@ -13,8 +13,8 @@ from app.modules.positions.interface import (
     TradeEventData,
     TradeSide,
 )
+from app.shared.auth.request_context import RequestContext
 from app.shared.events import BaseEvent, InProcessEventBus
-from app.shared.request_context import RequestContext
 from tests.factories import DEFAULT_PORTFOLIO_ID, make_trade_event
 
 

@@ -29,7 +29,7 @@ from app.modules.cash_management.settlement import (
     calculate_settlement_date,
     snap_to_business_day,
 )
-from app.shared.audit_events import AuditEventType
+from app.shared.audit.events import AuditEventType
 from app.shared.events import BaseEvent
 from app.shared.schema_registry import fund_topic
 
@@ -90,7 +90,7 @@ class CashManagementService:
         records = await self._balance_repo.get_by_portfolio(portfolio_id, session=session)
         return [
             CashBalance(
-                portfolio_id=UUID(r.portfolio_id),
+                portfolio_id=UUID(str(r.portfolio_id)),
                 currency=r.currency,
                 available_balance=r.available_balance,
                 pending_inflows=r.pending_inflows,

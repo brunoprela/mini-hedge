@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
     from app.modules.orders.models import OrderRecord
     from app.modules.orders.repository import OrderRepository
-    from app.modules.orders.scorecard_service import ScorecardService
+    from app.modules.orders.scorecard.service import ScorecardService
     from app.modules.orders.tca.repository import TCARepository
     from app.modules.orders.tca.vwap import VWAPCalculator
 

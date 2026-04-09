@@ -82,7 +82,7 @@ class FundStructuresService:
             allocation_pct=str(allocation_pct),
         )
         if self._event_bus:
-            from app.shared.audit_events import AuditEventType
+            from app.shared.audit.events import AuditEventType
             from app.shared.events import BaseEvent
             from app.shared.schema_registry import shared_topic
 
@@ -180,7 +180,7 @@ class FundStructuresService:
         await self._sb_repo.create(record, session=session)
         logger.info("strategy_book_created", fund=fund_slug, name=name, level=level)
         if self._event_bus:
-            from app.shared.audit_events import AuditEventType
+            from app.shared.audit.events import AuditEventType
             from app.shared.events import BaseEvent
             from app.shared.schema_registry import shared_topic
 
@@ -272,7 +272,7 @@ class FundStructuresService:
             allocation_pct=str(allocation_pct),
         )
         if self._event_bus:
-            from app.shared.audit_events import AuditEventType
+            from app.shared.audit.events import AuditEventType
             from app.shared.events import BaseEvent
             from app.shared.schema_registry import shared_topic
 

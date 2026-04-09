@@ -20,7 +20,7 @@ from app.modules.platform.models import (
     UserRecord,
 )
 from app.shared.auth import Role, hash_api_key
-from app.shared.request_context import ActorType
+from app.shared.auth.request_context import ActorType
 
 # ---------------------------------------------------------------------------
 # Fixed UUIDs — deterministic for reproducible local development & tests

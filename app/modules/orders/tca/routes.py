@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.modules.orders.tca.service import TCAService
-    from app.shared.request_context import RequestContext
+    from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(tags=["tca"])
 

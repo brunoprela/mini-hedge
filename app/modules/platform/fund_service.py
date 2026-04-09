@@ -9,7 +9,7 @@ import structlog
 
 from app.modules.platform.interface import FundDetail, FundPage, UpdateFundRequest
 from app.modules.platform.models import FundRecord, FundStatus
-from app.shared.audit_events import AuditEventType
+from app.shared.audit.events import AuditEventType
 from app.shared.errors import NotFoundError, ValidationError
 from app.shared.fund_schema import create_fund_kafka_topics, create_fund_schema
 from app.shared.schema_registry import fund_topic
@@ -20,9 +20,9 @@ if TYPE_CHECKING:
     from app.modules.platform.audit_repository import AuditLogRepository
     from app.modules.platform.auth_service import AuthService
     from app.modules.platform.fund_repository import FundRepository
+    from app.shared.auth.request_context import RequestContext
     from app.shared.events import EventBus
     from app.shared.fga import FGAClient
-    from app.shared.request_context import RequestContext
 
 logger = structlog.get_logger()
 

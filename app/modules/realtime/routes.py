@@ -16,7 +16,7 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import StreamingResponse
 
 from app.shared.auth import get_actor_context
-from app.shared.redis_bridge import PRICES_CHANNEL, fund_channel
+from app.shared.stores.redis_bridge import PRICES_CHANNEL, fund_channel
 
 logger = structlog.get_logger()
 

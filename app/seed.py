@@ -27,7 +27,7 @@ from app.modules.platform.seed import build_seed_portfolios
 from app.modules.security_master.repository import InstrumentRepository
 from app.modules.security_master.seed import build_seed_records
 from app.shared.database import build_engine
-from app.shared.logging import setup_logging
+from app.shared.observability.logging import setup_logging
 
 logger = structlog.get_logger()
 

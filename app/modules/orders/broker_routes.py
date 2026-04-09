@@ -21,10 +21,10 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.modules.orders.best_execution import BestExecutionService
-    from app.modules.orders.broker_registry import BrokerRegistry
-    from app.modules.orders.routing_repository import RoutingRepository
-    from app.modules.orders.scorecard_service import ScorecardService
-    from app.shared.request_context import RequestContext
+    from app.modules.orders.routing.broker_registry import BrokerRegistry
+    from app.modules.orders.routing.repository import RoutingRepository
+    from app.modules.orders.scorecard.service import ScorecardService
+    from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(tags=["brokers"])
 

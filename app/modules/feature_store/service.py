@@ -86,7 +86,7 @@ class FeatureStoreService:
         logger.info("feature_registered", name=name, entity_type=entity_type)
 
         if self._event_bus:
-            from app.shared.audit_events import AuditEventType
+            from app.shared.audit.events import AuditEventType
             from app.shared.events import BaseEvent
             from app.shared.schema_registry import shared_topic
 
@@ -238,7 +238,7 @@ class FeatureStoreService:
         )
 
         if self._event_bus:
-            from app.shared.audit_events import AuditEventType
+            from app.shared.audit.events import AuditEventType
             from app.shared.events import BaseEvent
             from app.shared.schema_registry import shared_topic
 

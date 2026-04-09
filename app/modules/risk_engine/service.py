@@ -41,7 +41,7 @@ from app.modules.risk_engine.models import (
     VaRContributionRecord,
     VaRResultRecord,
 )
-from app.shared.audit_events import AuditEventType
+from app.shared.audit.events import AuditEventType
 from app.shared.events import BaseEvent
 from app.shared.schema_registry import fund_topic
 
@@ -100,8 +100,8 @@ class RiskService:
         if record is None:
             return None
         return RiskSnapshot(
-            id=UUID(record.id),
-            portfolio_id=UUID(record.portfolio_id),
+            id=UUID(str(record.id)),
+            portfolio_id=UUID(str(record.portfolio_id)),
             nav=record.nav,
             var_95_1d=record.var_95_1d,
             var_99_1d=record.var_99_1d,
@@ -297,8 +297,8 @@ class RiskService:
         await self._publish_risk_event(record, fund_slug)
 
         return RiskSnapshot(
-            id=UUID(record.id),
-            portfolio_id=UUID(record.portfolio_id),
+            id=UUID(str(record.id)),
+            portfolio_id=UUID(str(record.portfolio_id)),
             nav=record.nav,
             var_95_1d=record.var_95_1d,
             var_99_1d=record.var_99_1d,

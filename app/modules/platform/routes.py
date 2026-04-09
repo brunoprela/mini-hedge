@@ -18,7 +18,7 @@ from app.modules.platform.dependencies import (
 )
 from app.modules.platform.interface import FundInfo, PortfolioInfo
 from app.modules.platform.portfolio_repository import PortfolioRepository
-from app.shared.audit_events import AuditEventType
+from app.shared.audit.events import AuditEventType
 from app.shared.auth import (
     Permission,
     get_actor_context,
@@ -26,9 +26,9 @@ from app.shared.auth import (
     require_platform_permission,
     resolve_permissions,
 )
+from app.shared.auth.request_context import ActorType, RequestContext
+from app.shared.auth.token_revocation import TokenRevocationService
 from app.shared.database import get_db
-from app.shared.request_context import ActorType, RequestContext
-from app.shared.token_revocation import TokenRevocationService
 
 router = APIRouter(tags=["platform"])
 

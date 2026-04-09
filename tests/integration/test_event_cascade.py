@@ -21,7 +21,7 @@ from uuid import UUID, uuid4
 import pytest
 
 from app.modules.platform.seed import FUND_ALPHA_ID, FUND_BETA_ID
-from app.shared.request_context import ActorType, RequestContext, set_request_context
+from app.shared.auth.request_context import ActorType, RequestContext, set_request_context
 from app.shared.schema_registry import fund_topic, shared_topic
 
 if TYPE_CHECKING:

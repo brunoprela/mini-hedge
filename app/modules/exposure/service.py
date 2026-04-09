@@ -16,7 +16,7 @@ from app.modules.exposure.interface import (
     PositionValue,
 )
 from app.modules.exposure.models import ExposureSnapshotRecord
-from app.shared.audit_events import AuditEventType
+from app.shared.audit.events import AuditEventType
 from app.shared.events import BaseEvent
 from app.shared.schema_registry import fund_topic
 

@@ -9,8 +9,8 @@ from app.modules.market_data.dependencies import get_market_data_service
 from app.modules.market_data.interface import FXRateSnapshot, PriceSnapshot
 from app.modules.market_data.service import MarketDataService
 from app.shared.auth import Permission, require_permission
+from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_read_db
-from app.shared.request_context import RequestContext
 
 router = APIRouter(prefix="/prices", tags=["market_data"])
 fx_router = APIRouter(prefix="/fx", tags=["market_data"])

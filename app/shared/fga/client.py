@@ -1,0 +1,308 @@
+"""OpenFGA client wrapper and FastAPI dependencies for object-level authorization.
+
+Provides:
+- ResourceType / ResourceRelation: type-safe declarations linked to fga_model.json
+- FGAClient: thin wrapper around the OpenFGA SDK async client
+- require_access(): generic FastAPI dependency for any resource type
+- validate_resource_registry(): startup check that Python types match JSON model
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from enum import StrEnum
+from typing import TYPE_CHECKING, Any
+
+import structlog
+from cachetools import TTLCache
+from fastapi import Depends, HTTPException, Request
+from openfga_sdk import ReadRequestTupleKey
+from openfga_sdk.client.models import (
+    ClientCheckRequest,
+    ClientListObjectsRequest,
+    ClientListRelationsRequest,
+    ClientTuple,
+    ClientWriteRequest,
+    ClientWriteRequestOnDuplicateWrites,
+    ConflictOptions,
+)
+
+from app.shared.auth import get_actor_context
+from app.shared.auth.request_context import ActorType
+
+if TYPE_CHECKING:
+    from openfga_sdk import OpenFgaClient
+
+    from app.shared.auth.request_context import RequestContext
+
+logger = structlog.get_logger()
+
+
+# ---------------------------------------------------------------------------
+# Resource type registry
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ResourceType:
+    """Declaration of an FGA object type and its checkable relations.
+
+    Each instance maps to a ``type_definition`` in ``fga_model.json``.
+    Validated at startup by :func:`validate_resource_registry`.
+    """
+
+    name: str
+    relations: frozenset[str]
+
+    def relation(self, name: str) -> ResourceRelation:
+        """Return a validated (type, relation) pair for use with :func:`require_access`."""
+        if name not in self.relations:
+            raise ValueError(
+                f"Unknown relation '{name}' for type '{self.name}'. Valid: {sorted(self.relations)}"
+            )
+        return ResourceRelation(resource_type=self, relation=name)
+
+
+@dataclass(frozen=True)
+class ResourceRelation:
+    """A bound (resource_type, relation) pair passed to :func:`require_access`."""
+
+    resource_type: ResourceType
+    relation: str
+
+
+_resource_registry: dict[str, ResourceType] = {}
+
+
+def register_resource_type(rt: ResourceType) -> ResourceType:
+    """Register a resource type. Returns it for assignment convenience."""
+    _resource_registry[rt.name] = rt
+    return rt
+
+
+def validate_resource_registry(model_json: dict[str, Any]) -> None:
+    """Validate that all registered ResourceTypes match the FGA model JSON.
+
+    Call during app startup after loading the model. Raises ``ValueError``
+    with a clear message if any Python-declared type or relation is missing
+    from the JSON model.
+    """
+    json_types: dict[str, set[str]] = {}
+    for td in model_json.get("type_definitions", []):
+        type_name = td["type"]
+        relations = set(td.get("relations", {}).keys())
+        json_types[type_name] = relations
+
+    errors: list[str] = []
+    for rt_name, rt in _resource_registry.items():
+        if rt_name not in json_types:
+            errors.append(f"ResourceType '{rt_name}' not found in FGA model JSON")
+            continue
+        missing = rt.relations - json_types[rt_name]
+        if missing:
+            errors.append(
+                f"ResourceType '{rt_name}' declares relations {sorted(missing)} "
+                f"not in FGA model (model has: {sorted(json_types[rt_name])})"
+            )
+
+    if errors:
+        raise ValueError(
+            "FGA resource registry does not match model JSON:\n"
+            + "\n".join(f"  - {e}" for e in errors)
+        )
+
+
+# ---------------------------------------------------------------------------
+# FGA client wrapper
+# ---------------------------------------------------------------------------
+
+
+class FGAClient:
+    """Thin async wrapper around the OpenFGA SDK client.
+
+    Includes a local TTL cache for ``check()`` results to avoid redundant
+    HTTP round-trips for repeated identical permission checks.
+    """
+
+    _CHECK_CACHE_MAX = 512
+    _CHECK_CACHE_TTL = 30  # seconds — matches OpenFGA server-side cache TTL
+
+    def __init__(self, client: OpenFgaClient) -> None:
+        self._client = client
+        self._check_cache: TTLCache[tuple[str, str, str], bool] = TTLCache(
+            maxsize=self._CHECK_CACHE_MAX, ttl=self._CHECK_CACHE_TTL
+        )
+
+    async def check(self, *, user: str, relation: str, object: str) -> bool:
+        """Check if *user* has *relation* on *object*. Results cached for 30s."""
+        cache_key = (user, relation, object)
+        cached: bool | None = self._check_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        response = await self._client.check(
+            body=ClientCheckRequest(user=user, relation=relation, object=object),
+        )
+        result: bool = bool(response.allowed)
+        self._check_cache[cache_key] = result
+        return result
+
+    def invalidate_check_cache(self) -> None:
+        """Clear the local check cache (e.g. after permission changes)."""
+        self._check_cache.clear()
+
+    async def write_tuples(self, tuples: list[ClientTuple]) -> None:
+        """Write relationship tuples (ignores duplicates)."""
+        await self._client.write(
+            body=ClientWriteRequest(writes=tuples),
+            options={
+                "conflict": ConflictOptions(  # type: ignore[dict-item]
+                    on_duplicate_writes=ClientWriteRequestOnDuplicateWrites.IGNORE,
+                ),
+            },
+        )
+        self._check_cache.clear()
+
+    async def delete_tuples(self, tuples: list[ClientTuple]) -> None:
+        """Delete relationship tuples."""
+        await self._client.write(
+            body=ClientWriteRequest(deletes=tuples),
+        )
+        self._check_cache.clear()
+
+    async def list_objects(self, *, user: str, relation: str, type: str) -> list[str]:
+        """List object IDs where *user* has *relation* on objects of *type*."""
+        response = await self._client.list_objects(
+            body=ClientListObjectsRequest(user=user, relation=relation, type=type),
+        )
+        # Response objects are formatted as "type:id" — strip the prefix.
+        prefix = f"{type}:"
+        return [
+            obj[len(prefix) :] if obj.startswith(prefix) else obj
+            for obj in (response.objects or [])
+        ]
+
+    async def list_relations(self, *, user: str, object: str, relations: list[str]) -> list[str]:
+        """Return which of *relations* the *user* has on *object*."""
+        return await self._client.list_relations(  # type: ignore[no-any-return]
+            body=ClientListRelationsRequest(user=user, object=object, relations=relations),
+        )
+
+    async def read_tuples(self, *, object: str) -> list[tuple[str, str, str]]:
+        """Read all relationship tuples on *object*.
+
+        Returns a list of ``(user, relation, object)`` triples.
+        """
+        response = await self._client.read(
+            body=ReadRequestTupleKey(object=object),  # type: ignore[no-untyped-call]
+        )
+        return [(t.key.user, t.key.relation, t.key.object) for t in (response.tuples or [])]
+
+    async def close(self) -> None:
+        """Close the underlying HTTP client."""
+        await self._client.close()  # type: ignore[no-untyped-call]
+
+
+# ---------------------------------------------------------------------------
+# FastAPI dependencies
+# ---------------------------------------------------------------------------
+
+
+class ParamSource(StrEnum):
+    """Where to extract the resource ID from the request."""
+
+    PATH = "path"
+    BODY = "body"
+    QUERY = "query"
+    CONTEXT = "context"
+
+
+def _get_fga(request: Request) -> FGAClient | None:
+    """Extract the FGA client from app state, or None if FGA is disabled."""
+    return getattr(request.app.state, "fga", None)
+
+
+async def _extract_resource_id(
+    request: Request,
+    param_name: str,
+    source: ParamSource,
+    request_context: RequestContext | None = None,
+) -> str:
+    """Pull the resource ID from the request path, body, query, or context."""
+    if source == ParamSource.PATH:
+        value = request.path_params.get(param_name)
+    elif source == ParamSource.BODY:
+        body = await request.json()
+        value = body.get(param_name)
+    elif source == ParamSource.QUERY:
+        value = request.query_params.get(param_name)
+    elif source == ParamSource.CONTEXT:
+        if request_context is None:
+            raise HTTPException(status_code=500, detail="Context not available for FGA check")
+        value = getattr(request_context, param_name, None)
+    else:
+        raise ValueError(f"Unknown source: {source}")
+
+    if value is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Missing {source.value} parameter: {param_name}",
+        )
+    return str(value)
+
+
+def require_access(
+    resource_relation: ResourceRelation,
+    *,
+    param: str | None = None,
+    source: ParamSource = ParamSource.PATH,
+) -> Any:
+    """Generic FastAPI dependency for FGA object-level access checks.
+
+    Args:
+        resource_relation: A bound (type, relation) pair from
+            ``SomeResource.relation("can_view")``.
+        param: Name of the parameter holding the resource ID.
+            Defaults to ``"{type_name}_id"`` (e.g. ``"portfolio_id"``).
+        source: Where to find the param — path, body, or query.
+
+    Example::
+
+        @router.get("/{portfolio_id}/positions")
+        async def list_positions(
+            portfolio_id: UUID,
+            request_context: RequestContext = require_permission(Permission.POSITIONS_READ),
+            _access: None = require_access(Portfolio.relation("can_view")),
+        ):
+            ...
+    """
+    param_name = param or f"{resource_relation.resource_type.name}_id"
+    rt = resource_relation.resource_type
+
+    async def _check(
+        request: Request,
+        request_context: RequestContext = Depends(get_actor_context),
+        fga: FGAClient | None = Depends(_get_fga),
+    ) -> None:
+        if fga is None:
+            # FGA not enabled — skip object-level check (RBAC still enforced)
+            return
+        # API keys and agents are already fund-scoped via RBAC; they don't
+        # have FGA tuples, so skip the object-level check for them.
+        if request_context.actor_type in (ActorType.API_KEY, ActorType.AGENT):
+            return
+        resource_id = await _extract_resource_id(request, param_name, source, request_context)
+        # Use the correct FGA subject type based on actor type
+        fga_prefix = "operator" if request_context.actor_type == ActorType.OPERATOR else "user"
+        allowed = await fga.check(
+            user=f"{fga_prefix}:{request_context.actor_id}",
+            relation=resource_relation.relation,
+            object=f"{rt.name}:{resource_id}",
+        )
+        if not allowed:
+            raise HTTPException(
+                status_code=403,
+                detail=f"No {resource_relation.relation} access to {rt.name} {resource_id}",
+            )
+
+    return Depends(_check)

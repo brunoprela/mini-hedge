@@ -41,7 +41,7 @@ from app.modules.investor_operations.state_machine import (
     apply_redemption_transition,
     apply_subscription_transition,
 )
-from app.shared.audit_events import AuditEventType
+from app.shared.audit.events import AuditEventType
 from app.shared.events import BaseEvent
 
 if TYPE_CHECKING:
@@ -76,8 +76,8 @@ class InvestorOperationsService:
         kyc_adapter: KYCScreeningAdapter,
         event_bus: EventBus,
     ) -> None:
-        self._sub_repo = subscription_repo
-        self._red_repo = redemption_repo
+        self._subscription_repo = subscription_repo
+        self._redemption_repo = redemption_repo
         self._terms_repo = fund_terms_repo
         self._kyc_repo = kyc_repo
         self._capital_service = capital_service
@@ -120,7 +120,7 @@ class InvestorOperationsService:
         apply_subscription_transition(SubscriptionState.DRAFT, SubscriptionState.PENDING_KYC)
         record.state = SubscriptionState.PENDING_KYC
 
-        await self._sub_repo.save(record, session=session)
+        await self._subscription_repo.save(record, session=session)
 
         await self._event_bus.publish(
             "investor_operations",
@@ -146,7 +146,7 @@ class InvestorOperationsService:
         session: AsyncSession | None = None,
     ) -> SubscriptionRequestSummary:
         """Record a KYC/AML decision on a subscription request."""
-        record = await self._sub_repo.get_by_id(request_id, session=session)
+        record = await self._subscription_repo.get_by_id(request_id, session=session)
         if record is None:
             msg = f"Subscription request {request_id} not found"
             raise ValueError(msg)
@@ -156,7 +156,7 @@ class InvestorOperationsService:
         apply_subscription_transition(current, target)
 
         now = _now()
-        await self._sub_repo.update_state(
+        await self._subscription_repo.update_state(
             request_id,
             target,
             session=session,
@@ -192,7 +192,7 @@ class InvestorOperationsService:
         session: AsyncSession | None = None,
     ) -> SubscriptionRequestSummary:
         """Record ops review decision."""
-        record = await self._sub_repo.get_by_id(request_id, session=session)
+        record = await self._subscription_repo.get_by_id(request_id, session=session)
         if record is None:
             msg = f"Subscription request {request_id} not found"
             raise ValueError(msg)
@@ -208,7 +208,7 @@ class InvestorOperationsService:
         apply_subscription_transition(current, target)
 
         now = _now()
-        await self._sub_repo.update_state(
+        await self._subscription_repo.update_state(
             request_id,
             target,
             session=session,
@@ -232,7 +232,7 @@ class InvestorOperationsService:
         session: AsyncSession | None = None,
     ) -> SubscriptionRequestSummary:
         """Record GP accept/reject decision. Sets dealing_date on approval."""
-        record = await self._sub_repo.get_by_id(request_id, session=session)
+        record = await self._subscription_repo.get_by_id(request_id, session=session)
         if record is None:
             msg = f"Subscription request {request_id} not found"
             raise ValueError(msg)
@@ -257,7 +257,7 @@ class InvestorOperationsService:
                 extra["dealing_date"] = dealing
                 record.dealing_date = dealing
 
-        await self._sub_repo.update_state(request_id, target, session=session, **extra)
+        await self._subscription_repo.update_state(request_id, target, session=session, **extra)
         record.state = target
         record.gp_decision_at = extra["gp_decision_at"]  # type: ignore[assignment]
         record.gp_decision_by = decision_by
@@ -272,7 +272,7 @@ class InvestorOperationsService:
         session: AsyncSession | None = None,
     ) -> SubscriptionRequestSummary:
         """Confirm wire receipt, transitioning through to QUEUED_FOR_NAV."""
-        record = await self._sub_repo.get_by_id(request_id, session=session)
+        record = await self._subscription_repo.get_by_id(request_id, session=session)
         if record is None:
             msg = f"Subscription request {request_id} not found"
             raise ValueError(msg)
@@ -288,7 +288,7 @@ class InvestorOperationsService:
             current = intermediate
 
         now = _now()
-        await self._sub_repo.update_state(
+        await self._subscription_repo.update_state(
             request_id,
             SubscriptionState.QUEUED_FOR_NAV,
             session=session,
@@ -313,7 +313,7 @@ class InvestorOperationsService:
 
         Calls the capital accounts engine to create the actual accounting entries.
         """
-        records = await self._sub_repo.list_by_dealing_date(dealing_date, session=session)
+        records = await self._subscription_repo.list_by_dealing_date(dealing_date, session=session)
         queued = [r for r in records if r.state == SubscriptionState.QUEUED_FOR_NAV]
 
         results: list[SubscriptionRequestSummary] = []
@@ -336,7 +336,7 @@ class InvestorOperationsService:
             )
 
             now = _now()
-            await self._sub_repo.update_state(
+            await self._subscription_repo.update_state(
                 record.id,
                 SubscriptionState.EXECUTED,
                 session=session,
@@ -375,7 +375,7 @@ class InvestorOperationsService:
         session: AsyncSession | None = None,
     ) -> SubscriptionRequestSummary:
         """Cancel a subscription request (any non-terminal state)."""
-        record = await self._sub_repo.get_by_id(request_id, session=session)
+        record = await self._subscription_repo.get_by_id(request_id, session=session)
         if record is None:
             msg = f"Subscription request {request_id} not found"
             raise ValueError(msg)
@@ -384,7 +384,7 @@ class InvestorOperationsService:
         apply_subscription_transition(current, SubscriptionState.CANCELLED)
 
         now = _now()
-        await self._sub_repo.update_state(
+        await self._subscription_repo.update_state(
             request_id,
             SubscriptionState.CANCELLED,
             session=session,
@@ -428,7 +428,7 @@ class InvestorOperationsService:
         apply_redemption_transition(RedemptionState.DRAFT, RedemptionState.PENDING_VALIDATION)
         record.state = RedemptionState.PENDING_VALIDATION
 
-        await self._red_repo.save(record, session=session)
+        await self._redemption_repo.save(record, session=session)
 
         await self._event_bus.publish(
             "investor_operations",
@@ -453,7 +453,7 @@ class InvestorOperationsService:
         session: AsyncSession | None = None,
     ) -> RedemptionRequestSummary:
         """Validate lock-up, notice period, and minimum amount against fund terms."""
-        record = await self._red_repo.get_by_id(request_id, session=session)
+        record = await self._redemption_repo.get_by_id(request_id, session=session)
         if record is None:
             msg = f"Redemption request {request_id} not found"
             raise ValueError(msg)
@@ -492,7 +492,7 @@ class InvestorOperationsService:
             target = RedemptionState.VALIDATED
             apply_redemption_transition(current, target)
 
-        await self._red_repo.update_state(request_id, target, session=session, **extra)
+        await self._redemption_repo.update_state(request_id, target, session=session, **extra)
         record.state = target
         if "earliest_redemption_date" in extra:
             record.earliest_redemption_date = extra["earliest_redemption_date"]  # type: ignore[assignment]
@@ -515,7 +515,7 @@ class InvestorOperationsService:
             terms = await self._terms_repo.get_by_share_class(share_class, session=session)
             gate_pct = terms.gate_pct if terms else Decimal("0.25")
 
-        pending = await self._red_repo.list_pending_for_gate(session=session)
+        pending = await self._redemption_repo.list_pending_for_gate(session=session)
         requests = [(r.id, r.requested_amount) for r in pending]
 
         result = check_gate(requests, fund_nav, gate_pct)
@@ -546,7 +546,7 @@ class InvestorOperationsService:
                 current = RedemptionState.PENDING_GATE_CHECK
 
             apply_redemption_transition(current, target)
-            await self._red_repo.update_state(rid, target, session=session, **extra)
+            await self._redemption_repo.update_state(rid, target, session=session, **extra)
 
         if result.gate_triggered:
             await self._event_bus.publish(
@@ -573,7 +573,7 @@ class InvestorOperationsService:
         session: AsyncSession | None = None,
     ) -> list[RedemptionRequestSummary]:
         """Execute all queued redemptions for a dealing date."""
-        records = await self._red_repo.list_by_dealing_date(dealing_date, session=session)
+        records = await self._redemption_repo.list_by_dealing_date(dealing_date, session=session)
         queued = [
             r
             for r in records
@@ -585,7 +585,7 @@ class InvestorOperationsService:
             current = RedemptionState(record.state)
             if current == RedemptionState.GATE_APPLIED:
                 apply_redemption_transition(current, RedemptionState.QUEUED_FOR_NAV)
-                await self._red_repo.update_state(
+                await self._redemption_repo.update_state(
                     record.id,
                     RedemptionState.QUEUED_FOR_NAV,
                     session=session,
@@ -620,7 +620,7 @@ class InvestorOperationsService:
             )
 
             payment_due = compute_payment_due_date(dealing_date, payment_days)
-            await self._red_repo.update_state(
+            await self._redemption_repo.update_state(
                 record.id,
                 RedemptionState.PENDING_PAYMENT,
                 session=session,
@@ -658,7 +658,7 @@ class InvestorOperationsService:
         session: AsyncSession | None = None,
     ) -> RedemptionRequestSummary:
         """Confirm redemption payment — transitions to PAYMENT_SENT → EXECUTED."""
-        record = await self._red_repo.get_by_id(request_id, session=session)
+        record = await self._redemption_repo.get_by_id(request_id, session=session)
         if record is None:
             msg = f"Redemption request {request_id} not found"
             raise ValueError(msg)
@@ -668,7 +668,7 @@ class InvestorOperationsService:
         apply_redemption_transition(RedemptionState.PAYMENT_SENT, RedemptionState.EXECUTED)
 
         now = _now()
-        await self._red_repo.update_state(
+        await self._redemption_repo.update_state(
             request_id,
             RedemptionState.EXECUTED,
             session=session,
@@ -690,7 +690,7 @@ class InvestorOperationsService:
         session: AsyncSession | None = None,
     ) -> RedemptionRequestSummary:
         """Cancel a redemption request (any non-terminal state)."""
-        record = await self._red_repo.get_by_id(request_id, session=session)
+        record = await self._redemption_repo.get_by_id(request_id, session=session)
         if record is None:
             msg = f"Redemption request {request_id} not found"
             raise ValueError(msg)
@@ -699,7 +699,7 @@ class InvestorOperationsService:
         apply_redemption_transition(current, RedemptionState.CANCELLED)
 
         now = _now()
-        await self._red_repo.update_state(
+        await self._redemption_repo.update_state(
             request_id,
             RedemptionState.CANCELLED,
             session=session,
@@ -865,7 +865,7 @@ class InvestorOperationsService:
     async def get_subscription(
         self, request_id: str, *, session: AsyncSession | None = None
     ) -> SubscriptionRequestSummary | None:
-        record = await self._sub_repo.get_by_id(request_id, session=session)
+        record = await self._subscription_repo.get_by_id(request_id, session=session)
         return _sub_to_summary(record) if record else None
 
     async def list_subscriptions(
@@ -876,9 +876,9 @@ class InvestorOperationsService:
         session: AsyncSession | None = None,
     ) -> list[SubscriptionRequestSummary]:
         if state:
-            records = await self._sub_repo.list_by_state(state, session=session)
+            records = await self._subscription_repo.list_by_state(state, session=session)
         elif investor_id:
-            records = await self._sub_repo.list_by_investor(investor_id, session=session)
+            records = await self._subscription_repo.list_by_investor(investor_id, session=session)
         else:
             # Default: list all pending states
             records = []
@@ -892,13 +892,13 @@ class InvestorOperationsService:
                 SubscriptionState.WIRE_CONFIRMED,
                 SubscriptionState.QUEUED_FOR_NAV,
             ]:
-                records.extend(await self._sub_repo.list_by_state(s, session=session))
+                records.extend(await self._subscription_repo.list_by_state(s, session=session))
         return [_sub_to_summary(r) for r in records]
 
     async def get_redemption(
         self, request_id: str, *, session: AsyncSession | None = None
     ) -> RedemptionRequestSummary | None:
-        record = await self._red_repo.get_by_id(request_id, session=session)
+        record = await self._redemption_repo.get_by_id(request_id, session=session)
         return _red_to_summary(record) if record else None
 
     async def list_redemptions(
@@ -909,9 +909,9 @@ class InvestorOperationsService:
         session: AsyncSession | None = None,
     ) -> list[RedemptionRequestSummary]:
         if state:
-            records = await self._red_repo.list_by_state(state, session=session)
+            records = await self._redemption_repo.list_by_state(state, session=session)
         elif investor_id:
-            records = await self._red_repo.list_by_investor(investor_id, session=session)
+            records = await self._redemption_repo.list_by_investor(investor_id, session=session)
         else:
             records = []
             for s in [
@@ -923,7 +923,7 @@ class InvestorOperationsService:
                 RedemptionState.NAV_CALCULATED,
                 RedemptionState.PENDING_PAYMENT,
             ]:
-                records.extend(await self._red_repo.list_by_state(s, session=session))
+                records.extend(await self._redemption_repo.list_by_state(s, session=session))
         return [_red_to_summary(r) for r in records]
 
     async def get_queue_summary(
@@ -933,8 +933,8 @@ class InvestorOperationsService:
         session: AsyncSession | None = None,
     ) -> QueueSummary:
         """Summary of pending subscription/redemption counts and amounts."""
-        sub_counts = await self._sub_repo.count_by_state(session=session)
-        red_counts = await self._red_repo.count_by_state(session=session)
+        sub_counts = await self._subscription_repo.count_by_state(session=session)
+        red_counts = await self._redemption_repo.count_by_state(session=session)
 
         pending_sub_states = {
             SubscriptionState.PENDING_KYC,

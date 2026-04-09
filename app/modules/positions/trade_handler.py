@@ -28,8 +28,8 @@ from app.shared.schema_registry import fund_topic
 
 if TYPE_CHECKING:
     from app.modules.positions.position_projector import PositionProjector
+    from app.shared.auth.request_context import RequestContext
     from app.shared.database import TenantSessionFactory
-    from app.shared.request_context import RequestContext
 
 logger = structlog.get_logger()
 

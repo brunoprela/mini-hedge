@@ -74,7 +74,7 @@ class BacktestingService:
         backtest_id = record.id
 
         if self._event_bus:
-            from app.shared.audit_events import AuditEventType
+            from app.shared.audit.events import AuditEventType
             from app.shared.events import BaseEvent
             from app.shared.schema_registry import shared_topic
 
@@ -138,7 +138,7 @@ class BacktestingService:
             )
 
             if self._event_bus:
-                from app.shared.audit_events import AuditEventType
+                from app.shared.audit.events import AuditEventType
                 from app.shared.events import BaseEvent
                 from app.shared.schema_registry import shared_topic
 
@@ -175,7 +175,7 @@ class BacktestingService:
                 session=session,
             )
             if self._event_bus:
-                from app.shared.audit_events import AuditEventType
+                from app.shared.audit.events import AuditEventType
                 from app.shared.events import BaseEvent
                 from app.shared.schema_registry import shared_topic
 

@@ -70,7 +70,7 @@ class AltDataService:
         logger.info("alt_data_feed_created", name=name, source=source)
 
         if self._event_bus:
-            from app.shared.audit_events import AuditEventType
+            from app.shared.audit.events import AuditEventType
             from app.shared.events import BaseEvent
             from app.shared.schema_registry import shared_topic
 
@@ -113,7 +113,7 @@ class AltDataService:
                 instrument_id=dp.instrument_id,
                 timestamp=dp.timestamp,
                 value=dp.value,
-                metadata=dp.metadata or None,
+                extra_metadata=dp.metadata or None,
             )
             for dp in data_points
         ]
@@ -129,7 +129,7 @@ class AltDataService:
         logger.info("alt_data_ingested", feed_id=str(feed_id), count=len(records))
 
         if self._event_bus:
-            from app.shared.audit_events import AuditEventType
+            from app.shared.audit.events import AuditEventType
             from app.shared.events import BaseEvent
             from app.shared.schema_registry import shared_topic
 
@@ -169,7 +169,7 @@ class AltDataService:
                 instrument_id=r.instrument_id,
                 timestamp=r.timestamp,
                 value=r.value,
-                metadata=r.metadata or {},
+                metadata=r.extra_metadata or {},
             )
             for r in records
         ]

@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from app.config import Settings
-    from app.modules.orders.broker_registry import BrokerRegistry
+    from app.modules.orders.routing.broker_registry import BrokerRegistry
     from app.shared.adapters import (
         AltDataProvider,
         BrokerAdapter,
@@ -70,7 +70,7 @@ def build_broker_registry(
     A single value without a colon means "one broker using that adapter type"
     (backward compat with ``broker_adapter = "in-process"``).
     """
-    from app.modules.orders.broker_registry import BrokerRegistry
+    from app.modules.orders.routing.broker_registry import BrokerRegistry
 
     registry = BrokerRegistry()
     raw = config.broker_adapters.strip()

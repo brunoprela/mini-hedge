@@ -1,11 +1,17 @@
 """Seed instrument reference data for local development."""
 
+from __future__ import annotations
+
 from datetime import date
 from decimal import Decimal
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from app.modules.security_master.models import EquityExtensionRecord, InstrumentRecord
 from app.shared.types import AssetClass
+
+if TYPE_CHECKING:
+    from app.shared.adapters import ExternalInstrument
 
 # Each entry contains instrument fields + an optional "shares_outstanding"
 # that seeds the equity_extensions table.
@@ -555,4 +561,32 @@ def build_seed_records() -> tuple[list[InstrumentRecord], list[EquityExtensionRe
         if ext_data:
             extensions.append(EquityExtensionRecord(instrument_id=instrument_id, **ext_data))
 
+    return instruments, extensions
+
+
+def convert_external_instruments(
+    externals: list[ExternalInstrument],
+) -> tuple[list[InstrumentRecord], list[EquityExtensionRecord]]:
+    """Convert adapter ExternalInstrument objects to ORM records."""
+    instruments: list[InstrumentRecord] = []
+    extensions: list[EquityExtensionRecord] = []
+    for ext in externals:
+        instrument_id = str(uuid4())
+        instruments.append(
+            InstrumentRecord(
+                id=instrument_id,
+                name=ext.name,
+                ticker=ext.ticker,
+                asset_class=ext.asset_class,
+                currency=ext.currency,
+                exchange=ext.exchange,
+                country=ext.country,
+                sector=ext.sector,
+                industry=ext.industry,
+                annual_drift=ext.annual_drift,
+                annual_volatility=ext.annual_volatility,
+                spread_bps=ext.spread_bps,
+                is_active=ext.is_active,
+            )
+        )
     return instruments, extensions

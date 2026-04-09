@@ -12,7 +12,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 
 if TYPE_CHECKING:
-    from app.shared.request_context import RequestContext
+    from app.shared.auth.request_context import RequestContext
 
 
 class FundInfo(BaseModel):

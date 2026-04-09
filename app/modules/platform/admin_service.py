@@ -34,9 +34,9 @@ if TYPE_CHECKING:
     )
     from app.modules.platform.operator_repository import OperatorRepository
     from app.modules.platform.user_repository import UserRepository
+    from app.shared.auth.request_context import RequestContext
     from app.shared.events import EventBus
     from app.shared.fga import FGAClient
-    from app.shared.request_context import RequestContext
 
 
 class AdminService:

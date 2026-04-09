@@ -1,18 +1,16 @@
-"""Module wiring and lifespan helpers — migrations, seeding, per-module setup.
+"""Module wiring orchestrator and lifespan helpers.
 
-This file is split into two sections:
-  1. Module wiring  — repos, services, event subscriptions (always runs)
-  2. Dev seeding    — populates seed data when APP_ENV == "local"
+Delegates to per-module ``wiring.py`` files for service construction.
+Keeps migration runner, dev-seeding orchestration, and the phased
+``setup_all()`` entry-point that ``main.py`` calls once.
 """
 
 from __future__ import annotations
 
 import asyncio
+import importlib
 import os
-from datetime import date
-from decimal import Decimal
-from typing import TYPE_CHECKING
-from uuid import UUID, uuid4
+from typing import TYPE_CHECKING, Any
 
 import structlog
 from alembic import command as alembic_command
@@ -23,74 +21,14 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
 
     from app.config import Settings
-    from app.modules.fx_hedging.service import FXHedgingService
-    from app.modules.orders.broker_registry import BrokerRegistry
     from app.shared.adapters import (
         AltDataProvider,
         BrokerAdapter,
-        ExternalInstrument,
         FundAdminAdapter,
         ReferenceDataAdapter,
     )
     from app.shared.database import TenantSessionFactory
-    from app.shared.events import BaseEvent, EventBus, EventHandler
-    from app.shared.fga import FGAClient
-    from app.shared.types import AssetClass
-
-from app.modules.alpha_engine.repository import AlphaRepository
-from app.modules.alpha_engine.service import AlphaService
-from app.modules.attribution.repository import AttributionRepository
-from app.modules.attribution.service import AttributionService
-from app.modules.cash_management.repository import (
-    CashBalanceRepository,
-    CashJournalRepository,
-    CashProjectionRepository,
-    ScheduledFlowRepository,
-    SettlementRepository,
-)
-from app.modules.cash_management.service import CashManagementService
-from app.modules.compliance.post_trade import PostTradeMonitor
-from app.modules.compliance.pre_trade import PreTradeGate
-from app.modules.compliance.repository import RuleRepository, ViolationRepository
-from app.modules.compliance.service import ComplianceService
-from app.modules.exposure.repository import ExposureRepository
-from app.modules.exposure.service import ExposureService
-from app.modules.market_data.interface import FXRateSnapshot, PriceSnapshot
-from app.modules.market_data.repository import FXRateRepository, PriceRepository
-from app.modules.market_data.service import MarketDataService
-from app.modules.orders.compliance_gateway import ComplianceGateway
-from app.modules.orders.repository import OrderRepository
-from app.modules.orders.service import OrderService
-from app.modules.platform.admin_service import AdminService
-from app.modules.platform.api_key_repository import APIKeyRepository
-from app.modules.platform.audit_repository import AuditLogRepository
-from app.modules.platform.auth_service import AuthService
-from app.modules.platform.fund_repository import FundRepository
-from app.modules.platform.operator_repository import OperatorRepository
-from app.modules.platform.portfolio_repository import PortfolioRepository
-from app.modules.platform.seed import (
-    DEV_API_KEY,
-    SEED_SUBSCRIPTIONS,
-    build_seed_api_keys,
-    build_seed_funds,
-    build_seed_investors,
-    build_seed_operators,
-    build_seed_users,
-)
-from app.modules.platform.user_repository import UserRepository
-from app.modules.positions.event_store import EventStoreRepository
-from app.modules.positions.mtm_handler import MarkToMarketHandler
-from app.modules.positions.position_projector import PositionProjector
-from app.modules.positions.position_repository import CurrentPositionRepository
-from app.modules.positions.service import PositionService
-from app.modules.positions.trade_handler import TradeHandler
-from app.modules.risk_engine.repository import RiskRepository
-from app.modules.risk_engine.service import RiskService
-from app.modules.security_master.models import EquityExtensionRecord, InstrumentRecord
-from app.modules.security_master.repository import InstrumentRepository
-from app.modules.security_master.seed import build_seed_records
-from app.modules.security_master.service import SecurityMasterService
-from app.shared.schema_registry import fund_topic, shared_topic
+    from app.shared.events import EventBus
 
 logger = structlog.get_logger()
 
@@ -136,1428 +74,175 @@ def _is_local_env() -> bool:
     return os.environ.get("APP_ENV", "local") == "local"
 
 
-async def _seed_instruments(
-    repo: InstrumentRepository,
-    *,
-    reference_adapter: ReferenceDataAdapter | None = None,
-) -> None:
-    existing = await repo.get_all_active()
-    if existing:
-        return
+async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
+    """Run cross-cutting dev-environment seeding.  No-op when APP_ENV != 'local'.
 
-    if reference_adapter is not None:
-        externals = await reference_adapter.get_all_instruments()
-        instruments, extensions = _convert_external_instruments(externals)
-        logger.info("instruments_fetched_from_adapter", count=len(instruments))
-    else:
-        instruments, extensions = build_seed_records()
-
-    await repo.insert_batch(instruments, extensions)
-    logger.info("instruments_seeded", count=len(instruments), extensions=len(extensions))
-
-
-def _convert_external_instruments(
-    externals: list[ExternalInstrument],
-) -> tuple[list[InstrumentRecord], list[EquityExtensionRecord]]:
-    """Convert adapter ExternalInstrument objects to ORM records."""
-    instruments: list[InstrumentRecord] = []
-    extensions: list[EquityExtensionRecord] = []
-    for ext in externals:
-        instrument_id = str(uuid4())
-        instruments.append(
-            InstrumentRecord(
-                id=instrument_id,
-                name=ext.name,
-                ticker=ext.ticker,
-                asset_class=ext.asset_class,
-                currency=ext.currency,
-                exchange=ext.exchange,
-                country=ext.country,
-                sector=ext.sector,
-                industry=ext.industry,
-                annual_drift=ext.annual_drift,
-                annual_volatility=ext.annual_volatility,
-                spread_bps=ext.spread_bps,
-                is_active=ext.is_active,
-            )
-        )
-    return instruments, extensions
-
-
-async def _seed_platform(
-    fund_repo: FundRepository,
-    portfolio_repo: PortfolioRepository,
-    user_repo: UserRepository,
-    operator_repo: OperatorRepository,
-    api_key_repo: APIKeyRepository,
-) -> None:
-    """Seed funds, users, operators, and API keys.
-
-    Portfolios and compliance rules are NOT seeded here — they are created
-    via the UI, API, or ``make seed``.  This keeps startup minimal: only
-    the data needed for authentication and fund discovery.
+    Individual modules handle their own seeding in their ``wiring.setup()``.
+    This function covers platform + instrument seeding that must happen before
+    module wiring.
     """
-    existing_funds = await fund_repo.get_all_active()
-    if not existing_funds:
-        funds = build_seed_funds()
-        for fund in funds:
-            await fund_repo.insert(fund)
-        logger.info("funds_seeded", count=len(funds))
-
-    existing_users = await user_repo.get_all_active()
-    if not existing_users:
-        users = build_seed_users()
-        for user in users:
-            await user_repo.insert(user)
-        api_keys = build_seed_api_keys()
-        for api_key in api_keys:
-            await api_key_repo.insert(api_key)
-        logger.info(
-            "auth_seeded",
-            users=len(users),
-            api_key=DEV_API_KEY,
-        )
-
-    # Seed operators
-    existing_operators = await operator_repo.get_all_active()
-    if not existing_operators:
-        operators = build_seed_operators()
-        for op in operators:
-            await operator_repo.insert(op)
-        logger.info("operators_seeded", count=len(operators))
-
-
-async def seed_dev_data(
-    fund_repo: FundRepository,
-    portfolio_repo: PortfolioRepository,
-    user_repo: UserRepository,
-    operator_repo: OperatorRepository,
-    api_key_repo: APIKeyRepository,
-    instrument_repo: InstrumentRepository,
-    *,
-    reference_adapter: ReferenceDataAdapter | None = None,
-) -> None:
-    """Run all dev-environment seeding.  No-op when APP_ENV != 'local'."""
     if not _is_local_env():
         return
+
+    from app.modules.platform.api_key_repository import APIKeyRepository
+    from app.modules.platform.fund_repository import FundRepository
+    from app.modules.platform.operator_repository import OperatorRepository
+    from app.modules.platform.portfolio_repository import PortfolioRepository
+    from app.modules.platform.user_repository import UserRepository
+    from app.modules.platform.wiring import _seed_platform
+    from app.modules.security_master.repository import InstrumentRepository
+    from app.modules.security_master.wiring import _seed_instruments
+
+    fund_repo = FundRepository(sf)
+    portfolio_repo = PortfolioRepository(sf)
+    user_repo = UserRepository(sf)
+    operator_repo = OperatorRepository(sf)
+    api_key_repo = APIKeyRepository(sf)
+    instrument_repo = InstrumentRepository(sf)
+
     await _seed_platform(fund_repo, portfolio_repo, user_repo, operator_repo, api_key_repo)
-    await _seed_instruments(instrument_repo, reference_adapter=reference_adapter)
+    await _seed_instruments(instrument_repo)
 
 
 # ---------------------------------------------------------------------------
-# Per-module setup helpers (called from lifespan)
+# Module wiring orchestrator
 # ---------------------------------------------------------------------------
 
 
-async def setup_platform(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-    settings: Settings,
-    fga_client: FGAClient | None = None,
-    engine: AsyncEngine | None = None,
-    event_bus: EventBus | None = None,
-) -> tuple[AuthService, FundRepository]:
-    """Wire platform module: repos, auth service.  Dev seeding is in seed_dev_data()."""
-    fund_repo = FundRepository(session_factory)
-    portfolio_repo = PortfolioRepository(session_factory)
-    user_repo = UserRepository(session_factory)
-    operator_repo = OperatorRepository(session_factory)
-    api_key_repo = APIKeyRepository(session_factory)
-
-    # Dev seeding — only populates data in local environment
-    if _is_local_env():
-        await _seed_platform(fund_repo, portfolio_repo, user_repo, operator_repo, api_key_repo)
-
-    auth_service = AuthService(
-        user_repo=user_repo,
-        fund_repo=fund_repo,
-        operator_repo=operator_repo,
-        api_key_repo=api_key_repo,
-        fga_client=fga_client,
-        jwt_secret=settings.jwt_secret,
-        jwt_algorithm=settings.jwt_algorithm,
-        jwt_expiry_minutes=settings.jwt_expiry_minutes,
-        keycloak_url=settings.keycloak_url,
-        keycloak_browser_url=settings.keycloak_browser_url,
-        keycloak_realm=settings.keycloak_realm,
-        keycloak_client_id=settings.keycloak_client_id,
-        keycloak_ops_realm=settings.keycloak_ops_realm,
-        keycloak_ops_client_id=settings.keycloak_ops_client_id,
-    )
-    fastapi_app.state.auth_service = auth_service
-    fastapi_app.state.fund_repo = fund_repo
-    fastapi_app.state.portfolio_repo = portfolio_repo
-    fastapi_app.state.operator_repo = operator_repo
-
-    audit_repo = AuditLogRepository(session_factory)
-    fastapi_app.state.audit_repo = audit_repo
-
-    # Admin service (only if FGA is available)
-    if fga_client is not None:
-        admin_service = AdminService(
-            user_repo=user_repo,
-            operator_repo=operator_repo,
-            fund_repo=fund_repo,
-            fga_client=fga_client,
-            audit_repo=audit_repo,
-            engine=engine,
-            event_bus=event_bus,
-            auth_service=auth_service,
-        )
-        fastapi_app.state.admin_service = admin_service
-
-    return auth_service, fund_repo
+async def _setup_module(name: str, app: FastAPI, sf: TenantSessionFactory, **kwargs: Any) -> Any:
+    """Import and call a module's ``wiring.setup()``."""
+    mod = importlib.import_module(f"app.modules.{name}.wiring")
+    return await mod.setup(app, sf, **kwargs)
 
 
-async def setup_fga(fastapi_app: FastAPI, settings: Settings) -> FGAClient | None:
-    """Initialize OpenFGA if enabled. Returns the FGA client or None."""
-    if not settings.fga_enabled:
-        return None
-
-    import app.shared.fga_resources  # noqa: F401 — triggers resource type registration
-    from app.modules.platform.seed import build_seed_fga_tuples
-    from app.shared.fga_startup import initialize_fga
-
-    fga_client = await initialize_fga(
-        api_url=settings.fga_api_url,
-        store_name=settings.fga_store_name,
-    )
-    fastapi_app.state.fga = fga_client
-    tuples = build_seed_fga_tuples()
-    await fga_client.write_tuples(tuples)
-    logger.info("fga_tuples_seeded", count=len(tuples))
-    return fga_client
-
-
-async def setup_security_master(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
+async def setup_all(
+    app: FastAPI,
+    sf: TenantSessionFactory,
     *,
+    engine: AsyncEngine,
+    event_bus: EventBus,
+    settings: Settings,
+    broker: BrokerAdapter,
+    broker_registry: object | None = None,
     reference_adapter: ReferenceDataAdapter | None = None,
-) -> None:
-    """Wire security master module: repo, service.  Dev seeding is in seed_dev_data()."""
-    instrument_repo = InstrumentRepository(session_factory)
-    fastapi_app.state.security_master_service = SecurityMasterService(repository=instrument_repo)
-    # Dev seeding — only populates data in local environment
-    if _is_local_env():
-        await _seed_instruments(instrument_repo, reference_adapter=reference_adapter)
-
-
-def setup_market_data(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-    event_bus: EventBus,
-) -> MarketDataService:
-    """Wire market data module: repo, service, price + FX event handler."""
-    price_repo = PriceRepository(session_factory)
-    fx_repo = FXRateRepository(session_factory)
-    market_data_service = MarketDataService(repository=price_repo, fx_repository=fx_repo)
-    fastapi_app.state.market_data_service = market_data_service
-
-    event_bus.subscribe(shared_topic("prices.normalized"), _make_price_handler(market_data_service))
-    fx_rate_handler = _make_fx_rate_handler(market_data_service)
-    event_bus.subscribe(shared_topic("fx-rates.normalized"), fx_rate_handler)
-    return market_data_service
-
-
-async def setup_positions(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-    event_bus: EventBus,
-    fund_repo: FundRepository,
-    security_master_service: SecurityMasterService,
-) -> None:
-    """Wire positions module: repos, projector, handlers, service, MTM + trade subscriptions."""
-    event_store_repo = EventStoreRepository(session_factory)
-    position_repo = CurrentPositionRepository(session_factory)
-    projector = PositionProjector(position_repo)
-    trade_handler = TradeHandler(
-        session_factory=session_factory,
-        event_store=event_store_repo,
-        projector=projector,
-        event_bus=event_bus,
-    )
-    fastapi_app.state.trade_handler = trade_handler
-    fastapi_app.state.position_service = PositionService(
-        position_repo=position_repo,
-        trade_handler=trade_handler,
-    )
-
-    # Subscribe trade handler to trades.executed per fund.
-    # When an order is filled, OrderService publishes trades.executed;
-    # TradeHandler picks it up here, creates the position, and publishes
-    # positions.changed — triggering the exposure/risk/compliance cascade.
-    active_funds = await fund_repo.get_all_active()
-    for fund in active_funds:
-        event_bus.subscribe(
-            fund_topic(fund.slug, "trades.executed"),
-            trade_handler.handle_trade_event,
-        )
-    logger.info("positions_subscribed_to_trades", fund_count=len(active_funds))
-
-    # Register hook so dynamically-created funds also get the subscription
-    async def _on_fund_created(slug: str) -> None:
-        event_bus.subscribe(
-            fund_topic(slug, "trades.executed"),
-            trade_handler.handle_trade_event,
-        )
-
-    admin_svc: AdminService | None = getattr(fastapi_app.state, "admin_service", None)
-    if admin_svc is not None:
-        admin_svc._fund_service.register_on_fund_created(_on_fund_created)
-
-    async def get_fund_slugs() -> list[str]:
-        funds = await fund_repo.get_all_active()
-        return [f.slug for f in funds]
-
-    async def get_asset_class(instrument_id: str) -> AssetClass | None:
-        try:
-            instrument = await security_master_service.get_by_ticker(instrument_id)
-        except Exception:
-            return None
-        return instrument.asset_class
-
-    mtm_handler = MarkToMarketHandler(
-        session_factory=session_factory,
-        event_bus=event_bus,
-        get_fund_slugs=get_fund_slugs,
-        get_asset_class=get_asset_class,
-    )
-    event_bus.subscribe(shared_topic("prices.normalized"), mtm_handler.handle_price_update)
-
-
-async def setup_exposure(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-    event_bus: EventBus | None = None,
-    fund_repo: FundRepository | None = None,
-) -> None:
-    """Wire exposure module: repo, service, event subscriptions."""
-    exposure_repo = ExposureRepository(session_factory)
-    position_service = fastapi_app.state.position_service
-    sm_service = fastapi_app.state.security_master_service
-    market_data_service: MarketDataService = fastapi_app.state.market_data_service
-    exposure_service = ExposureService(
-        exposure_repo=exposure_repo,
-        position_service=position_service,
-        security_master_service=sm_service,
-        event_bus=event_bus,
-        fx_converter=market_data_service.fx_converter,
-    )
-    fastapi_app.state.exposure_service = exposure_service
-
-    # Subscribe: recalculate exposure when positions change
-    if event_bus is not None and fund_repo is not None:
-        active_funds = await fund_repo.get_all_active()
-        for fund in active_funds:
-
-            def _make_handler(slug: str) -> EventHandler:
-                async def on_position_changed(event: BaseEvent) -> None:
-                    pid_str = event.data.get("portfolio_id")
-                    if not pid_str:
-                        return
-                    try:
-                        await exposure_service.take_snapshot(
-                            UUID(pid_str),
-                            fund_slug=slug,
-                        )
-                    except Exception:
-                        logger.exception(
-                            "exposure_reactive_snapshot_failed",
-                            portfolio_id=pid_str,
-                        )
-
-                return on_position_changed
-
-            event_bus.subscribe(
-                fund_topic(fund.slug, "positions.changed"),
-                _make_handler(fund.slug),
-            )
-        logger.info(
-            "exposure_subscribed_to_positions",
-            fund_count=len(active_funds),
-        )
-
-
-async def setup_compliance(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-    fund_repo: FundRepository,
-    event_bus: EventBus,
-) -> None:
-    """Wire compliance module: repos, pre-trade gate, post-trade monitor, service.
-
-    Compliance rules are NOT seeded on startup. They are created via the UI,
-    API, or ``make seed``. When no rules exist for a fund, the pre-trade gate
-    approves all trades (pass-through).
-    """
-    rule_repo = RuleRepository(session_factory)
-    violation_repo = ViolationRepository(session_factory)
-    cash_balance_repo = CashBalanceRepository(session_factory)
-    position_service = fastapi_app.state.position_service
-    security_master = fastapi_app.state.security_master_service
-
-    pre_trade_gate = PreTradeGate(
-        rule_repo=rule_repo,
-        position_service=position_service,
-        security_master=security_master,
-        cash_balance_repo=cash_balance_repo,
-    )
-
-    audit_repo = fastapi_app.state.audit_repo
-    compliance_service = ComplianceService(
-        rule_repo=rule_repo,
-        violation_repo=violation_repo,
-        pre_trade_gate=pre_trade_gate,
-        audit_repo=audit_repo,
-        position_service=position_service,
-        security_master=security_master,
-    )
-    fastapi_app.state.compliance_service = compliance_service
-
-    # Post-trade monitor: subscribe to positions.changed for each fund
-    position_repo = CurrentPositionRepository(session_factory)
-    post_trade_monitor = PostTradeMonitor(
-        session_factory=session_factory,
-        rule_repo=rule_repo,
-        violation_repo=violation_repo,
-        position_repo=position_repo,
-        security_master=security_master,
-        event_bus=event_bus,
-        cash_balance_repo=cash_balance_repo,
-    )
-    active_funds = await fund_repo.get_all_active()
-    for fund in active_funds:
-        topic = fund_topic(fund.slug, "positions.changed")
-        event_bus.subscribe(topic, post_trade_monitor.handle_position_changed)
-        pnl_topic = fund_topic(fund.slug, "pnl.updated")
-        event_bus.subscribe(pnl_topic, post_trade_monitor.handle_mtm_update)
-    logger.info("post_trade_monitor_subscribed", fund_count=len(active_funds))
-
-
-async def setup_risk_engine(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-    event_bus: EventBus | None = None,
-    fund_repo: FundRepository | None = None,
-) -> None:
-    """Wire risk engine module: repo, service, event subscriptions."""
-    risk_repo = RiskRepository(session_factory)
-    position_service = fastapi_app.state.position_service
-    market_data_service = fastapi_app.state.market_data_service
-    sm_service = fastapi_app.state.security_master_service
-    risk_service = RiskService(
-        risk_repo=risk_repo,
-        position_service=position_service,
-        market_data_service=market_data_service,
-        security_master_service=sm_service,
-        event_bus=event_bus,
-        fx_converter=market_data_service.fx_converter,
-    )
-    fastapi_app.state.risk_service = risk_service
-
-    # Subscribe: recalculate risk when positions change
-    if event_bus is not None and fund_repo is not None:
-        active_funds = await fund_repo.get_all_active()
-        for fund in active_funds:
-
-            def _make_handler(slug: str) -> EventHandler:
-                async def on_position_changed(event: BaseEvent) -> None:
-                    pid_str = event.data.get("portfolio_id")
-                    if not pid_str:
-                        return
-                    try:
-                        await risk_service.take_snapshot(
-                            UUID(pid_str),
-                            fund_slug=slug,
-                        )
-                    except Exception:
-                        logger.exception(
-                            "risk_reactive_snapshot_failed",
-                            portfolio_id=pid_str,
-                        )
-
-                return on_position_changed
-
-            event_bus.subscribe(
-                fund_topic(fund.slug, "positions.changed"),
-                _make_handler(fund.slug),
-            )
-        logger.info(
-            "risk_subscribed_to_positions",
-            fund_count=len(active_funds),
-        )
-
-
-async def setup_cash_management(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-    event_bus: EventBus,
-    fund_repo: FundRepository,
-) -> None:
-    """Wire cash management module: repos, service, event subscriptions."""
-    sm_service = fastapi_app.state.security_master_service
-    cash_service = CashManagementService(
-        session_factory=session_factory,
-        balance_repo=CashBalanceRepository(session_factory),
-        journal_repo=CashJournalRepository(session_factory),
-        settlement_repo=SettlementRepository(session_factory),
-        scheduled_flow_repo=ScheduledFlowRepository(session_factory),
-        projection_repo=CashProjectionRepository(session_factory),
-        security_master_service=sm_service,
-        event_bus=event_bus,
-    )
-    fastapi_app.state.cash_service = cash_service
-
-    # Subscribe to trades.executed for automatic settlement creation
-    active_funds = await fund_repo.get_all_active()
-    for fund in active_funds:
-        topic = fund_topic(fund.slug, "trades.executed")
-        event_bus.subscribe(topic, cash_service.handle_trade_executed)
-    logger.info("cash_management_subscribed", fund_count=len(active_funds))
-
-
-async def setup_attribution(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-) -> None:
-    """Wire attribution module: repo, service."""
-    attribution_repo = AttributionRepository(session_factory)
-    position_service = fastapi_app.state.position_service
-    sm_service = fastapi_app.state.security_master_service
-    market_data_service: MarketDataService = fastapi_app.state.market_data_service
-    attribution_service = AttributionService(
-        attribution_repo=attribution_repo,
-        position_service=position_service,
-        security_master_service=sm_service,
-        fx_converter=market_data_service.fx_converter,
-    )
-    fastapi_app.state.attribution_service = attribution_service
-
-
-async def setup_alpha_engine(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-) -> None:
-    """Wire alpha engine module: repo, service."""
-    alpha_repo = AlphaRepository(session_factory)
-    position_service = fastapi_app.state.position_service
-    sm_service = fastapi_app.state.security_master_service
-    alpha_service = AlphaService(
-        alpha_repo=alpha_repo,
-        position_service=position_service,
-        security_master_service=sm_service,
-    )
-    fastapi_app.state.alpha_service = alpha_service
-
-
-async def setup_orders(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-    event_bus: EventBus,
-    broker: BrokerAdapter,
-    broker_registry: BrokerRegistry | None = None,
-) -> None:
-    """Wire orders module: repo, compliance gateway, broker, service, algo engine, TCA."""
-    from app.modules.orders.algo.engine import AlgoEngine
-    from app.modules.orders.allocation_repository import AllocationRepository
-    from app.modules.orders.allocation_service import AllocationService
-    from app.modules.orders.best_execution import BestExecutionService
-    from app.modules.orders.routing_engine import RoutingEngine
-    from app.modules.orders.routing_repository import RoutingRepository
-    from app.modules.orders.scorecard_repository import ScorecardRepository
-    from app.modules.orders.scorecard_service import ScorecardService
-    from app.modules.orders.tca.repository import TCARepository
-    from app.modules.orders.tca.service import TCAService
-    from app.modules.orders.tca.vwap import VWAPCalculator
-
-    order_repo = OrderRepository(session_factory)
-    compliance_service = fastapi_app.state.compliance_service
-    compliance_gateway = ComplianceGateway(pre_trade_gate=compliance_service.pre_trade_gate)
-    audit_repo = fastapi_app.state.audit_repo
-    market_data_service: MarketDataService = fastapi_app.state.market_data_service
-
-    # Multi-broker routing
-    scorecard_repo = ScorecardRepository(session_factory)
-    scorecard_service = ScorecardService(
-        scorecard_repo=scorecard_repo,
-        session_factory=session_factory,
-    )
-
-    routing_engine: RoutingEngine | None = None
-    if broker_registry is not None and not broker_registry.is_single_broker:
-        routing_repo = RoutingRepository(session_factory)
-        routing_engine = RoutingEngine(
-            broker_registry=broker_registry,
-            scorecard_service=scorecard_service,
-            routing_repo=routing_repo,
-        )
-        fastapi_app.state.routing_repo = routing_repo
-
-    # TCA
-    tca_repo = TCARepository(session_factory)
-    vwap_calculator = VWAPCalculator(market_data_service)
-    tca_service = TCAService(
-        tca_repo=tca_repo,
-        order_repo=order_repo,
-        vwap_calculator=vwap_calculator,
-        scorecard_service=scorecard_service,
-    )
-
-    order_service = OrderService(
-        session_factory=session_factory,
-        order_repo=order_repo,
-        compliance_gateway=compliance_gateway,
-        broker=broker,
-        event_bus=event_bus,
-        audit_repo=audit_repo,
-        broker_registry=broker_registry,
-        routing_engine=routing_engine,
-        scorecard_service=scorecard_service,
-        market_data_service=market_data_service,
-        tca_service=tca_service,
-    )
-
-    # Wire algo engine (circular dep resolved via callback injection)
-    algo_engine = AlgoEngine(order_repo=order_repo)
-    algo_engine.set_submit_child(order_service.create_child_order)
-    order_service._algo_engine = algo_engine
-
-    fastapi_app.state.order_service = order_service
-    fastapi_app.state.algo_engine = algo_engine
-    fastapi_app.state.tca_service = tca_service
-    fastapi_app.state.scorecard_service = scorecard_service
-    if broker_registry is not None:
-        fastapi_app.state.broker_registry = broker_registry
-
-    # Best execution service
-    best_execution_service = BestExecutionService(
-        routing_repo=RoutingRepository(session_factory),
-        scorecard_service=scorecard_service,
-    )
-    fastapi_app.state.best_execution_service = best_execution_service
-
-    # Wire allocation service
-    allocation_repo = AllocationRepository(session_factory)
-    allocation_service = AllocationService(
-        session_factory=session_factory,
-        allocation_repo=allocation_repo,
-        order_service=order_service,
-        order_repo=order_repo,
-        compliance_gateway=compliance_gateway,
-        event_bus=event_bus,
-    )
-    fastapi_app.state.allocation_service = allocation_service
-
-
-async def setup_capital_accounts(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-) -> None:
-    """Wire capital accounts module: repos, service."""
-    from app.modules.capital_accounts.repository import (
-        CapitalAccountRepository,
-        CapitalTransactionRepository,
-        InvestorRepository,
-    )
-    from app.modules.capital_accounts.service import CapitalAccountService
-
-    investor_repo = InvestorRepository(session_factory)
-    account_repo = CapitalAccountRepository(session_factory)
-    transaction_repo = CapitalTransactionRepository(session_factory)
-
-    # Wire cash service for subscription/redemption cash flows
-    cash_service = getattr(fastapi_app.state, "cash_service", None)
-
-    capital_service = CapitalAccountService(
-        investor_repo=investor_repo,
-        account_repo=account_repo,
-        transaction_repo=transaction_repo,
-        cash_service=cash_service,
-    )
-    fastapi_app.state.capital_account_service = capital_service
-    fastapi_app.state.investor_repo = investor_repo
-
-    # Seed investors + initial subscriptions in local environment
-    if _is_local_env():
-        existing = await investor_repo.get_all_active()
-        if not existing:
-            investors = build_seed_investors()
-            await investor_repo.insert_batch(investors)
-            logger.info("investors_seeded", count=len(investors))
-
-        # Seed initial subscriptions per fund (capital accounts are fund-scoped)
-        fund_repo: FundRepository = fastapi_app.state.fund_repo
-        active_funds = await fund_repo.get_all_active()
-        for fund in active_funds:
-            async with session_factory.fund_scope(fund.slug), session_factory() as session:
-                existing_accounts = await account_repo.get_latest_by_fund(
-                    session=session,
-                )
-                if not existing_accounts:
-                    for inv_id, amount, nav in SEED_SUBSCRIPTIONS:
-                        await capital_service.process_subscription(
-                            investor_id=inv_id,
-                            amount=Decimal(amount),
-                            nav_per_share=Decimal(nav),
-                            business_date=date.today(),
-                            session=session,
-                        )
-                    logger.info(
-                        "capital_subscriptions_seeded",
-                        fund=fund.slug,
-                        count=len(SEED_SUBSCRIPTIONS),
-                    )
-
-    logger.info("capital_accounts_module_ready")
-
-
-async def setup_corporate_actions(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-    event_bus: EventBus,
-    settings: Settings,
-) -> None:
-    """Wire corporate actions module: repo, adapter, service."""
-    from app.adapters.factory import build_corporate_actions_adapter
-    from app.modules.corporate_actions.repository import CorporateActionsRepository
-    from app.modules.corporate_actions.service import CorporateActionsService
-
-    repo = CorporateActionsRepository(session_factory)
-    adapter = build_corporate_actions_adapter(settings)
-
-    position_service = fastapi_app.state.position_service
-
-    service = CorporateActionsService(
-        session_factory=session_factory,
-        repo=repo,
-        corporate_actions_adapter=adapter,
-        event_bus=event_bus,
-        position_service=position_service,
-    )
-    fastapi_app.state.corporate_actions_service = service
-    logger.info("corporate_actions_module_ready")
-
-
-async def setup_investor_operations(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-    event_bus: EventBus,
-    settings: Settings,
-) -> None:
-    """Wire investor operations module: repos, KYC adapter, service."""
-    from app.adapters.factory import build_kyc_screening_adapter
-    from app.modules.investor_operations.repository import (
-        FundTermsRepository,
-        InvestorKYCRepository,
-        RedemptionRequestRepository,
-        SubscriptionRequestRepository,
-    )
-    from app.modules.investor_operations.service import InvestorOperationsService
-
-    sub_repo = SubscriptionRequestRepository(session_factory)
-    red_repo = RedemptionRequestRepository(session_factory)
-    terms_repo = FundTermsRepository(session_factory)
-    kyc_repo = InvestorKYCRepository(session_factory)
-
-    kyc_adapter = build_kyc_screening_adapter(settings)
-    capital_service = fastapi_app.state.capital_account_service
-
-    service = InvestorOperationsService(
-        subscription_repo=sub_repo,
-        redemption_repo=red_repo,
-        fund_terms_repo=terms_repo,
-        kyc_repo=kyc_repo,
-        capital_service=capital_service,
-        kyc_adapter=kyc_adapter,
-        event_bus=event_bus,
-    )
-    fastapi_app.state.investor_ops_service = service
-
-    # Seed fund terms in local environment
-    if _is_local_env():
-        fund_repo: FundRepository = fastapi_app.state.fund_repo
-        active_funds = await fund_repo.get_all_active()
-        for fund in active_funds:
-            async with session_factory.fund_scope(fund.slug), session_factory() as session:
-                existing = await terms_repo.get_all_active(session=session)
-                if not existing:
-                    await service.upsert_fund_terms(
-                        share_class="default",
-                        lock_up_months=12,
-                        notice_period_days=45,
-                        redemption_frequency="quarterly",
-                        gate_pct=Decimal("0.25"),
-                        minimum_subscription=Decimal("1000000"),
-                        minimum_redemption=Decimal("100000"),
-                        dealing_day=-1,
-                        payment_days=30,
-                        session=session,
-                    )
-                    await session.commit()
-                    logger.info(
-                        "fund_terms_seeded",
-                        fund=fund.slug,
-                        share_class="default",
-                    )
-
-    logger.info("investor_operations_module_ready")
-
-
-async def setup_fee_accounting(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-) -> None:
-    """Wire fee accounting module: repos, service."""
-    from app.modules.fee_accounting.repository import (
-        FeeAccrualRepository,
-        FeeScheduleRepository,
-        HighWaterMarkRepository,
-    )
-    from app.modules.fee_accounting.service import FeeAccountingService
-
-    schedule_repo = FeeScheduleRepository(session_factory)
-    accrual_repo = FeeAccrualRepository(session_factory)
-    hwm_repo = HighWaterMarkRepository(session_factory)
-
-    fee_service = FeeAccountingService(
-        session_factory=session_factory,
-        schedule_repo=schedule_repo,
-        accrual_repo=accrual_repo,
-        hwm_repo=hwm_repo,
-    )
-    fastapi_app.state.fee_accounting_service = fee_service
-    fastapi_app.state.fee_schedule_repo = schedule_repo
-
-    # Seed fee schedules in local environment
-    if _is_local_env():
-        from app.modules.fee_accounting.models import FeeScheduleRecord
-
-        fund_repo: FundRepository = fastapi_app.state.fund_repo
-        active_funds = await fund_repo.get_all_active()
-        # Realistic hedge fund fee structures
-        fund_fee_configs = {
-            "alpha": (200, Decimal("0.20"), Decimal("0.08"), True, "annual", "quarterly"),
-            "beta": (150, Decimal("0.15"), Decimal("0.06"), True, "quarterly", "quarterly"),
-            "gamma": (175, Decimal("0.20"), Decimal("0.07"), True, "annual", "semi-annual"),
-        }
-        for fund in active_funds:
-            config = fund_fee_configs.get(
-                fund.slug,
-                (200, Decimal("0.20"), Decimal("0.08"), True, "annual", "quarterly"),
-            )
-            async with session_factory.fund_scope(fund.slug), session_factory() as session:
-                existing = await schedule_repo.get_by_fund_slug(fund.slug, session=session)
-                if existing is None:
-                    # Default class (standard 2/20)
-                    await schedule_repo.upsert(
-                        FeeScheduleRecord(
-                            fund_slug=fund.slug,
-                            share_class="default",
-                            management_fee_bps=config[0],
-                            performance_fee_pct=config[1],
-                            hurdle_rate_pct=config[2],
-                            high_water_mark=config[3],
-                            crystallization_frequency=config[4],
-                            payment_frequency=config[5],
-                        ),
-                        session=session,
-                    )
-                    # Founders class (reduced fees — 1/10)
-                    await schedule_repo.upsert(
-                        FeeScheduleRecord(
-                            fund_slug=fund.slug,
-                            share_class="founders",
-                            management_fee_bps=100,
-                            performance_fee_pct=Decimal("0.10"),
-                            hurdle_rate_pct=config[2],
-                            high_water_mark=config[3],
-                            crystallization_frequency=config[4],
-                            payment_frequency=config[5],
-                        ),
-                        session=session,
-                    )
-        logger.info("fee_schedules_seeded", fund_count=len(active_funds))
-
-    logger.info("fee_accounting_module_ready")
-
-
-async def setup_regulatory(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-) -> None:
-    """Wire regulatory reporting module."""
-    from app.modules.regulatory.repository import RegulatoryRepository
-    from app.modules.regulatory.service import RegulatoryService
-
-    repo = RegulatoryRepository(session_factory)
-
-    svc = RegulatoryService(
-        repo=repo,
-        position_service=getattr(fastapi_app.state, "position_service", None),
-        capital_service=getattr(fastapi_app.state, "capital_service", None),
-        risk_service=getattr(fastapi_app.state, "risk_service", None),
-        exposure_service=getattr(fastapi_app.state, "exposure_service", None),
-        security_master_service=getattr(fastapi_app.state, "sm_service", None),
-    )
-    fastapi_app.state.regulatory_service = svc
-    logger.info("regulatory_module_ready")
-
-
-async def setup_fund_structures(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-    event_bus: EventBus | None = None,
-) -> None:
-    """Wire fund structures module (master-feeder, strategy books, fund of funds)."""
-    from app.modules.fund_structures.repository import (
-        FundOfFundsRepository,
-        MasterFeederRepository,
-        StrategyBookRepository,
-    )
-    from app.modules.fund_structures.service import FundStructuresService
-
-    mf_repo = MasterFeederRepository(session_factory)
-    book_repo = StrategyBookRepository(session_factory)
-    fof_repo = FundOfFundsRepository(session_factory)
-
-    svc = FundStructuresService(
-        master_feeder_repo=mf_repo,
-        strategy_book_repo=book_repo,
-        fof_repo=fof_repo,
-        session_factory=session_factory,
-        event_bus=event_bus,
-    )
-    fastapi_app.state.fund_structures_service = svc
-    logger.info("fund_structures_module_ready")
-
-
-async def setup_backtesting(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-    event_bus: EventBus | None = None,
-) -> None:
-    """Wire backtesting engine module."""
-    from app.modules.backtesting.engine import BacktestEngine
-    from app.modules.backtesting.repository import BacktestRepository
-    from app.modules.backtesting.service import BacktestingService
-
-    repo = BacktestRepository(session_factory)
-    engine = BacktestEngine()
-
-    svc = BacktestingService(
-        repo=repo,
-        engine=engine,
-        session_factory=session_factory,
-        event_bus=event_bus,
-    )
-    fastapi_app.state.backtesting_service = svc
-    logger.info("backtesting_module_ready")
-
-
-async def setup_quant_research(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-    event_bus: EventBus | None = None,
-) -> None:
-    """Wire quant research module (factor research + regime detection)."""
-    from app.modules.quant_research.factor_engine import (
-        compute_momentum_factor,
-        compute_quality_factor,
-        compute_size_factor,
-        compute_value_factor,
-        compute_volatility_factor,
-    )
-    from app.modules.quant_research.regime_detector import RegimeDetector
-    from app.modules.quant_research.repository import FactorRepository, RegimeRepository
-    from app.modules.quant_research.service import QuantResearchService
-
-    factor_repo = FactorRepository(session_factory)
-    regime_repo = RegimeRepository(session_factory)
-    regime_detector = RegimeDetector()
-
-    factor_fns = {
-        "momentum": compute_momentum_factor,
-        "value": compute_value_factor,
-        "size": compute_size_factor,
-        "quality": compute_quality_factor,
-        "volatility": compute_volatility_factor,
-    }
-
-    svc = QuantResearchService(
-        factor_repo=factor_repo,
-        regime_repo=regime_repo,
-        factor_engine_fns=factor_fns,
-        regime_detector=regime_detector,
-        session_factory=session_factory,
-        event_bus=event_bus,
-    )
-    fastapi_app.state.quant_research_service = svc
-    logger.info("quant_research_module_ready")
-
-
-async def setup_ai_analysis(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-    *,
-    llm_adapter: object,
-    event_bus: EventBus | None = None,
-) -> None:
-    """Wire AI analysis module."""
-    from app.modules.ai_analysis.repository import AnalysisRepository
-    from app.modules.ai_analysis.service import AIAnalysisService
-
-    repo = AnalysisRepository(session_factory)
-
-    svc = AIAnalysisService(
-        repo=repo,
-        llm_adapter=llm_adapter,
-        session_factory=session_factory,
-        event_bus=event_bus,
-    )
-    fastapi_app.state.ai_analysis_service = svc
-    logger.info("ai_analysis_module_ready")
-
-
-async def setup_alt_data(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
+    llm_adapter: object | None = None,
     alt_data_provider: AltDataProvider | None = None,
-    *,
-    event_bus: EventBus | None = None,
-) -> None:
-    """Wire alternative data module."""
-    from app.modules.alt_data.repository import AltDataRepository
-    from app.modules.alt_data.service import AltDataService
-
-    repo = AltDataRepository(session_factory)
-
-    providers: list[AltDataProvider] = []
-    if alt_data_provider is not None:
-        providers.append(alt_data_provider)
-
-    svc = AltDataService(
-        repo=repo,
-        providers=providers,
-        session_factory=session_factory,
-        event_bus=event_bus,
-    )
-    fastapi_app.state.alt_data_service = svc
-    logger.info("alt_data_module_ready")
-
-
-async def setup_feature_store(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-    settings: Settings | None = None,
-    *,
-    event_bus: EventBus | None = None,
-) -> None:
-    """Wire feature store module."""
-    from app.modules.feature_store.compute_engine import FeatureComputeEngine
-    from app.modules.feature_store.repository import FeatureRepository
-    from app.modules.feature_store.service import FeatureStoreService
-
-    repo = FeatureRepository(session_factory)
-    data_dir = getattr(settings, "alt_data_dir", None) if settings else None
-    compute_engine = FeatureComputeEngine(data_dir=data_dir)
-
-    svc = FeatureStoreService(
-        repo=repo,
-        compute_engine=compute_engine,
-        session_factory=session_factory,
-        event_bus=event_bus,
-    )
-    fastapi_app.state.feature_store_service = svc
-    logger.info("feature_store_module_ready")
-
-
-async def setup_eod(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-    broker: BrokerAdapter,
     fund_admin: FundAdminAdapter | None = None,
-) -> None:
-    """Wire EOD processing module: orchestrator, services, repositories."""
-    from app.modules.eod.nav_calculator import NAVCalculator
-    from app.modules.eod.orchestrator import EODOrchestrator
-    from app.modules.eod.pnl_snapshot import PnLSnapshotService
-    from app.modules.eod.price_finalization import PriceFinalizationService
-    from app.modules.eod.reconciler import PositionReconciler
-    from app.modules.eod.repository import (
-        EODRunRepository,
-        FinalizedPriceRepository,
-        NAVSnapshotRepository,
-        PnLSnapshotRepository,
-        ReconciliationBreakRepository,
-        ReconciliationRepository,
+) -> list[str]:
+    """Wire all modules in dependency order.
+
+    Returns the list of active fund slugs (needed by bridge consumers in
+    ``main.py``).
+    """
+    from app.modules.platform.wiring import setup_fga
+    from app.shared.fund_schema import ensure_all_fund_schemas
+    from app.shared.observability.logging import setup_logging
+    from app.shared.schema_registry import fund_topics_for_slug, shared_topics
+
+    # ── Phase 0: Foundation ──────────────────────────────────────────────
+    # FGA must init before platform (AuthService depends on FGAClient)
+    fga_client = await setup_fga(app, settings)
+
+    await _setup_module(
+        "platform",
+        app,
+        sf,
+        event_bus=event_bus,
+        settings=settings,
+        fga_client=fga_client,
+        engine=engine,
+    )
+    await _setup_module(
+        "security_master",
+        app,
+        sf,
+        reference_adapter=reference_adapter,
     )
 
-    run_repo = EODRunRepository(session_factory)
-    price_repo = FinalizedPriceRepository(session_factory)
-    nav_repo = NAVSnapshotRepository(session_factory)
-    pnl_repo = PnLSnapshotRepository(session_factory)
-    recon_repo = ReconciliationRepository(session_factory)
-    break_repo = ReconciliationBreakRepository(session_factory)
+    # Create per-fund schemas and run positions migrations for each
+    fund_repo = app.state.fund_repo
+    active_funds = await fund_repo.get_all_active()
+    fund_slugs = [f.slug for f in active_funds]
+    await ensure_all_fund_schemas(engine, fund_slugs)
+    # Re-apply structlog config — Alembic's fileConfig() in per-fund
+    # migrations resets the root logger, destroying structlog handlers.
+    setup_logging(settings.log_level)
+    logger.info("fund_schemas_ready", fund_count=len(fund_slugs))
 
-    position_service = fastapi_app.state.position_service
-    cash_service = fastapi_app.state.cash_service
-    market_data_service = fastapi_app.state.market_data_service
-    sm_service = fastapi_app.state.security_master_service
-    risk_service = fastapi_app.state.risk_service
-    fund_repo = fastapi_app.state.fund_repo
-    portfolio_repo = fastapi_app.state.portfolio_repo
-    fee_service = getattr(fastapi_app.state, "fee_accounting_service", None)
-    capital_service = getattr(fastapi_app.state, "capital_account_service", None)
-    attribution_service = getattr(fastapi_app.state, "attribution_service", None)
+    # Create Kafka topics — shared + per-fund + DLQ
+    all_topics = shared_topics()
+    for slug in fund_slugs:
+        all_topics.extend(fund_topics_for_slug(slug))
+    dlq_topics = [f"{t}.dlq" for t in all_topics]
+    await event_bus.ensure_topics(all_topics + dlq_topics)
 
-    price_service = PriceFinalizationService(
-        price_repo=price_repo,
-        market_data_service=market_data_service,
+    # ── Phase 1: Core domain ─────────────────────────────────────────────
+    sm_service = app.state.security_master_service
+    await _setup_module("market_data", app, sf, event_bus=event_bus, settings=settings)
+    await _setup_module(
+        "positions",
+        app,
+        sf,
+        event_bus=event_bus,
+        settings=settings,
+        fund_repo=fund_repo,
         security_master_service=sm_service,
     )
-    fx_converter = market_data_service.fx_converter
+    logger.info("phase_1_modules_ready")
 
-    nav_calculator = NAVCalculator(
-        position_service=position_service,
-        cash_service=cash_service,
-        nav_repo=nav_repo,
-        fee_service=fee_service,
-        capital_service=capital_service,
-        fx_converter=fx_converter,
-    )
-    pnl_service = PnLSnapshotService(
-        position_service=position_service,
-        pnl_repo=pnl_repo,
-        fx_converter=fx_converter,
-    )
-    reconciler = PositionReconciler(
-        position_service=position_service,
-        broker_adapter=broker,
-        recon_repo=recon_repo,
-        break_repo=break_repo,
-        fund_admin_adapter=fund_admin,
-        cash_service=cash_service,
-    )
-    fastapi_app.state.recon_repo = recon_repo
-    fastapi_app.state.break_repo = break_repo
-
-    orchestrator = EODOrchestrator(
-        run_repo=run_repo,
-        fund_repo=fund_repo,
-        portfolio_repo=portfolio_repo,
-        price_service=price_service,
-        nav_calculator=nav_calculator,
-        pnl_service=pnl_service,
-        reconciler=reconciler,
-        risk_service=risk_service,
-        fee_service=fee_service,
-        capital_service=capital_service,
-        attribution_service=attribution_service,
-        investor_ops_service=getattr(fastapi_app.state, "investor_ops_service", None),
-    )
-    fastapi_app.state.eod_orchestrator = orchestrator
-    logger.info("eod_module_ready")
-
-
-async def setup_fx_hedging(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-    event_bus: EventBus | None = None,
-) -> None:
-    """Wire FX hedging module: repos, service."""
-    from app.modules.fx_hedging.repository import (
-        FXForwardRepository,
-        FXInterestRateRepository,
-    )
-    from app.modules.fx_hedging.service import FXHedgingService
-
-    market_data_service = fastapi_app.state.market_data_service
-    fx_converter = market_data_service.fx_converter
-
-    forward_repo = FXForwardRepository(session_factory)
-    rate_repo = FXInterestRateRepository(session_factory)
-
-    fx_hedging_service = FXHedgingService(
-        forward_repo=forward_repo,
-        rate_repo=rate_repo,
+    # ── Phase 2: Exposure, compliance, orders ────────────────────────────
+    await _setup_module(
+        "exposure",
+        app,
+        sf,
         event_bus=event_bus,
-        fx_converter=fx_converter,
+        settings=settings,
+        fund_repo=fund_repo,
     )
-    fastapi_app.state.fx_hedging_service = fx_hedging_service
-
-    # Subscribe to interest rate updates from mock exchange
-    if event_bus is not None:
-        event_bus.subscribe(
-            shared_topic("interest-rates"),
-            _make_interest_rate_handler(fx_hedging_service),
-        )
-
-    # Seed FX hedging data in local environment
-    if _is_local_env():
-        await _seed_fx_hedging(
-            fastapi_app,
-            session_factory,
-            forward_repo,
-            rate_repo,
-        )
-
-    logger.info("fx_hedging_module_ready")
-
-
-async def _seed_fx_hedging(
-    fastapi_app: FastAPI,
-    session_factory: TenantSessionFactory,
-    forward_repo: object,
-    rate_repo: object,
-) -> None:
-    """Seed FX interest rates and sample forwards for local demo."""
-    from datetime import timedelta
-
-    from app.modules.fx_hedging.models import FXForwardRecord, FXInterestRateRecord
-    from app.modules.platform.seed import (
-        PORTFOLIO_ALPHA_EQUITY_LS_ID,
-        PORTFOLIO_ALPHA_GLOBAL_MACRO_ID,
-        PORTFOLIO_BETA_STAT_ARB_ID,
+    await _setup_module(
+        "compliance",
+        app,
+        sf,
+        event_bus=event_bus,
+        settings=settings,
+        fund_repo=fund_repo,
     )
+    await _setup_module(
+        "orders",
+        app,
+        sf,
+        event_bus=event_bus,
+        settings=settings,
+        broker=broker,
+        broker_registry=broker_registry,
+    )
+    logger.info("phase_2_modules_ready")
 
-    fund_repo: FundRepository = fastapi_app.state.fund_repo
-    active_funds = await fund_repo.get_all_active()
-
-    # Seed interest rates for major currencies
-    seed_rates = [
-        ("USD", Decimal("0.0530"), 360),
-        ("EUR", Decimal("0.0375"), 360),
-        ("GBP", Decimal("0.0525"), 360),
-        ("JPY", Decimal("0.0010"), 360),
-        ("CHF", Decimal("0.0175"), 360),
-        ("AUD", Decimal("0.0435"), 360),
-        ("CAD", Decimal("0.0500"), 360),
+    # ── Phase 3: Risk, accounting, operations, analytics, EOD ────────────
+    logger.info("phase_3_starting")
+    phase_3_modules: list[tuple[str, dict[str, Any]]] = [
+        ("risk_engine", {}),
+        ("cash_management", {"fund_repo": fund_repo}),
+        ("attribution", {}),
+        ("alpha_engine", {}),
+        ("fee_accounting", {}),
+        ("capital_accounts", {}),
+        ("corporate_actions", {}),
+        ("fx_hedging", {}),
+        ("investor_operations", {}),
+        ("regulatory", {}),
+        ("fund_structures", {}),
+        ("backtesting", {}),
+        ("quant_research", {}),
+        ("ai_analysis", {"llm_adapter": llm_adapter}),
+        ("alt_data", {"alt_data_provider": alt_data_provider}),
+        ("feature_store", {}),
+        ("eod", {"broker": broker, "fund_admin": fund_admin}),
     ]
+    for name, ctx in phase_3_modules:
+        logger.info("setup_starting", module=name)
+        await _setup_module(name, app, sf, event_bus=event_bus, settings=settings, **ctx)
+        logger.info("setup_done", module=name)
+    logger.info("phase_3_modules_ready")
 
-    for fund in active_funds:
-        async with session_factory.fund_scope(fund.slug), session_factory() as session:
-            existing_rates = await rate_repo.get_all(session=session)
-            if not existing_rates:
-                for ccy, rate, tenor in seed_rates:
-                    await rate_repo.upsert(
-                        FXInterestRateRecord(
-                            currency=ccy,
-                            rate=rate,
-                            tenor_days=tenor,
-                            source="seed",
-                        ),
-                        session=session,
-                    )
-                logger.info("fx_rates_seeded", fund=fund.slug, count=len(seed_rates))
-
-    # Seed sample FX forwards for the alpha fund
-    # These portfolios hold non-USD positions (GBP, EUR, JPY, CHF)
-    today = date.today()
-    seed_forwards = [
-        # Alpha Equity L/S — hedge GBP and EUR exposure
-        (
-            PORTFOLIO_ALPHA_EQUITY_LS_ID,
-            "USD",
-            "GBP",
-            "sell",
-            Decimal("5000000"),
-            Decimal("1.2650"),
-            Decimal("1.2700"),
-            today - timedelta(days=15),
-            today + timedelta(days=15),
-        ),
-        (
-            PORTFOLIO_ALPHA_EQUITY_LS_ID,
-            "USD",
-            "EUR",
-            "sell",
-            Decimal("3000000"),
-            Decimal("1.0820"),
-            Decimal("1.0850"),
-            today - timedelta(days=10),
-            today + timedelta(days=20),
-        ),
-        # Alpha Global Macro — hedge JPY and CHF
-        (
-            PORTFOLIO_ALPHA_GLOBAL_MACRO_ID,
-            "USD",
-            "JPY",
-            "sell",
-            Decimal("400000000"),
-            Decimal("0.006700"),
-            Decimal("0.006720"),
-            today - timedelta(days=20),
-            today + timedelta(days=40),
-        ),
-        (
-            PORTFOLIO_ALPHA_GLOBAL_MACRO_ID,
-            "USD",
-            "CHF",
-            "sell",
-            Decimal("2000000"),
-            Decimal("1.1350"),
-            Decimal("1.1380"),
-            today - timedelta(days=5),
-            today + timedelta(days=25),
-        ),
-        # Beta Stat Arb — hedge EUR exposure
-        (
-            PORTFOLIO_BETA_STAT_ARB_ID,
-            "USD",
-            "EUR",
-            "sell",
-            Decimal("4000000"),
-            Decimal("1.0810"),
-            Decimal("1.0840"),
-            today - timedelta(days=12),
-            today + timedelta(days=18),
-        ),
-    ]
-
-    for fund in active_funds:
-        if fund.slug != "alpha" and fund.slug != "beta":
-            continue
-        async with session_factory.fund_scope(fund.slug), session_factory() as session:
-            existing_fwds = await forward_repo.get_by_portfolio(
-                UUID(PORTFOLIO_ALPHA_EQUITY_LS_ID),
-                session=session,
-            )
-            if existing_fwds:
-                continue
-            for (
-                pid,
-                base,
-                quote,
-                direction,
-                notional,
-                rate,
-                spot,
-                trade_dt,
-                maturity_dt,
-            ) in seed_forwards:
-                # Only seed forwards that belong to this fund's portfolios
-                portfolio_ids_for_fund = {
-                    "alpha": {PORTFOLIO_ALPHA_EQUITY_LS_ID, PORTFOLIO_ALPHA_GLOBAL_MACRO_ID},
-                    "beta": {PORTFOLIO_BETA_STAT_ARB_ID},
-                }
-                if pid not in portfolio_ids_for_fund.get(fund.slug, set()):
-                    continue
-                await forward_repo.create(
-                    FXForwardRecord(
-                        portfolio_id=pid,
-                        base_currency=base,
-                        quote_currency=quote,
-                        direction=direction,
-                        notional=notional,
-                        contract_rate=rate,
-                        spot_at_inception=spot,
-                        trade_date=trade_dt,
-                        maturity_date=maturity_dt,
-                        status="open",
-                        counterparty="MOCK-BANK-1",
-                    ),
-                    session=session,
-                )
-            logger.info("fx_forwards_seeded", fund=fund.slug)
-
-
-# ---------------------------------------------------------------------------
-# Event handlers
-# ---------------------------------------------------------------------------
-
-
-def _make_price_handler(market_data_service: MarketDataService) -> EventHandler:
-    """Create a price event handler for equity/instrument prices."""
-
-    _required_fields = ("instrument_id", "bid", "ask", "mid", "source")
-
-    async def on_price_event(event: BaseEvent) -> None:
-        try:
-            data = event.data
-            instrument_id: str = data.get("instrument_id", "")
-
-            if not all(k in data for k in _required_fields):
-                logger.warning(
-                    "price_event_missing_fields",
-                    event_id=event.event_id,
-                    keys=list(data.keys()),
-                )
-                return
-            raw_volume = data.get("volume")
-            snapshot = PriceSnapshot(
-                instrument_id=instrument_id,
-                bid=Decimal(data["bid"]),
-                ask=Decimal(data["ask"]),
-                mid=Decimal(data["mid"]),
-                volume=Decimal(raw_volume) if raw_volume is not None else None,
-                timestamp=event.timestamp,
-                source=data["source"],
-            )
-            market_data_service.update_latest(snapshot)
-            await market_data_service.store_price(snapshot)
-        except Exception:
-            logger.exception("price_event_handler_failed", event_id=event.event_id)
-
-    return on_price_event
-
-
-def _make_fx_rate_handler(market_data_service: MarketDataService) -> EventHandler:
-    """Create a handler for FX rate events on the dedicated fx-rates topic."""
-
-    async def on_fx_rate_event(event: BaseEvent) -> None:
-        try:
-            data = event.data
-            instrument_id: str = data.get("instrument_id", "")
-
-            pair = instrument_id.removeprefix("FX:")
-            parts = pair.split("/")
-            if len(parts) != 2:
-                logger.warning("fx_event_bad_pair", pair=pair)
-                return
-            rate_str = data.get("mid") or data.get("rate")
-            if rate_str is None:
-                logger.warning("fx_event_missing_rate", pair=pair)
-                return
-            fx_snapshot = FXRateSnapshot(
-                base_currency=parts[0],
-                quote_currency=parts[1],
-                rate=Decimal(rate_str),
-                timestamp=event.timestamp,
-                source=data.get("source", "mock-exchange"),
-            )
-            market_data_service.update_fx_rate(fx_snapshot)
-            await market_data_service.store_fx_rate(fx_snapshot)
-        except Exception:
-            logger.exception("fx_rate_event_handler_failed", event_id=event.event_id)
-
-    return on_fx_rate_event
-
-
-def _make_interest_rate_handler(fx_hedging_service: FXHedgingService) -> EventHandler:
-    """Create a handler that updates FX hedging interest rates from Kafka.
-
-    The mock exchange publishes interest_rate.updated events with pillar
-    rates per currency on the shared.interest-rates topic.
-    """
-
-    async def on_interest_rate_event(event: BaseEvent) -> None:
-        try:
-            data = event.data
-            currency = data.get("currency")
-            rate_1m = data.get("rate_1m")
-            if currency is None or rate_1m is None:
-                return
-            await fx_hedging_service.set_interest_rate(
-                currency=currency,
-                rate=Decimal(rate_1m),
-                tenor_days=30,
-                source="mock-exchange",
-            )
-        except Exception:
-            logger.exception(
-                "interest_rate_handler_failed",
-                event_id=event.event_id,
-            )
-
-    return on_interest_rate_event
+    return fund_slugs

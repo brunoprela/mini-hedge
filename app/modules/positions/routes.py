@@ -9,10 +9,10 @@ from app.modules.positions.dependencies import get_position_service
 from app.modules.positions.interface import PortfolioSummary, Position, PositionLot, TradeRequest
 from app.modules.positions.service import PositionService
 from app.shared.auth import Permission, require_permission
+from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_db, get_read_db
 from app.shared.fga import ParamSource, require_access
-from app.shared.fga_resources import Portfolio
-from app.shared.request_context import RequestContext
+from app.shared.fga.resources import Portfolio
 
 router = APIRouter(prefix="/portfolios", tags=["positions"])
 

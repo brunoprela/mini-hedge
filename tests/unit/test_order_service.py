@@ -46,6 +46,11 @@ def _make_order_record(**overrides) -> OrderRecord:
         compliance_results=None,
         time_in_force="day",
         fund_slug="alpha",
+        parent_order_id=None,
+        algo_type=None,
+        algo_params=None,
+        is_parent=False,
+        broker_id=None,
         created_at=NOW,
         updated_at=NOW,
     )

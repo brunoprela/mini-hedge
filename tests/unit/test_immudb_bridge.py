@@ -8,10 +8,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.shared.events import BaseEvent, InProcessEventBus
-from app.shared.immudb_bridge import ImmudbBridge
-from app.shared.immudb_client import ImmudbClient
-from app.shared.immudb_verifier import VerificationResult, verify_audit_batch
 from app.shared.schema_registry import fund_topic
+from app.shared.stores.immudb_bridge import ImmudbBridge
+from app.shared.stores.immudb_client import ImmudbClient
+from app.shared.stores.immudb_verifier import VerificationResult, verify_audit_batch
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -144,7 +144,7 @@ class TestImmudbClient:
         client = ImmudbClient(host="localhost", port=3322)
 
         mock_sdk = AsyncMock()
-        with patch("app.shared.immudb_client.asyncio.to_thread") as mock_thread:
+        with patch("app.shared.stores.immudb_client.asyncio.to_thread") as mock_thread:
             mock_thread.return_value = mock_sdk
             # connect calls to_thread twice effectively, but our mock simplifies
             with patch("immudb.ImmudbClient") as mock_cls:
@@ -158,7 +158,7 @@ class TestImmudbClient:
         client = ImmudbClient()
         client._client = AsyncMock()
 
-        with patch("app.shared.immudb_client.asyncio.to_thread") as mock_thread:
+        with patch("app.shared.stores.immudb_client.asyncio.to_thread") as mock_thread:
             await client.verified_set("key-1", {"a": 1})
             mock_thread.assert_called_once()
 
@@ -186,7 +186,7 @@ class TestVerifier:
         record.event_id = "evt-001"
         record.payload = payload
 
-        audit_repo.query = AsyncMock(return_value=[record])
+        audit_repo.query = AsyncMock(return_value=([record], 1))
 
         # immudb returns matching data
         immudb_client.verified_get = AsyncMock(return_value={"data": payload})
@@ -211,7 +211,7 @@ class TestVerifier:
         record.event_id = "evt-002"
         record.payload = {"quantity": 100}
 
-        audit_repo.query = AsyncMock(return_value=[record])
+        audit_repo.query = AsyncMock(return_value=([record], 1))
 
         # immudb has different data — tampered!
         immudb_client.verified_get = AsyncMock(return_value={"data": {"quantity": 999}})
@@ -233,7 +233,7 @@ class TestVerifier:
         record.event_id = "evt-003"
         record.payload = {"x": 1}
 
-        audit_repo.query = AsyncMock(return_value=[record])
+        audit_repo.query = AsyncMock(return_value=([record], 1))
         immudb_client.verified_get = AsyncMock(return_value=None)
 
         result = await verify_audit_batch(

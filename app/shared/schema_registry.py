@@ -128,7 +128,7 @@ def load_schemas() -> None:
     fastavro.parse_schema(_ENVELOPE_SCHEMA)
 
     # event_type → schema file mapping
-    from app.shared.audit_events import AuditEventType
+    from app.shared.audit.events import AuditEventType
 
     event_schemas = {
         AuditEventType.PRICE_UPDATED: "prices/normalized-v1.avsc",

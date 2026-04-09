@@ -89,7 +89,11 @@ class AltDataPointRecord(Base):
         nullable=False,
     )
     value: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
-    metadata: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    extra_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        "metadata",
+        JSONB,
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

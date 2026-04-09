@@ -19,7 +19,7 @@ from app.modules.compliance.interface import (
     Violation,
 )
 from app.modules.compliance.models import ComplianceRuleRecord, ComplianceViolationRecord
-from app.shared.audit_events import AuditEventType
+from app.shared.audit.events import AuditEventType
 from app.shared.database import TenantSessionFactory
 
 if TYPE_CHECKING:

@@ -23,13 +23,13 @@ from app.modules.cash_management.netting import NettingEngine, NettingResult
 from app.shared.auth import Permission, require_permission
 from app.shared.database import get_db
 from app.shared.fga import require_access
-from app.shared.fga_resources import Portfolio
+from app.shared.fga.resources import Portfolio
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.modules.cash_management.service import CashManagementService
-    from app.shared.request_context import RequestContext
+    from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(prefix="/cash", tags=["cash"])
 

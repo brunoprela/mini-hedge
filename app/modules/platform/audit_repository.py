@@ -18,7 +18,7 @@ from app.shared.repository import BaseRepository
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
-    from app.shared.audit_events import AuditEventType
+    from app.shared.audit.events import AuditEventType
     from app.shared.events import BaseEvent
 
 logger = structlog.get_logger()

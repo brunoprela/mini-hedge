@@ -15,8 +15,8 @@ from app.modules.orders.interface import (
 from app.modules.orders.service import OrderService
 from app.modules.orders.state_machine import InvalidTransitionError
 from app.shared.auth import Permission, require_permission
+from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_db, get_read_db
-from app.shared.request_context import RequestContext
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 

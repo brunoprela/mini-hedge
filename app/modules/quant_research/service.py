@@ -143,7 +143,7 @@ class QuantResearchService:
         await self._factor_repo.save_exposures(exposure_records, session=session)
 
         if self._event_bus:
-            from app.shared.audit_events import AuditEventType
+            from app.shared.audit.events import AuditEventType
             from app.shared.events import BaseEvent
             from app.shared.schema_registry import shared_topic
 
@@ -354,7 +354,7 @@ class QuantResearchService:
         await self._regime_repo.save_snapshot(record, session=session)
 
         if self._event_bus:
-            from app.shared.audit_events import AuditEventType
+            from app.shared.audit.events import AuditEventType
             from app.shared.events import BaseEvent
             from app.shared.schema_registry import shared_topic
 

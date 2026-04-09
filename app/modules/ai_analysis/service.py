@@ -88,7 +88,7 @@ class AIAnalysisService:
         await self._repo.save_result(record, session=session)
 
         if self._event_bus:
-            from app.shared.audit_events import AuditEventType
+            from app.shared.audit.events import AuditEventType
             from app.shared.events import BaseEvent
             from app.shared.schema_registry import shared_topic
 
@@ -171,7 +171,7 @@ class AIAnalysisService:
         await self._repo.save_note(record, session=session)
 
         if self._event_bus:
-            from app.shared.audit_events import AuditEventType
+            from app.shared.audit.events import AuditEventType
             from app.shared.events import BaseEvent
             from app.shared.schema_registry import shared_topic
 

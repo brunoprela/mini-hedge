@@ -19,7 +19,7 @@ from app.modules.orders.interface import (
 )
 from app.modules.orders.models import OrderFillRecord, OrderRecord
 from app.modules.orders.state_machine import apply_transition, derive_parent_state
-from app.shared.audit_events import AuditEventType
+from app.shared.audit.events import AuditEventType
 from app.shared.events import BaseEvent
 from app.shared.schema_registry import fund_topic
 
@@ -28,11 +28,11 @@ if TYPE_CHECKING:
 
     from app.modules.market_data.service import MarketDataService
     from app.modules.orders.algo.engine import AlgoEngine
-    from app.modules.orders.broker_registry import BrokerRegistry
     from app.modules.orders.compliance_gateway import ComplianceGateway
     from app.modules.orders.repository import OrderRepository
-    from app.modules.orders.routing_engine import RoutingEngine
-    from app.modules.orders.scorecard_service import ScorecardService
+    from app.modules.orders.routing.broker_registry import BrokerRegistry
+    from app.modules.orders.routing.engine import RoutingEngine
+    from app.modules.orders.scorecard.service import ScorecardService
     from app.modules.orders.tca.service import TCAService
     from app.modules.platform.audit_repository import AuditLogRepository
     from app.shared.adapters import BrokerAdapter
@@ -733,7 +733,7 @@ class OrderService:
         # If this is a child order, update the parent's aggregate state
         if order.parent_order_id is not None:
             await self._update_parent_from_children(
-                UUID(order.parent_order_id), fund_slug, session=session
+                UUID(str(order.parent_order_id)), fund_slug, session=session
             )
             # Notify algo engine for Iceberg replenishment
             if self._algo_engine is not None:

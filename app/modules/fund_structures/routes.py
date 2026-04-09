@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.modules.fund_structures.service import FundStructuresService
-    from app.shared.request_context import RequestContext
+    from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(prefix="/fund-structures", tags=["fund-structures"])
 

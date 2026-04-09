@@ -8,7 +8,7 @@ import structlog
 
 from app.modules.platform.interface import UpdateUserRequest, UserInfo, UserPage
 from app.modules.platform.models import UserRecord
-from app.shared.audit_events import AuditEventType
+from app.shared.audit.events import AuditEventType
 from app.shared.errors import NotFoundError, ValidationError
 
 if TYPE_CHECKING:
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
     from app.modules.platform.audit_repository import AuditLogRepository
     from app.modules.platform.user_repository import UserRepository
-    from app.shared.request_context import RequestContext
+    from app.shared.auth.request_context import RequestContext
 
 logger = structlog.get_logger()
 

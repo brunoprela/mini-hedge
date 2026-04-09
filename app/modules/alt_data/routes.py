@@ -25,7 +25,7 @@ from app.shared.database import get_db, get_read_db
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
-    from app.shared.request_context import RequestContext
+    from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(prefix="/alt-data", tags=["alt-data"])
 

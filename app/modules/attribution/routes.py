@@ -15,10 +15,10 @@ from app.modules.attribution.interface import (
 )
 from app.modules.attribution.service import AttributionService
 from app.shared.auth import Permission, require_permission
+from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_db
 from app.shared.fga import require_access
-from app.shared.fga_resources import Portfolio
-from app.shared.request_context import RequestContext
+from app.shared.fga.resources import Portfolio
 
 router = APIRouter(prefix="/attribution", tags=["attribution"])
 

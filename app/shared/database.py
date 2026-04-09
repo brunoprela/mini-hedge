@@ -169,6 +169,7 @@ def build_engine(
         pool_pre_ping=True,
         pool_recycle=1800,
         pool_timeout=settings.database_pool_timeout,
+        connect_args={"statement_cache_size": 0},
     )
 
     # Read replica engine (optional — falls back to primary if not configured)
@@ -181,6 +182,7 @@ def build_engine(
             pool_pre_ping=True,
             pool_recycle=1800,
             pool_timeout=settings.database_pool_timeout,
+            connect_args={"statement_cache_size": 0},
         )
 
     return engine, TenantSessionFactory(engine, read_engine=read_engine)

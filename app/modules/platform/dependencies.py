@@ -7,7 +7,7 @@ from app.modules.platform.audit_repository import AuditLogRepository
 from app.modules.platform.audit_verifier import AuditIntegrityVerifier
 from app.modules.platform.auth_service import AuthService
 from app.modules.platform.portfolio_repository import PortfolioRepository
-from app.shared.archival_service import ArchivalService
+from app.shared.audit.archival_service import ArchivalService
 
 
 def get_auth_service(request: Request) -> AuthService:

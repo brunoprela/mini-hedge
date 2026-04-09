@@ -9,7 +9,7 @@ from app.modules.positions.interface import PortfolioSummary, Position, Position
 from app.modules.positions.models import CurrentPositionRecord, LotRecord
 from app.modules.positions.position_repository import CurrentPositionRepository
 from app.modules.positions.trade_handler import TradeHandler
-from app.shared.request_context import RequestContext
+from app.shared.auth.request_context import RequestContext
 
 
 def _to_lot(record: LotRecord) -> PositionLot:

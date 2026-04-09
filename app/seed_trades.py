@@ -45,10 +45,10 @@ from app.modules.positions.interface import TradeSide
 from app.modules.positions.position_projector import PositionProjector
 from app.modules.positions.position_repository import CurrentPositionRepository
 from app.modules.positions.trade_handler import TradeHandler
+from app.shared.auth.request_context import ActorType, RequestContext, set_request_context
 from app.shared.database import build_engine
 from app.shared.events import InProcessEventBus
-from app.shared.logging import setup_logging
-from app.shared.request_context import ActorType, RequestContext, set_request_context
+from app.shared.observability.logging import setup_logging
 
 logger = structlog.get_logger()
 

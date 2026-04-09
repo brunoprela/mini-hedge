@@ -8,9 +8,9 @@ from unittest.mock import AsyncMock
 import pytest
 
 from app.shared.events import BaseEvent, InProcessEventBus
-from app.shared.opensearch_bridge import OpenSearchBridge
-from app.shared.opensearch_client import OpenSearchClient, _index_name
 from app.shared.schema_registry import fund_topic
+from app.shared.stores.opensearch_bridge import OpenSearchBridge
+from app.shared.stores.opensearch_client import OpenSearchClient, _index_name
 
 # ---------------------------------------------------------------------------
 # Fixtures

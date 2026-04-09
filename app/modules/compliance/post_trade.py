@@ -29,7 +29,7 @@ from app.modules.compliance.interface import (
 )
 from app.modules.compliance.models import ComplianceViolationRecord
 from app.modules.positions.interface import Position
-from app.shared.audit_events import AuditEventType
+from app.shared.audit.events import AuditEventType
 from app.shared.events import BaseEvent
 from app.shared.schema_registry import fund_topic
 

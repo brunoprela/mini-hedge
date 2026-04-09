@@ -9,7 +9,7 @@ from openfga_sdk.client.models import ClientTuple
 
 from app.modules.platform.interface import OperatorInfo, OperatorPage, UpdateOperatorRequest
 from app.modules.platform.models import OperatorRecord
-from app.shared.audit_events import AuditEventType
+from app.shared.audit.events import AuditEventType
 from app.shared.errors import NotFoundError, ValidationError
 
 if TYPE_CHECKING:
@@ -17,8 +17,8 @@ if TYPE_CHECKING:
 
     from app.modules.platform.audit_repository import AuditLogRepository
     from app.modules.platform.operator_repository import OperatorRepository
+    from app.shared.auth.request_context import RequestContext
     from app.shared.fga import FGAClient
-    from app.shared.request_context import RequestContext
 
 logger = structlog.get_logger()
 

@@ -36,8 +36,8 @@ from app.shared.auth import (
     hash_api_key,
     resolve_permissions,
 )
+from app.shared.auth.request_context import ActorType, RequestContext
 from app.shared.errors import AuthenticationError, AuthorizationError
-from app.shared.request_context import ActorType, RequestContext
 
 if TYPE_CHECKING:
     from app.modules.platform.api_key_repository import APIKeyRepository

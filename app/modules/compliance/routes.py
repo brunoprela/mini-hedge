@@ -21,8 +21,8 @@ from app.modules.compliance.interface import (
 )
 from app.modules.compliance.service import ComplianceService
 from app.shared.auth import Permission, require_permission
+from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_db
-from app.shared.request_context import RequestContext
 
 router = APIRouter(prefix="/compliance", tags=["compliance"])
 

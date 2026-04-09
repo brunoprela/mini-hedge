@@ -66,10 +66,10 @@ from app.modules.risk_engine.service import RiskService
 from app.modules.security_master.repository import InstrumentRepository
 from app.modules.security_master.seed import build_seed_records
 from app.modules.security_master.service import SecurityMasterService
+from app.shared.auth.request_context import ActorType, RequestContext, set_request_context
 from app.shared.database import TenantSessionFactory
 from app.shared.events import BaseEvent, EventHandler, InProcessEventBus
 from app.shared.fund_schema import fund_schema_name
-from app.shared.request_context import ActorType, RequestContext, set_request_context
 from app.shared.schema_registry import fund_topic, shared_topic
 from tests.helpers import EventCapture, StubBroker
 
