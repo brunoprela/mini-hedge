@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 import structlog
 
 from app.modules.backtesting.core.engine import BUILT_IN_SIGNALS, BacktestEngine
-from app.modules.backtesting.core.models import BacktestRunRecord
 from app.modules.backtesting.core.tear_sheet import TearSheet, generate_tear_sheet
 from app.modules.backtesting.interfaces import (
     BacktestConfig,
@@ -20,6 +19,7 @@ from app.modules.backtesting.interfaces import (
     EquityCurvePoint,
     MonthlyReturn,
 )
+from app.modules.backtesting.models import BacktestRunRecord
 from app.shared.audit.events import AuditEventType
 from app.shared.events import BaseEvent
 from app.shared.schema_registry import shared_topic

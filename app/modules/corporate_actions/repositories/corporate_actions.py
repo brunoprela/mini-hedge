@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import select
 
-from app.modules.corporate_actions.core.models import ProcessedCorporateActionRecord
+from app.modules.corporate_actions.models import ProcessedCorporateActionRecord
 from app.shared.repository import BaseRepository
 
 if TYPE_CHECKING:

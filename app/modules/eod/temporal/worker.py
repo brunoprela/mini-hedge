@@ -16,8 +16,7 @@ import asyncio
 
 import structlog
 
-from app.modules.eod.temporal.workflows import (
-    EodWorkflow,
+from app.modules.eod.temporal.activities import (
     calculate_attribution,
     calculate_nav,
     calculate_pnl,
@@ -26,6 +25,7 @@ from app.modules.eod.temporal.workflows import (
     finalize_prices,
     reconcile_positions,
 )
+from app.modules.eod.temporal.workflows import EodWorkflow
 from app.shared.temporal import run_worker as _run_worker
 
 logger = structlog.get_logger()

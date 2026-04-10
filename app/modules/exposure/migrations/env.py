@@ -11,7 +11,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import Connection, create_engine, pool, text
 
-from app.modules.exposure.core.models import Base
+from app.modules.exposure.models import Base
 from app.shared.alembic_plugins import setup_plugins
 
 DEFAULT_SCHEMA = "positions"

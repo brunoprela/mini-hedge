@@ -15,8 +15,8 @@ from uuid import UUID
 from app.modules.orders.interfaces import BestExecutionReport
 
 if TYPE_CHECKING:
-    from app.modules.orders.routing.repositories import RoutingRepository
-    from app.modules.orders.scorecard.services import ScorecardService
+    from app.modules.orders.repositories import RoutingRepository
+    from app.modules.orders.services import ScorecardService
 
 
 class BestExecutionService:

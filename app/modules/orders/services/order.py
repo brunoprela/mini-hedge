@@ -33,14 +33,14 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.modules.market_data.services import MarketDataService
-    from app.modules.orders.algo.engine import AlgoEngine
+    from app.modules.orders.core.algo_engine import AlgoEngine
+    from app.modules.orders.core.broker_registry import BrokerRegistry
     from app.modules.orders.core.compliance_gateway import ComplianceGateway
+    from app.modules.orders.core.routing_engine import RoutingEngine
     from app.modules.orders.repositories import OrderFillRepository, OrderRepository
-    from app.modules.orders.routing.broker_registry import BrokerRegistry
-    from app.modules.orders.routing.engine import RoutingEngine
-    from app.modules.orders.scorecard.services import ScorecardService
-    from app.modules.orders.tca.services import TCAService
+    from app.modules.orders.services import ScorecardService
     from app.modules.platform.repositories import AuditLogRepository
+    from app.modules.tca.services import TCAService
     from app.shared.adapters.broker import BrokerAdapter
     from app.shared.database import TenantSessionFactory
     from app.shared.events import EventBus
@@ -65,7 +65,6 @@ class OrderService:
         routing_engine: RoutingEngine | None = None,
         scorecard_service: ScorecardService | None = None,
         market_data_service: MarketDataService | None = None,
-        tca_service: TCAService | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._order_repo = order_repo
@@ -80,7 +79,7 @@ class OrderService:
         self._routing_engine = routing_engine
         self._scorecard_service = scorecard_service
         self._market_data_service = market_data_service
-        self._tca_service = tca_service
+        self._tca_service: TCAService | None = None  # Set by TCA module wiring
 
     async def create_order(
         self,

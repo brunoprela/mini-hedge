@@ -216,6 +216,7 @@ async def setup_all(
         broker=broker,
         broker_registry=broker_registry,
     )
+    await _setup_module("tca", app, sf, event_bus=event_bus, settings=settings)
     logger.info("phase_2_modules_ready")
 
     # ── Phase 3: Risk, accounting, operations, analytics, EOD ────────────

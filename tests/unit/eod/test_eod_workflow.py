@@ -6,11 +6,7 @@ import pytest
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
-from app.modules.eod.temporal.workflows import (
-    EodInput,
-    EodResult,
-    EodWorkflow,
-    StepResult,
+from app.modules.eod.temporal.activities import (
     calculate_attribution,
     calculate_nav,
     calculate_pnl,
@@ -19,6 +15,8 @@ from app.modules.eod.temporal.workflows import (
     finalize_prices,
     reconcile_positions,
 )
+from app.modules.eod.temporal.types import EodInput, EodResult, StepResult
+from app.modules.eod.temporal.workflows import EodWorkflow
 
 TASK_QUEUE = "test-eod"
 

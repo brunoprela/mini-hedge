@@ -10,12 +10,12 @@ from uuid import UUID
 import structlog
 
 from app.modules.exposure.core.calculator import calculate_exposure
-from app.modules.exposure.core.models import ExposureSnapshotRecord
 from app.modules.exposure.interfaces import (
     ExposureSnapshot,
     PortfolioExposure,
     PositionValue,
 )
+from app.modules.exposure.models import ExposureSnapshotRecord
 from app.shared.audit.events import AuditEventType
 from app.shared.events import BaseEvent
 from app.shared.schema_registry import fund_topic

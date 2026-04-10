@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import delete, select, update
 
-from app.modules.backtesting.core.models import BacktestRunRecord
+from app.modules.backtesting.models import BacktestRunRecord
 from app.shared.repository import BaseRepository
 
 if TYPE_CHECKING:

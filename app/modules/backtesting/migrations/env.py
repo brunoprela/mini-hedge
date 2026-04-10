@@ -5,7 +5,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import Connection, create_engine, pool, text
 
-from app.modules.backtesting.core.models import Base
+from app.modules.backtesting.models import Base
 from app.shared.alembic_plugins import setup_plugins
 
 SCHEMA = "platform"

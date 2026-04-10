@@ -10,13 +10,13 @@ from uuid import UUID, uuid4
 
 import structlog
 
-from app.modules.corporate_actions.core.models import ProcessedCorporateActionRecord
 from app.modules.corporate_actions.core.processor import compute_adjustments
 from app.modules.corporate_actions.interfaces import (
     ActionType,
     ProcessedAction,
     ProcessingStatus,
 )
+from app.modules.corporate_actions.models import ProcessedCorporateActionRecord
 from app.shared.adapters.corporate_actions import CorporateAction
 from app.shared.events import BaseEvent
 from app.shared.schema_registry import fund_topic

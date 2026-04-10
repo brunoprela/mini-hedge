@@ -1,4 +1,4 @@
-"""Orders module wiring — repo, compliance gateway, broker, service, algo engine, TCA."""
+"""Orders module wiring — repo, compliance gateway, broker, service, algo engine."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
 
     from app.modules.market_data.services import MarketDataService
-    from app.modules.orders.routing.broker_registry import BrokerRegistry
+    from app.modules.orders.core.broker_registry import BrokerRegistry
     from app.shared.adapters.broker import BrokerAdapter
     from app.shared.database import TenantSessionFactory
     from app.shared.events import EventBus
@@ -32,18 +32,16 @@ async def setup(
     broker_registry: BrokerRegistry | None = None,
     **ctx,
 ) -> None:
-    """Wire orders module: repo, compliance gateway, broker, service, algo engine, TCA."""
-    from app.modules.orders.algo.engine import AlgoEngine
-    from app.modules.orders.allocation.repositories import AllocationRepository
-    from app.modules.orders.allocation.services import AllocationService
+    """Wire orders module: repo, compliance gateway, broker, service, algo engine."""
+    from app.modules.orders.core.algo_engine import AlgoEngine
     from app.modules.orders.core.best_execution import BestExecutionService
-    from app.modules.orders.routing.engine import RoutingEngine
-    from app.modules.orders.routing.repositories import RoutingRepository
-    from app.modules.orders.scorecard.repositories import ScorecardRepository
-    from app.modules.orders.scorecard.services import ScorecardService
-    from app.modules.orders.tca.repositories import TCARepository
-    from app.modules.orders.tca.services import TCAService
-    from app.modules.orders.tca.vwap import VWAPCalculator
+    from app.modules.orders.core.routing_engine import RoutingEngine
+    from app.modules.orders.repositories import (
+        AllocationRepository,
+        RoutingRepository,
+        ScorecardRepository,
+    )
+    from app.modules.orders.services import AllocationService, ScorecardService
 
     order_repo = OrderRepository(sf)
     order_fill_repo = OrderFillRepository(sf)
@@ -69,16 +67,6 @@ async def setup(
         )
         app.state.routing_repo = routing_repo
 
-    # TCA
-    tca_repo = TCARepository(sf)
-    vwap_calculator = VWAPCalculator(market_data_service)
-    tca_service = TCAService(
-        tca_repo=tca_repo,
-        order_repo=order_repo,
-        vwap_calculator=vwap_calculator,
-        scorecard_service=scorecard_service,
-    )
-
     order_service = OrderService(
         session_factory=sf,
         order_repo=order_repo,
@@ -91,7 +79,6 @@ async def setup(
         routing_engine=routing_engine,
         scorecard_service=scorecard_service,
         market_data_service=market_data_service,
-        tca_service=tca_service,
     )
 
     # Wire algo engine (circular dep resolved via callback injection)
@@ -99,9 +86,9 @@ async def setup(
     algo_engine.set_submit_child(order_service.create_child_order)
     order_service._algo_engine = algo_engine
 
+    app.state.order_repo = order_repo
     app.state.order_service = order_service
     app.state.algo_engine = algo_engine
-    app.state.tca_service = tca_service
     app.state.scorecard_service = scorecard_service
     if broker_registry is not None:
         app.state.broker_registry = broker_registry

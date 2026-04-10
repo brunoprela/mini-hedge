@@ -18,9 +18,9 @@ from app.shared.database import get_db
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
-    from app.modules.orders.routing.broker_registry import BrokerRegistry
-    from app.modules.orders.routing.repositories import RoutingRepository
-    from app.modules.orders.scorecard.services import ScorecardService
+    from app.modules.orders.core.broker_registry import BrokerRegistry
+    from app.modules.orders.repositories import RoutingRepository
+    from app.modules.orders.services import ScorecardService
     from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(tags=["brokers"])

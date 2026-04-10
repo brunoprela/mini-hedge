@@ -9,7 +9,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import Connection, create_engine, pool, text
 
-from app.modules.corporate_actions.core.models import Base
+from app.modules.corporate_actions.models import Base
 from app.shared.alembic_plugins import setup_plugins
 
 DEFAULT_SCHEMA = "positions"

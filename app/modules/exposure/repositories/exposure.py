@@ -8,7 +8,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 
-from app.modules.exposure.core.models import ExposureSnapshotRecord
+from app.modules.exposure.models import ExposureSnapshotRecord
 from app.shared.repository import BaseRepository
 
 if TYPE_CHECKING:

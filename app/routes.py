@@ -31,11 +31,9 @@ from app.modules.investor_operations.routes import (
 )
 from app.modules.market_data.routes import fx_router
 from app.modules.market_data.routes import router as market_data_router
-from app.modules.orders.allocation.routes import router as allocation_router
-from app.modules.orders.routes import broker_router
+from app.modules.orders.routes import allocation_router, broker_router
 from app.modules.orders.routes import execution_router as orders_execution_router
 from app.modules.orders.routes import router as orders_router
-from app.modules.orders.tca.routes import router as tca_router
 from app.modules.platform.routes import admin_router
 from app.modules.platform.routes import archival_router as platform_archival_router
 from app.modules.platform.routes import dlq_router as platform_dlq_router
@@ -48,6 +46,7 @@ from app.modules.risk_engine.routes import counterparty_router as risk_counterpa
 from app.modules.risk_engine.routes import liquidity_margin_router as risk_liquidity_margin_router
 from app.modules.risk_engine.routes import snapshot_router as risk_snapshot_router
 from app.modules.security_master.routes import router as security_master_router
+from app.modules.tca.routes import router as tca_router
 
 ALL_ROUTERS = [
     platform_router,
