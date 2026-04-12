@@ -1,13 +1,9 @@
 """FastAPI dependency wrappers for the backtesting module."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, Request
 
-if TYPE_CHECKING:
-    from app.modules.backtesting.services import BacktestingService
+from app.modules.backtesting.services import BacktestingService
 
 
 def get_backtesting_service(request: Request) -> BacktestingService:

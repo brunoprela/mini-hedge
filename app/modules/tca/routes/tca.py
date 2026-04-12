@@ -1,26 +1,21 @@
 """FastAPI routes for Transaction Cost Analysis."""
 
-from __future__ import annotations
-
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, cast
+from typing import cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.tca.interfaces import (
     FundTCASummary,
     PortfolioTCAReport,
     TCAReport,
 )
+from app.modules.tca.services import TCAService
 from app.shared.auth import Permission, require_permission
+from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_db, get_read_db
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from app.modules.tca.services import TCAService
-    from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(tags=["tca"])
 

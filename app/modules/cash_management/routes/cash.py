@@ -1,11 +1,10 @@
 """FastAPI routes for cash management."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Path, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.cash_management.core.holiday_calendar import HolidayCalendar
 from app.modules.cash_management.core.messaging import (
@@ -20,16 +19,12 @@ from app.modules.cash_management.interfaces import (
     SettlementLadder,
     SettlementRecord,
 )
+from app.modules.cash_management.services import CashManagementService
 from app.shared.auth import Permission, require_permission
+from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_db
 from app.shared.fga import require_access
 from app.shared.fga.resources import Portfolio
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from app.modules.cash_management.services import CashManagementService
-    from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(prefix="/cash", tags=["cash"])
 

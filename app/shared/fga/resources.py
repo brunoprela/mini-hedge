@@ -66,6 +66,13 @@ Fund = register_resource_type(
     )
 )
 
+Customer = register_resource_type(
+    ResourceType(
+        name="customer",
+        relations=frozenset({"member", "admin", "fund"}),
+    )
+)
+
 Platform = register_resource_type(
     ResourceType(
         name="platform",

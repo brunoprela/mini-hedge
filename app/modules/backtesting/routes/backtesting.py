@@ -1,12 +1,10 @@
 """FastAPI routes for backtesting."""
 
-from __future__ import annotations
-
 from decimal import Decimal
-from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.backtesting.core.tear_sheet import TearSheet
 from app.modules.backtesting.dependencies import get_backtesting_service
@@ -17,14 +15,10 @@ from app.modules.backtesting.interfaces import (
     BacktestTrade,
     EquityCurvePoint,
 )
+from app.modules.backtesting.services import BacktestingService
 from app.shared.auth import Permission, require_permission
+from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_db, get_read_db
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from app.modules.backtesting.services import BacktestingService
-    from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(prefix="/backtesting", tags=["backtesting"])
 

@@ -1,13 +1,9 @@
 """FastAPI dependency wrappers for the alt_data module."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, Request
 
-if TYPE_CHECKING:
-    from app.modules.alt_data.services import AltDataService
+from app.modules.alt_data.services import AltDataService
 
 
 def get_alt_data_service(request: Request) -> AltDataService:

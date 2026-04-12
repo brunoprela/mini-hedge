@@ -33,9 +33,6 @@ from tests.integration.conftest import (
     WiredSystem,
 )
 
-pytestmark = pytest.mark.asyncio
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

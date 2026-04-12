@@ -1,14 +1,12 @@
 """FastAPI routes for the fee accounting module."""
 
-from __future__ import annotations
-
 from datetime import date
 from decimal import Decimal
-from typing import TYPE_CHECKING
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.fee_accounting.dependencies import (
     get_fee_accounting_service,
@@ -16,13 +14,9 @@ from app.modules.fee_accounting.dependencies import (
 )
 from app.modules.fee_accounting.interfaces import AccrualStatus, FeeType
 from app.modules.fee_accounting.models.fee_schedule import FeeScheduleRecord
+from app.modules.fee_accounting.repositories.fee_schedule import FeeScheduleRepository
+from app.modules.fee_accounting.services import FeeAccountingService
 from app.shared.database import get_db
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from app.modules.fee_accounting.repositories.fee_schedule import FeeScheduleRepository
-    from app.modules.fee_accounting.services import FeeAccountingService
 
 router = APIRouter(prefix="/funds/{fund_slug}/fees", tags=["fees"])
 

@@ -1,13 +1,9 @@
 """FastAPI dependency wrappers for the feature_store module."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, Request
 
-if TYPE_CHECKING:
-    from app.modules.feature_store.services import FeatureStoreService
+from app.modules.feature_store.services import FeatureStoreService
 
 
 def get_feature_store_service(request: Request) -> FeatureStoreService:

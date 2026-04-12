@@ -361,7 +361,10 @@ async def wired_system(session_factory: TenantSessionFactory) -> WiredSystem:
         instruments, extensions = build_seed_records()
         await instrument_repo.insert_batch(instruments, extensions)
 
-    market_data_service = MarketDataService(repository=price_repo)
+    from app.modules.market_data.repositories.fx_rate import FXRateRepository
+
+    fx_rate_repo = FXRateRepository(session_factory)
+    market_data_service = MarketDataService(repository=price_repo, fx_repository=fx_rate_repo)
 
     # --- Positions module -----------------------------------------------------
     projector = PositionProjector(position_repo)

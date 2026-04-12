@@ -136,10 +136,18 @@ class AuthMiddleware:
 
         set_request_context(request_context)
 
-        # Set fund scope for per-fund schema isolation
-        if request_context.fund_slug and app:
-            sf = getattr(app.state, "session_factory", None)
-            if sf is not None:
+        # Set tenant scopes for per-customer/per-fund isolation
+        sf = getattr(app.state, "session_factory", None) if app else None
+        if sf is not None:
+            if request_context.customer_id:
+                async with sf.customer_scope(request_context.customer_id):
+                    if request_context.fund_slug:
+                        async with sf.fund_scope(request_context.fund_slug):
+                            await self.app(scope, receive, send)
+                            return
+                    await self.app(scope, receive, send)
+                    return
+            if request_context.fund_slug:
                 async with sf.fund_scope(request_context.fund_slug):
                     await self.app(scope, receive, send)
                     return

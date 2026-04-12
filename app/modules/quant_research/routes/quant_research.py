@@ -1,13 +1,11 @@
 """FastAPI routes for quant research module."""
 
-from __future__ import annotations
-
 from datetime import date
 from decimal import Decimal
-from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.quant_research.dependencies import get_quant_research_service
 from app.modules.quant_research.interfaces import (
@@ -19,14 +17,10 @@ from app.modules.quant_research.interfaces import (
     PortfolioFactorDecomposition,
     RegimeAnalysis,
 )
+from app.modules.quant_research.services import QuantResearchService
 from app.shared.auth import Permission, require_permission
+from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_db, get_read_db
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from app.modules.quant_research.services import QuantResearchService
-    from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(prefix="/quant-research", tags=["quant-research"])
 

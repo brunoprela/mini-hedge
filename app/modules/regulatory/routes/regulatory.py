@@ -1,11 +1,9 @@
 """FastAPI routes for regulatory reporting."""
 
-from __future__ import annotations
-
 from datetime import date
-from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.regulatory.dependencies import get_regulatory_service
 from app.modules.regulatory.interfaces import (
@@ -14,14 +12,10 @@ from app.modules.regulatory.interfaces import (
     InvestorStatement,
     MonthlyPerformanceLetter,
 )
+from app.modules.regulatory.services import RegulatoryService
 from app.shared.auth import Permission, require_permission
+from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_db
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from app.modules.regulatory.services import RegulatoryService
-    from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(prefix="/regulatory", tags=["regulatory"])
 

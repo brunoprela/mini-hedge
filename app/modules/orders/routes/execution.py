@@ -1,19 +1,15 @@
 """FastAPI routes for best execution reporting."""
 
-from __future__ import annotations
-
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
+from app.modules.orders.core.best_execution import BestExecutionService
 from app.modules.orders.interfaces import BestExecutionReport
 from app.shared.auth import Permission, require_permission
-
-if TYPE_CHECKING:
-    from app.modules.orders.core.best_execution import BestExecutionService
-    from app.shared.auth.request_context import RequestContext
+from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(tags=["brokers"])
 

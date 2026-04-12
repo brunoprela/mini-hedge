@@ -5,8 +5,6 @@ from the ``token`` query parameter for SSE paths (EventSource API does
 not support custom headers).
 """
 
-from __future__ import annotations
-
 import asyncio
 import json
 from collections.abc import AsyncGenerator

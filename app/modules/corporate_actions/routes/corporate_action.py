@@ -1,22 +1,16 @@
 """FastAPI routes for the corporate actions module."""
 
-from __future__ import annotations
-
 from datetime import date
-from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.corporate_actions.dependencies import get_corporate_actions_service
 from app.modules.corporate_actions.interfaces import ProcessedAction
+from app.modules.corporate_actions.services import CorporateActionsService
 from app.shared.auth import Permission, require_permission
+from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_db
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from app.modules.corporate_actions.services import CorporateActionsService
-    from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(prefix="/corporate-actions", tags=["corporate-actions"])
 

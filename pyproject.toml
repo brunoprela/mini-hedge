@@ -86,7 +86,9 @@ warn_unused_configs = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+addopts = "-m 'not contract'"
 markers = [
     "integration: marks tests requiring database (deselect with '-m \"not integration\"')",
     "contract: marks contract tests validated against OpenAPI spec (run with '-m contract')",

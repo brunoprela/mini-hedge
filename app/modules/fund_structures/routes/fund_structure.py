@@ -1,13 +1,11 @@
 """FastAPI routes for fund structures."""
 
-from __future__ import annotations
-
 from decimal import Decimal
-from typing import TYPE_CHECKING
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.fund_structures.dependencies import get_fund_structures_service
 from app.modules.fund_structures.interfaces import (
@@ -18,14 +16,10 @@ from app.modules.fund_structures.interfaces import (
     MasterFeederLink,
     StrategyBook,
 )
+from app.modules.fund_structures.services import FundStructuresService
 from app.shared.auth import Permission, require_permission
+from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_db, get_read_db
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from app.modules.fund_structures.services import FundStructuresService
-    from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(prefix="/fund-structures", tags=["fund-structures"])
 

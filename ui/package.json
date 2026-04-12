@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@mini-hedge/api-types": "workspace:*",
+    "@mini-hedge/ui": "workspace:*",
     "@tanstack/react-query": "^5.96.1",
     "@tanstack/react-table": "^8.21.3",
     "clsx": "^2.1.1",

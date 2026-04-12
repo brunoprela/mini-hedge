@@ -156,9 +156,10 @@ export function OrdersPageClient() {
         )}
       </div>
 
-      {showBlockAllocation && (
-        <BlockAllocationDialog onClose={() => setShowBlockAllocation(false)} />
-      )}
+      <BlockAllocationDialog
+        open={showBlockAllocation}
+        onClose={() => setShowBlockAllocation(false)}
+      />
     </div>
   );
 }

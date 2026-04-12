@@ -356,7 +356,7 @@ class TestModelMigrationAlignment:
 
     @pytest.mark.integration
     def test_tca_result_columns_match(self, pg_url: str, engine: Engine) -> None:
-        from app.modules.orders.models import TCAResultRecord
+        from app.modules.tca.models.tca_result import TCAResultRecord
 
         cfg = _make_config(pg_url, SCHEMA_A)
         alembic_command.upgrade(cfg, "head")

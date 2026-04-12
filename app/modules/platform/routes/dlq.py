@@ -1,15 +1,11 @@
 """Admin API routes — DLQ (dead-letter queue) management endpoints."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 
 from app.shared.auth import Permission, require_platform_permission
-
-if TYPE_CHECKING:
-    from app.shared.auth.request_context import RequestContext
+from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 

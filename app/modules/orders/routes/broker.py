@@ -1,27 +1,22 @@
 """FastAPI routes for multi-broker management."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.orders.core.broker_registry import BrokerRegistry
 from app.modules.orders.interfaces import (
     BrokerScorecard,
     CreateRoutingRuleRequest,
     RoutingRule,
 )
+from app.modules.orders.repositories import RoutingRepository
+from app.modules.orders.services import ScorecardService
 from app.shared.auth import Permission, require_permission
+from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_db
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from app.modules.orders.core.broker_registry import BrokerRegistry
-    from app.modules.orders.repositories import RoutingRepository
-    from app.modules.orders.services import ScorecardService
-    from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(tags=["brokers"])
 

@@ -1,14 +1,13 @@
 """FastAPI routes for FX hedging — forwards, MTM, recommendations."""
 
-from __future__ import annotations
-
 from decimal import Decimal
-from typing import TYPE_CHECKING
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.exposure.dependencies import get_exposure_service
+from app.modules.exposure.services import ExposureService
 from app.modules.fx_hedging.dependencies import get_fx_hedging_service
 from app.modules.fx_hedging.interfaces import (
     FXForwardClose,
@@ -20,17 +19,12 @@ from app.modules.fx_hedging.interfaces import (
     HedgeRecommendationResponse,
     RollRecommendation,
 )
+from app.modules.fx_hedging.services import FXHedgingService
 from app.shared.auth import Permission, require_permission
+from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_read_db
 from app.shared.fga import require_access
 from app.shared.fga.resources import Portfolio
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from app.modules.exposure.services import ExposureService
-    from app.modules.fx_hedging.services import FXHedgingService
-    from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(prefix="/fx-hedging", tags=["fx-hedging"])
 

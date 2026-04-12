@@ -1,12 +1,26 @@
 "use client";
 
+/**
+ * Order blotter.
+ *
+ * Bedrock templates (see design/systems/hedge-fund-desk/02-modules/ui/internal/overview.md):
+ * - Section heading shape: tailwind-templates/application-ui-v4/react/headings/section-headings/07-with-actions-and-tabs.jsx
+ * - Tab row: tailwind-templates/application-ui-v4/react/navigation/tabs/08-tabs-with-underline-and-badges.jsx
+ * - Table body: tailwind-templates/application-ui-v4/react/lists/tables/12-with-condensed-content.jsx
+ *
+ * Institutional divergences from template:
+ * - Rows are tinted by order state (filled=success, cancelled/rejected=destructive, working=primary)
+ *   so traders can scan blotter state at a glance. Template has plain rows.
+ * - Section heading padding is pb-3 rather than pb-5 (denser desk density).
+ * - Responsive md:absolute header positioning dropped (desk UI is fixed-wide).
+ */
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { StatusDot } from "@/shared/components/charts";
-import { SectionPanel, ToolbarTab } from "@/shared/components/section-panel";
 import { SortableHeader, TablePagination, TableSearch } from "@/shared/components/table-controls";
 import { useExportCSV } from "@/shared/hooks/use-export-csv";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
@@ -25,6 +39,15 @@ const STATUS_TABS: { label: string; value: StatusFilter }[] = [
   { label: "Cancelled", value: "cancelled" },
   { label: "Rejected", value: "rejected" },
 ];
+
+const OPEN_STATES = new Set([
+  "draft",
+  "pending_compliance",
+  "approved",
+  "sent",
+  "working",
+  "partially_filled",
+]);
 
 function stateRowClass(state: string): string {
   switch (state) {
@@ -101,19 +124,30 @@ export function OrderBlotter({
     onSettled: () => setCancellingId(null),
   });
 
+  const tabCounts = useMemo<Record<StatusFilter, number>>(() => {
+    const base: Record<StatusFilter, number> = {
+      all: 0,
+      open: 0,
+      filled: 0,
+      cancelled: 0,
+      rejected: 0,
+    };
+    if (!orders) return base;
+    base.all = orders.length;
+    for (const o of orders) {
+      if (OPEN_STATES.has(o.state)) base.open += 1;
+      else if (o.state === "filled") base.filled += 1;
+      else if (o.state === "cancelled") base.cancelled += 1;
+      else if (o.state === "rejected") base.rejected += 1;
+    }
+    return base;
+  }, [orders]);
+
   const filteredOrders = useMemo(() => {
     if (!orders) return [];
     switch (statusFilter) {
       case "open":
-        return orders.filter(
-          (o) =>
-            o.state === "draft" ||
-            o.state === "pending_compliance" ||
-            o.state === "approved" ||
-            o.state === "sent" ||
-            o.state === "working" ||
-            o.state === "partially_filled",
-        );
+        return orders.filter((o) => OPEN_STATES.has(o.state));
       case "filled":
         return orders.filter((o) => o.state === "filled");
       case "cancelled":
@@ -159,26 +193,16 @@ export function OrderBlotter({
   }
 
   return (
-    <div className="space-y-3">
-      <SectionPanel
-        title="Order Blotter"
-        tabs={STATUS_TABS.map((tab) => (
-          <ToolbarTab
-            key={tab.value}
-            label={tab.label}
-            active={statusFilter === tab.value}
-            onClick={() => {
-              setStatusFilter(tab.value);
-              table.setPage(0);
-            }}
-          />
-        ))}
-        actions={
-          <>
-            <span className="text-[10px] font-medium text-[var(--muted-foreground)]">
+    <div className="space-y-4">
+      {/* Section heading — template: headings/section-headings/07-with-actions-and-tabs.jsx */}
+      <div className="border-b border-[var(--border)] pb-3">
+        <div className="flex items-center justify-between gap-4">
+          <h3 className="text-base font-semibold text-[var(--foreground-bright)]">Order Blotter</h3>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-[var(--muted-foreground)]">
               {table.totalFiltered} results
             </span>
-            <div className="w-48">
+            <div className="w-56">
               <TableSearch
                 value={table.search}
                 onChange={table.setSearch}
@@ -188,205 +212,249 @@ export function OrderBlotter({
             <button
               type="button"
               onClick={handleExport}
-              title="Export to CSV"
-              className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+              className="inline-flex items-center gap-1.5 rounded-md bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--foreground)] inset-ring inset-ring-[var(--border)] hover:bg-[var(--muted)]"
             >
-              <Download className="h-3.5 w-3.5" />
-              CSV
+              <Download className="h-4 w-4" />
+              Export
             </button>
-          </>
-        }
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)] text-left text-[var(--muted-foreground)]">
-                <SortableHeader
-                  label="Instrument"
-                  sortKey="instrument_id"
-                  currentSort={table.sortKey}
-                  direction={table.sortDirection}
-                  onSort={table.onSort}
-                />
-                <SortableHeader
-                  label="Side"
-                  sortKey="side"
-                  currentSort={table.sortKey}
-                  direction={table.sortDirection}
-                  onSort={table.onSort}
-                />
-                <SortableHeader
-                  label="Type"
-                  sortKey="order_type"
-                  currentSort={table.sortKey}
-                  direction={table.sortDirection}
-                  onSort={table.onSort}
-                />
-                <SortableHeader
-                  label="Qty"
-                  sortKey="quantity"
-                  currentSort={table.sortKey}
-                  direction={table.sortDirection}
-                  onSort={table.onSort}
-                />
-                <SortableHeader
-                  label="Filled"
-                  sortKey="filled_quantity"
-                  currentSort={table.sortKey}
-                  direction={table.sortDirection}
-                  onSort={table.onSort}
-                />
-                <SortableHeader
-                  label="Limit"
-                  sortKey="limit_price"
-                  currentSort={table.sortKey}
-                  direction={table.sortDirection}
-                  onSort={table.onSort}
-                />
-                <SortableHeader
-                  label="Avg Fill"
-                  sortKey="avg_fill_price"
-                  currentSort={table.sortKey}
-                  direction={table.sortDirection}
-                  onSort={table.onSort}
-                />
-                <SortableHeader
-                  label="TIF"
-                  sortKey="time_in_force"
-                  currentSort={table.sortKey}
-                  direction={table.sortDirection}
-                  onSort={table.onSort}
-                />
-                <SortableHeader
-                  label="Broker"
-                  sortKey="broker_id"
-                  currentSort={table.sortKey}
-                  direction={table.sortDirection}
-                  onSort={table.onSort}
-                />
-                <SortableHeader
-                  label="State"
-                  sortKey="state"
-                  currentSort={table.sortKey}
-                  direction={table.sortDirection}
-                  onSort={table.onSort}
-                />
-                <SortableHeader
-                  label="Time"
-                  sortKey="created_at"
-                  currentSort={table.sortKey}
-                  direction={table.sortDirection}
-                  onSort={table.onSort}
-                />
-                <th className="w-10 px-3 py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {table.rows.map((row) => {
-                const order = row as Record<string, unknown>;
-                const state = order.state as string;
-                const isCancellable = CANCELLABLE_STATES.has(state);
-                const orderId = order.id as string;
-
-                return (
-                  <tr
-                    key={orderId}
-                    onClick={() => onSelectOrder?.(selectedOrderId === orderId ? null : orderId)}
-                    className={`border-b border-[var(--table-border)] last:border-0 hover:bg-[var(--table-row-hover)] ${stateRowClass(state)} ${onSelectOrder ? "cursor-pointer" : ""} ${selectedOrderId === orderId ? "ring-1 ring-inset ring-[var(--primary)]" : ""}`}
+          </div>
+        </div>
+        {/* Tabs — template: navigation/tabs/08-tabs-with-underline-and-badges.jsx */}
+        <div className="mt-3">
+          <nav aria-label="Order status tabs" className="-mb-px flex space-x-8">
+            {STATUS_TABS.map((tab) => {
+              const isActive = statusFilter === tab.value;
+              return (
+                <button
+                  key={tab.value}
+                  type="button"
+                  aria-current={isActive ? "page" : undefined}
+                  onClick={() => {
+                    setStatusFilter(tab.value);
+                    table.setPage(0);
+                  }}
+                  className={`flex border-b-2 px-1 pb-3 text-sm font-medium whitespace-nowrap ${
+                    isActive
+                      ? "border-[var(--primary)] text-[var(--primary)]"
+                      : "border-transparent text-[var(--muted-foreground)] hover:border-[var(--border-bright)] hover:text-[var(--foreground)]"
+                  }`}
+                >
+                  {tab.label}
+                  <span
+                    className={`ml-3 hidden rounded-full px-2.5 py-0.5 text-xs font-medium md:inline-block ${
+                      isActive
+                        ? "bg-[var(--primary-muted)] text-[var(--primary)]"
+                        : "bg-[var(--muted)] text-[var(--foreground)]"
+                    }`}
                   >
-                    <td className="px-3 py-2 pr-4 font-medium">
-                      <span className="flex items-center gap-2">
-                        <StatusDot variant={stateDotVariant(state)} size={7} />
-                        {order.parent_order_id ? (
-                          <span
-                            className="text-[10px] text-[var(--muted-foreground)]"
-                            title={`Child of ${order.parent_order_id as string}`}
-                          >
-                            ↳
-                          </span>
-                        ) : null}
-                        <span className="text-[var(--foreground)]">
-                          {order.instrument_id as string}
-                        </span>
-                        {order.algo_type ? (
-                          <AlgoTypeBadge algoType={order.algo_type as string} />
-                        ) : null}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 pr-4">
-                      <span
-                        className={`text-xs font-medium uppercase ${
-                          (order.side as string) === "buy"
-                            ? "text-[var(--success)]"
-                            : "text-[var(--destructive)]"
-                        }`}
-                      >
-                        {(order.side as string).toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 pr-4">{order.order_type as string}</td>
-                    <td className="px-3 py-2 pr-4 text-right font-mono">
-                      {parseFloat(order.quantity as string).toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2 pr-4 text-right font-mono">
-                      {parseFloat(order.filled_quantity as string).toLocaleString()}
-                      {order.is_parent && Number(order.children_count) > 0 ? (
-                        <span className="ml-1 text-[10px] text-[var(--muted-foreground)]">
-                          ({Number(order.children_filled)}/{Number(order.children_count)} slices)
+                    {tabCounts[tab.value]}
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      </div>
+
+      {/* Table — template: lists/tables/12-with-condensed-content.jsx */}
+      <div className="overflow-x-auto">
+        <table className="relative min-w-full divide-y divide-[var(--table-border)]">
+          <thead>
+            <tr>
+              <SortableHeader
+                label="Instrument"
+                sortKey="instrument_id"
+                currentSort={table.sortKey}
+                direction={table.sortDirection}
+                onSort={table.onSort}
+              />
+              <SortableHeader
+                label="Side"
+                sortKey="side"
+                currentSort={table.sortKey}
+                direction={table.sortDirection}
+                onSort={table.onSort}
+              />
+              <SortableHeader
+                label="Type"
+                sortKey="order_type"
+                currentSort={table.sortKey}
+                direction={table.sortDirection}
+                onSort={table.onSort}
+              />
+              <SortableHeader
+                label="Qty"
+                sortKey="quantity"
+                currentSort={table.sortKey}
+                direction={table.sortDirection}
+                onSort={table.onSort}
+              />
+              <SortableHeader
+                label="Filled"
+                sortKey="filled_quantity"
+                currentSort={table.sortKey}
+                direction={table.sortDirection}
+                onSort={table.onSort}
+              />
+              <SortableHeader
+                label="Limit"
+                sortKey="limit_price"
+                currentSort={table.sortKey}
+                direction={table.sortDirection}
+                onSort={table.onSort}
+              />
+              <SortableHeader
+                label="Avg Fill"
+                sortKey="avg_fill_price"
+                currentSort={table.sortKey}
+                direction={table.sortDirection}
+                onSort={table.onSort}
+              />
+              <SortableHeader
+                label="TIF"
+                sortKey="time_in_force"
+                currentSort={table.sortKey}
+                direction={table.sortDirection}
+                onSort={table.onSort}
+              />
+              <SortableHeader
+                label="Broker"
+                sortKey="broker_id"
+                currentSort={table.sortKey}
+                direction={table.sortDirection}
+                onSort={table.onSort}
+              />
+              <SortableHeader
+                label="State"
+                sortKey="state"
+                currentSort={table.sortKey}
+                direction={table.sortDirection}
+                onSort={table.onSort}
+              />
+              <SortableHeader
+                label="Time"
+                sortKey="created_at"
+                currentSort={table.sortKey}
+                direction={table.sortDirection}
+                onSort={table.onSort}
+              />
+              <th scope="col" className="py-2 pr-4 pl-3 whitespace-nowrap">
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[var(--table-border)] bg-[var(--card)]">
+            {table.rows.map((row) => {
+              const order = row as Record<string, unknown>;
+              const state = order.state as string;
+              const isCancellable = CANCELLABLE_STATES.has(state);
+              const orderId = order.id as string;
+              const isSelected = selectedOrderId === orderId;
+
+              return (
+                <tr
+                  key={orderId}
+                  onClick={() => onSelectOrder?.(isSelected ? null : orderId)}
+                  className={`${stateRowClass(state)} hover:bg-[var(--table-row-hover)] ${
+                    onSelectOrder ? "cursor-pointer" : ""
+                  } ${isSelected ? "ring-1 ring-inset ring-[var(--primary)]" : ""}`}
+                >
+                  <td className="px-2 py-2 pl-4 text-sm whitespace-nowrap font-medium text-[var(--foreground)]">
+                    <span className="flex items-center gap-2">
+                      <StatusDot variant={stateDotVariant(state)} size={7} />
+                      {order.parent_order_id ? (
+                        <span
+                          className="text-[10px] text-[var(--muted-foreground)]"
+                          title={`Child of ${order.parent_order_id as string}`}
+                        >
+                          ↳
                         </span>
                       ) : null}
-                    </td>
-                    <td className="px-3 py-2 pr-4 text-right font-mono">
-                      {order.limit_price
-                        ? `$${parseFloat(order.limit_price as string).toFixed(2)}`
-                        : "\u2014"}
-                    </td>
-                    <td className="px-3 py-2 pr-4 text-right font-mono">
-                      {order.avg_fill_price
-                        ? `$${parseFloat(order.avg_fill_price as string).toFixed(2)}`
-                        : "\u2014"}
-                    </td>
-                    <td className="px-3 py-2 pr-4 text-xs uppercase text-[var(--muted-foreground)]">
-                      {(order.time_in_force as string) ?? "\u2014"}
-                    </td>
-                    <td className="px-3 py-2 pr-4 text-xs text-[var(--muted-foreground)]">
-                      {(order.broker_id as string) ?? "\u2014"}
-                    </td>
-                    <td className="px-3 py-2 pr-4">
-                      <OrderStateBadge state={state} />
-                    </td>
-                    <td className="px-3 py-2 text-xs text-[var(--muted-foreground)]">
-                      {new Date(order.created_at as string).toLocaleTimeString(undefined, {
-                        timeZoneName: "short",
-                      })}
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-1">
-                        <Link
-                          href={`/${fundSlug}/orders/${orderId}/tca`}
-                          className="rounded px-1.5 py-0.5 text-[10px] font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary-muted)]"
+                      <span>{order.instrument_id as string}</span>
+                      {order.algo_type ? (
+                        <AlgoTypeBadge algoType={order.algo_type as string} />
+                      ) : null}
+                    </span>
+                  </td>
+                  <td className="px-2 py-2 text-sm whitespace-nowrap">
+                    <span
+                      className={`text-xs font-medium uppercase ${
+                        (order.side as string) === "buy"
+                          ? "text-[var(--success)]"
+                          : "text-[var(--destructive)]"
+                      }`}
+                    >
+                      {(order.side as string).toUpperCase()}
+                    </span>
+                  </td>
+                  <td className="px-2 py-2 text-sm whitespace-nowrap text-[var(--muted-foreground)]">
+                    {order.order_type as string}
+                  </td>
+                  <td className="px-2 py-2 text-right font-mono text-sm whitespace-nowrap text-[var(--foreground)]">
+                    {parseFloat(order.quantity as string).toLocaleString()}
+                  </td>
+                  <td className="px-2 py-2 text-right font-mono text-sm whitespace-nowrap text-[var(--foreground)]">
+                    {parseFloat(order.filled_quantity as string).toLocaleString()}
+                    {order.is_parent && Number(order.children_count) > 0 ? (
+                      <span className="ml-1 text-[10px] text-[var(--muted-foreground)]">
+                        ({Number(order.children_filled)}/{Number(order.children_count)} slices)
+                      </span>
+                    ) : null}
+                  </td>
+                  <td className="px-2 py-2 text-right font-mono text-sm whitespace-nowrap text-[var(--muted-foreground)]">
+                    {order.limit_price
+                      ? `$${parseFloat(order.limit_price as string).toFixed(2)}`
+                      : "\u2014"}
+                  </td>
+                  <td className="px-2 py-2 text-right font-mono text-sm whitespace-nowrap text-[var(--muted-foreground)]">
+                    {order.avg_fill_price
+                      ? `$${parseFloat(order.avg_fill_price as string).toFixed(2)}`
+                      : "\u2014"}
+                  </td>
+                  <td className="px-2 py-2 text-xs whitespace-nowrap uppercase text-[var(--muted-foreground)]">
+                    {(order.time_in_force as string) ?? "\u2014"}
+                  </td>
+                  <td className="px-2 py-2 text-xs whitespace-nowrap text-[var(--muted-foreground)]">
+                    {(order.broker_id as string) ?? "\u2014"}
+                  </td>
+                  <td className="px-2 py-2 whitespace-nowrap">
+                    <OrderStateBadge state={state} />
+                  </td>
+                  <td className="px-2 py-2 text-xs whitespace-nowrap text-[var(--muted-foreground)]">
+                    {new Date(order.created_at as string).toLocaleTimeString(undefined, {
+                      timeZoneName: "short",
+                    })}
+                  </td>
+                  <td className="py-2 pr-4 pl-3 text-right text-sm font-medium whitespace-nowrap">
+                    <div className="flex items-center justify-end gap-2">
+                      <Link
+                        href={`/${fundSlug}/orders/${orderId}/tca`}
+                        className="text-[var(--primary)] hover:text-[var(--foreground-bright)]"
+                      >
+                        {state === "filled" ? "TCA" : "Details"}
+                        <span className="sr-only">, {order.instrument_id as string}</span>
+                      </Link>
+                      {isCancellable && canCancel && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            cancelMutation.mutate(orderId);
+                          }}
+                          disabled={cancellingId === orderId}
+                          className="text-[var(--destructive)] hover:text-[var(--foreground-bright)] disabled:opacity-40"
                         >
-                          {state === "filled" ? "TCA" : "Details"}
-                        </Link>
-                        {isCancellable && canCancel && (
-                          <button
-                            type="button"
-                            onClick={() => cancelMutation.mutate(orderId)}
-                            disabled={cancellingId === orderId}
-                            className="rounded px-1.5 py-0.5 text-[10px] font-medium text-[var(--destructive)] transition-colors hover:bg-[var(--destructive-muted)] disabled:opacity-40"
-                          >
-                            Cancel
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </SectionPanel>
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
 
       {/* Pagination */}
       {table.totalPages > 1 && (

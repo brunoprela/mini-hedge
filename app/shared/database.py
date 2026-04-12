@@ -44,13 +44,16 @@ _POSITIONS_SCHEMA = "positions"
 class TenantSessionFactory:
     """Creates sessions with per-fund schema isolation and read/write routing.
 
-    Schema resolution is driven by a single ``ContextVar`` set via
-    ``fund_scope()``.  Both HTTP middleware and Kafka handlers use
-    the same mechanism::
+    Schema resolution is driven by two ``ContextVar``s:
+    - ``_customer_id_var`` — selects the customer database (future: per-customer engine)
+    - ``_fund_slug_var`` — selects the fund schema within that database
 
-        async with sf.fund_scope("alpha"):
-            async with sf() as session:
-                ...  # session targets fund_alpha schema
+    Both HTTP middleware and Kafka handlers use the same mechanism::
+
+        async with sf.customer_scope("cust-uuid"):
+            async with sf.fund_scope("alpha"):
+                async with sf() as session:
+                    ...  # session targets fund_alpha schema
 
     When no fund scope is active, sessions target shared schemas only
     (platform, security_master, market_data).
@@ -62,9 +65,12 @@ class TenantSessionFactory:
     The default ``__call__`` always uses the write engine.
     """
 
-    # Task-local fund slug. ``contextvars`` are scoped to the current
-    # ``asyncio.Task``, so concurrent consumers for different funds
+    # Task-local tenant context. ``contextvars`` are scoped to the current
+    # ``asyncio.Task``, so concurrent consumers for different funds/customers
     # don't interfere with each other.
+    _customer_id_var: ClassVar[ContextVar[str | None]] = ContextVar(
+        "_customer_id_var", default=None
+    )
     _fund_slug_var: ClassVar[ContextVar[str | None]] = ContextVar("_fund_slug_var", default=None)
 
     def __init__(self, engine: AsyncEngine, read_engine: AsyncEngine | None = None) -> None:
@@ -110,6 +116,25 @@ class TenantSessionFactory:
             yield
         finally:
             self._fund_slug_var.reset(token)
+
+    @asynccontextmanager
+    async def customer_scope(self, customer_id: str) -> AsyncIterator[None]:
+        """Set the active customer for the current async task.
+
+        In the current single-database deployment, this is a logical marker
+        used for containment checks and audit context. Future: per-customer
+        engine routing will use this to select the correct database connection.
+        """
+        token = self._customer_id_var.set(customer_id)
+        try:
+            yield
+        finally:
+            self._customer_id_var.reset(token)
+
+    @classmethod
+    def current_customer_id(cls) -> str | None:
+        """Return the active customer ID, or None."""
+        return cls._customer_id_var.get()
 
     @classmethod
     def current_fund_slug(cls) -> str | None:

@@ -40,12 +40,15 @@ from app.shared.auth.request_context import ActorType, RequestContext
 from app.shared.errors import AuthenticationError, AuthorizationError
 
 if TYPE_CHECKING:
+    from app.modules.platform.models.customer import CustomerRecord
     from app.modules.platform.models.fund import FundRecord
     from app.modules.platform.models.user import UserRecord
     from app.modules.platform.repositories import (
         APIKeyRepository,
+        CustomerRepository,
         FundRepository,
         OperatorRepository,
+        ServicingEdgeRepository,
         UserRepository,
     )
     from app.shared.fga import FGAClient
@@ -90,6 +93,8 @@ class AuthService:
         fund_repo: FundRepository,
         operator_repo: OperatorRepository,
         api_key_repo: APIKeyRepository,
+        customer_repo: CustomerRepository | None = None,
+        servicing_edge_repo: ServicingEdgeRepository | None = None,
         fga_client: FGAClient | None = None,
         jwt_secret: str,
         jwt_algorithm: str = "HS256",
@@ -105,6 +110,8 @@ class AuthService:
         self._fund_repo = fund_repo
         self._operator_repo = operator_repo
         self._api_key_repo = api_key_repo
+        self._customer_repo = customer_repo
+        self._servicing_edge_repo = servicing_edge_repo
         self._fga_client = fga_client
         self._jwt_secret = jwt_secret
         self._jwt_algorithm = jwt_algorithm
@@ -125,6 +132,10 @@ class AuthService:
         # fund_slug → FundRecord (avoid fund lookup DB query on every request)
         self._fund_cache: TTLCache[str, FundRecord] = TTLCache(
             maxsize=_FUND_CACHE_MAX, ttl=_FUND_CACHE_TTL
+        )
+        # customer_id → CustomerRecord
+        self._customer_cache: TTLCache[str, CustomerRecord] = TTLCache(
+            maxsize=64, ttl=120
         )
         # (token_hash, fund_slug) → RequestContext — skip ALL downstream calls
         self._ctx_cache: TTLCache[tuple[str, str | None], RequestContext] = TTLCache(
@@ -194,9 +205,12 @@ class AuthService:
             raise AuthorizationError("Fund inactive or not found", code="FUND_INACTIVE")
 
         roles = frozenset(record.roles)
+        fund_customer_id: str | None = getattr(fund, "customer_id", None)
         return RequestContext(
             actor_id=record.id,
             actor_type=ActorType(record.actor_type),
+            customer_id=fund_customer_id,
+            home_customer_id=fund_customer_id,
             fund_slug=fund.slug,
             fund_id=fund.id,
             roles=roles,
@@ -306,9 +320,45 @@ class AuthService:
             logger.warning("keycloak_user_no_fund_role", user_id=user.id, fund_slug=fund_slug)
             raise AuthorizationError("No fund access", code="NO_FUND_ACCESS")
 
+        # Resolve customer context from user and fund
+        home_customer_id: str | None = getattr(user, "customer_id", None)
+        fund_customer_id: str | None = getattr(fund, "customer_id", None)
+        customer_id = fund_customer_id  # the active customer is always the fund's owner
+        acting_as_customer_id: str | None = None
+
+        if (
+            home_customer_id
+            and fund_customer_id
+            and home_customer_id != fund_customer_id
+            and self._servicing_edge_repo is not None
+        ):
+            # Fund-admin user acting on a client customer's fund — delegated access.
+            # Verify a servicing edge exists.
+            edge = await self._servicing_edge_repo.get_active_edge(
+                admin_customer_id=home_customer_id,
+                client_customer_id=fund_customer_id,
+            )
+            if edge is None:
+                logger.warning(
+                    "no_servicing_edge",
+                    home_customer=home_customer_id,
+                    fund_customer=fund_customer_id,
+                )
+                raise AuthorizationError(
+                    "No servicing relationship", code="NO_SERVICING_EDGE"
+                )
+            # Intersect: user's roles limited to what the edge permits
+            edge_roles = frozenset(edge.scoped_roles)
+            roles = [r for r in roles if r in edge_roles]
+            permissions = resolve_permissions(frozenset(roles))
+            acting_as_customer_id = fund_customer_id
+
         return RequestContext(
             actor_id=user.id,
             actor_type=ActorType.USER,
+            customer_id=customer_id,
+            home_customer_id=home_customer_id,
+            acting_as_customer_id=acting_as_customer_id,
             fund_slug=fund_slug,
             fund_id=fund_id,
             roles=frozenset(roles),

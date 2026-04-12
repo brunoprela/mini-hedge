@@ -1,23 +1,17 @@
 """FastAPI routes for reconciliation results."""
 
-from __future__ import annotations
-
 from datetime import date, datetime
-from typing import TYPE_CHECKING
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.eod.dependencies import get_recon_repo
+from app.modules.eod.repositories import ReconciliationRepository
 from app.shared.auth import Permission, require_permission
+from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_db
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from app.modules.eod.repositories import ReconciliationRepository
-    from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(prefix="/reconciliation", tags=["reconciliation"])
 

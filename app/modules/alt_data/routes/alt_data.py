@@ -1,13 +1,11 @@
 """FastAPI routes for alternative data integration."""
 
-from __future__ import annotations
-
 from datetime import datetime
-from typing import TYPE_CHECKING
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.alt_data.dependencies import get_alt_data_service
 from app.modules.alt_data.interfaces import (
@@ -20,12 +18,8 @@ from app.modules.alt_data.interfaces import (
 )
 from app.modules.alt_data.services import AltDataService
 from app.shared.auth import Permission, require_permission
+from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_db, get_read_db
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(prefix="/alt-data", tags=["alt-data"])
 

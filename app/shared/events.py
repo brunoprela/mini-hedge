@@ -27,6 +27,7 @@ class BaseEvent(BaseModel):
     data: dict[str, Any]
     actor_id: str | None = None
     actor_type: str | None = None
+    customer_id: str | None = None
     fund_slug: str | None = None
 
 

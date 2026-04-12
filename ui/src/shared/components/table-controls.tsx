@@ -1,7 +1,7 @@
 "use client";
 
+import { Tooltip } from "@mini-hedge/ui";
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Info, Search } from "lucide-react";
-import { useState } from "react";
 
 /* -------------------------------------------------------------------------- */
 /*  SortableHeader                                                            */
@@ -162,21 +162,9 @@ interface InfoTooltipProps {
 }
 
 export function InfoTooltip({ text }: InfoTooltipProps) {
-  const [show, setShow] = useState(false);
-
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: tooltip trigger needs hover
-    <span
-      className="relative inline-flex"
-      onMouseEnter={() => setShow(true)}
-      onMouseLeave={() => setShow(false)}
-    >
+    <Tooltip content={text}>
       <Info className="h-3.5 w-3.5 text-[var(--muted-foreground)] cursor-help" />
-      {show && (
-        <span className="absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-[var(--popover)] px-2.5 py-1.5 text-xs text-[var(--popover-foreground)] shadow-md border border-[var(--border)]">
-          {text}
-        </span>
-      )}
-    </span>
+    </Tooltip>
   );
 }

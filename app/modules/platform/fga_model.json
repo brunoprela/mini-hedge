@@ -8,6 +8,21 @@
       "type": "operator"
     },
     {
+      "type": "customer",
+      "relations": {
+        "member": { "this": {} },
+        "admin": { "this": {} },
+        "fund": { "this": {} }
+      },
+      "metadata": {
+        "relations": {
+          "member": { "directly_related_user_types": [{ "type": "user" }] },
+          "admin": { "directly_related_user_types": [{ "type": "user" }] },
+          "fund": { "directly_related_user_types": [{ "type": "fund" }] }
+        }
+      }
+    },
+    {
       "type": "platform",
       "relations": {
         "ops_admin": { "this": {} },

@@ -1,10 +1,8 @@
 """Admin API routes — platform operator endpoints for managing users, funds, and access."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.platform.dependencies import get_admin_service
 from app.modules.platform.interfaces.access import (
@@ -31,14 +29,10 @@ from app.modules.platform.interfaces.user import (
     UserInfo,
     UserPage,
 )
+from app.modules.platform.services import AdminService
 from app.shared.auth import Permission, require_platform_permission
+from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_db, get_read_db
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from app.modules.platform.services import AdminService
-    from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 

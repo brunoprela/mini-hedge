@@ -1,14 +1,12 @@
 """FastAPI routes for investor operations — redemption workflows."""
 
-from __future__ import annotations
-
 from datetime import date
 from decimal import Decimal
-from typing import TYPE_CHECKING
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.investor_operations.dependencies import get_redemption_service
 from app.modules.investor_operations.interfaces import (
@@ -16,14 +14,10 @@ from app.modules.investor_operations.interfaces import (
     QueueSummary,
     RedemptionRequestSummary,
 )
+from app.modules.investor_operations.services import RedemptionService
 from app.shared.auth import Permission, require_permission
+from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_db
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from app.modules.investor_operations.services import RedemptionService
-    from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(prefix="/investor-operations", tags=["investor-operations"])
 

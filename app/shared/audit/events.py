@@ -32,6 +32,14 @@ class AuditEventType(StrEnum):
     AUTH_TOKEN_REVOKED = "auth.token.revoked"
     AUTH_USER_TOKENS_REVOKED = "auth.user_tokens.revoked"
 
+    # -- Customer lifecycle ------------------------------------------------
+    ADMIN_CUSTOMER_CREATED = "admin.customer.created"
+    ADMIN_CUSTOMER_UPDATED = "admin.customer.updated"
+    ADMIN_CUSTOMER_OFFBOARDED = "admin.customer.offboarded"
+    ADMIN_SERVICING_EDGE_CREATED = "admin.servicing_edge.created"
+    ADMIN_SERVICING_EDGE_UPDATED = "admin.servicing_edge.updated"
+    ADMIN_SERVICING_EDGE_TERMINATED = "admin.servicing_edge.terminated"
+
     # -- Orders ------------------------------------------------------------
     ORDER_CREATED = "order.created"
     ORDER_REJECTED = "order.rejected"

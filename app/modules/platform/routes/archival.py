@@ -1,17 +1,13 @@
 """Admin API routes — audit archival endpoints."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from fastapi import APIRouter, Depends
 
 from app.modules.platform.dependencies import get_archival_service
+from app.shared.audit.archival_service import ArchivalService
 from app.shared.auth import Permission, require_platform_permission
-
-if TYPE_CHECKING:
-    from app.shared.audit.archival_service import ArchivalService
-    from app.shared.auth.request_context import RequestContext
+from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 

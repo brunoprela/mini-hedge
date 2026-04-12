@@ -1,14 +1,12 @@
 """FastAPI routes for the capital accounts module."""
 
-from __future__ import annotations
-
 from datetime import date
 from decimal import Decimal
-from typing import TYPE_CHECKING
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.capital_accounts.dependencies import (
     get_capital_account_service,
@@ -21,16 +19,12 @@ from app.modules.capital_accounts.interfaces import (
     InvestorInfo,
     ShareClassSummary,
 )
+from app.modules.capital_accounts.models.capital_account import CapitalAccountRecord
+from app.modules.capital_accounts.services import CapitalAccountService
+from app.modules.capital_accounts.services.capital_transaction import CapitalTransactionService
 from app.shared.auth import Permission, require_permission
+from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_db
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from app.modules.capital_accounts.models.capital_account import CapitalAccountRecord
-    from app.modules.capital_accounts.services import CapitalAccountService
-    from app.modules.capital_accounts.services.capital_transaction import CapitalTransactionService
-    from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(prefix="/capital", tags=["capital-accounts"])
 

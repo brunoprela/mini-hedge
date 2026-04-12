@@ -1,11 +1,10 @@
 """FastAPI routes for the feature store."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.feature_store.dependencies import get_feature_store_service
 from app.modules.feature_store.interfaces import (
@@ -19,12 +18,8 @@ from app.modules.feature_store.interfaces import (
 )
 from app.modules.feature_store.services import FeatureStoreService
 from app.shared.auth import Permission, require_permission
+from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_db, get_read_db
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(prefix="/feature-store", tags=["feature-store"])
 

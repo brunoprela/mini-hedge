@@ -33,6 +33,9 @@ class RequestContext(BaseModel):
 
     actor_id: str
     actor_type: ActorType
+    customer_id: str | None = None  # UUID of the resolved customer tenant
+    home_customer_id: str | None = None  # user's employer customer (always set for users)
+    acting_as_customer_id: str | None = None  # set when a fund-admin user acts on a client customer
     fund_slug: str | None = None  # None for platform-level operator requests
     fund_id: str | None = None  # UUID of the fund, resolved during auth
     roles: frozenset[str] = frozenset()
@@ -44,6 +47,11 @@ class RequestContext(BaseModel):
     @property
     def is_platform_operator(self) -> bool:
         return self.actor_type == ActorType.OPERATOR
+
+    @property
+    def is_delegated(self) -> bool:
+        """True when a fund-admin user is acting on a client customer's data."""
+        return self.acting_as_customer_id is not None
 
 
 _current_context: ContextVar[RequestContext] = ContextVar("request_context")
@@ -70,6 +78,8 @@ _ALL_PERMISSIONS = frozenset(
 SYSTEM_CONTEXT = RequestContext(
     actor_id="system",
     actor_type=ActorType.SYSTEM,
+    customer_id="system",
+    home_customer_id="system",
     fund_slug=DEFAULT_FUND_SLUG,
     roles=frozenset({"admin"}),
     permissions=_ALL_PERMISSIONS,

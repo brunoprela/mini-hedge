@@ -1,13 +1,9 @@
 """FastAPI dependency wrappers for the AI analysis module."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, Request
 
-if TYPE_CHECKING:
-    from app.modules.ai_analysis.services import AIAnalysisService
+from app.modules.ai_analysis.services import AIAnalysisService
 
 
 def get_ai_analysis_service(request: Request) -> AIAnalysisService:

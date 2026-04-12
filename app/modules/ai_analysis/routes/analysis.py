@@ -1,12 +1,11 @@
 """FastAPI routes for AI analysis."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.ai_analysis.dependencies import get_ai_analysis_service
 from app.modules.ai_analysis.interfaces import (
@@ -15,14 +14,10 @@ from app.modules.ai_analysis.interfaces import (
     PortfolioInsight,
     ResearchNote,
 )
+from app.modules.ai_analysis.services import AIAnalysisService
 from app.shared.auth import Permission, require_permission
+from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_db, get_read_db
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from app.modules.ai_analysis.services import AIAnalysisService
-    from app.shared.auth.request_context import RequestContext
 
 router = APIRouter(prefix="/ai-analysis", tags=["ai-analysis"])
 
