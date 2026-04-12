@@ -192,6 +192,17 @@ class SubscriptionService:
         record.ops_decision_by = decision_by
         record.ops_notes = notes
 
+        await self._event_bus.publish(
+            "investor_operations",
+            BaseEvent(
+                event_type=AuditEventType.SUBSCRIPTION_OPS_REVIEWED,
+                data={
+                    "request_id": request_id,
+                    "approved": approved,
+                    "decision_by": decision_by,
+                },
+            ),
+        )
         return _sub_to_summary(record)
 
     async def gp_decision(
@@ -233,6 +244,17 @@ class SubscriptionService:
         record.gp_decision_at = extra["gp_decision_at"]  # type: ignore[assignment]
         record.gp_decision_by = decision_by
 
+        await self._event_bus.publish(
+            "investor_operations",
+            BaseEvent(
+                event_type=AuditEventType.SUBSCRIPTION_GP_DECIDED,
+                data={
+                    "request_id": request_id,
+                    "approved": approved,
+                    "decision_by": decision_by,
+                },
+            ),
+        )
         return _sub_to_summary(record)
 
     async def confirm_wire(
@@ -270,6 +292,16 @@ class SubscriptionService:
         record.wire_confirmed_at = now
         record.wire_reference = wire_reference
 
+        await self._event_bus.publish(
+            "investor_operations",
+            BaseEvent(
+                event_type=AuditEventType.SUBSCRIPTION_WIRE_CONFIRMED,
+                data={
+                    "request_id": request_id,
+                    "wire_reference": wire_reference,
+                },
+            ),
+        )
         return _sub_to_summary(record)
 
     async def execute_subscriptions(
@@ -366,6 +398,17 @@ class SubscriptionService:
         record.cancelled_at = now
         record.cancellation_reason = reason
 
+        await self._event_bus.publish(
+            "investor_operations",
+            BaseEvent(
+                event_type=AuditEventType.SUBSCRIPTION_CANCELLED,
+                data={
+                    "request_id": request_id,
+                    "reason": reason,
+                    "cancelled_by": cancelled_by,
+                },
+            ),
+        )
         return _sub_to_summary(record)
 
     async def get_subscription(

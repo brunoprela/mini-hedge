@@ -20,6 +20,8 @@ from app.modules.regulatory.interfaces import (
 from app.modules.regulatory.models.investor_statement import InvestorStatementRecord
 from app.modules.regulatory.models.performance_letter import PerformanceLetterRecord
 from app.modules.regulatory.models.regulatory_filing import RegulatoryFilingRecord
+from app.shared.audit.events import AuditEventType
+from app.shared.events import BaseEvent
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,6 +36,7 @@ if TYPE_CHECKING:
     )
     from app.modules.risk_engine.services import CounterpartyRiskService
     from app.modules.security_master.services import SecurityMasterService
+    from app.shared.events import EventBus
 
 logger = structlog.get_logger()
 
@@ -57,6 +60,7 @@ class RegulatoryService:
         risk_service: CounterpartyRiskService | None = None,
         exposure_service: ExposureService | None = None,
         security_master_service: SecurityMasterService | None = None,
+        event_bus: EventBus | None = None,
     ) -> None:
         self._filing_repo = filing_repo
         self._statement_repo = statement_repo
@@ -66,6 +70,7 @@ class RegulatoryService:
         self._risk = risk_service
         self._exposure = exposure_service
         self._sec_master = security_master_service
+        self._event_bus = event_bus
 
     # ------------------------------------------------------------------
     # 4A. Form PF
@@ -166,6 +171,25 @@ class RegulatoryService:
         await self._filing_repo.save(record, session=session)
 
         logger.info("form_pf_generated", fund_slug=fund_slug, period=str(reporting_date))
+
+        if self._event_bus is not None:
+            from app.shared.schema_registry import shared_topic
+
+            await self._event_bus.publish(
+                shared_topic("regulatory"),
+                BaseEvent(
+                    event_type=AuditEventType.FORM_PF_GENERATED,
+                    data={
+                        "filing_id": record.id,
+                        "fund_slug": fund_slug,
+                        "reporting_period": str(reporting_date),
+                        "frequency": frequency.value,
+                    },
+                    fund_slug=fund_slug,
+                    actor_id="regulatory-service",
+                ),
+            )
+
         return data
 
     # ------------------------------------------------------------------
@@ -261,6 +285,25 @@ class RegulatoryService:
             period=str(reporting_date),
             positions=len(entries),
         )
+
+        if self._event_bus is not None:
+            from app.shared.schema_registry import shared_topic
+
+            await self._event_bus.publish(
+                shared_topic("regulatory"),
+                BaseEvent(
+                    event_type=AuditEventType.FILING_13F_GENERATED,
+                    data={
+                        "filing_id": record.id,
+                        "fund_slug": fund_slug,
+                        "reporting_period": str(reporting_date),
+                        "total_positions": len(entries),
+                    },
+                    fund_slug=fund_slug,
+                    actor_id="regulatory-service",
+                ),
+            )
+
         return report
 
     # ------------------------------------------------------------------
@@ -347,6 +390,24 @@ class RegulatoryService:
         )
         await self._statement_repo.save(record, session=session)
 
+        if self._event_bus is not None:
+            from app.shared.schema_registry import shared_topic
+
+            await self._event_bus.publish(
+                shared_topic("regulatory"),
+                BaseEvent(
+                    event_type=AuditEventType.INVESTOR_STATEMENT_GENERATED,
+                    data={
+                        "statement_id": record.id,
+                        "investor_id": investor_id,
+                        "period_start": str(period_start),
+                        "period_end": str(period_end),
+                    },
+                    fund_slug=None,
+                    actor_id="regulatory-service",
+                ),
+            )
+
         return statement
 
     async def generate_performance_letter(
@@ -401,6 +462,24 @@ class RegulatoryService:
         await self._letter_repo.save(record, session=session)
 
         logger.info("performance_letter_generated", fund_slug=fund_slug, period=str(period_end))
+
+        if self._event_bus is not None:
+            from app.shared.schema_registry import shared_topic
+
+            await self._event_bus.publish(
+                shared_topic("regulatory"),
+                BaseEvent(
+                    event_type=AuditEventType.PERFORMANCE_LETTER_GENERATED,
+                    data={
+                        "letter_id": record.id,
+                        "fund_slug": fund_slug,
+                        "period": str(period_end),
+                    },
+                    fund_slug=fund_slug,
+                    actor_id="regulatory-service",
+                ),
+            )
+
         return letter
 
     # ------------------------------------------------------------------

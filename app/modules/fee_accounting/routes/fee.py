@@ -134,6 +134,82 @@ async def update_fee_schedule(
     return _schedule_to_response(saved)
 
 
+class FeeSummaryResponse(BaseModel):
+    portfolio_id: UUID
+    totals: dict[str, Decimal]
+
+
+class AccrualTriggerRequest(BaseModel):
+    portfolio_id: UUID
+    nav: Decimal
+    business_date: date
+    share_class: str = "default"
+
+
+class CrystallizationTriggerRequest(BaseModel):
+    portfolio_id: UUID
+    business_date: date
+    share_class: str = "default"
+
+
+@router.get("/summary", response_model=FeeSummaryResponse)
+async def get_fee_summary(
+    fund_slug: str,
+    portfolio_id: UUID = Query(...),
+    fee_service: FeeAccountingService = Depends(get_fee_accounting_service),
+    session: AsyncSession = Depends(get_db),
+) -> FeeSummaryResponse:
+    totals = await fee_service.get_fee_summary(portfolio_id, session=session)
+    return FeeSummaryResponse(portfolio_id=portfolio_id, totals=totals)
+
+
+@router.post("/accrue-daily", response_model=list[FeeAccrualResponse], status_code=201)
+async def trigger_daily_accrual(
+    fund_slug: str,
+    body: AccrualTriggerRequest,
+    fee_service: FeeAccountingService = Depends(get_fee_accounting_service),
+    session: AsyncSession = Depends(get_db),
+) -> list[FeeAccrualResponse]:
+    records = await fee_service.accrue_daily_fees(
+        body.portfolio_id,
+        fund_slug,
+        body.nav,
+        body.business_date,
+        share_class=body.share_class,
+        session=session,
+    )
+    return [
+        FeeAccrualResponse(
+            id=UUID(r.id) if r.id else None,
+            portfolio_id=UUID(r.portfolio_id),
+            fee_type=FeeType(r.fee_type),
+            accrual_date=r.accrual_date,
+            nav_basis=r.nav_basis,
+            accrued_amount=r.accrued_amount,
+            cumulative_amount=r.cumulative_amount,
+            status=AccrualStatus(r.status),
+            created_at=str(r.created_at) if r.created_at else None,
+        )
+        for r in records
+    ]
+
+
+@router.post("/crystallize", status_code=204)
+async def trigger_crystallization(
+    fund_slug: str,
+    body: CrystallizationTriggerRequest,
+    fee_service: FeeAccountingService = Depends(get_fee_accounting_service),
+    session: AsyncSession = Depends(get_db),
+) -> None:
+    await fee_service.crystallize_fees(
+        body.portfolio_id,
+        fund_slug,
+        body.business_date,
+        share_class=body.share_class,
+        session=session,
+    )
+
+
 def _schedule_to_response(record: FeeScheduleRecord) -> FeeScheduleResponse:
     return FeeScheduleResponse(
         fund_slug=record.fund_slug,

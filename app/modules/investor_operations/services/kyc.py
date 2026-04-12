@@ -14,6 +14,8 @@ from app.modules.investor_operations.interfaces import (
 )
 from app.modules.investor_operations.models.fund_terms import FundTermsRecord
 from app.modules.investor_operations.models.kyc import InvestorKYCRecord
+from app.shared.audit.events import AuditEventType
+from app.shared.events import BaseEvent
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +23,7 @@ if TYPE_CHECKING:
     from app.modules.investor_operations.repositories.fund_terms import FundTermsRepository
     from app.modules.investor_operations.repositories.kyc import InvestorKYCRepository
     from app.shared.adapters.kyc import KYCScreeningAdapter
+    from app.shared.events import EventBus
 
 
 def _now() -> datetime:
@@ -36,10 +39,12 @@ class InvestorKYCService:
         kyc_repo: InvestorKYCRepository,
         fund_terms_repo: FundTermsRepository,
         kyc_adapter: KYCScreeningAdapter,
+        event_bus: EventBus | None = None,
     ) -> None:
         self._kyc_repo = kyc_repo
         self._terms_repo = fund_terms_repo
         self._kyc_adapter = kyc_adapter
+        self._event_bus = event_bus
 
     async def screen_investor(
         self,
@@ -85,7 +90,7 @@ class InvestorKYCService:
             )
             await self._kyc_repo.upsert(record, session=session)
 
-        return InvestorKYCInfo(
+        info = InvestorKYCInfo(
             investor_id=UUID(investor_id),
             kyc_status=result.kyc_status,
             aml_status=result.aml_status,
@@ -97,6 +102,24 @@ class InvestorKYCService:
             screening_expires_at=record.screening_expires_at,
             screening_provider=result.screening_provider,
         )
+
+        if self._event_bus is not None:
+            await self._event_bus.publish(
+                "investor_operations",
+                BaseEvent(
+                    event_type=AuditEventType.INVESTOR_KYC_SCREENED,
+                    data={
+                        "investor_id": investor_id,
+                        "kyc_status": result.kyc_status,
+                        "aml_status": result.aml_status,
+                        "sanctions_clear": result.sanctions_clear,
+                        "pep_flag": result.pep_flag,
+                        "screening_provider": result.screening_provider,
+                    },
+                ),
+            )
+
+        return info
 
     async def get_investor_kyc(
         self,

@@ -41,4 +41,12 @@ async def setup(
         position_service=position_service,
     )
     app.state.corporate_actions_service = service
+
+    import os
+
+    if os.environ.get("APP_ENV", "local") == "local":
+        from app.modules.corporate_actions.seed import seed_dev_data
+
+        await seed_dev_data(app, sf)
+
     logger.info("corporate_actions_module_ready")

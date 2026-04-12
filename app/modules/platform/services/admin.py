@@ -301,12 +301,24 @@ class AdminService:
         *,
         fund_slug: str | None = None,
         event_type: str | None = None,
+        actor_id: str | None = None,
+        entity_type: str | None = None,
+        entity_id: str | None = None,
+        correlation_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
         session: AsyncSession | None = None,
     ) -> AuditPage:
         return await self._access_service.list_audit(
-            fund_slug=fund_slug, event_type=event_type, limit=limit, offset=offset, session=session
+            fund_slug=fund_slug,
+            event_type=event_type,
+            actor_id=actor_id,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            correlation_id=correlation_id,
+            limit=limit,
+            offset=offset,
+            session=session,
         )
 
     # ----- Servicing Edges -----
@@ -362,7 +374,7 @@ class AdminService:
         if record is None:
             from app.shared.errors import NotFoundError
 
-            raise NotFoundError(f"Servicing edge {edge_id} not found")
+            raise NotFoundError("Servicing edge", edge_id)
         return record
 
     async def suspend_servicing_edge(
@@ -376,7 +388,7 @@ class AdminService:
         if record is None:
             from app.shared.errors import NotFoundError
 
-            raise NotFoundError(f"Servicing edge {edge_id} not found")
+            raise NotFoundError("Servicing edge", edge_id)
         return record
 
     async def terminate_servicing_edge(
@@ -390,5 +402,5 @@ class AdminService:
         if record is None:
             from app.shared.errors import NotFoundError
 
-            raise NotFoundError(f"Servicing edge {edge_id} not found")
+            raise NotFoundError("Servicing edge", edge_id)
         return record

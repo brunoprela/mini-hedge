@@ -53,6 +53,7 @@ dev = [
     "schemathesis>=3.25.0",
     "pytest-alembic>=0.12.1",
     "types-cachetools>=6.2.0.20260317",
+    "pytest-cov>=7.1.0",
 ]
 
 [build-system]

@@ -269,6 +269,18 @@ class CashManagementService:
             settlement_date,
             fund_slug=fund_slug,
         )
+
+        # Publish settlement_due if settlement is within 2 business days
+        days_until = (settlement_date - date.today()).days
+        if days_until <= 2:
+            await self._publish_settlement_due(
+                portfolio_id,
+                instrument_id,
+                amount,
+                settlement_date,
+                fund_slug,
+            )
+
         logger.info(
             "settlement_created",
             portfolio_id=str(portfolio_id),
@@ -524,13 +536,32 @@ class CashManagementService:
             current += timedelta(days=1)
             current = snap_to_business_day(current)
 
-        return CashProjection(
+        projection = CashProjection(
             portfolio_id=portfolio_id,
             base_currency=base_currency,
             horizon_days=horizon_days,
             entries=entries,
             projected_at=datetime.now(UTC),
         )
+
+        # Publish cash.projected event
+        from app.shared.database import TenantSessionFactory
+
+        fund_slug = TenantSessionFactory.current_fund_slug()
+        await self._publish_cash_projected(portfolio_id, projection, fund_slug)
+
+        # Check for balance warnings (any day where closing balance goes negative)
+        for entry in entries:
+            if entry.closing_balance < ZERO:
+                await self._publish_balance_warning(
+                    portfolio_id,
+                    entry.closing_balance,
+                    entry.projection_date,
+                    fund_slug,
+                )
+                break  # one warning per projection is sufficient
+
+        return projection
 
     # ------------------------------------------------------------------
     # Event handler — called when trades.executed fires
@@ -604,6 +635,77 @@ class CashManagementService:
             fund_slug=fund_slug,
         )
         await self._event_bus.publish(fund_topic(fund_slug, topic_base), event)
+
+    async def _publish_cash_projected(
+        self,
+        portfolio_id: UUID,
+        projection: CashProjection,
+        fund_slug: str | None = None,
+    ) -> None:
+        """Publish a cash.projected event after generating a projection."""
+        if self._event_bus is None or not fund_slug:
+            return
+        min_balance = min(
+            (e.closing_balance for e in projection.entries), default=ZERO
+        )
+        event = BaseEvent(
+            event_type=AuditEventType.CASH_PROJECTED,
+            data={
+                "portfolio_id": str(portfolio_id),
+                "horizon_days": projection.horizon_days,
+                "base_currency": projection.base_currency,
+                "min_projected_balance": str(min_balance),
+                "entries_count": len(projection.entries),
+            },
+            fund_slug=fund_slug,
+        )
+        await self._event_bus.publish(fund_topic(fund_slug, "cash.projected"), event)
+
+    async def _publish_settlement_due(
+        self,
+        portfolio_id: UUID,
+        instrument_id: str,
+        amount: Decimal,
+        settlement_date: date,
+        fund_slug: str | None = None,
+    ) -> None:
+        """Publish a cash.settlement_due event for upcoming settlements."""
+        if self._event_bus is None or not fund_slug:
+            return
+        event = BaseEvent(
+            event_type=AuditEventType.CASH_SETTLEMENT_DUE,
+            data={
+                "portfolio_id": str(portfolio_id),
+                "instrument_id": instrument_id,
+                "amount": str(amount),
+                "settlement_date": str(settlement_date),
+                "days_until_due": (settlement_date - date.today()).days,
+            },
+            fund_slug=fund_slug,
+        )
+        await self._event_bus.publish(fund_topic(fund_slug, "cash.settlement_due"), event)
+
+    async def _publish_balance_warning(
+        self,
+        portfolio_id: UUID,
+        projected_balance: Decimal,
+        warning_date: date,
+        fund_slug: str | None = None,
+    ) -> None:
+        """Publish a cash.balance_warning event when projected balance goes negative."""
+        if self._event_bus is None or not fund_slug:
+            return
+        event = BaseEvent(
+            event_type=AuditEventType.CASH_BALANCE_WARNING,
+            data={
+                "portfolio_id": str(portfolio_id),
+                "projected_balance": str(projected_balance),
+                "warning_date": str(warning_date),
+                "severity": "critical" if projected_balance < ZERO else "warning",
+            },
+            fund_slug=fund_slug,
+        )
+        await self._event_bus.publish(fund_topic(fund_slug, "cash.balance_warning"), event)
 
     @staticmethod
     def _to_settlement_record(r: CashSettlementRecord) -> SettlementRecord:

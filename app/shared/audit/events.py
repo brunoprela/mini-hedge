@@ -67,6 +67,7 @@ class AuditEventType(StrEnum):
     # -- Market Data -------------------------------------------------------
     PRICE_UPDATED = "price.updated"
     FX_RATE_UPDATED = "fx_rate.updated"
+    MARKET_DATA_STATUS = "market_data.status"
 
     # -- FX Hedging --------------------------------------------------------
     FX_FORWARD_OPENED = "fx.forward.opened"
@@ -91,10 +92,18 @@ class AuditEventType(StrEnum):
 
     # -- Risk --------------------------------------------------------------
     RISK_UPDATED = "risk.updated"
+    RISK_LIMIT_BREACHED = "risk.limit_breached"
 
     # -- Cash Management ---------------------------------------------------
     CASH_SETTLEMENT_CREATED = "cash.settlement.created"
     CASH_SETTLEMENT_SETTLED = "cash.settlement.settled"
+    CASH_PROJECTED = "cash.projected"
+    CASH_SETTLEMENT_DUE = "cash.settlement_due"
+    CASH_BALANCE_WARNING = "cash.balance_warning"
+
+    # -- Fee Accounting ----------------------------------------------------
+    FEES_ACCRUED = "fee.accrued"
+    FEES_CRYSTALLIZED = "fee.crystallized"
 
     # -- Capital Accounts --------------------------------------------------
     CAPITAL_SUBSCRIPTION = "capital.subscription"
@@ -104,10 +113,24 @@ class AuditEventType(StrEnum):
     # -- Investor Operations -----------------------------------------------
     SUBSCRIPTION_SUBMITTED = "investor_ops.subscription.submitted"
     SUBSCRIPTION_KYC_DECIDED = "investor_ops.subscription.kyc_decided"
+    SUBSCRIPTION_OPS_REVIEWED = "investor_ops.subscription.ops_reviewed"
+    SUBSCRIPTION_GP_DECIDED = "investor_ops.subscription.gp_decided"
+    SUBSCRIPTION_WIRE_CONFIRMED = "investor_ops.subscription.wire_confirmed"
+    SUBSCRIPTION_CANCELLED = "investor_ops.subscription.cancelled"
     SUBSCRIPTION_EXECUTED = "investor_ops.subscription.executed"
     REDEMPTION_SUBMITTED = "investor_ops.redemption.submitted"
+    REDEMPTION_VALIDATED = "investor_ops.redemption.validated"
     REDEMPTION_GATE_APPLIED = "investor_ops.redemption.gate_applied"
+    REDEMPTION_PAYMENT_CONFIRMED = "investor_ops.redemption.payment_confirmed"
+    REDEMPTION_CANCELLED = "investor_ops.redemption.cancelled"
     REDEMPTION_EXECUTED = "investor_ops.redemption.executed"
+    INVESTOR_KYC_SCREENED = "investor_ops.kyc.screened"
+
+    # -- Regulatory --------------------------------------------------------
+    FORM_PF_GENERATED = "regulatory.form_pf.generated"
+    FILING_13F_GENERATED = "regulatory.13f.generated"
+    INVESTOR_STATEMENT_GENERATED = "regulatory.investor_statement.generated"
+    PERFORMANCE_LETTER_GENERATED = "regulatory.performance_letter.generated"
 
     # -- Fund Structures ---------------------------------------------------
     MASTER_FEEDER_LINK_CREATED = "fund_structures.link.created"
@@ -136,3 +159,6 @@ class AuditEventType(StrEnum):
     # -- Feature Store -----------------------------------------------------
     FEATURE_REGISTERED = "feature_store.feature.registered"
     FEATURE_COMPUTED = "feature_store.feature.computed"
+
+    # -- TCA ---------------------------------------------------------------
+    TCA_COMPUTED = "tca.computed"

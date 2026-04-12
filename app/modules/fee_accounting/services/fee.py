@@ -17,6 +17,8 @@ from app.modules.fee_accounting.core.calculator import (
 from app.modules.fee_accounting.interfaces import AccrualStatus, FeeType
 from app.modules.fee_accounting.models.fee_accrual import FeeAccrualRecord
 from app.modules.fee_accounting.models.high_water_mark import HighWaterMarkRecord
+from app.shared.audit.events import AuditEventType
+from app.shared.events import BaseEvent
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +27,7 @@ if TYPE_CHECKING:
     from app.modules.fee_accounting.repositories.fee_schedule import FeeScheduleRepository
     from app.modules.fee_accounting.repositories.high_water_mark import HighWaterMarkRepository
     from app.shared.database import TenantSessionFactory
+    from app.shared.events import EventBus
 
 logger = structlog.get_logger()
 
@@ -39,11 +42,13 @@ class FeeAccountingService:
         schedule_repo: FeeScheduleRepository,
         accrual_repo: FeeAccrualRepository,
         hwm_repo: HighWaterMarkRepository,
+        event_bus: EventBus | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._schedule_repo = schedule_repo
         self._accrual_repo = accrual_repo
         self._hwm_repo = hwm_repo
+        self._event_bus = event_bus
 
     async def accrue_daily_fees(
         self,
@@ -143,6 +148,27 @@ class FeeAccountingService:
             management_fee=str(mgmt_fee),
             performance_fee=str(perf_fee),
         )
+
+        if self._event_bus is not None:
+            from app.shared.schema_registry import fund_topic
+
+            await self._event_bus.publish(
+                fund_topic(fund_slug, "fees.accrued"),
+                BaseEvent(
+                    event_type=AuditEventType.FEES_ACCRUED,
+                    data={
+                        "portfolio_id": str(portfolio_id),
+                        "share_class": share_class,
+                        "business_date": str(business_date),
+                        "management_fee": str(mgmt_fee),
+                        "performance_fee": str(perf_fee),
+                        "nav": str(nav),
+                    },
+                    fund_slug=fund_slug,
+                    actor_id="eod-orchestrator",
+                ),
+            )
+
         return accruals
 
     async def crystallize_fees(
@@ -207,6 +233,23 @@ class FeeAccountingService:
             share_class=share_class,
             business_date=str(business_date),
         )
+
+        if self._event_bus is not None:
+            from app.shared.schema_registry import fund_topic
+
+            await self._event_bus.publish(
+                fund_topic(fund_slug, "fees.crystallized"),
+                BaseEvent(
+                    event_type=AuditEventType.FEES_CRYSTALLIZED,
+                    data={
+                        "portfolio_id": str(portfolio_id),
+                        "share_class": share_class,
+                        "business_date": str(business_date),
+                    },
+                    fund_slug=fund_slug,
+                    actor_id="eod-orchestrator",
+                ),
+            )
 
     async def get_accruals(
         self,

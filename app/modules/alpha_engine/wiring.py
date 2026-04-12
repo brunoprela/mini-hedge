@@ -45,3 +45,13 @@ async def setup(
         event_bus=event_bus,
     )
     app.state.alpha_service = alpha_service
+
+    import os
+
+    if os.environ.get("APP_ENV", "local") == "local":
+        try:
+            from app.modules.alpha_engine.seed import seed_dev_data
+
+            await seed_dev_data(app, sf)
+        except Exception:
+            pass

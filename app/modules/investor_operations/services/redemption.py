@@ -160,6 +160,17 @@ class RedemptionService:
         if "lock_up_expiry_date" in extra:
             record.lock_up_expiry_date = extra["lock_up_expiry_date"]  # type: ignore[assignment]
 
+        await self._event_bus.publish(
+            "investor_operations",
+            BaseEvent(
+                event_type=AuditEventType.REDEMPTION_VALIDATED,
+                data={
+                    "request_id": request_id,
+                    "validated": target == RedemptionState.VALIDATED,
+                    "reason": failed_reason or "",
+                },
+            ),
+        )
         return _red_to_summary(record)
 
     async def run_gate_check(
@@ -340,6 +351,16 @@ class RedemptionService:
         record.payment_sent_at = now
         record.payment_reference = payment_reference
 
+        await self._event_bus.publish(
+            "investor_operations",
+            BaseEvent(
+                event_type=AuditEventType.REDEMPTION_PAYMENT_CONFIRMED,
+                data={
+                    "request_id": request_id,
+                    "payment_reference": payment_reference,
+                },
+            ),
+        )
         return _red_to_summary(record)
 
     async def cancel_redemption(
@@ -371,6 +392,17 @@ class RedemptionService:
         record.cancelled_at = now
         record.cancellation_reason = reason
 
+        await self._event_bus.publish(
+            "investor_operations",
+            BaseEvent(
+                event_type=AuditEventType.REDEMPTION_CANCELLED,
+                data={
+                    "request_id": request_id,
+                    "reason": reason,
+                    "cancelled_by": cancelled_by,
+                },
+            ),
+        )
         return _red_to_summary(record)
 
     async def get_redemption(

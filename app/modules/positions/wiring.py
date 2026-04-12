@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 import structlog
+
+from app.shared.events import BaseEvent
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -100,3 +103,65 @@ async def setup(
         get_asset_class=get_asset_class,
     )
     event_bus.subscribe(shared_topic("prices.normalized"), mtm_handler.handle_price_update)
+
+    # Subscribe to corporate-actions.announced — fan out to per-portfolio
+    # position updates for every portfolio holding the affected instrument.
+    async def on_corporate_action_announced(event: BaseEvent) -> None:
+        """Apply a corporate action to all positions holding the instrument."""
+        data = event.data
+        instrument_id = data.get("instrument_id")
+        action_type = data.get("action_type", "")
+        if not instrument_id:
+            return
+
+        # Determine event_type for routing within _apply_corporate_action
+        if "split" in action_type:
+            ca_event_type = "corporate_action.split"
+            quantity_field = data.get("ratio", "1")
+        else:
+            ca_event_type = "corporate_action.dividend"
+            quantity_field = data.get("amount", "0")
+
+        for fund in active_funds:
+            try:
+                async with sf.fund_scope(fund.slug):
+                    positions = await position_repo.get_by_instrument(
+                        instrument_id, session=None
+                    )
+                    for pos in positions:
+                        portfolio_id = str(pos.portfolio_id)
+                        per_portfolio_event = BaseEvent(
+                            event_type=ca_event_type,
+                            data={
+                                "portfolio_id": portfolio_id,
+                                "instrument_id": instrument_id,
+                                "action_id": data.get("action_id", ""),
+                                "currency": data.get("currency", "USD"),
+                                "quantity": str(quantity_field),
+                                "source": "corporate_action",
+                            },
+                            fund_slug=fund.slug,
+                        )
+                        try:
+                            await trade_handler.handle_trade_event(per_portfolio_event)
+                        except Exception:
+                            logger.exception(
+                                "corporate_action_position_failed",
+                                instrument_id=instrument_id,
+                                portfolio_id=portfolio_id,
+                            )
+            except Exception:
+                logger.exception(
+                    "corporate_action_fund_failed",
+                    instrument_id=instrument_id,
+                    fund_slug=fund.slug,
+                )
+
+    event_bus.subscribe(
+        shared_topic("corporate-actions.announced"),
+        on_corporate_action_announced,
+    )
+    logger.info(
+        "positions_subscribed_to_corporate_actions",
+        fund_count=len(active_funds),
+    )

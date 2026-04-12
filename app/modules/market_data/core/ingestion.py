@@ -192,6 +192,33 @@ class MarketDataIngestionService:
         )
         await self._event_bus.publish(self._publish_topic, event)  # type: ignore[union-attr]
 
+    async def publish_feed_status(self) -> None:
+        """Publish a market-data.status event summarizing current feed health.
+
+        Intended to be called periodically (e.g. every minute) by a background
+        task or health-check endpoint. Publishes to shared.market-data.status.
+        """
+        if self._event_bus is None:
+            return
+
+        from app.shared.audit.events import AuditEventType
+        from app.shared.events import BaseEvent
+        from app.shared.schema_registry import shared_topic
+
+        report = self._feed_monitor.check_health()
+        event = BaseEvent(
+            event_type=AuditEventType.MARKET_DATA_STATUS,
+            data={
+                "total_feeds": report.total_feeds,
+                "healthy_feeds": report.healthy_feeds,
+                "stale_feeds": report.stale_feeds,
+                "stale_instruments": report.stale_instruments,
+                "all_healthy": report.all_healthy,
+                "checked_at": report.checked_at.isoformat(),
+            },
+        )
+        await self._event_bus.publish(shared_topic("market-data.status"), event)
+
     @property
     def feed_monitor(self) -> FeedHealthMonitor:
         """Expose the feed health monitor for status queries."""

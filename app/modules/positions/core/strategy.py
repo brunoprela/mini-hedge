@@ -55,11 +55,70 @@ class EquityPositionStrategy:
         return mv - cost_basis
 
 
+class FixedIncomePositionStrategy:
+    """Bonds: value = (par_held × clean_price / 100) + accrued_interest."""
+
+    def market_value(self, quantity: Decimal, market_price: Decimal, **kwargs: Any) -> Decimal:
+        accrued = kwargs.get("accrued_interest", Decimal(0))
+        return (quantity * market_price / Decimal(100)) + accrued
+
+    def unrealized_pnl(
+        self,
+        quantity: Decimal,
+        cost_basis: Decimal,
+        market_price: Decimal,
+        **kwargs: Any,
+    ) -> Decimal:
+        accrued = kwargs.get("accrued_interest", Decimal(0))
+        dirty_value = (quantity * market_price / Decimal(100)) + accrued
+        cost = quantity * cost_basis / Decimal(100)
+        return dirty_value - cost
+
+
+class OptionPositionStrategy:
+    """Options: value = contracts × premium × multiplier."""
+
+    def market_value(self, quantity: Decimal, market_price: Decimal, **kwargs: Any) -> Decimal:
+        multiplier = kwargs.get("contract_multiplier", Decimal(100))
+        return quantity * market_price * multiplier
+
+    def unrealized_pnl(
+        self,
+        quantity: Decimal,
+        cost_basis: Decimal,
+        market_price: Decimal,
+        **kwargs: Any,
+    ) -> Decimal:
+        multiplier = kwargs.get("contract_multiplier", Decimal(100))
+        return quantity * (market_price - cost_basis) * multiplier
+
+
+class FuturePositionStrategy:
+    """Futures: value based on contract size, P&L from daily settlement."""
+
+    def market_value(self, quantity: Decimal, market_price: Decimal, **kwargs: Any) -> Decimal:
+        contract_size = kwargs.get("contract_size", Decimal(1))
+        return quantity * market_price * contract_size
+
+    def unrealized_pnl(
+        self,
+        quantity: Decimal,
+        cost_basis: Decimal,
+        market_price: Decimal,
+        **kwargs: Any,
+    ) -> Decimal:
+        contract_size = kwargs.get("contract_size", Decimal(1))
+        return quantity * (market_price - cost_basis) * contract_size
+
+
 # Registry: maps asset class to strategy implementation.
 # New asset classes register here — no changes to aggregate or handlers.
 POSITION_STRATEGIES: dict[AssetClass, PositionStrategy] = {
     AssetClass.EQUITY: EquityPositionStrategy(),
     AssetClass.ETF: EquityPositionStrategy(),
+    AssetClass.FIXED_INCOME: FixedIncomePositionStrategy(),
+    AssetClass.OPTION: OptionPositionStrategy(),
+    AssetClass.FUTURE: FuturePositionStrategy(),
 }
 
 

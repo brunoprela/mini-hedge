@@ -61,6 +61,8 @@ async def setup(
         identifier_repo=identifier_repo,
         event_bus=event_bus,
     )
-    # Dev seeding — only populates data in local environment
-    if _is_local_env():
+    # Dev seeding — only populates data in local environment when seed_on_startup is True.
+    # Set SEED_ON_STARTUP=false to start with an empty platform.
+    seed_enabled = getattr(settings, "seed_on_startup", True) if settings else True
+    if _is_local_env() and seed_enabled:
         await _seed_instruments(instrument_repo, reference_adapter=reference_adapter)

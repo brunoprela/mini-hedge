@@ -2,10 +2,9 @@
 
 Run with:  uv run python -m app.seed_trades
 
-Bypasses HTTP/auth and calls TradeHandler directly with a no-op event bus
-so no Kafka connection is needed. The position read models are fully populated
-in the database; the simulator's mark-to-market handler will price them once
-the app starts.
+Creates orders via OrderService, which runs compliance checks, creates
+fills, and publishes Kafka events — giving a realistic event cascade
+that populates orders, positions, and downstream analytics.
 
 Portfolio construction is designed to be compliant with the default seed
 compliance rules:
@@ -40,9 +39,6 @@ from app.modules.platform.seed import (
     USER_BETA_PM_ID,
     USER_GAMMA_PM_ID,
 )
-from app.modules.positions.core.event_store import EventStoreRepository
-from app.modules.positions.core.position_projector import PositionProjector
-from app.modules.positions.core.trade_handler import TradeHandler
 from app.modules.positions.interfaces import TradeSide
 from app.modules.positions.repositories import CurrentPositionRepository
 from app.shared.auth.request_context import ActorType, RequestContext, set_request_context
@@ -360,14 +356,44 @@ FUND_SLUG_TO_ACTOR = {
 }
 
 
-async def main() -> None:
-    settings = get_settings()
-    setup_logging(settings.log_level)
-    _, session_factory = build_engine()
+async def _seed_via_order_flow(session_factory) -> None:
+    """Full order flow: create orders via OrderService (compliance + fill + events)."""
+    from app.modules.compliance.repositories import (
+        ComplianceRuleRepository,
+        ComplianceViolationRepository,
+        TradeDecisionRepository,
+    )
+    from app.modules.compliance.services import ComplianceService
+    from app.modules.orders.core.compliance_gateway import ComplianceGateway
+    from app.modules.orders.interfaces import (
+        CreateOrderRequest,
+        OrderSide,
+        OrderType,
+        TimeInForce,
+    )
+    from app.modules.orders.repositories import OrderFillRepository, OrderRepository
+    from app.modules.orders.services import OrderService
+    from app.modules.positions.core.event_store import EventStoreRepository
+    from app.modules.positions.core.position_projector import PositionProjector
+    from app.modules.positions.core.trade_handler import TradeHandler
 
-    # Use a no-op event bus — we only want database side-effects
     event_bus = InProcessEventBus()
+    order_repo = OrderRepository(session_factory)
+    order_fill_repo = OrderFillRepository(session_factory)
 
+    # Minimal compliance — approve everything for seeding
+    rule_repo = ComplianceRuleRepository(session_factory)
+    violation_repo = ComplianceViolationRepository(session_factory)
+    decision_repo = TradeDecisionRepository(session_factory)
+    compliance_service = ComplianceService(
+        rule_repo=rule_repo,
+        violation_repo=violation_repo,
+        decision_repo=decision_repo,
+        event_bus=event_bus,
+    )
+    compliance_gateway = ComplianceGateway(pre_trade_gate=compliance_service.pre_trade_gate)
+
+    # Wire position handler for trade execution events
     event_store = EventStoreRepository(session_factory)
     position_repo = CurrentPositionRepository(session_factory)
     projector = PositionProjector(position_repo)
@@ -377,6 +403,20 @@ async def main() -> None:
         projector=projector,
         event_bus=event_bus,
     )
+
+    order_service = OrderService(
+        session_factory=session_factory,
+        order_repo=order_repo,
+        order_fill_repo=order_fill_repo,
+        compliance_gateway=compliance_gateway,
+        broker=None,
+        event_bus=event_bus,
+    )
+
+    # Subscribe trade handler to execution events so positions are created
+    event_bus.subscribe("trades.executed", trade_handler.handle_trade_event)
+    for slug in FUND_SLUG_TO_ID:
+        event_bus.subscribe(f"fund-{slug}.trades.executed", trade_handler.handle_trade_event)
 
     # Check if trades already exist (idempotent)
     request_context = RequestContext(
@@ -391,10 +431,9 @@ async def main() -> None:
         print(f"Already have {len(existing)} positions in Alpha Equity L/S, skipping seed trades.")
         return
 
-    print(f"Seeding {len(ALL_TRADES)} trades across 3 funds...")
+    print(f"Seeding {len(ALL_TRADES)} trades via OrderService (full order flow)...")
 
     for fund_slug, portfolio_id, instrument_id, side, qty, price in ALL_TRADES:
-        # Set request context for the fund so schema translation works
         trade_ctx = RequestContext(
             actor_id=FUND_SLUG_TO_ACTOR[fund_slug],
             actor_type=ActorType.SYSTEM,
@@ -403,18 +442,34 @@ async def main() -> None:
         )
         set_request_context(trade_ctx)
 
-        await trade_handler.handle_trade(
-            request_context=trade_ctx,
+        order_side = OrderSide.BUY if side == TradeSide.BUY else OrderSide.SELL
+        request = CreateOrderRequest(
             portfolio_id=UUID(portfolio_id),
             instrument_id=instrument_id,
-            side=side,
+            side=order_side,
+            order_type=OrderType.LIMIT,
             quantity=Decimal(qty),
-            price=Decimal(price),
+            limit_price=Decimal(price),
+            time_in_force=TimeInForce.DAY,
+        )
+        await order_service.create_order(
+            request,
+            fund_slug=fund_slug,
+            actor_id=FUND_SLUG_TO_ACTOR[fund_slug],
         )
         label = f"{side.value.upper():4s} {qty:>5s} {instrument_id:<7s} @ {price:>8s}"
         print(f"  {label}  [{fund_slug}]")
 
-    print(f"\nDone — {len(ALL_TRADES)} trades executed, positions populated.")
+    print(f"\nDone — {len(ALL_TRADES)} orders created via full order flow.")
+
+
+async def main() -> None:
+    settings = get_settings()
+    setup_logging(settings.log_level)
+    _, session_factory = build_engine()
+
+    await _seed_via_order_flow(session_factory)
+
     print("Start the app to see prices update via the simulator.")
 
 

@@ -317,6 +317,10 @@ async def revoke_access(
 async def list_audit(
     fund_slug: str | None = None,
     event_type: str | None = None,
+    actor_id: str | None = None,
+    entity_type: str | None = None,
+    entity_id: str | None = None,
+    correlation_id: str | None = None,
     limit: int = 100,
     offset: int = 0,
     request_context: RequestContext = require_platform_permission(Permission.PLATFORM_AUDIT_READ),
@@ -326,6 +330,10 @@ async def list_audit(
     return await admin_service.list_audit(
         fund_slug=fund_slug,
         event_type=event_type,
+        actor_id=actor_id,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        correlation_id=correlation_id,
         limit=limit,
         offset=offset,
         session=session,

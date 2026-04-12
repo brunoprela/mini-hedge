@@ -52,6 +52,7 @@ async def setup(
         account_repo=account_repo,
         transaction_repo=transaction_repo,
         cash_service=cash_service,
+        event_bus=event_bus,
     )
 
     app.state.capital_account_service = capital_service

@@ -120,3 +120,13 @@ async def setup(
             "risk_subscribed_to_positions",
             fund_count=len(active_funds),
         )
+
+    import os
+
+    if os.environ.get("APP_ENV", "local") == "local":
+        try:
+            from app.modules.risk_engine.seed import seed_dev_data
+
+            await seed_dev_data(app, sf)
+        except Exception:
+            logger.debug("risk_engine_seed_failed", exc_info=True)

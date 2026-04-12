@@ -108,4 +108,14 @@ async def setup(
         fx_rate_handler = _make_fx_rate_handler(market_data_service)
         event_bus.subscribe(shared_topic("fx-rates.normalized"), fx_rate_handler)
 
+    import os
+
+    if os.environ.get("APP_ENV", "local") == "local":
+        try:
+            from app.modules.market_data.seed import seed_dev_data
+
+            await seed_dev_data(app, sf)
+        except Exception:
+            pass
+
     return market_data_service

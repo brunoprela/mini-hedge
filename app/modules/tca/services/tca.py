@@ -16,6 +16,8 @@ from app.modules.tca.interfaces import (
     TCAReport,
 )
 from app.modules.tca.models.tca_result import TCAResultRecord
+from app.shared.audit.events import AuditEventType
+from app.shared.events import BaseEvent
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +27,7 @@ if TYPE_CHECKING:
     from app.modules.orders.services import ScorecardService
     from app.modules.tca.core.vwap import VWAPCalculator
     from app.modules.tca.repositories import TCARepository
+    from app.shared.events import EventBus
 
 logger = structlog.get_logger()
 
@@ -42,11 +45,13 @@ class TCAService:
         order_repo: OrderRepository,
         vwap_calculator: VWAPCalculator,
         scorecard_service: ScorecardService | None = None,
+        event_bus: EventBus | None = None,
     ) -> None:
         self._tca_repo = tca_repo
         self._order_repo = order_repo
         self._vwap = vwap_calculator
         self._scorecard_service = scorecard_service
+        self._event_bus = event_bus
 
     async def compute_for_order(
         self,
@@ -139,6 +144,24 @@ class TCAService:
             total_cost_bps=str(result.total_cost_bps),
             impl_shortfall_bps=str(result.implementation_shortfall_bps),
         )
+
+        if self._event_bus is not None:
+            from app.shared.schema_registry import fund_topic
+
+            await self._event_bus.publish(
+                fund_topic(order.fund_slug, "tca.computed"),
+                BaseEvent(
+                    event_type=AuditEventType.TCA_COMPUTED,
+                    data={
+                        "order_id": str(order_id),
+                        "instrument_id": order.instrument_id,
+                        "total_cost_bps": str(result.total_cost_bps),
+                        "implementation_shortfall_bps": str(result.implementation_shortfall_bps),
+                    },
+                    fund_slug=order.fund_slug,
+                    actor_id="tca-service",
+                ),
+            )
 
         return self._to_report(order, record)
 

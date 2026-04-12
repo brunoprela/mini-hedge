@@ -49,6 +49,13 @@ async def setup(
     )
     app.state.cash_service = cash_service
 
+    import os
+
+    if os.environ.get("APP_ENV", "local") == "local":
+        from app.modules.cash_management.seed import seed_dev_data
+
+        await seed_dev_data(app, sf)
+
     # Subscribe to trades.executed for automatic settlement creation
     active_funds = await fund_repo.get_all_active()
     for fund in active_funds:

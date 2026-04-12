@@ -39,6 +39,7 @@ async def setup(
         schedule_repo=schedule_repo,
         accrual_repo=accrual_repo,
         hwm_repo=hwm_repo,
+        event_bus=event_bus,
     )
     app.state.fee_accounting_service = fee_service
     app.state.fee_schedule_repo = schedule_repo

@@ -21,6 +21,8 @@ from app.modules.capital_accounts.interfaces import (
 from app.modules.capital_accounts.models.capital_account import CapitalAccountRecord
 from app.modules.capital_accounts.models.capital_transaction import CapitalTransactionRecord
 from app.modules.cash_management.interfaces import CashFlowType
+from app.shared.audit.events import AuditEventType
+from app.shared.events import BaseEvent
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,6 +32,7 @@ if TYPE_CHECKING:
         CapitalTransactionRepository,
     )
     from app.modules.cash_management.services import CashManagementService
+    from app.shared.events import EventBus
 
 logger = structlog.get_logger()
 
@@ -45,10 +48,12 @@ class CapitalTransactionService:
         account_repo: CapitalAccountRepository,
         transaction_repo: CapitalTransactionRepository,
         cash_service: CashManagementService | None = None,
+        event_bus: EventBus | None = None,
     ) -> None:
         self._account_repo = account_repo
         self._transaction_repo = transaction_repo
         self._cash_service = cash_service
+        self._event_bus = event_bus
 
     # ------------------------------------------------------------------
     # EOD: P&L + Fee Allocation
@@ -222,6 +227,24 @@ class CapitalTransactionService:
             accounts=count,
             fund_pnl=str(fund_pnl),
         )
+
+        if self._event_bus is not None:
+            from app.shared.schema_registry import shared_topic
+
+            await self._event_bus.publish(
+                shared_topic("capital.allocation"),
+                BaseEvent(
+                    event_type=AuditEventType.CAPITAL_ALLOCATION,
+                    data={
+                        "business_date": str(business_date),
+                        "accounts_allocated": count,
+                        "fund_pnl": str(fund_pnl),
+                        "nav_per_share": str(nav_per_share),
+                    },
+                    actor_id="eod-orchestrator",
+                ),
+            )
+
         return count
 
     # ------------------------------------------------------------------
@@ -327,6 +350,26 @@ class CapitalTransactionService:
             shares=str(shares),
             nav_per_share=str(nav_per_share),
         )
+
+        if self._event_bus is not None:
+            from app.shared.schema_registry import shared_topic
+
+            await self._event_bus.publish(
+                shared_topic("capital.subscription"),
+                BaseEvent(
+                    event_type=AuditEventType.CAPITAL_SUBSCRIPTION,
+                    data={
+                        "investor_id": investor_id,
+                        "amount": str(amount),
+                        "shares": str(shares),
+                        "nav_per_share": str(nav_per_share),
+                        "share_class": share_class,
+                        "business_date": str(business_date),
+                        "account_id": saved.id,
+                    },
+                ),
+            )
+
         return saved
 
     async def process_redemption(
@@ -420,6 +463,26 @@ class CapitalTransactionService:
             shares_redeemed=str(shares_to_redeem),
             nav_per_share=str(nav_per_share),
         )
+
+        if self._event_bus is not None:
+            from app.shared.schema_registry import shared_topic
+
+            await self._event_bus.publish(
+                shared_topic("capital.redemption"),
+                BaseEvent(
+                    event_type=AuditEventType.CAPITAL_REDEMPTION,
+                    data={
+                        "investor_id": investor_id,
+                        "amount": str(amount),
+                        "shares_redeemed": str(shares_to_redeem),
+                        "nav_per_share": str(nav_per_share),
+                        "share_class": share_class,
+                        "business_date": str(business_date),
+                        "account_id": saved.id,
+                    },
+                ),
+            )
+
         return saved
 
     async def _recompute_all_ownership(

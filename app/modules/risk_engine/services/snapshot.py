@@ -73,6 +73,7 @@ class RiskSnapshotService:
         event_bus: EventBus | None = None,
         fx_converter: FXConverter | None = None,
         base_currency: str = "USD",
+        var_limit_pct: float = 5.0,
     ) -> None:
         self._snapshot_repo = snapshot_repo
         self._var_result_repo = var_result_repo
@@ -86,6 +87,7 @@ class RiskSnapshotService:
         self._event_bus = event_bus
         self._fx = fx_converter
         self._base_currency = base_currency
+        self._var_limit_pct = var_limit_pct
 
     # ------------------------------------------------------------------
     # Public API
@@ -297,6 +299,12 @@ class RiskSnapshotService:
         await self._snapshot_repo.save_snapshot(record, session=session)
         await self._publish_risk_event(record, fund_slug)
 
+        # Check VaR limit breach: if 95% 1-day VaR exceeds threshold % of NAV
+        if nav > ZERO and record.var_95_1d:
+            var_pct = float(record.var_95_1d / nav * 100)
+            if var_pct > self._var_limit_pct:
+                await self._publish_limit_breach(record, fund_slug, var_pct)
+
         return RiskSnapshot(
             id=UUID(str(record.id)),
             portfolio_id=UUID(str(record.portfolio_id)),
@@ -452,6 +460,39 @@ class RiskSnapshotService:
         await self._event_bus.publish(
             fund_topic(fund_slug, "risk.updated"),
             event,
+        )
+
+    async def _publish_limit_breach(
+        self,
+        record: RiskSnapshotRecord,
+        fund_slug: str | None,
+        var_pct: float,
+    ) -> None:
+        """Publish a risk.limit_breached event when VaR exceeds the threshold."""
+        if self._event_bus is None or not fund_slug:
+            return
+
+        event = BaseEvent(
+            event_type=AuditEventType.RISK_LIMIT_BREACHED,
+            data={
+                "portfolio_id": record.portfolio_id,
+                "var_95_1d": str(record.var_95_1d),
+                "nav": str(record.nav),
+                "var_pct_of_nav": f"{var_pct:.2f}",
+                "limit_pct": str(self._var_limit_pct),
+                "breach_type": "var_95_1d",
+            },
+            fund_slug=fund_slug,
+        )
+        await self._event_bus.publish(
+            fund_topic(fund_slug, "risk.limit_breached"),
+            event,
+        )
+        logger.warning(
+            "risk_limit_breached",
+            portfolio_id=record.portfolio_id,
+            var_pct=f"{var_pct:.2f}",
+            limit_pct=self._var_limit_pct,
         )
 
     async def _persist_var_result(

@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 from app.modules.exposure.repositories import ExposureRepository
 from app.modules.exposure.services import ExposureService
-from app.shared.schema_registry import fund_topic
+from app.shared.schema_registry import fund_topic, shared_topic
 
 logger = structlog.get_logger()
 
@@ -72,7 +72,52 @@ async def setup(
                 fund_topic(fund.slug, "positions.changed"),
                 _make_handler(fund.slug),
             )
+        # Also subscribe to prices.normalized (shared topic) to recalculate
+        # exposure when market prices change. The handler iterates all portfolios
+        # that hold the affected instrument. For now, it triggers a snapshot for
+        # all portfolios on any price update — a future refinement can maintain
+        # an instrument→portfolio index for targeted recalculation.
+        portfolio_repo = getattr(app.state, "portfolio_repo", None)
+
+        async def on_price_normalized(event: BaseEvent) -> None:
+            """Recalculate exposure for all portfolios when prices change."""
+            if portfolio_repo is None:
+                return
+            for fund in active_funds:
+                try:
+                    portfolios = await portfolio_repo.get_by_fund(fund.id)
+                    for port in portfolios:
+                        try:
+                            await exposure_service.take_snapshot(
+                                UUID(port.id),
+                                fund_slug=fund.slug,
+                            )
+                        except Exception:
+                            logger.exception(
+                                "exposure_price_snapshot_failed",
+                                portfolio_id=port.id,
+                            )
+                except Exception:
+                    logger.exception(
+                        "exposure_price_fund_failed",
+                        fund_slug=fund.slug,
+                    )
+
+        event_bus.subscribe(
+            shared_topic("prices.normalized"),
+            on_price_normalized,
+        )
         logger.info(
-            "exposure_subscribed_to_positions",
+            "exposure_subscribed_to_positions_and_prices",
             fund_count=len(active_funds),
         )
+
+    import os
+
+    if os.environ.get("APP_ENV", "local") == "local":
+        try:
+            from app.modules.exposure.seed import seed_dev_data
+
+            await seed_dev_data(app, sf)
+        except Exception:
+            logger.debug("exposure_seed_failed", exc_info=True)

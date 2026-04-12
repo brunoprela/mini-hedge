@@ -67,6 +67,7 @@ async def setup(
         kyc_repo=kyc_repo,
         fund_terms_repo=terms_repo,
         kyc_adapter=kyc_adapter,
+        event_bus=event_bus,
     )
 
     app.state.subscription_service = subscription_service

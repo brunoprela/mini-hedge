@@ -70,6 +70,7 @@ class Settings(BaseSettings):
     market_data_source: str = "mock-exchange"  # "mock-exchange"
     broker_adapter: str = "in-process"  # "mock-exchange" | "in-process" | "fix"
     reference_data_source: str = "seed"  # "mock-exchange" | "seed"
+    seed_on_startup: bool = True  # set to False to start with an empty platform
     corporate_actions_source: str = "mock-exchange"  # "mock-exchange"
     broker_adapters: str = ""  # "GS:mock-exchange,JPM:mock-exchange" or empty for single
     routing_split_threshold: int = 50000

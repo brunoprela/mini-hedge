@@ -114,3 +114,13 @@ async def setup(
     )
     app.state.eod_orchestrator = orchestrator
     logger.info("eod_module_ready")
+
+    import os
+
+    if os.environ.get("APP_ENV", "local") == "local":
+        try:
+            from app.modules.eod.seed import seed_dev_data
+
+            await seed_dev_data(app, sf)
+        except Exception:
+            pass

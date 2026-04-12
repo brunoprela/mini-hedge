@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 import structlog
 
@@ -11,9 +13,10 @@ if TYPE_CHECKING:
 
     from app.modules.market_data.services import MarketDataService
     from app.modules.orders.core.broker_registry import BrokerRegistry
+    from app.modules.platform.repositories import FundRepository
     from app.shared.adapters.broker import BrokerAdapter
     from app.shared.database import TenantSessionFactory
-    from app.shared.events import EventBus
+    from app.shared.events import BaseEvent, EventBus, EventHandler
 
 from app.modules.orders.core.compliance_gateway import ComplianceGateway
 from app.modules.orders.repositories import OrderFillRepository, OrderRepository
@@ -30,6 +33,7 @@ async def setup(
     settings=None,
     broker: BrokerAdapter | None = None,
     broker_registry: BrokerRegistry | None = None,
+    fund_repo: FundRepository | None = None,
     **ctx,
 ) -> None:
     """Wire orders module: repo, compliance gateway, broker, service, algo engine."""
@@ -111,3 +115,56 @@ async def setup(
         event_bus=event_bus,
     )
     app.state.allocation_service = allocation_service
+
+    # Subscribe: auto-create orders from alpha engine order intents
+    if event_bus is not None and fund_repo is not None:
+        from app.modules.orders.interfaces import (
+            CreateOrderRequest,
+            OrderSide,
+            OrderType,
+            TimeInForce,
+        )
+        from app.shared.schema_registry import fund_topic
+
+        active_funds = await fund_repo.get_all_active()
+        for fund in active_funds:
+
+            def _make_handler(slug: str) -> EventHandler:
+                async def on_order_intents_generated(event: BaseEvent) -> None:
+                    intents = event.data.get("intents", [])
+                    portfolio_id_str = event.data.get("portfolio_id")
+                    if not portfolio_id_str or not intents:
+                        return
+                    portfolio_id = UUID(portfolio_id_str)
+                    for intent in intents:
+                        try:
+                            request = CreateOrderRequest(
+                                portfolio_id=portfolio_id,
+                                instrument_id=intent["instrument_id"],
+                                side=OrderSide(intent["side"]),
+                                order_type=OrderType.MARKET,
+                                quantity=Decimal(str(intent["quantity"])),
+                                time_in_force=TimeInForce.DAY,
+                            )
+                            await order_service.create_order(
+                                request,
+                                fund_slug=slug,
+                                actor_id="alpha-engine",
+                            )
+                        except Exception:
+                            logger.exception(
+                                "order_intent_create_failed",
+                                portfolio_id=portfolio_id_str,
+                                instrument_id=intent.get("instrument_id"),
+                            )
+
+                return on_order_intents_generated
+
+            event_bus.subscribe(
+                fund_topic(fund.slug, "order_intents.generated"),
+                _make_handler(fund.slug),
+            )
+        logger.info(
+            "orders_subscribed_to_order_intents",
+            fund_count=len(active_funds),
+        )

@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
 
     from app.shared.database import TenantSessionFactory
+    from app.shared.events import EventBus
 
 from app.modules.tca.core.vwap import VWAPCalculator
 from app.modules.tca.repositories import TCARepository
@@ -21,6 +22,8 @@ logger = structlog.get_logger()
 async def setup(
     app: FastAPI,
     sf: TenantSessionFactory,
+    *,
+    event_bus: EventBus | None = None,
     **ctx,
 ) -> None:
     """Wire TCA module: repo, VWAP calculator, cost engine, service."""
@@ -35,6 +38,7 @@ async def setup(
         order_repo=order_repo,
         vwap_calculator=vwap_calculator,
         scorecard_service=scorecard_service,
+        event_bus=event_bus,
     )
 
     app.state.tca_service = tca_service
@@ -42,3 +46,10 @@ async def setup(
     # Inject into OrderService so filled orders auto-trigger TCA computation
     order_service = app.state.order_service
     order_service._tca_service = tca_service
+
+    import os
+
+    if os.environ.get("APP_ENV", "local") == "local":
+        from app.modules.tca.seed import seed_dev_data
+
+        await seed_dev_data(app, sf)

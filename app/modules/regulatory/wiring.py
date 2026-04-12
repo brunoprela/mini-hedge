@@ -44,6 +44,15 @@ async def setup(
         risk_service=getattr(app.state, "counterparty_risk_service", None),
         exposure_service=getattr(app.state, "exposure_service", None),
         security_master_service=getattr(app.state, "sm_service", None),
+        event_bus=event_bus,
     )
     app.state.regulatory_service = svc
+
+    import os
+
+    if os.environ.get("APP_ENV", "local") == "local":
+        from app.modules.regulatory.seed import seed_dev_data
+
+        await seed_dev_data(app, sf)
+
     logger.info("regulatory_module_ready")

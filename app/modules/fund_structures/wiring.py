@@ -41,4 +41,12 @@ async def setup(
         event_bus=event_bus,
     )
     app.state.fund_structures_service = svc
+
+    import os
+
+    if os.environ.get("APP_ENV", "local") == "local":
+        from app.modules.fund_structures.seed import seed_dev_data
+
+        await seed_dev_data(app, sf)
+
     logger.info("fund_structures_module_ready")
