@@ -18,12 +18,16 @@ async function proxyRequest(req: NextRequest, { params }: { params: Promise<{ pa
   });
 
   const fundSlug = req.headers.get("x-fund-slug");
+  const customerId = req.headers.get("x-customer-id");
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${accessToken}`,
   };
   if (fundSlug) {
     headers["X-Fund-Slug"] = fundSlug;
+  }
+  if (customerId) {
+    headers["X-Customer-Id"] = customerId;
   }
 
   const contentType = req.headers.get("content-type");

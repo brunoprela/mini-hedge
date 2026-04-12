@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "EODLifecycle",
+  "namespace": "com.minihedge.eod",
+  "doc": "Emitted when an EOD run starts or completes.",
+  "fields": [
+    {"name": "run_id", "type": "string"},
+    {"name": "fund_slug", "type": "string"},
+    {"name": "business_date", "type": "string", "doc": "ISO 8601 date"},
+    {"name": "event", "type": {"type": "enum", "name": "EODEvent", "symbols": ["started", "completed", "failed"]}},
+    {"name": "steps_completed", "type": ["null", "int"], "default": null},
+    {"name": "steps_total", "type": ["null", "int"], "default": null},
+    {"name": "error_message", "type": ["null", "string"], "default": null}
+  ]
+}

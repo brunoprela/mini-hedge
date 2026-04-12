@@ -4,39 +4,21 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from enum import StrEnum
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
 from app.modules.investor_operations.interfaces.redemption import RedemptionFrequency
+from app.shared.adapters.kyc import AMLStatus, KYCScreeningResult, KYCStatus
 
-
-class KYCStatus(StrEnum):
-    PENDING = "pending"
-    APPROVED = "approved"
-    REJECTED = "rejected"
-    EXPIRED = "expired"
-
-
-class AMLStatus(StrEnum):
-    PENDING = "pending"
-    CLEARED = "cleared"
-    FLAGGED = "flagged"
-    BLOCKED = "blocked"
-
-
-class KYCScreeningResult(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    approved: bool
-    kyc_status: KYCStatus
-    aml_status: AMLStatus
-    sanctions_clear: bool
-    pep_flag: bool
-    source_of_funds_verified: bool
-    screening_provider: str
-    notes: str = ""
+# Re-export so existing consumers within investor_operations keep working.
+__all__ = [
+    "AMLStatus",
+    "FundTermsSummary",
+    "InvestorKYCInfo",
+    "KYCScreeningResult",
+    "KYCStatus",
+]
 
 
 class InvestorKYCInfo(BaseModel):

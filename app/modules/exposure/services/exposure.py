@@ -10,6 +10,7 @@ from uuid import UUID
 import structlog
 
 from app.modules.exposure.core.calculator import calculate_exposure
+from app.modules.exposure.core.normalizers import EXPOSURE_NORMALIZERS, ExposureNormalizer
 from app.modules.exposure.interfaces import (
     ExposureSnapshot,
     PortfolioExposure,
@@ -48,6 +49,7 @@ class ExposureService:
         event_bus: EventBus | None = None,
         fx_converter: FXConverter | None = None,
         base_currency: str = "USD",
+        normalizers: dict[str, ExposureNormalizer] | None = None,
     ) -> None:
         self._exposure_repo = exposure_repo
         self._position_service = position_service
@@ -55,6 +57,7 @@ class ExposureService:
         self._event_bus = event_bus
         self._fx = fx_converter
         self._base_currency = base_currency
+        self._normalizers = normalizers or EXPOSURE_NORMALIZERS
 
     async def get_current(
         self, portfolio_id: UUID, *, session: AsyncSession | None = None
@@ -87,7 +90,7 @@ class ExposureService:
                     currency=pos.currency,
                 )
             )
-        return calculate_exposure(portfolio_id, position_values)
+        return calculate_exposure(portfolio_id, position_values, normalizers=self._normalizers)
 
     async def get_history(
         self,

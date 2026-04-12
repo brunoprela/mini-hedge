@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from app.shared.adapters.reference_data import ReferenceDataAdapter
     from app.shared.database import TenantSessionFactory
 
-from app.modules.security_master.repositories import InstrumentRepository
+from app.modules.security_master.repositories import IdentifierRepository, InstrumentRepository
 from app.modules.security_master.seed import build_seed_records, convert_external_instruments
 from app.modules.security_master.services import SecurityMasterService
 
@@ -55,7 +55,12 @@ async def setup(
 ) -> None:
     """Wire security master module: repo, service.  Dev seeding is in seed_dev_data()."""
     instrument_repo = InstrumentRepository(sf)
-    app.state.security_master_service = SecurityMasterService(repository=instrument_repo)
+    identifier_repo = IdentifierRepository(sf)
+    app.state.security_master_service = SecurityMasterService(
+        repository=instrument_repo,
+        identifier_repo=identifier_repo,
+        event_bus=event_bus,
+    )
     # Dev seeding — only populates data in local environment
     if _is_local_env():
         await _seed_instruments(instrument_repo, reference_adapter=reference_adapter)

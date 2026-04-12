@@ -21,6 +21,7 @@ from app.modules.positions.core.mtm_handler import MarkToMarketHandler
 from app.modules.positions.core.position_projector import PositionProjector
 from app.modules.positions.core.trade_handler import TradeHandler
 from app.modules.positions.repositories import CurrentPositionRepository, LotRepository
+from app.modules.positions.repositories.daily_pnl import DailyPnLRepository
 from app.modules.positions.services import PositionService
 from app.shared.schema_registry import fund_topic, shared_topic
 
@@ -49,10 +50,13 @@ async def setup(
         event_bus=event_bus,
     )
     app.state.trade_handler = trade_handler
+    daily_pnl_repo = DailyPnLRepository(sf)
     app.state.position_service = PositionService(
         position_repo=position_repo,
         lot_repo=lot_repo,
         trade_handler=trade_handler,
+        event_store=event_store_repo,
+        daily_pnl_repo=daily_pnl_repo,
     )
 
     # Subscribe trade handler to trades.executed per fund.

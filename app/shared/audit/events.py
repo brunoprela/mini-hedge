@@ -78,6 +78,17 @@ class AuditEventType(StrEnum):
     # -- Exposure ----------------------------------------------------------
     EXPOSURE_UPDATED = "exposure.updated"
 
+    # -- Attribution -------------------------------------------------------
+    ATTRIBUTION_DAILY_CALCULATED = "attribution.daily_calculated"
+    ATTRIBUTION_CUMULATIVE_UPDATED = "attribution.cumulative_updated"
+
+    # -- Alpha Engine ------------------------------------------------------
+    ORDER_INTENTS_GENERATED = "order_intents.generated"
+
+    # -- Security Master ---------------------------------------------------
+    INSTRUMENT_CREATED = "instrument.created"
+    INSTRUMENT_UPDATED = "instrument.updated"
+
     # -- Risk --------------------------------------------------------------
     RISK_UPDATED = "risk.updated"
 

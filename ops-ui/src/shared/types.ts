@@ -13,3 +13,12 @@ export interface Page<T> {
   limit: number;
   offset: number;
 }
+
+/** Customer info — matches backend CustomerInfo schema. Will move to api-types on next gen. */
+export interface CustomerInfo {
+  id: string;
+  slug: string;
+  name: string;
+  customer_type: string;
+  status: string;
+}

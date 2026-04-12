@@ -21,6 +21,8 @@ from app.modules.compliance.interfaces import (
 from app.modules.compliance.models.compliance_rule import ComplianceRuleRecord
 from app.shared.audit.events import AuditEventType
 from app.shared.database import TenantSessionFactory
+from app.shared.events import BaseEvent
+from app.shared.schema_registry import fund_topic
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +35,7 @@ if TYPE_CHECKING:
     from app.modules.positions.interfaces import Position
     from app.modules.positions.services import PositionService
     from app.modules.security_master.services import SecurityMasterService
+    from app.shared.events import EventBus
 
 
 def _to_rule(record: ComplianceRuleRecord) -> RuleDefinition:
@@ -79,6 +82,7 @@ class ComplianceService:
         audit_repo: AuditLogRepository | None = None,
         position_service: PositionService | None = None,
         security_master: SecurityMasterService | None = None,
+        event_bus: EventBus | None = None,
     ) -> None:
         self._rule_repo = rule_repo
         self._violation_repo = violation_repo
@@ -86,6 +90,7 @@ class ComplianceService:
         self._audit_repo = audit_repo
         self._position_service = position_service
         self._security_master_service = security_master
+        self._event_bus = event_bus
 
     @property
     def pre_trade_gate(self) -> PreTradeGate:
@@ -157,7 +162,9 @@ class ComplianceService:
         *,
         session: AsyncSession | None = None,
     ) -> ComplianceDecision:
-        return await self._pre_trade_gate.check_trade(request)
+        decision = await self._pre_trade_gate.check_trade(request)
+        await self._publish_trade_decision(request, decision)
+        return decision
 
     # ---- Violations --------------------------------------------------
 
@@ -311,6 +318,33 @@ class ComplianceService:
             )
 
         return suggestions
+
+    async def _publish_trade_decision(
+        self,
+        request: TradeCheckRequest,
+        decision: ComplianceDecision,
+    ) -> None:
+        if self._event_bus is None:
+            return
+        fund_slug = TenantSessionFactory.current_fund_slug()
+        if not fund_slug:
+            return
+        event_type = AuditEventType.TRADE_APPROVED if decision.approved else AuditEventType.TRADE_REJECTED
+        topic_stem = "trades.approved" if decision.approved else "trades.rejected"
+        event = BaseEvent(
+            event_type=event_type,
+            data={
+                "portfolio_id": str(request.portfolio_id),
+                "instrument_id": request.instrument_id,
+                "side": request.side,
+                "quantity": str(request.quantity),
+                "price": str(request.price),
+                "approved": decision.approved,
+                "blocked_by": decision.blocked_by,
+            },
+            fund_slug=fund_slug,
+        )
+        await self._event_bus.publish(fund_topic(fund_slug, topic_stem), event)
 
     async def _audit_event(
         self,

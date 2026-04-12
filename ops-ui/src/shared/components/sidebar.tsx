@@ -1,12 +1,13 @@
 "use client";
 
-import { BarChart3, Building2, Key, ScrollText, Shield, Users } from "lucide-react";
+import { BarChart3, Building2, Handshake, Key, ScrollText, Shield, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: BarChart3 },
+  { href: "/customers", label: "Customers", icon: Handshake },
   { href: "/users", label: "Users", icon: Users },
   { href: "/funds", label: "Funds", icon: Building2 },
   { href: "/operators", label: "Operators", icon: Shield },

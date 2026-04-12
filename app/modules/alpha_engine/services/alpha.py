@@ -27,6 +27,9 @@ from app.modules.alpha_engine.models.optimization_run import OptimizationRunReco
 from app.modules.alpha_engine.models.optimization_weight import OptimizationWeightRecord
 from app.modules.alpha_engine.models.order_intent import OrderIntentRecord
 from app.modules.alpha_engine.models.scenario_run import ScenarioRunRecord
+from app.shared.audit.events import AuditEventType
+from app.shared.events import BaseEvent
+from app.shared.schema_registry import fund_topic
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,6 +42,7 @@ if TYPE_CHECKING:
     )
     from app.modules.positions.services import PositionService
     from app.modules.security_master.services import SecurityMasterService
+    from app.shared.events import EventBus
 
 logger = structlog.get_logger()
 
@@ -57,6 +61,7 @@ class AlphaService:
         intent_repo: OrderIntentRepository,
         position_service: PositionService,
         security_master_service: SecurityMasterService,
+        event_bus: EventBus | None = None,
     ) -> None:
         self._scenario_repo = scenario_repo
         self._opt_run_repo = opt_run_repo
@@ -64,6 +69,7 @@ class AlphaService:
         self._intent_repo = intent_repo
         self._position_service = position_service
         self._security_master_service = security_master_service
+        self._event_bus = event_bus
 
     # ------------------------------------------------------------------
     # What-if analysis
@@ -182,6 +188,8 @@ class AlphaService:
             sharpe=str(result.sharpe_ratio),
             intents=len(result.order_intents),
         )
+        if result.order_intents:
+            await self._publish_intents_event(portfolio_id, result)
         return result
 
     # ------------------------------------------------------------------
@@ -293,6 +301,39 @@ class AlphaService:
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------
+
+    async def _publish_intents_event(
+        self,
+        portfolio_id: UUID,
+        result: OptimizationResult,
+    ) -> None:
+        if self._event_bus is None:
+            return
+        from app.shared.database import TenantSessionFactory
+
+        fund_slug = TenantSessionFactory.current_fund_slug()
+        if not fund_slug:
+            return
+        event = BaseEvent(
+            event_type=AuditEventType.ORDER_INTENTS_GENERATED,
+            data={
+                "portfolio_id": str(portfolio_id),
+                "objective": str(result.objective),
+                "intent_count": len(result.order_intents),
+                "intents": [
+                    {
+                        "instrument_id": i.instrument_id,
+                        "side": i.side,
+                        "quantity": str(i.quantity),
+                    }
+                    for i in result.order_intents
+                ],
+            },
+            fund_slug=fund_slug,
+        )
+        await self._event_bus.publish(
+            fund_topic(fund_slug, "order_intents.generated"), event
+        )
 
     async def _build_returns_matrix(
         self,

@@ -18,12 +18,15 @@ class OrderSide(StrEnum):
 class OrderType(StrEnum):
     MARKET = "market"
     LIMIT = "limit"
+    STOP = "stop"
+    STOP_LIMIT = "stop_limit"
 
 
 class TimeInForce(StrEnum):
     DAY = "day"
     GTC = "gtc"  # good till cancelled
     IOC = "ioc"  # immediate or cancel
+    FOK = "fok"  # fill or kill
 
 
 class OrderState(StrEnum):
@@ -62,6 +65,7 @@ class CreateOrderRequest(BaseModel):
     order_type: OrderType = OrderType.MARKET
     quantity: Decimal
     limit_price: Decimal | None = None
+    stop_price: Decimal | None = None
     time_in_force: TimeInForce = TimeInForce.DAY
 
 
@@ -90,6 +94,7 @@ class OrderSummary(BaseModel):
     quantity: Decimal
     filled_quantity: Decimal
     limit_price: Decimal | None
+    stop_price: Decimal | None = None
     avg_fill_price: Decimal | None
     state: OrderState
     rejection_reason: str | None
@@ -116,6 +121,8 @@ class FillDetail(BaseModel):
     quantity: Decimal
     price: Decimal
     broker_id: str | None = None
+    commission: Decimal | None = None
+    venue: str | None = None
     filled_at: datetime
 
 

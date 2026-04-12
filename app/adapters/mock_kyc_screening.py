@@ -9,11 +9,7 @@ Screening results are driven by the investor name:
 
 from __future__ import annotations
 
-from app.modules.investor_operations.interfaces import (
-    AMLStatus,
-    KYCScreeningResult,
-    KYCStatus,
-)
+from app.shared.adapters.kyc import AMLStatus, KYCScreeningResult, KYCStatus
 
 
 class MockKYCScreeningAdapter:

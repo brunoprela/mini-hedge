@@ -29,6 +29,7 @@ class BaseEvent(BaseModel):
     actor_type: str | None = None
     customer_id: str | None = None
     fund_slug: str | None = None
+    acted_on_behalf_of: str | None = None
 
 
 EventHandler = Callable[[BaseEvent], Awaitable[None]]

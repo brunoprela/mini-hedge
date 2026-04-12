@@ -20,6 +20,38 @@ export function FundSelector() {
     router.push(`/${newSlug}${subPath}`);
   };
 
+  // Group funds by customer when multiple customers exist
+  const customerIds = new Set(funds.map((f) => f.customer_id ?? "unknown"));
+  const grouped = customerIds.size > 1;
+
+  if (grouped) {
+    const groups = new Map<string, typeof funds>();
+    for (const f of funds) {
+      const key = f.customer_name ?? f.customer_id ?? "Other";
+      const list = groups.get(key) ?? [];
+      list.push(f);
+      groups.set(key, list);
+    }
+
+    return (
+      <select
+        value={fundSlug}
+        onChange={handleChange}
+        className="rounded-lg border border-[var(--input-border)] bg-[var(--input)] px-3 py-1.5 text-sm text-[var(--foreground)] focus:border-[var(--primary)] focus:outline-none"
+      >
+        {[...groups.entries()].map(([customerName, customerFunds]) => (
+          <optgroup key={customerName} label={customerName}>
+            {customerFunds.map((f) => (
+              <option key={f.fund_slug} value={f.fund_slug}>
+                {f.fund_name} ({f.role})
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+    );
+  }
+
   return (
     <select
       value={fundSlug}

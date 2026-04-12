@@ -34,6 +34,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.config import get_settings
+from app.shared.errors import CustomerContextMissing, FundContextMissing
 from app.shared.fund_schema import fund_schema_name
 
 # Schema name used in positions ORM models (__table_args__ schema key).
@@ -41,11 +42,48 @@ from app.shared.fund_schema import fund_schema_name
 _POSITIONS_SCHEMA = "positions"
 
 
+class EngineRouter:
+    """Routes database connections per customer.
+
+    In the current single-database deployment, all customers share one engine.
+    Future: register per-customer engines for physical tenant isolation.
+    """
+
+    def __init__(self, default_engine: AsyncEngine) -> None:
+        self._default = default_engine
+        self._customer_engines: dict[str, AsyncEngine] = {}
+
+    def register(self, customer_id: str, engine: AsyncEngine) -> None:
+        """Register a dedicated engine for a customer."""
+        self._customer_engines[customer_id] = engine
+
+    def resolve(self, customer_id: str | None) -> AsyncEngine:
+        """Return the engine for a customer, falling back to the default."""
+        if customer_id and customer_id in self._customer_engines:
+            return self._customer_engines[customer_id]
+        return self._default
+
+    @property
+    def default_engine(self) -> AsyncEngine:
+        return self._default
+
+    @property
+    def customer_count(self) -> int:
+        """Number of customers with dedicated engines."""
+        return len(self._customer_engines)
+
+    async def dispose_all(self) -> None:
+        """Dispose all engines (shutdown)."""
+        await self._default.dispose()
+        for engine in self._customer_engines.values():
+            await engine.dispose()
+
+
 class TenantSessionFactory:
     """Creates sessions with per-fund schema isolation and read/write routing.
 
     Schema resolution is driven by two ``ContextVar``s:
-    - ``_customer_id_var`` — selects the customer database (future: per-customer engine)
+    - ``_customer_id_var`` — selects the customer database via EngineRouter
     - ``_fund_slug_var`` — selects the fund schema within that database
 
     Both HTTP middleware and Kafka handlers use the same mechanism::
@@ -73,12 +111,28 @@ class TenantSessionFactory:
     )
     _fund_slug_var: ClassVar[ContextVar[str | None]] = ContextVar("_fund_slug_var", default=None)
 
-    def __init__(self, engine: AsyncEngine, read_engine: AsyncEngine | None = None) -> None:
+    def __init__(
+        self,
+        engine: AsyncEngine,
+        read_engine: AsyncEngine | None = None,
+        engine_router: EngineRouter | None = None,
+    ) -> None:
         self._engine = engine
         self._read_engine = read_engine
+        self._engine_router = engine_router or EngineRouter(engine)
 
-    def _resolve_engine(self, engine: AsyncEngine) -> AsyncEngine:
-        """Apply fund schema translation to the given engine."""
+    @property
+    def engine_router(self) -> EngineRouter:
+        return self._engine_router
+
+    def _resolve_engine(self, base_engine: AsyncEngine | None = None) -> AsyncEngine:
+        """Resolve the engine for the current customer + fund context.
+
+        Uses the EngineRouter to select the customer's engine, then applies
+        fund schema translation on top.
+        """
+        customer_id = self._customer_id_var.get()
+        engine = self._engine_router.resolve(customer_id) if base_engine is None else base_engine
         fund_slug = self._fund_slug_var.get()
         if fund_slug is not None:
             return engine.execution_options(
@@ -88,8 +142,8 @@ class TenantSessionFactory:
 
     @asynccontextmanager
     async def __call__(self) -> AsyncIterator[AsyncSession]:
-        """Write session scoped to the active fund schema (if any)."""
-        engine = self._resolve_engine(self._engine)
+        """Write session scoped to the active customer + fund schema."""
+        engine = self._resolve_engine()
         async with AsyncSession(engine, expire_on_commit=False) as session:
             yield session
 
@@ -140,6 +194,22 @@ class TenantSessionFactory:
     def current_fund_slug(cls) -> str | None:
         """Return the active fund slug, or None."""
         return cls._fund_slug_var.get()
+
+    @classmethod
+    def require_customer_id(cls) -> str:
+        """Return the active customer ID, or raise ``CustomerContextMissing``."""
+        cid = cls._customer_id_var.get()
+        if cid is None:
+            raise CustomerContextMissing()
+        return cid
+
+    @classmethod
+    def require_fund_slug(cls) -> str:
+        """Return the active fund slug, or raise ``FundContextMissing``."""
+        slug = cls._fund_slug_var.get()
+        if slug is None:
+            raise FundContextMissing()
+        return slug
 
     @property
     def has_read_replica(self) -> bool:

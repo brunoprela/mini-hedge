@@ -35,6 +35,7 @@ async def setup(
 ) -> None:
     """Wire cash management module: repos, service, event subscriptions."""
     sm_service = app.state.security_master_service
+    fx_converter = getattr(getattr(app.state, "market_data_service", None), "fx_converter", None)
     cash_service = CashManagementService(
         session_factory=sf,
         balance_repo=CashBalanceRepository(sf),
@@ -44,6 +45,7 @@ async def setup(
         projection_repo=CashProjectionRepository(sf),
         security_master_service=sm_service,
         event_bus=event_bus,
+        fx_converter=fx_converter,
     )
     app.state.cash_service = cash_service
 

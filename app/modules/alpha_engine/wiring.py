@@ -42,5 +42,6 @@ async def setup(
         intent_repo=intent_repo,
         position_service=position_service,
         security_master_service=sm_service,
+        event_bus=event_bus,
     )
     app.state.alpha_service = alpha_service

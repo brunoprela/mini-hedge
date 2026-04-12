@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict
 class EODStepName(StrEnum):
     MARKET_CLOSE = "market_close"
     PRICE_FINALIZATION = "price_finalization"
+    CORPORATE_ACTION_PROCESSING = "corporate_action_processing"
     POSITION_RECON = "position_recon"
     NAV_CALCULATION = "nav_calculation"
     PNL_SNAPSHOT = "pnl_snapshot"
@@ -20,6 +21,7 @@ class EODStepName(StrEnum):
     CAPITAL_ALLOCATION = "capital_allocation"
     DEALING_DATE_EXECUTION = "dealing_date_execution"
     PERFORMANCE_ATTRIBUTION = "performance_attribution"
+    REPORT_GENERATION = "report_generation"
 
 
 class EODStepStatus(StrEnum):

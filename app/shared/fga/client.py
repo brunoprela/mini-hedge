@@ -9,6 +9,7 @@ Provides:
 
 from __future__ import annotations
 
+from contextvars import ContextVar
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
@@ -73,6 +74,20 @@ class ResourceRelation:
 
 _resource_registry: dict[str, ResourceType] = {}
 
+# Types that are inherently global (not scoped to a customer)
+_GLOBAL_TYPES = frozenset({"platform"})
+
+
+def qualify_object_id(type_name: str, resource_id: str, customer_id: str | None = None) -> str:
+    """Build an FGA object ID, optionally qualified with a customer prefix.
+
+    Returns ``{type}:{customer}/{id}`` when a customer_id is available and the
+    type is not inherently global, otherwise ``{type}:{id}``.
+    """
+    if customer_id and type_name not in _GLOBAL_TYPES:
+        return f"{type_name}:{customer_id}/{resource_id}"
+    return f"{type_name}:{resource_id}"
+
 
 def register_resource_type(rt: ResourceType) -> ResourceType:
     """Register a resource type. Returns it for assignment convenience."""
@@ -117,11 +132,30 @@ def validate_resource_registry(model_json: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
+# Per-request FGA cache — scoped to the current asyncio task via contextvars.
+# Cleared at request end (or naturally garbage collected when the task finishes).
+_request_fga_cache: ContextVar[dict[tuple[str, str, str], bool] | None] = ContextVar(
+    "_request_fga_cache", default=None
+)
+
+
+def init_request_fga_cache() -> None:
+    """Initialize a fresh per-request FGA cache for the current task."""
+    _request_fga_cache.set({})
+
+
+def clear_request_fga_cache() -> None:
+    """Clear the per-request FGA cache at the end of a request."""
+    _request_fga_cache.set(None)
+
+
 class FGAClient:
     """Thin async wrapper around the OpenFGA SDK client.
 
-    Includes a local TTL cache for ``check()`` results to avoid redundant
-    HTTP round-trips for repeated identical permission checks.
+    Two cache layers:
+    1. Per-request cache (contextvars) — eliminates duplicate checks within
+       a single request. Call ``init_request_fga_cache()`` in middleware.
+    2. Global TTL cache — avoids redundant HTTP calls across requests.
     """
 
     _CHECK_CACHE_MAX = 512
@@ -134,10 +168,24 @@ class FGAClient:
         )
 
     async def check(self, *, user: str, relation: str, object: str) -> bool:
-        """Check if *user* has *relation* on *object*. Results cached for 30s."""
+        """Check if *user* has *relation* on *object*.
+
+        Checks per-request cache first, then global TTL cache, then OpenFGA.
+        """
         cache_key = (user, relation, object)
+
+        # Layer 1: per-request cache
+        req_cache = _request_fga_cache.get()
+        if req_cache is not None:
+            req_cached = req_cache.get(cache_key)
+            if req_cached is not None:
+                return req_cached
+
+        # Layer 2: global TTL cache
         cached: bool | None = self._check_cache.get(cache_key)
         if cached is not None:
+            if req_cache is not None:
+                req_cache[cache_key] = cached
             return cached
 
         response = await self._client.check(
@@ -145,6 +193,8 @@ class FGAClient:
         )
         result: bool = bool(response.allowed)
         self._check_cache[cache_key] = result
+        if req_cache is not None:
+            req_cache[cache_key] = result
         return result
 
     def invalidate_check_cache(self) -> None:
@@ -294,10 +344,13 @@ def require_access(
         resource_id = await _extract_resource_id(request, param_name, source, request_context)
         # Use the correct FGA subject type based on actor type
         fga_prefix = "operator" if request_context.actor_type == ActorType.OPERATOR else "user"
+        # Customer-qualified object IDs: {type}:{customer}/{id}
+        # Falls back to {type}:{id} when no customer context is available
+        object_id = qualify_object_id(rt.name, resource_id, request_context.customer_id)
         allowed = await fga.check(
             user=f"{fga_prefix}:{request_context.actor_id}",
             relation=resource_relation.relation,
-            object=f"{rt.name}:{resource_id}",
+            object=object_id,
         )
         if not allowed:
             raise HTTPException(

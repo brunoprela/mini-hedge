@@ -1,6 +1,7 @@
 """Positions public interface."""
 
 from app.modules.positions.interfaces.events import (
+    CorporateActionEventData,
     DownstreamEvent,
     PnLMarkToMarket,
     PnLMarkToMarketData,
@@ -23,6 +24,7 @@ from app.modules.positions.interfaces.position import (
 )
 
 __all__ = [
+    "CorporateActionEventData",
     "DownstreamEvent",
     "PnLMarkToMarket",
     "PnLMarkToMarketData",

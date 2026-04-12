@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "CashProjected",
+  "namespace": "com.minihedge.cash",
+  "doc": "Emitted when a cash projection is generated for a portfolio.",
+  "fields": [
+    {"name": "portfolio_id", "type": "string"},
+    {"name": "currency", "type": "string"},
+    {"name": "current_balance", "type": "string", "doc": "Decimal as string"},
+    {"name": "projected_balance", "type": "string", "doc": "Decimal as string at horizon date"},
+    {"name": "horizon_date", "type": "string", "doc": "ISO 8601 date"},
+    {"name": "pending_inflows", "type": "string", "doc": "Decimal as string"},
+    {"name": "pending_outflows", "type": "string", "doc": "Decimal as string"}
+  ]
+}

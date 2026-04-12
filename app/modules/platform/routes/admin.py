@@ -11,6 +11,17 @@ from app.modules.platform.interfaces.access import (
     FundAccessGrant,
 )
 from app.modules.platform.interfaces.audit import AuditPage
+from app.modules.platform.interfaces.customer import (
+    CreateCustomerRequest,
+    CustomerInfo,
+    CustomerPage,
+    UpdateCustomerRequest,
+)
+from app.modules.platform.interfaces.servicing_edge import (
+    CreateServicingEdgeRequest,
+    ServicingEdgeInfo,
+    UpdateScopedRolesRequest,
+)
 from app.modules.platform.interfaces.fund import (
     CreateFundRequest,
     FundDetail,
@@ -139,6 +150,69 @@ async def update_operator(
 
 
 # ---------------------------------------------------------------------------
+# Customers
+# ---------------------------------------------------------------------------
+
+
+@router.get("/customers", response_model=CustomerPage)
+async def list_customers(
+    limit: int = 100,
+    offset: int = 0,
+    request_context: RequestContext = require_platform_permission(
+        Permission.PLATFORM_CUSTOMERS_READ
+    ),
+    admin_service: AdminService = Depends(get_admin_service),
+    session: AsyncSession = Depends(get_read_db),
+) -> CustomerPage:
+    return await admin_service.list_customers(limit=limit, offset=offset, session=session)
+
+
+@router.post("/customers", response_model=CustomerInfo, status_code=201)
+async def create_customer(
+    body: CreateCustomerRequest,
+    request_context: RequestContext = require_platform_permission(
+        Permission.PLATFORM_CUSTOMERS_WRITE
+    ),
+    admin_service: AdminService = Depends(get_admin_service),
+    session: AsyncSession = Depends(get_db),
+) -> CustomerInfo:
+    return await admin_service.create_customer(
+        slug=body.slug,
+        name=body.name,
+        customer_type=body.customer_type,
+        request_context=request_context,
+        session=session,
+    )
+
+
+@router.get("/customers/{customer_id}", response_model=CustomerInfo)
+async def get_customer(
+    customer_id: str,
+    request_context: RequestContext = require_platform_permission(
+        Permission.PLATFORM_CUSTOMERS_READ
+    ),
+    admin_service: AdminService = Depends(get_admin_service),
+    session: AsyncSession = Depends(get_read_db),
+) -> CustomerInfo:
+    return await admin_service.get_customer(customer_id, session=session)
+
+
+@router.patch("/customers/{customer_id}", response_model=CustomerInfo)
+async def update_customer(
+    customer_id: str,
+    body: UpdateCustomerRequest,
+    request_context: RequestContext = require_platform_permission(
+        Permission.PLATFORM_CUSTOMERS_WRITE
+    ),
+    admin_service: AdminService = Depends(get_admin_service),
+    session: AsyncSession = Depends(get_db),
+) -> CustomerInfo:
+    return await admin_service.update_customer(
+        customer_id, body, request_context=request_context, session=session
+    )
+
+
+# ---------------------------------------------------------------------------
 # Funds
 # ---------------------------------------------------------------------------
 
@@ -256,3 +330,78 @@ async def list_audit(
         offset=offset,
         session=session,
     )
+
+
+# ---------------------------------------------------------------------------
+# Servicing Edges
+# ---------------------------------------------------------------------------
+
+
+@router.post("/servicing-edges", response_model=ServicingEdgeInfo, status_code=201)
+async def create_servicing_edge(
+    body: CreateServicingEdgeRequest,
+    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_CUSTOMERS_WRITE),
+    admin_service: AdminService = Depends(get_admin_service),
+    session: AsyncSession = Depends(get_db),
+) -> ServicingEdgeInfo:
+    record = await admin_service.create_servicing_edge(
+        admin_customer_id=body.admin_customer_id,
+        client_customer_id=body.client_customer_id,
+        scoped_roles=body.scoped_roles,
+        session=session,
+    )
+    return ServicingEdgeInfo.model_validate(record)
+
+
+@router.get("/servicing-edges", response_model=list[ServicingEdgeInfo])
+async def list_servicing_edges(
+    admin_customer_id: str | None = None,
+    client_customer_id: str | None = None,
+    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_CUSTOMERS_READ),
+    admin_service: AdminService = Depends(get_admin_service),
+    session: AsyncSession = Depends(get_read_db),
+) -> list[ServicingEdgeInfo]:
+    edges = await admin_service.list_servicing_edges(
+        admin_customer_id=admin_customer_id,
+        client_customer_id=client_customer_id,
+        session=session,
+    )
+    return [ServicingEdgeInfo.model_validate(e) for e in edges]
+
+
+@router.patch("/servicing-edges/{edge_id}/roles", response_model=ServicingEdgeInfo)
+async def update_edge_roles(
+    edge_id: str,
+    body: UpdateScopedRolesRequest,
+    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_CUSTOMERS_WRITE),
+    admin_service: AdminService = Depends(get_admin_service),
+    session: AsyncSession = Depends(get_db),
+) -> ServicingEdgeInfo:
+    record = await admin_service.update_servicing_edge_roles(
+        edge_id=edge_id,
+        scoped_roles=body.scoped_roles,
+        session=session,
+    )
+    return ServicingEdgeInfo.model_validate(record)
+
+
+@router.post("/servicing-edges/{edge_id}/suspend", response_model=ServicingEdgeInfo)
+async def suspend_edge(
+    edge_id: str,
+    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_CUSTOMERS_WRITE),
+    admin_service: AdminService = Depends(get_admin_service),
+    session: AsyncSession = Depends(get_db),
+) -> ServicingEdgeInfo:
+    record = await admin_service.suspend_servicing_edge(edge_id=edge_id, session=session)
+    return ServicingEdgeInfo.model_validate(record)
+
+
+@router.post("/servicing-edges/{edge_id}/terminate", response_model=ServicingEdgeInfo)
+async def terminate_edge(
+    edge_id: str,
+    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_CUSTOMERS_WRITE),
+    admin_service: AdminService = Depends(get_admin_service),
+    session: AsyncSession = Depends(get_db),
+) -> ServicingEdgeInfo:
+    record = await admin_service.terminate_servicing_edge(edge_id=edge_id, session=session)
+    return ServicingEdgeInfo.model_validate(record)

@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "OrderCanceled",
+  "namespace": "com.minihedge.orders",
+  "doc": "Emitted when an order is canceled.",
+  "fields": [
+    {"name": "order_id", "type": "string"},
+    {"name": "portfolio_id", "type": "string"},
+    {"name": "instrument_id", "type": "string"},
+    {"name": "side", "type": {"type": "enum", "name": "CancelSide", "symbols": ["buy", "sell"]}},
+    {"name": "quantity", "type": "string", "doc": "Original order quantity as decimal string"},
+    {"name": "filled_quantity", "type": "string", "doc": "Quantity filled before cancel"},
+    {"name": "reason", "type": ["null", "string"], "default": null}
+  ]
+}

@@ -11,6 +11,7 @@ Platform operators are seeded with their own identity records + FGA tuples.
 from openfga_sdk.client.models import ClientTuple
 
 from app.modules.platform.models.api_key import APIKeyRecord
+from app.modules.platform.models.customer import CustomerRecord, CustomerStatus, CustomerType
 from app.modules.platform.models.fund import FundRecord, FundStatus
 from app.modules.platform.models.investor import InvestorRecord
 from app.modules.platform.models.operator import OperatorRecord
@@ -63,6 +64,12 @@ DEV_API_KEY = "mh_dev_00000000000000000000000000000001"
 DEV_API_KEY_BETA = "mh_dev_00000000000000000000000000000002"
 DEV_API_KEY_GAMMA = "mh_dev_00000000000000000000000000000003"
 
+# Customers (organizational tenants)
+CUSTOMER_ALPHA_ID = "70000000-0000-0000-0000-000000000001"
+CUSTOMER_BETA_ID = "70000000-0000-0000-0000-000000000002"
+CUSTOMER_GAMMA_ID = "70000000-0000-0000-0000-000000000003"
+CUSTOMER_CITCO_ID = "70000000-0000-0000-0000-000000000010"  # fund administrator example
+
 # Investors (platform-scoped — can invest across funds)
 INVESTOR_SOVEREIGN_WEALTH_ID = "60000000-0000-0000-0000-000000000001"
 INVESTOR_PENSION_FUND_ID = "60000000-0000-0000-0000-000000000002"
@@ -79,6 +86,45 @@ DEFAULT_API_KEY_ID = API_KEY_ALPHA_ID
 
 
 # ---------------------------------------------------------------------------
+# Customers
+# ---------------------------------------------------------------------------
+
+
+def build_seed_customers() -> list[CustomerRecord]:
+    """One customer per fund plus a fund administrator (Citco) for delegated-access demos."""
+    return [
+        CustomerRecord(
+            id=CUSTOMER_ALPHA_ID,
+            slug="alpha-capital",
+            name="Alpha Capital Partners",
+            customer_type=CustomerType.DIRECT_FUND,
+            status=CustomerStatus.ACTIVE,
+        ),
+        CustomerRecord(
+            id=CUSTOMER_BETA_ID,
+            slug="bridgewater-systematic",
+            name="Bridgewater Systematic",
+            customer_type=CustomerType.DIRECT_FUND,
+            status=CustomerStatus.ACTIVE,
+        ),
+        CustomerRecord(
+            id=CUSTOMER_GAMMA_ID,
+            slug="citrine-event-driven",
+            name="Citrine Event-Driven",
+            customer_type=CustomerType.DIRECT_FUND,
+            status=CustomerStatus.ACTIVE,
+        ),
+        CustomerRecord(
+            id=CUSTOMER_CITCO_ID,
+            slug="citco-fund-admin",
+            name="Citco Fund Services",
+            customer_type=CustomerType.FUND_ADMINISTRATOR,
+            status=CustomerStatus.ACTIVE,
+        ),
+    ]
+
+
+# ---------------------------------------------------------------------------
 # Funds
 # ---------------------------------------------------------------------------
 
@@ -88,6 +134,7 @@ def build_seed_funds() -> list[FundRecord]:
     return [
         FundRecord(
             id=FUND_ALPHA_ID,
+            customer_id=CUSTOMER_ALPHA_ID,
             slug="alpha",
             name="Alpha Capital Partners",
             status=FundStatus.ACTIVE,
@@ -95,6 +142,7 @@ def build_seed_funds() -> list[FundRecord]:
         ),
         FundRecord(
             id=FUND_BETA_ID,
+            customer_id=CUSTOMER_BETA_ID,
             slug="beta",
             name="Bridgewater Systematic",
             status=FundStatus.ACTIVE,
@@ -102,6 +150,7 @@ def build_seed_funds() -> list[FundRecord]:
         ),
         FundRecord(
             id=FUND_GAMMA_ID,
+            customer_id=CUSTOMER_GAMMA_ID,
             slug="gamma",
             name="Citrine Event-Driven",
             status=FundStatus.ACTIVE,
@@ -183,36 +232,42 @@ def build_seed_users() -> list[UserRecord]:
     return [
         UserRecord(
             id=USER_ADMIN_ID,
+            customer_id=CUSTOMER_ALPHA_ID,
             email="admin@minihedge.dev",
             name="Dev Admin",
             is_active=True,
         ),
         UserRecord(
             id=USER_ALPHA_PM_ID,
+            customer_id=CUSTOMER_ALPHA_ID,
             email="james.chen@alphacap.dev",
             name="James Chen",
             is_active=True,
         ),
         UserRecord(
             id=USER_BETA_PM_ID,
+            customer_id=CUSTOMER_BETA_ID,
             email="sarah.patel@bridgewater.dev",
             name="Sarah Patel",
             is_active=True,
         ),
         UserRecord(
             id=USER_GAMMA_PM_ID,
+            customer_id=CUSTOMER_GAMMA_ID,
             email="michael.ross@citrine.dev",
             name="Michael Ross",
             is_active=True,
         ),
         UserRecord(
             id=USER_RISK_MANAGER_ID,
+            customer_id=CUSTOMER_ALPHA_ID,
             email="risk@minihedge.dev",
             name="Risk Manager",
             is_active=True,
         ),
         UserRecord(
             id=USER_COMPLIANCE_ID,
+            customer_id=CUSTOMER_ALPHA_ID,
             email="compliance@minihedge.dev",
             name="Compliance Officer",
             is_active=True,
@@ -355,6 +410,47 @@ def build_seed_fga_tuples() -> list[ClientTuple]:
     - Portfolio → fund parent pointers
     """
     tuples: list[ClientTuple] = []
+
+    # --- Customer memberships ---
+    # Each PM is a member of their home customer
+    for user_id, customer_id in [
+        (USER_ADMIN_ID, CUSTOMER_ALPHA_ID),
+        (USER_ALPHA_PM_ID, CUSTOMER_ALPHA_ID),
+        (USER_BETA_PM_ID, CUSTOMER_BETA_ID),
+        (USER_GAMMA_PM_ID, CUSTOMER_GAMMA_ID),
+        (USER_RISK_MANAGER_ID, CUSTOMER_ALPHA_ID),
+        (USER_COMPLIANCE_ID, CUSTOMER_ALPHA_ID),
+    ]:
+        tuples.append(
+            ClientTuple(
+                user=f"user:{user_id}",
+                relation="member",
+                object=f"customer:{customer_id}",
+            )
+        )
+
+    # Admin user is also customer admin
+    tuples.append(
+        ClientTuple(
+            user=f"user:{USER_ADMIN_ID}",
+            relation="admin",
+            object=f"customer:{CUSTOMER_ALPHA_ID}",
+        )
+    )
+
+    # Customer → fund parent pointers
+    for fund_id, customer_id in [
+        (FUND_ALPHA_ID, CUSTOMER_ALPHA_ID),
+        (FUND_BETA_ID, CUSTOMER_BETA_ID),
+        (FUND_GAMMA_ID, CUSTOMER_GAMMA_ID),
+    ]:
+        tuples.append(
+            ClientTuple(
+                user=f"customer:{customer_id}",
+                relation="customer",
+                object=f"fund:{fund_id}",
+            )
+        )
 
     # --- Platform operator roles ---
     tuples.append(

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import TYPE_CHECKING
 
 from sqlalchemy import select
@@ -37,16 +38,20 @@ class CapitalTransactionRepository(BaseRepository):
         self,
         investor_id: str,
         *,
+        from_date: date | None = None,
+        to_date: date | None = None,
         limit: int = 100,
         session: AsyncSession | None = None,
     ) -> list[CapitalTransactionRecord]:
         async with self._session(session) as session:
-            stmt = (
-                select(CapitalTransactionRecord)
-                .where(CapitalTransactionRecord.investor_id == investor_id)
-                .order_by(CapitalTransactionRecord.created_at.desc())
-                .limit(limit)
+            stmt = select(CapitalTransactionRecord).where(
+                CapitalTransactionRecord.investor_id == investor_id
             )
+            if from_date is not None:
+                stmt = stmt.where(CapitalTransactionRecord.business_date >= from_date)
+            if to_date is not None:
+                stmt = stmt.where(CapitalTransactionRecord.business_date <= to_date)
+            stmt = stmt.order_by(CapitalTransactionRecord.created_at.desc()).limit(limit)
             result = await session.execute(stmt)
             return list(result.scalars().all())
 

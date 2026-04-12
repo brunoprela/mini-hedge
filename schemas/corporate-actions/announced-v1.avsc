@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "CorporateActionAnnounced",
+  "namespace": "com.minihedge.corporateactions",
+  "doc": "Emitted when a corporate action is announced for an instrument.",
+  "fields": [
+    {"name": "action_id", "type": "string"},
+    {"name": "instrument_id", "type": "string"},
+    {"name": "action_type", "type": "string", "doc": "stock_split, cash_dividend, stock_dividend, rights_issue, merger, spin_off"},
+    {"name": "ex_date", "type": "string", "doc": "ISO 8601 date"},
+    {"name": "record_date", "type": ["null", "string"], "default": null},
+    {"name": "pay_date", "type": ["null", "string"], "default": null},
+    {"name": "ratio", "type": ["null", "string"], "default": null, "doc": "Decimal as string (e.g. split ratio)"},
+    {"name": "amount", "type": ["null", "string"], "default": null, "doc": "Decimal as string (e.g. dividend per share)"},
+    {"name": "currency", "type": ["null", "string"], "default": null}
+  ]
+}

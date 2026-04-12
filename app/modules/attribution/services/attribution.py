@@ -28,6 +28,9 @@ from app.modules.attribution.models.brinson_fachler import BrinsonFachlerRecord
 from app.modules.attribution.models.brinson_fachler_sector import BrinsonFachlerSectorRecord
 from app.modules.attribution.models.risk_based import RiskBasedRecord
 from app.modules.attribution.models.risk_factor_contribution import RiskFactorContributionRecord
+from app.shared.audit.events import AuditEventType
+from app.shared.events import BaseEvent
+from app.shared.schema_registry import fund_topic
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,6 +45,7 @@ if TYPE_CHECKING:
     from app.modules.market_data.core.fx import FXConverter
     from app.modules.positions.services import PositionService
     from app.modules.security_master.services import SecurityMasterService
+    from app.shared.events import EventBus
 
 logger = structlog.get_logger()
 
@@ -62,6 +66,7 @@ class AttributionService:
         position_service: PositionService,
         security_master_service: SecurityMasterService,
         fx_converter: FXConverter | None = None,
+        event_bus: EventBus | None = None,
     ) -> None:
         self._bf_repo = bf_repo
         self._bf_sector_repo = bf_sector_repo
@@ -71,6 +76,7 @@ class AttributionService:
         self._position_service = position_service
         self._security_master_service = security_master_service
         self._fx = fx_converter
+        self._event_bus = event_bus
 
     async def calculate_brinson_fachler(
         self,
@@ -140,6 +146,18 @@ class AttributionService:
             "brinson_fachler_calculated",
             portfolio_id=str(portfolio_id),
             active_return=str(result.active_return),
+        )
+        await self._publish_attribution_event(
+            AuditEventType.ATTRIBUTION_DAILY_CALCULATED,
+            portfolio_id=portfolio_id,
+            data={
+                "portfolio_id": str(portfolio_id),
+                "period_start": str(period_start),
+                "period_end": str(period_end),
+                "active_return": str(result.active_return),
+                "total_allocation": str(result.total_allocation),
+                "total_selection": str(result.total_selection),
+            },
         )
         return result
 
@@ -265,6 +283,17 @@ class AttributionService:
             "cumulative_attribution_calculated",
             portfolio_id=str(portfolio_id),
             periods=len(period_results),
+        )
+        await self._publish_attribution_event(
+            AuditEventType.ATTRIBUTION_CUMULATIVE_UPDATED,
+            portfolio_id=portfolio_id,
+            data={
+                "portfolio_id": str(portfolio_id),
+                "period_start": str(period_start),
+                "period_end": str(period_end),
+                "periods": len(period_results),
+                "cumulative_active_return": str(result.cumulative_active_return),
+            },
         )
         return result
 
@@ -430,6 +459,27 @@ class AttributionService:
 
         await self._bf_repo.save(record, session=session)
         await self._bf_sector_repo.save_many(sectors, session=session)
+
+    async def _publish_attribution_event(
+        self,
+        event_type: AuditEventType,
+        *,
+        portfolio_id: UUID,
+        data: dict[str, object],
+    ) -> None:
+        if self._event_bus is None:
+            return
+        from app.shared.database import TenantSessionFactory
+
+        fund_slug = TenantSessionFactory.current_fund_slug()
+        if not fund_slug:
+            return
+        event = BaseEvent(
+            event_type=event_type,
+            data=data,
+            fund_slug=fund_slug,
+        )
+        await self._event_bus.publish(fund_topic(fund_slug, event_type), event)
 
     async def _persist_risk_based(
         self, result: RiskBasedResult, *, session: AsyncSession | None = None

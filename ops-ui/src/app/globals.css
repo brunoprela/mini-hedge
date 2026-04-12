@@ -1,19 +1,78 @@
 @import "tailwindcss";
+@source "../../../packages/ui/src/**/*.{ts,tsx}";
+
+/* ----------------------------------------------------------------
+   Ops UI — light theme design system
+   Matches the token names used by @mini-hedge/ui shared primitives
+   so Dialog, Drawer, Menu, Combobox, CommandPalette, Tooltip all
+   resolve their CSS variables correctly.
+   ---------------------------------------------------------------- */
 
 :root {
+  color-scheme: light;
+
+  /* Foundation */
   --background: #ffffff;
+  --background-raised: #f8fafc;
   --foreground: #0a0a0a;
-  --muted: #f5f5f5;
-  --muted-foreground: #737373;
-  --border: #e5e5e5;
-  --primary: #1e40af;
-  --primary-foreground: #ffffff;
-  --destructive: #ef4444;
+  --foreground-bright: #020617;
+
+  /* Sidebar */
+  --sidebar: #f8fafc;
+  --sidebar-active: rgba(30, 64, 175, 0.08);
+  --sidebar-width: 220px;
+
+  /* Cards & panels */
   --card: #ffffff;
   --card-foreground: #0a0a0a;
+  --card-hover: #f1f5f9;
+
+  /* Muted elements */
+  --muted: #f5f5f5;
+  --muted-foreground: #737373;
+
+  /* Borders */
+  --border: #e5e5e5;
+  --border-bright: #d4d4d4;
+
+  /* Primary accent — blue */
+  --primary: #1e40af;
+  --primary-foreground: #ffffff;
+  --primary-muted: rgba(30, 64, 175, 0.1);
+
+  /* Status colors */
+  --success: #16a34a;
+  --success-muted: rgba(22, 163, 74, 0.1);
+  --destructive: #ef4444;
+  --destructive-muted: rgba(239, 68, 68, 0.1);
+  --warning: #d97706;
+  --warning-muted: rgba(217, 119, 6, 0.1);
+
+  /* Accent palette */
   --accent: #eff6ff;
   --accent-foreground: #1e40af;
-  --sidebar-width: 220px;
+
+  /* Table */
+  --table-header: #f8fafc;
+  --table-row-hover: #f5f5f5;
+  --table-border: #e5e5e5;
+
+  /* Info */
+  --info: #2563eb;
+
+  /* Input */
+  --input: #ffffff;
+  --input-border: #e5e5e5;
+
+  /* Ring / focus */
+  --ring: rgba(30, 64, 175, 0.3);
+
+  /* Popover (used by shared primitives) */
+  --popover: #ffffff;
+  --popover-foreground: #0a0a0a;
+
+  /* Badge */
+  --badge-bg: rgba(0, 0, 0, 0.04);
 }
 
 body {

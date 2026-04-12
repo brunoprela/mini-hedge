@@ -16,6 +16,8 @@ class FundInfo(BaseModel):
     fund_slug: str
     fund_name: str
     role: str
+    customer_id: str | None = None
+    customer_name: str | None = None
 
 
 class PortfolioInfo(BaseModel):

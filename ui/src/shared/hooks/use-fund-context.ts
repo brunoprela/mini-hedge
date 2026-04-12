@@ -20,6 +20,8 @@ export function useFundContext() {
     fundSlug: params.fundSlug,
     fundName: activeFund?.fund_name ?? params.fundSlug,
     role: activeFund?.role ?? null,
+    customerId: activeFund?.customer_id ?? null,
+    customerName: activeFund?.customer_name ?? null,
     funds,
     isLoading,
   };

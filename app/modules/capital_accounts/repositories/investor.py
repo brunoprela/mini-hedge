@@ -40,6 +40,39 @@ class InvestorRepository(BaseRepository):
             await session.flush()
             await session.commit()
 
+    async def update(
+        self,
+        investor_id: str,
+        *,
+        name: str | None = None,
+        entity_type: str | None = None,
+        tax_jurisdiction: str | None = None,
+        contact_email: str | None = None,
+        is_active: bool | None = None,
+        session: AsyncSession | None = None,
+    ) -> InvestorRecord | None:
+        async with self._session(session) as session:
+            record = (
+                await session.execute(
+                    select(InvestorRecord).where(InvestorRecord.id == investor_id)
+                )
+            ).scalar_one_or_none()
+            if record is None:
+                return None
+            if name is not None:
+                record.name = name
+            if entity_type is not None:
+                record.entity_type = entity_type
+            if tax_jurisdiction is not None:
+                record.tax_jurisdiction = tax_jurisdiction
+            if contact_email is not None:
+                record.contact_email = contact_email
+            if is_active is not None:
+                record.is_active = is_active
+            await session.commit()
+            await session.refresh(record)
+            return record
+
     async def insert_batch(
         self, records: list[InvestorRecord], *, session: AsyncSession | None = None
     ) -> None:

@@ -38,6 +38,7 @@
     {
       "type": "fund",
       "relations": {
+        "customer": { "this": {} },
         "admin": { "this": {} },
         "portfolio_manager": { "this": {} },
         "analyst": { "this": {} },
@@ -316,6 +317,7 @@
       },
       "metadata": {
         "relations": {
+          "customer": { "directly_related_user_types": [{ "type": "customer" }] },
           "admin": { "directly_related_user_types": [{ "type": "user" }] },
           "portfolio_manager": { "directly_related_user_types": [{ "type": "user" }] },
           "analyst": { "directly_related_user_types": [{ "type": "user" }] },

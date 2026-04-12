@@ -2,6 +2,7 @@
 
 from fastapi import HTTPException, Request
 
+from app.modules.capital_accounts.repositories.investor import InvestorRepository
 from app.modules.capital_accounts.services import CapitalAccountService, CapitalTransactionService
 
 
@@ -15,6 +16,16 @@ def get_capital_account_service(request: Request) -> CapitalAccountService:
             detail="CapitalAccountService not initialized",
         )
     return service
+
+
+def get_investor_repo(request: Request) -> InvestorRepository:
+    repo: InvestorRepository | None = getattr(request.app.state, "investor_repo", None)
+    if repo is None:
+        raise HTTPException(
+            status_code=503,
+            detail="InvestorRepository not initialized",
+        )
+    return repo
 
 
 def get_capital_transaction_service(request: Request) -> CapitalTransactionService:

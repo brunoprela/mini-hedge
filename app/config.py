@@ -97,6 +97,11 @@ class Settings(BaseSettings):
     keycloak_ops_realm: str = "minihedge-ops"
     keycloak_ops_client_id: str = "mini-hedge-ops-ui"
 
+    # Per-customer Keycloak realm mapping.
+    # JSON string: {"customer-id": {"realm": "realm-name", "client_id": "client-id"}}
+    # When a customer is not in the map, the default keycloak_realm is used.
+    keycloak_customer_realms: str = "{}"
+
     cors_origins: list[str] = [
         "http://localhost:3000",
         "http://localhost:3100",

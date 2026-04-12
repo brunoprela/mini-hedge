@@ -47,6 +47,7 @@ class OrderRecord(Base):
         Numeric(18, 8), nullable=False, server_default=text("0")
     )
     limit_price: Mapped[Decimal | None] = mapped_column(Numeric(18, 8), nullable=True)
+    stop_price: Mapped[Decimal | None] = mapped_column(Numeric(18, 8), nullable=True)
     avg_fill_price: Mapped[Decimal | None] = mapped_column(Numeric(18, 8), nullable=True)
     state: Mapped[str] = mapped_column(String(32), nullable=False)
     rejection_reason: Mapped[str | None] = mapped_column(String(512), nullable=True)

@@ -40,6 +40,7 @@ def _make_order_record(**overrides) -> OrderRecord:
         quantity=Decimal("100"),
         filled_quantity=Decimal("0"),
         limit_price=Decimal("150.00"),
+        stop_price=None,
         avg_fill_price=None,
         state=OrderState.DRAFT.value,
         rejection_reason=None,

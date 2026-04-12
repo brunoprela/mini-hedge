@@ -16,6 +16,8 @@ if TYPE_CHECKING:
 class PositionEventType(StrEnum):
     TRADE_BUY = "trade.buy"
     TRADE_SELL = "trade.sell"
+    STOCK_SPLIT = "stock.split"
+    DIVIDEND_PAID = "dividend.paid"
     POSITION_CHANGED = "position.changed"
     PNL_REALIZED = "pnl.realized"
     PNL_MARK_TO_MARKET = "pnl.mark_to_market"
@@ -35,12 +37,26 @@ class TradeEventData:
 
 
 @dataclass(frozen=True)
+class CorporateActionEventData:
+    """Payload for corporate action events (splits, dividends)."""
+
+    portfolio_id: UUID
+    instrument_id: str
+    currency: str
+    action_id: UUID
+    # For splits: new_shares / old_shares (e.g. 2.0 for 2-for-1)
+    split_ratio: Decimal = Decimal(1)
+    # For dividends: total cash amount for this position
+    dividend_amount: Decimal = Decimal(0)
+
+
+@dataclass(frozen=True)
 class TradeEvent:
     """A trade event applied to the position aggregate."""
 
     event_type: PositionEventType
     timestamp: datetime
-    data: TradeEventData
+    data: TradeEventData | CorporateActionEventData
 
 
 @dataclass(frozen=True)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
@@ -9,6 +10,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 
 from app.modules.positions.interfaces import (
+    CorporateActionEventData,
     PositionEventType,
     TradeEvent,
     TradeEventData,
@@ -23,7 +25,11 @@ if TYPE_CHECKING:
 
 class EventStoreRepository(BaseRepository):
     async def get_by_aggregate(
-        self, aggregate_id: str, *, session: AsyncSession | None = None
+        self,
+        aggregate_id: str,
+        *,
+        before: datetime | None = None,
+        session: AsyncSession | None = None,
     ) -> list[TradeEvent]:
         async with self._session(session) as s:
             stmt = (
@@ -31,8 +37,30 @@ class EventStoreRepository(BaseRepository):
                 .where(PositionEventRecord.aggregate_id == aggregate_id)
                 .order_by(PositionEventRecord.sequence_number)
             )
+            if before is not None:
+                stmt = stmt.where(PositionEventRecord.created_at <= before)
             result = await s.execute(stmt)
             return [self._deserialize(record) for record in result.scalars().all()]
+
+    async def get_aggregates_for_portfolio(
+        self,
+        portfolio_id: str,
+        *,
+        before: datetime | None = None,
+        session: AsyncSession | None = None,
+    ) -> list[str]:
+        """Return distinct aggregate IDs for a portfolio (prefix match on 'portfolio_id:')."""
+        async with self._session(session) as s:
+            prefix = f"{portfolio_id}:"
+            stmt = (
+                select(PositionEventRecord.aggregate_id)
+                .where(PositionEventRecord.aggregate_id.startswith(prefix))
+                .distinct()
+            )
+            if before is not None:
+                stmt = stmt.where(PositionEventRecord.created_at <= before)
+            result = await s.execute(stmt)
+            return list(result.scalars().all())
 
     async def has_idempotency_key(
         self,
@@ -92,8 +120,25 @@ class EventStoreRepository(BaseRepository):
     def _deserialize(record: PositionEventRecord) -> TradeEvent:
         """Convert a DB record into a typed domain event."""
         data = record.event_data
+        event_type = PositionEventType(record.event_type)
+
+        # Corporate action events have action_id instead of trade_id/side
+        if event_type in (PositionEventType.STOCK_SPLIT, PositionEventType.DIVIDEND_PAID):
+            return TradeEvent(
+                event_type=event_type,
+                timestamp=record.created_at,
+                data=CorporateActionEventData(
+                    portfolio_id=UUID(data["portfolio_id"]),
+                    instrument_id=data["instrument_id"],
+                    currency=data.get("currency", "USD"),
+                    action_id=UUID(data["action_id"]) if "action_id" in data else UUID(int=0),
+                    split_ratio=Decimal(data.get("split_ratio", "1")),
+                    dividend_amount=Decimal(data.get("dividend_amount", "0")),
+                ),
+            )
+
         return TradeEvent(
-            event_type=PositionEventType(record.event_type),
+            event_type=event_type,
             timestamp=record.created_at,
             data=TradeEventData(
                 portfolio_id=UUID(data["portfolio_id"]),
@@ -109,6 +154,15 @@ class EventStoreRepository(BaseRepository):
     @staticmethod
     def serialize(event: TradeEvent) -> dict[str, Any]:
         """Convert a typed domain event into a JSONB-safe dict for storage."""
+        if isinstance(event.data, CorporateActionEventData):
+            return {
+                "portfolio_id": str(event.data.portfolio_id),
+                "instrument_id": event.data.instrument_id,
+                "currency": event.data.currency,
+                "action_id": str(event.data.action_id),
+                "split_ratio": str(event.data.split_ratio),
+                "dividend_amount": str(event.data.dividend_amount),
+            }
         return {
             "portfolio_id": str(event.data.portfolio_id),
             "instrument_id": event.data.instrument_id,

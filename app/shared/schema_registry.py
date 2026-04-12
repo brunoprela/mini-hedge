@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import io
 import json
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,15 @@ _SCHEMA_DIR = Path("schemas")
 # Topic prefixes for fund-scoped and shared topics.
 _FUND_TOPIC_PREFIX = "fund-"
 _SHARED_TOPIC_PREFIX = "shared."
+_CUSTOMER_TOPIC_PREFIX = "customer-"
+
+
+class TopicScope(StrEnum):
+    """Scope of a Kafka topic — determines naming and access control."""
+
+    FUND = "fund"
+    CUSTOMER = "customer"
+    CELL = "cell"
 
 
 def shared_topic(base: str) -> str:
@@ -35,6 +45,17 @@ def shared_topic(base: str) -> str:
 def fund_topic(fund_slug: str, base: str) -> str:
     """Build a fund-scoped topic name: ``fund-alpha.positions.changed``."""
     return f"{_FUND_TOPIC_PREFIX}{fund_slug}.{base}"
+
+
+def customer_topic(customer_id: str, fund_slug: str, base: str) -> str:
+    """Build a customer-scoped topic name.
+
+    Format: ``customer-<id>.fund-<slug>.<stem>``
+
+    Customer-scoped topics are used in multi-tenant deployments where
+    events must be isolated per customer for compliance and access control.
+    """
+    return f"{_CUSTOMER_TOPIC_PREFIX}{customer_id}.{_FUND_TOPIC_PREFIX}{fund_slug}.{base}"
 
 
 def base_topic_name(topic: str) -> str:

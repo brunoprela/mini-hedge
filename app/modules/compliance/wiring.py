@@ -61,6 +61,7 @@ async def setup(
         audit_repo=audit_repo,
         position_service=position_service,
         security_master=security_master,
+        event_bus=event_bus,
     )
     app.state.compliance_service = compliance_service
 

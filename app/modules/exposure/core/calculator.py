@@ -7,6 +7,10 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
+from app.modules.exposure.core.normalizers import (
+    ExposureNormalizer,
+    normalize_exposure,
+)
 from app.modules.exposure.interfaces import (
     ExposureBreakdown,
     ExposureDimension,
@@ -20,19 +24,26 @@ ZERO = Decimal(0)
 def calculate_exposure(
     portfolio_id: UUID,
     positions: list[PositionValue],
+    *,
+    normalizers: dict[str, ExposureNormalizer] | None = None,
 ) -> PortfolioExposure:
-    """Calculate gross/net exposure from a list of valued positions."""
+    """Calculate gross/net exposure from a list of valued positions.
+
+    When normalizers are provided, each position's exposure is computed via its
+    asset-class normalizer instead of using the raw market_value.
+    """
     long_total = ZERO
     short_total = ZERO
     long_count = 0
     short_count = 0
 
     for pv in positions:
-        if pv.market_value > ZERO:
-            long_total += pv.market_value
+        exposure = normalize_exposure(pv, normalizers=normalizers) if normalizers else pv.market_value
+        if exposure > ZERO:
+            long_total += exposure
             long_count += 1
-        elif pv.market_value < ZERO:
-            short_total += pv.market_value
+        elif exposure < ZERO:
+            short_total += exposure
             short_count += 1
 
     gross = long_total + abs(short_total)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -95,9 +96,13 @@ class CapitalAccountService:
         self,
         investor_id: str,
         *,
+        from_date: date | None = None,
+        to_date: date | None = None,
         session: AsyncSession | None = None,
     ) -> list[CapitalAccountSummary]:
-        accounts = await self._account_repo.get_by_investor(investor_id, session=session)
+        accounts = await self._account_repo.get_by_investor(
+            investor_id, from_date=from_date, to_date=to_date, session=session
+        )
         investor = await self._investor_repo.get_by_id(investor_id, session=session)
         name = investor.name if investor else "Unknown"
 
@@ -125,9 +130,13 @@ class CapitalAccountService:
         self,
         investor_id: str,
         *,
+        from_date: date | None = None,
+        to_date: date | None = None,
         session: AsyncSession | None = None,
     ) -> list[CapitalTransaction]:
-        records = await self._transaction_repo.get_by_investor(investor_id, session=session)
+        records = await self._transaction_repo.get_by_investor(
+            investor_id, from_date=from_date, to_date=to_date, session=session
+        )
         return [
             CapitalTransaction(
                 id=UUID(r.id),
@@ -188,6 +197,18 @@ class CapitalAccountService:
         """Get distinct share classes with active capital accounts."""
         accounts = await self._account_repo.get_latest_by_fund(session=session)
         return sorted({a.share_class for a in accounts})
+
+    async def get_share_class_investor_count(
+        self,
+        share_class: str,
+        *,
+        session: AsyncSession | None = None,
+    ) -> int:
+        """Count of investors holding a given share class."""
+        accounts = await self._account_repo.get_latest_by_share_class(
+            share_class, session=session
+        )
+        return len(accounts)
 
     async def get_total_shares(self, *, session: AsyncSession | None = None) -> Decimal:
         """Total shares outstanding across all investors."""

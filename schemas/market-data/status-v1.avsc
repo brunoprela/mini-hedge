@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "MarketDataStatus",
+  "namespace": "com.minihedge.marketdata",
+  "doc": "Feed health status event — emitted periodically or when a feed goes stale.",
+  "fields": [
+    {"name": "instrument_id", "type": "string"},
+    {"name": "source", "type": "string"},
+    {"name": "status", "type": {"type": "enum", "name": "FeedStatus", "symbols": ["healthy", "stale", "disconnected"]}},
+    {"name": "last_update", "type": "string", "doc": "ISO 8601 timestamp"},
+    {"name": "age_seconds", "type": "double"},
+    {"name": "checked_at", "type": "string", "doc": "ISO 8601 timestamp"}
+  ]
+}

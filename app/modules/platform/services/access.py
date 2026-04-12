@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 import structlog
 from openfga_sdk.client.models import ClientTuple
 
+from app.shared.fga.client import qualify_object_id
+
 from app.modules.platform.interfaces.access import FundAccessGrant
 from app.modules.platform.interfaces.audit import AuditEntry, AuditPage
 from app.shared.audit.events import AuditEventType
@@ -79,7 +81,10 @@ class AccessGrantService:
         self, fund_id: str, *, session: AsyncSession | None = None
     ) -> list[FundAccessGrant]:
         """List all access grants on a fund via a single FGA read."""
-        tuples = await self._fga_client.read_tuples(object=f"fund:{fund_id}")
+        fund = await self._fund_repo.get_by_id(fund_id, session=session)
+        fund_customer_id: str | None = getattr(fund, "customer_id", None) if fund else None
+        fga_object = qualify_object_id("fund", fund_id, fund_customer_id)
+        tuples = await self._fga_client.read_tuples(object=fga_object)
 
         # Collect IDs for batch display-name lookup
         user_ids: set[str] = set()
@@ -146,12 +151,14 @@ class AccessGrantService:
             and await self._operator_repo.get_by_id(user_id, session=session) is None
         ):
             raise NotFoundError("Operator", user_id)
+        fund_customer_id: str | None = getattr(fund, "customer_id", None)
+        fga_object = qualify_object_id("fund", fund_id, fund_customer_id)
         await self._fga_client.write_tuples(
             [
                 ClientTuple(
                     user=f"{user_type}:{user_id}",
                     relation=relation,
-                    object=f"fund:{fund_id}",
+                    object=fga_object,
                 )
             ]
         )
@@ -187,12 +194,14 @@ class AccessGrantService:
         fund = await self._fund_repo.get_by_id(fund_id, session=session)
         if fund is None:
             raise NotFoundError("Fund", fund_id)
+        fund_customer_id: str | None = getattr(fund, "customer_id", None)
+        fga_object = qualify_object_id("fund", fund_id, fund_customer_id)
         await self._fga_client.delete_tuples(
             [
                 ClientTuple(
                     user=f"{user_type}:{user_id}",
                     relation=relation,
-                    object=f"fund:{fund_id}",
+                    object=fga_object,
                 )
             ]
         )

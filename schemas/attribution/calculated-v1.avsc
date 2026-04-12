@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "AttributionCalculated",
+  "namespace": "com.minihedge.attribution",
+  "doc": "Emitted after daily performance attribution is calculated for a portfolio.",
+  "fields": [
+    {"name": "portfolio_id", "type": "string"},
+    {"name": "period_start", "type": "string", "doc": "ISO 8601 date"},
+    {"name": "period_end", "type": "string", "doc": "ISO 8601 date"},
+    {"name": "method", "type": "string", "doc": "brinson_fachler or risk_based"},
+    {"name": "total_allocation", "type": "string", "doc": "Decimal as string"},
+    {"name": "total_selection", "type": "string", "doc": "Decimal as string"},
+    {"name": "total_interaction", "type": "string", "doc": "Decimal as string"},
+    {"name": "active_return", "type": "string", "doc": "Decimal as string"}
+  ]
+}

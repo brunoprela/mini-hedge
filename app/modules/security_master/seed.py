@@ -8,7 +8,12 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from app.modules.security_master.models.equity_extension import EquityExtensionRecord
+from app.modules.security_master.models.fixed_income_extension import FixedIncomeExtensionRecord
+from app.modules.security_master.models.future_extension import FutureExtensionRecord
+from app.modules.security_master.models.fx_extension import FXExtensionRecord
 from app.modules.security_master.models.instrument import InstrumentRecord
+from app.modules.security_master.models.option_extension import OptionExtensionRecord
+from app.modules.security_master.models.swap_extension import SwapExtensionRecord
 from app.shared.types import AssetClass
 
 if TYPE_CHECKING:
@@ -563,6 +568,301 @@ def build_seed_records() -> tuple[list[InstrumentRecord], list[EquityExtensionRe
             extensions.append(EquityExtensionRecord(instrument_id=instrument_id, **ext_data))
 
     return instruments, extensions
+
+
+# ---------------------------------------------------------------------------
+# Non-equity seed instruments (fixed income, options, futures, FX, swaps)
+# ---------------------------------------------------------------------------
+
+SEED_FIXED_INCOME: list[dict[str, object]] = [
+    {
+        "name": "US Treasury 10Y 4.5% 2034",
+        "ticker": "UST10Y",
+        "asset_class": AssetClass.FIXED_INCOME,
+        "currency": "USD",
+        "exchange": "OTC",
+        "country": "US",
+        "sector": "Government",
+        "coupon_rate": Decimal("0.045000"),
+        "coupon_frequency": 2,
+        "maturity_date": date(2034, 6, 15),
+        "issue_date": date(2024, 6, 15),
+        "face_value": Decimal("1000.00"),
+        "day_count_convention": "ACT/ACT",
+        "credit_rating": "AAA",
+        "issuer": "US Treasury",
+        "seniority": "senior",
+    },
+    {
+        "name": "UK Gilt 4.0% 2031",
+        "ticker": "UKT4031",
+        "asset_class": AssetClass.FIXED_INCOME,
+        "currency": "GBP",
+        "exchange": "LSE",
+        "country": "GB",
+        "sector": "Government",
+        "coupon_rate": Decimal("0.040000"),
+        "coupon_frequency": 2,
+        "maturity_date": date(2031, 3, 7),
+        "face_value": Decimal("100.00"),
+        "day_count_convention": "ACT/ACT",
+        "credit_rating": "AA",
+        "issuer": "HM Treasury",
+        "seniority": "senior",
+    },
+    {
+        "name": "JPMorgan 5.25% 2030",
+        "ticker": "JPM5030",
+        "asset_class": AssetClass.FIXED_INCOME,
+        "currency": "USD",
+        "exchange": "OTC",
+        "country": "US",
+        "sector": "Financials",
+        "coupon_rate": Decimal("0.052500"),
+        "coupon_frequency": 2,
+        "maturity_date": date(2030, 9, 15),
+        "issue_date": date(2025, 9, 15),
+        "face_value": Decimal("1000.00"),
+        "day_count_convention": "30/360",
+        "credit_rating": "A+",
+        "issuer": "JPMorgan Chase & Co",
+        "seniority": "senior",
+        "callable": True,
+    },
+]
+
+SEED_OPTIONS: list[dict[str, object]] = [
+    {
+        "name": "AAPL Dec 2026 200 Call",
+        "ticker": "AAPL261220C200",
+        "asset_class": AssetClass.OPTION,
+        "currency": "USD",
+        "exchange": "CBOE",
+        "country": "US",
+        "option_type": "CALL",
+        "exercise_style": "american",
+        "strike_price": Decimal("200.000000"),
+        "expiry_date": date(2026, 12, 20),
+        "contract_size": Decimal("100.0000"),
+        "settlement_type": "physical",
+    },
+    {
+        "name": "SPX Dec 2026 5500 Put",
+        "ticker": "SPX261220P5500",
+        "asset_class": AssetClass.OPTION,
+        "currency": "USD",
+        "exchange": "CBOE",
+        "country": "US",
+        "option_type": "PUT",
+        "exercise_style": "european",
+        "strike_price": Decimal("5500.000000"),
+        "expiry_date": date(2026, 12, 20),
+        "contract_size": Decimal("100.0000"),
+        "settlement_type": "cash",
+    },
+]
+
+SEED_FUTURES: list[dict[str, object]] = [
+    {
+        "name": "E-mini S&P 500 Sep 2026",
+        "ticker": "ESU26",
+        "asset_class": AssetClass.FUTURE,
+        "currency": "USD",
+        "exchange": "CME",
+        "country": "US",
+        "expiry_date": date(2026, 9, 18),
+        "contract_size": Decimal("50.0000"),
+        "tick_size": Decimal("0.25000000"),
+        "tick_value": Decimal("12.5000"),
+        "margin_initial": Decimal("15400.00"),
+        "margin_maintenance": Decimal("14000.00"),
+        "settlement_type": "cash",
+        "last_trading_date": date(2026, 9, 18),
+    },
+    {
+        "name": "Euro Bund Dec 2026",
+        "ticker": "FGBLZ26",
+        "asset_class": AssetClass.FUTURE,
+        "currency": "EUR",
+        "exchange": "EUREX",
+        "country": "DE",
+        "expiry_date": date(2026, 12, 8),
+        "contract_size": Decimal("1000.0000"),
+        "tick_size": Decimal("0.01000000"),
+        "tick_value": Decimal("10.0000"),
+        "margin_initial": Decimal("3200.00"),
+        "margin_maintenance": Decimal("2800.00"),
+        "settlement_type": "physical",
+        "last_trading_date": date(2026, 12, 8),
+        "first_notice_date": date(2026, 12, 1),
+    },
+]
+
+SEED_FX: list[dict[str, object]] = [
+    {
+        "name": "EUR/USD Spot",
+        "ticker": "EURUSD",
+        "asset_class": AssetClass.FX,
+        "currency": "USD",
+        "exchange": "OTC",
+        "country": "US",
+        "base_currency": "EUR",
+        "quote_currency": "USD",
+        "pip_size": Decimal("0.00010000"),
+        "lot_size": 100_000,
+        "settlement_days": 2,
+    },
+    {
+        "name": "GBP/USD Spot",
+        "ticker": "GBPUSD",
+        "asset_class": AssetClass.FX,
+        "currency": "USD",
+        "exchange": "OTC",
+        "country": "US",
+        "base_currency": "GBP",
+        "quote_currency": "USD",
+        "pip_size": Decimal("0.00010000"),
+        "lot_size": 100_000,
+        "settlement_days": 2,
+    },
+    {
+        "name": "USD/JPY Spot",
+        "ticker": "USDJPY",
+        "asset_class": AssetClass.FX,
+        "currency": "JPY",
+        "exchange": "OTC",
+        "country": "JP",
+        "base_currency": "USD",
+        "quote_currency": "JPY",
+        "pip_size": Decimal("0.01000000"),
+        "lot_size": 100_000,
+        "settlement_days": 2,
+    },
+]
+
+SEED_SWAPS: list[dict[str, object]] = [
+    {
+        "name": "USD 5Y SOFR IRS 3.5%",
+        "ticker": "SOFR5Y3.5",
+        "asset_class": AssetClass.SWAP,
+        "currency": "USD",
+        "exchange": "OTC",
+        "country": "US",
+        "swap_type": "interest_rate",
+        "notional_currency": "USD",
+        "fixed_rate": Decimal("0.035000"),
+        "floating_index": "SOFR",
+        "floating_spread": Decimal("0.000000"),
+        "payment_frequency": "semi_annual",
+        "day_count_convention": "ACT/360",
+        "effective_date": date(2026, 1, 15),
+        "maturity_date": date(2031, 1, 15),
+    },
+    {
+        "name": "EUR 3Y EURIBOR IRS 2.8%",
+        "ticker": "EURIBOR3Y2.8",
+        "asset_class": AssetClass.SWAP,
+        "currency": "EUR",
+        "exchange": "OTC",
+        "country": "DE",
+        "swap_type": "interest_rate",
+        "notional_currency": "EUR",
+        "fixed_rate": Decimal("0.028000"),
+        "floating_index": "EURIBOR",
+        "floating_spread": Decimal("0.000000"),
+        "payment_frequency": "quarterly",
+        "day_count_convention": "30/360",
+        "effective_date": date(2026, 3, 1),
+        "maturity_date": date(2029, 3, 1),
+    },
+]
+
+# Fields that belong on each extension type, not on the base instrument.
+_FIXED_INCOME_FIELDS = {
+    "coupon_rate", "coupon_frequency", "maturity_date", "issue_date",
+    "face_value", "day_count_convention", "credit_rating", "issuer",
+    "seniority", "callable", "putable",
+}
+_OPTION_FIELDS = {
+    "underlying_id", "option_type", "exercise_style", "strike_price",
+    "expiry_date", "contract_size", "settlement_type",
+}
+_FUTURE_FIELDS = {
+    "underlying_id", "expiry_date", "contract_size", "tick_size", "tick_value",
+    "margin_initial", "margin_maintenance", "settlement_type",
+    "last_trading_date", "first_notice_date",
+}
+_FX_FIELDS = {"base_currency", "quote_currency", "pip_size", "lot_size", "settlement_days"}
+_SWAP_FIELDS = {
+    "swap_type", "notional_currency", "fixed_rate", "floating_index",
+    "floating_spread", "payment_frequency", "day_count_convention",
+    "effective_date", "maturity_date", "underlying_id",
+}
+
+
+def build_all_seed_records() -> dict[str, list]:
+    """Return all seed records: instruments + all extension types.
+
+    Returns a dict with keys: instruments, equity_extensions,
+    fixed_income_extensions, option_extensions, future_extensions,
+    fx_extensions, swap_extensions.
+    """
+    instruments, equity_ext = build_seed_records()
+
+    fi_ext: list[FixedIncomeExtensionRecord] = []
+    for data in SEED_FIXED_INCOME:
+        instrument_id = str(uuid4())
+        ext_data = {k: data[k] for k in _FIXED_INCOME_FIELDS if k in data}
+        instr_data = {k: v for k, v in data.items() if k not in _FIXED_INCOME_FIELDS}
+        instruments.append(InstrumentRecord(id=instrument_id, **instr_data))
+        if ext_data:
+            fi_ext.append(FixedIncomeExtensionRecord(instrument_id=instrument_id, **ext_data))
+
+    opt_ext: list[OptionExtensionRecord] = []
+    for data in SEED_OPTIONS:
+        instrument_id = str(uuid4())
+        ext_data = {k: data[k] for k in _OPTION_FIELDS if k in data}
+        instr_data = {k: v for k, v in data.items() if k not in _OPTION_FIELDS}
+        instruments.append(InstrumentRecord(id=instrument_id, **instr_data))
+        if ext_data:
+            opt_ext.append(OptionExtensionRecord(instrument_id=instrument_id, **ext_data))
+
+    fut_ext: list[FutureExtensionRecord] = []
+    for data in SEED_FUTURES:
+        instrument_id = str(uuid4())
+        ext_data = {k: data[k] for k in _FUTURE_FIELDS if k in data}
+        instr_data = {k: v for k, v in data.items() if k not in _FUTURE_FIELDS}
+        instruments.append(InstrumentRecord(id=instrument_id, **instr_data))
+        if ext_data:
+            fut_ext.append(FutureExtensionRecord(instrument_id=instrument_id, **ext_data))
+
+    fx_ext: list[FXExtensionRecord] = []
+    for data in SEED_FX:
+        instrument_id = str(uuid4())
+        ext_data = {k: data[k] for k in _FX_FIELDS if k in data}
+        instr_data = {k: v for k, v in data.items() if k not in _FX_FIELDS}
+        instruments.append(InstrumentRecord(id=instrument_id, **instr_data))
+        if ext_data:
+            fx_ext.append(FXExtensionRecord(instrument_id=instrument_id, **ext_data))
+
+    swap_ext: list[SwapExtensionRecord] = []
+    for data in SEED_SWAPS:
+        instrument_id = str(uuid4())
+        ext_data = {k: data[k] for k in _SWAP_FIELDS if k in data}
+        instr_data = {k: v for k, v in data.items() if k not in _SWAP_FIELDS}
+        instruments.append(InstrumentRecord(id=instrument_id, **instr_data))
+        if ext_data:
+            swap_ext.append(SwapExtensionRecord(instrument_id=instrument_id, **ext_data))
+
+    return {
+        "instruments": instruments,
+        "equity_extensions": equity_ext,
+        "fixed_income_extensions": fi_ext,
+        "option_extensions": opt_ext,
+        "future_extensions": fut_ext,
+        "fx_extensions": fx_ext,
+        "swap_extensions": swap_ext,
+    }
 
 
 def convert_external_instruments(

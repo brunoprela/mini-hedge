@@ -450,7 +450,7 @@ class TestSchemaIsolation:
                 text(f"SELECT version_num FROM {SCHEMA_B}.alembic_version_orders")
             ).scalar()
 
-        assert ver_a == "004"
+        assert ver_a == "005"
         assert ver_b == "002"
 
         # beta should NOT have broker tables

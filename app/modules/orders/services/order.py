@@ -23,6 +23,11 @@ from app.modules.orders.interfaces import (
     OrderType,
     TimeInForce,
 )
+from app.modules.orders.events import (
+    order_created_data,
+    order_filled_data,
+    trade_executed_data,
+)
 from app.modules.orders.models.order import OrderRecord
 from app.modules.orders.models.order_fill import OrderFillRecord
 from app.shared.audit.events import AuditEventType
@@ -100,6 +105,7 @@ class OrderService:
             quantity=request.quantity,
             filled_quantity=Decimal(0),
             limit_price=request.limit_price,
+            stop_price=getattr(request, "stop_price", None),
             state=OrderState.DRAFT.value,
             time_in_force=request.time_in_force.value,
             fund_slug=fund_slug,
@@ -305,6 +311,7 @@ class OrderService:
             quantity=request.quantity,
             filled_quantity=Decimal(0),
             limit_price=request.limit_price,
+            stop_price=getattr(request, "stop_price", None),
             state=OrderState.DRAFT.value,
             time_in_force=request.time_in_force.value,
             fund_slug=fund_slug,
@@ -618,6 +625,8 @@ class OrderService:
                 quantity=f.quantity,
                 price=f.price,
                 broker_id=f.broker_id,
+                commission=getattr(f, "commission", None),
+                venue=getattr(f, "venue", None),
                 filled_at=f.filled_at,
             )
             for f in fills
@@ -697,15 +706,14 @@ class OrderService:
         side = order.side
         event = BaseEvent(
             event_type=(AuditEventType.TRADE_BUY if side == "buy" else AuditEventType.TRADE_SELL),
-            data={
-                "portfolio_id": str(order.portfolio_id),
-                "instrument_id": order.instrument_id,
-                "side": side,
-                "quantity": str(fill_quantity),
-                "price": str(fill_price),
-                "trade_id": str(trade_id),
-                "currency": "USD",
-            },
+            data=trade_executed_data(
+                portfolio_id=str(order.portfolio_id),
+                instrument_id=order.instrument_id,
+                side=side,
+                quantity=fill_quantity,
+                price=fill_price,
+                trade_id=str(trade_id),
+            ),
             fund_slug=fund_slug,
         )
         await self._event_bus.publish(fund_topic(fund_slug, "trades.executed"), event)
@@ -713,15 +721,15 @@ class OrderService:
         # Publish order fill event
         fill_event = BaseEvent(
             event_type=AuditEventType.ORDER_FILLED,
-            data={
-                "order_id": order.id,
-                "portfolio_id": str(order.portfolio_id),
-                "instrument_id": order.instrument_id,
-                "side": side,
-                "fill_quantity": str(fill_quantity),
-                "fill_price": str(fill_price),
-                "state": order.state,
-            },
+            data=order_filled_data(
+                order_id=order.id,
+                portfolio_id=str(order.portfolio_id),
+                instrument_id=order.instrument_id,
+                side=side,
+                fill_quantity=fill_quantity,
+                fill_price=fill_price,
+                state=order.state,
+            ),
             fund_slug=fund_slug,
         )
         await self._event_bus.publish(fund_topic(fund_slug, "orders.filled"), fill_event)
@@ -805,15 +813,15 @@ class OrderService:
         """Publish an order lifecycle event to Kafka."""
         event = BaseEvent(
             event_type=event_type,
-            data={
-                "order_id": order.id,
-                "portfolio_id": str(order.portfolio_id),
-                "instrument_id": order.instrument_id,
-                "side": order.side,
-                "order_type": order.order_type,
-                "quantity": str(order.quantity),
-                "state": order.state,
-            },
+            data=order_created_data(
+                order_id=order.id,
+                portfolio_id=str(order.portfolio_id),
+                instrument_id=order.instrument_id,
+                side=order.side,
+                order_type=order.order_type,
+                quantity=order.quantity,
+                state=order.state,
+            ),
             fund_slug=fund_slug,
         )
         await self._event_bus.publish(fund_topic(fund_slug, "orders.created"), event)
@@ -827,15 +835,14 @@ class OrderService:
         """Publish trade.approved or trade.rejected event."""
         event = BaseEvent(
             event_type=event_type,
-            data={
-                "portfolio_id": str(order.portfolio_id),
-                "instrument_id": order.instrument_id,
-                "side": order.side,
-                "quantity": str(order.quantity),
-                "price": str(order.limit_price or Decimal("0")),
-                "trade_id": order.id,
-                "currency": "USD",
-            },
+            data=trade_executed_data(
+                portfolio_id=str(order.portfolio_id),
+                instrument_id=order.instrument_id,
+                side=order.side,
+                quantity=order.quantity,
+                price=order.limit_price or Decimal("0"),
+                trade_id=order.id,
+            ),
             fund_slug=fund_slug,
         )
         is_approved = event_type == AuditEventType.TRADE_APPROVED
@@ -885,6 +892,7 @@ class OrderService:
             quantity=record.quantity,
             filled_quantity=record.filled_quantity,
             limit_price=record.limit_price,
+            stop_price=record.stop_price,
             avg_fill_price=record.avg_fill_price,
             state=OrderState(record.state),
             rejection_reason=record.rejection_reason,

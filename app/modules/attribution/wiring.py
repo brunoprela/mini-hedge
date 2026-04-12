@@ -48,5 +48,6 @@ async def setup(
         position_service=position_service,
         security_master_service=sm_service,
         fx_converter=market_data_service.fx_converter,
+        event_bus=event_bus,
     )
     app.state.attribution_service = attribution_service

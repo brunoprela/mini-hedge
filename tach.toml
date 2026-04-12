@@ -68,7 +68,7 @@ depends_on = ["app.shared"]
 
 [[modules]]
 path = "app.modules.eod"
-depends_on = ["app.shared"]
+depends_on = ["app.shared", "app.modules.positions"]
 
 [[modules]]
 path = "app.modules.fee_accounting"
@@ -95,6 +95,10 @@ path = "app.modules.fund_structures"
 depends_on = ["app.shared"]
 
 [[modules]]
+path = "app.modules.corporate_actions"
+depends_on = ["app.shared", "app.adapters"]
+
+[[modules]]
 path = "app.modules.backtesting"
 depends_on = ["app.shared"]
 
@@ -116,7 +120,7 @@ depends_on = ["app.shared"]
 
 [[modules]]
 path = "app.adapters"
-depends_on = ["app.shared", "app.modules.orders", "app.modules.security_master", "app.modules.investor_operations"]
+depends_on = ["app.shared", "app.modules.orders", "app.modules.security_master"]
 
 [[modules]]
 path = "app.setup"

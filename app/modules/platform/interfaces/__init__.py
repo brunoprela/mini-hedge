@@ -9,6 +9,12 @@ from app.modules.platform.interfaces.access import (
     FundAccessGrant,
 )
 from app.modules.platform.interfaces.audit import AuditEntry, AuditPage
+from app.modules.platform.interfaces.customer import (
+    CreateCustomerRequest,
+    CustomerInfo,
+    CustomerPage,
+    UpdateCustomerRequest,
+)
 from app.modules.platform.interfaces.auth import AuthReader
 from app.modules.platform.interfaces.fund import (
     CreateFundRequest,
@@ -37,9 +43,12 @@ __all__ = [
     "AuditEntry",
     "AuditPage",
     "AuthReader",
+    "CreateCustomerRequest",
     "CreateFundRequest",
     "CreateOperatorRequest",
     "CreateUserRequest",
+    "CustomerInfo",
+    "CustomerPage",
     "FundAccessGrant",
     "FundDetail",
     "FundInfo",
@@ -47,6 +56,7 @@ __all__ = [
     "OperatorInfo",
     "OperatorPage",
     "PortfolioInfo",
+    "UpdateCustomerRequest",
     "UpdateFundRequest",
     "UpdateOperatorRequest",
     "UpdateUserRequest",

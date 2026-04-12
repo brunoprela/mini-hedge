@@ -122,6 +122,8 @@ class Permission(StrEnum):
     PLATFORM_AUDIT_READ = "platform:audit.read"
     PLATFORM_ACCESS_READ = "platform:access.read"
     PLATFORM_ACCESS_WRITE = "platform:access.write"
+    PLATFORM_CUSTOMERS_READ = "platform:customers.read"
+    PLATFORM_CUSTOMERS_WRITE = "platform:customers.write"
 
 
 class PlatformRole(StrEnum):
@@ -141,6 +143,8 @@ PLATFORM_ROLE_PERMISSIONS: dict[PlatformRole, frozenset[Permission]] = {
             Permission.PLATFORM_AUDIT_READ,
             Permission.PLATFORM_ACCESS_READ,
             Permission.PLATFORM_ACCESS_WRITE,
+            Permission.PLATFORM_CUSTOMERS_READ,
+            Permission.PLATFORM_CUSTOMERS_WRITE,
         }
     ),
     PlatformRole.OPS_VIEWER: frozenset(
@@ -150,6 +154,7 @@ PLATFORM_ROLE_PERMISSIONS: dict[PlatformRole, frozenset[Permission]] = {
             Permission.PLATFORM_OPERATORS_READ,
             Permission.PLATFORM_AUDIT_READ,
             Permission.PLATFORM_ACCESS_READ,
+            Permission.PLATFORM_CUSTOMERS_READ,
         }
     ),
 }
@@ -374,11 +379,32 @@ def get_actor_context() -> RequestContext:
 
 
 def require_permission(*perms: Permission) -> Any:
-    """FastAPI dependency that checks the caller has all listed permissions."""
+    """FastAPI dependency that checks the caller has all listed permissions.
+
+    Includes customer containment: for non-operator actors, the actor's
+    effective customer_id must match the request's customer_id (set by
+    auth middleware from the path/fund). This is a hard fence — no role
+    or configuration can bypass it.
+
+    For delegated users (fund-admin acting on a client), the
+    ``acting_as_customer_id`` is checked instead of ``home_customer_id``.
+    """
 
     async def _check(
         request_context: RequestContext = Depends(get_actor_context),
     ) -> RequestContext:
+        # --- Customer containment (hard fence) ---
+        if not request_context.is_platform_operator and request_context.customer_id is not None:
+            effective_customer = (
+                request_context.acting_as_customer_id or request_context.home_customer_id
+            )
+            if effective_customer is not None and effective_customer != request_context.customer_id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Customer containment violation",
+                )
+
+        # --- Permission check ---
         missing = {p.value for p in perms} - set(request_context.permissions)
         if missing:
             raise HTTPException(

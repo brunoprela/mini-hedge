@@ -8,6 +8,7 @@ from decimal import Decimal
 from uuid import UUID, uuid5
 
 from app.modules.positions.interfaces import (
+    CorporateActionEventData,
     DownstreamEvent,
     PnLRealized,
     PnLRealizedData,
@@ -57,6 +58,10 @@ class PositionAggregate:
                 return self._apply_buy(event)
             case PositionEventType.TRADE_SELL:
                 return self._apply_sell(event)
+            case PositionEventType.STOCK_SPLIT:
+                return self._apply_split(event)
+            case PositionEventType.DIVIDEND_PAID:
+                return self._apply_dividend(event)
             case _:
                 return []
 
@@ -125,6 +130,38 @@ class PositionAggregate:
         return [
             self._position_changed_event(),
             self._pnl_realized_event(realized, price),
+        ]
+
+    def _apply_split(self, event: TradeEvent) -> list[DownstreamEvent]:
+        assert isinstance(event.data, CorporateActionEventData)
+        ratio = event.data.split_ratio
+        self.currency = event.data.currency
+
+        # Adjust every lot: multiply quantity by ratio, divide price by ratio
+        for lot in self.lots:
+            lot.quantity = lot.quantity * ratio
+            lot.original_quantity = lot.original_quantity * ratio
+            lot.price = lot.price / ratio
+
+        # Aggregate quantity scales; cost_basis is unchanged (same total investment)
+        self.quantity = self.quantity * ratio
+        # cost_basis stays the same — avg_cost automatically adjusts via property
+
+        self.version += 1
+        return [self._position_changed_event()]
+
+    def _apply_dividend(self, event: TradeEvent) -> list[DownstreamEvent]:
+        assert isinstance(event.data, CorporateActionEventData)
+        amount = event.data.dividend_amount
+        self.currency = event.data.currency
+
+        # Cash dividend is realized income
+        self.realized_pnl += amount
+
+        self.version += 1
+        return [
+            self._position_changed_event(),
+            self._pnl_realized_event(amount, Decimal(0)),
         ]
 
     def _position_changed_event(self) -> PositionChanged:

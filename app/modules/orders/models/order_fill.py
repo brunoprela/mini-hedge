@@ -14,6 +14,7 @@ from sqlalchemy import (
     func,
     text,
 )
+
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -40,6 +41,8 @@ class OrderFillRecord(Base):
     quantity: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
     price: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
     broker_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    commission: Mapped[Decimal | None] = mapped_column(Numeric(18, 8), nullable=True)
+    venue: Mapped[str | None] = mapped_column(String(64), nullable=True)
     filled_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

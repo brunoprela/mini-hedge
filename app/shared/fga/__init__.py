@@ -9,6 +9,7 @@ from app.shared.fga.client import (
     ParamSource,
     ResourceRelation,
     ResourceType,
+    qualify_object_id,
     register_resource_type,
     require_access,
     validate_resource_registry,
@@ -19,6 +20,7 @@ from app.shared.fga.startup import MODEL_PATH, initialize_fga
 __all__ = [
     # client
     "FGAClient",
+    "qualify_object_id",
     "ParamSource",
     "ResourceRelation",
     "ResourceType",

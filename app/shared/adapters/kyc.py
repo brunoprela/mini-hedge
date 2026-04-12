@@ -1,11 +1,43 @@
-"""KYCScreeningAdapter protocol."""
+"""KYC/AML screening types and adapter protocol.
+
+These types live in app.shared so both app.adapters (implementations)
+and app.modules.investor_operations (consumers) can import them
+without creating a circular dependency.
+"""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol
+from enum import StrEnum
+from typing import Protocol
 
-if TYPE_CHECKING:
-    from app.modules.investor_operations.interfaces import KYCScreeningResult
+from pydantic import BaseModel, ConfigDict
+
+
+class KYCStatus(StrEnum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    EXPIRED = "expired"
+
+
+class AMLStatus(StrEnum):
+    PENDING = "pending"
+    CLEARED = "cleared"
+    FLAGGED = "flagged"
+    BLOCKED = "blocked"
+
+
+class KYCScreeningResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    approved: bool
+    kyc_status: KYCStatus
+    aml_status: AMLStatus
+    sanctions_clear: bool
+    pep_flag: bool
+    source_of_funds_verified: bool
+    screening_provider: str
+    notes: str = ""
 
 
 class KYCScreeningAdapter(Protocol):

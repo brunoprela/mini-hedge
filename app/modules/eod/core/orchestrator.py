@@ -28,6 +28,8 @@ if TYPE_CHECKING:
     from app.modules.eod.core.nav_calculator import NAVCalculator
     from app.modules.eod.core.pnl_snapshot import PnLSnapshotService
     from app.modules.eod.core.price_finalization import PriceFinalizationService
+    from app.modules.eod.core.report_generator import ReportGenerator
+    from app.modules.corporate_actions.services import CorporateActionsService
     from app.modules.eod.core.reconciler import PositionReconciler
     from app.modules.eod.repositories import EODRunRepository
     from app.modules.fee_accounting.services import FeeAccountingService
@@ -40,6 +42,7 @@ logger = structlog.get_logger()
 STEP_ORDER: list[EODStepName] = [
     EODStepName.MARKET_CLOSE,
     EODStepName.PRICE_FINALIZATION,
+    EODStepName.CORPORATE_ACTION_PROCESSING,
     EODStepName.POSITION_RECON,
     EODStepName.NAV_CALCULATION,
     EODStepName.FEE_ACCRUAL,
@@ -48,6 +51,7 @@ STEP_ORDER: list[EODStepName] = [
     EODStepName.DEALING_DATE_EXECUTION,
     EODStepName.EOD_RISK,
     EODStepName.PERFORMANCE_ATTRIBUTION,
+    EODStepName.REPORT_GENERATION,
 ]
 
 
@@ -68,9 +72,11 @@ class EODOrchestrator:
         fee_service: FeeAccountingService | None = None,
         capital_service: CapitalAccountService | None = None,
         capital_transaction_service: CapitalTransactionService | None = None,
+        corporate_actions_service: CorporateActionsService | None = None,
         attribution_service: AttributionService | None = None,
         subscription_service: SubscriptionService | None = None,
         redemption_service: RedemptionService | None = None,
+        report_generator: ReportGenerator | None = None,
     ) -> None:
         self._run_repo = run_repo
         self._fund_repo = fund_repo
@@ -83,9 +89,11 @@ class EODOrchestrator:
         self._fee_service = fee_service
         self._capital_service = capital_service
         self._capital_transaction_service = capital_transaction_service
+        self._corporate_actions_service = corporate_actions_service
         self._attribution_service = attribution_service
         self._subscription_service = subscription_service
         self._redemption_service = redemption_service
+        self._report_generator = report_generator
 
     async def run_eod(
         self,
@@ -247,6 +255,23 @@ class EODOrchestrator:
                 "missing": result.missing_count,
                 "is_complete": result.is_complete,
             }
+
+        if step == EODStepName.CORPORATE_ACTION_PROCESSING:
+            if self._corporate_actions_service is None:
+                return {"message": "corporate_actions_service_not_configured"}
+            ca_details: dict[str, object] = {}
+            for pid in portfolio_ids:
+                actions = await self._corporate_actions_service.fetch_and_process(
+                    fund_slug=fund_slug,
+                    portfolio_id=str(pid),
+                    start_date=business_date,
+                    end_date=business_date,
+                )
+                ca_details[str(pid)] = {
+                    "processed": len(actions),
+                    "types": list({a.action_type for a in actions}) if actions else [],
+                }
+            return ca_details
 
         if step == EODStepName.POSITION_RECON:
             recon_details: dict[str, object] = {}
@@ -451,6 +476,23 @@ class EODOrchestrator:
                     )
                     attribution_details[str(pid)] = "skipped"
             return attribution_details
+
+        if step == EODStepName.REPORT_GENERATION:
+            if self._report_generator is None:
+                return {"message": "report_generator_not_configured"}
+            report = await self._report_generator.generate(
+                fund_slug=fund_slug,
+                business_date=business_date,
+                run_id="",  # run_id not passed to _execute_step; use empty
+                portfolio_ids=portfolio_ids,
+                base_currency=base_currency,
+                step_data=step_data,
+            )
+            return {
+                "sections": report.section_names,
+                "has_warnings": report.has_warnings,
+                "warning_count": report.warning_count,
+            }
 
         return None
 

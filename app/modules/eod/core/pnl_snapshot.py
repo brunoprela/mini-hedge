@@ -14,12 +14,14 @@ from uuid import UUID
 import structlog
 
 from app.modules.eod.interfaces.snapshot import PnLSnapshot
+from app.modules.positions.models.daily_pnl import DailyPnLRecord
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.modules.eod.repositories import PnLSnapshotRepository
     from app.modules.market_data.core.fx import FXConverter
+    from app.modules.positions.repositories.daily_pnl import DailyPnLRepository
     from app.modules.positions.services import PositionService
 
 logger = structlog.get_logger()
@@ -35,10 +37,12 @@ class PnLSnapshotService:
         *,
         position_service: PositionService,
         pnl_repo: PnLSnapshotRepository,
+        daily_pnl_repo: DailyPnLRepository | None = None,
         fx_converter: FXConverter | None = None,
     ) -> None:
         self._positions = position_service
         self._pnl_repo = pnl_repo
+        self._daily_pnl_repo = daily_pnl_repo
         self._fx = fx_converter
 
     async def snapshot_pnl(
@@ -80,6 +84,26 @@ class PnLSnapshotService:
             details={"positions": details},
             session=session,
         )
+
+        # Write position-level daily P&L records
+        if self._daily_pnl_repo and positions:
+            daily_records = [
+                DailyPnLRecord(
+                    portfolio_id=str(portfolio_id),
+                    instrument_id=p.instrument_id,
+                    business_date=business_date,
+                    quantity=p.quantity,
+                    market_price=p.market_price,
+                    market_value=p.market_value,
+                    cost_basis=p.cost_basis,
+                    unrealized_pnl=p.unrealized_pnl,
+                    realized_pnl=getattr(p, "realized_pnl", ZERO),
+                    daily_pnl=self._to_base(p.unrealized_pnl, p.currency, base_currency),
+                    currency=p.currency,
+                )
+                for p in positions
+            ]
+            await self._daily_pnl_repo.upsert_batch(daily_records, session=session)
 
         result = PnLSnapshot(
             portfolio_id=portfolio_id,

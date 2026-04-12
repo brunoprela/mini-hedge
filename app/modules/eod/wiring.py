@@ -19,6 +19,7 @@ from app.modules.eod.repositories import (
     ReconciliationBreakRepository,
     ReconciliationRepository,
 )
+from app.modules.positions.repositories.daily_pnl import DailyPnLRepository
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -77,9 +78,11 @@ async def setup(
         capital_service=capital_service,
         fx_converter=fx_converter,
     )
+    daily_pnl_repo = DailyPnLRepository(sf)
     pnl_service = PnLSnapshotService(
         position_service=position_service,
         pnl_repo=pnl_repo,
+        daily_pnl_repo=daily_pnl_repo,
         fx_converter=fx_converter,
     )
     reconciler = PositionReconciler(

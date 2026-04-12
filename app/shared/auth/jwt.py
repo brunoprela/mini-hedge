@@ -108,6 +108,29 @@ class KeycloakClaims(BaseModel):
 
 _jwk_clients: dict[str, PyJWKClient] = {}
 
+# Per-customer realm configuration, populated at startup from settings.
+# Maps customer_id → {"realm": str, "client_id": str}.
+_customer_realm_map: dict[str, dict[str, str]] = {}
+
+
+def configure_customer_realms(realm_map: dict[str, dict[str, str]]) -> None:
+    """Load the per-customer realm mapping from configuration."""
+    _customer_realm_map.clear()
+    _customer_realm_map.update(realm_map)
+
+
+def resolve_customer_realm(
+    customer_id: str | None,
+    *,
+    default_realm: str,
+    default_client_id: str,
+) -> tuple[str, str]:
+    """Return (realm, client_id) for a customer, falling back to defaults."""
+    if customer_id and customer_id in _customer_realm_map:
+        entry = _customer_realm_map[customer_id]
+        return entry.get("realm", default_realm), entry.get("client_id", default_client_id)
+    return default_realm, default_client_id
+
 
 def get_jwk_client(keycloak_url: str, realm: str) -> PyJWKClient:
     """Get or create a cached PyJWKClient for the Keycloak realm."""

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
@@ -43,6 +44,8 @@ class CapitalAccountRepository(BaseRepository):
         self,
         investor_id: str,
         *,
+        from_date: date | None = None,
+        to_date: date | None = None,
         limit: int = 90,
         session: AsyncSession | None = None,
     ) -> list[CapitalAccountRecord]:
@@ -51,9 +54,12 @@ class CapitalAccountRepository(BaseRepository):
             stmt = (
                 select(CapitalAccountRecord)
                 .where(CapitalAccountRecord.investor_id == investor_id)
-                .order_by(CapitalAccountRecord.effective_date.desc())
-                .limit(limit)
             )
+            if from_date is not None:
+                stmt = stmt.where(CapitalAccountRecord.effective_date >= from_date)
+            if to_date is not None:
+                stmt = stmt.where(CapitalAccountRecord.effective_date <= to_date)
+            stmt = stmt.order_by(CapitalAccountRecord.effective_date.desc()).limit(limit)
             result = await session.execute(stmt)
             return list(result.scalars().all())
 

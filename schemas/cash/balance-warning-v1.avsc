@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "CashBalanceWarning",
+  "namespace": "com.minihedge.cash",
+  "doc": "Emitted when a cash balance crosses a warning threshold.",
+  "fields": [
+    {"name": "portfolio_id", "type": "string"},
+    {"name": "currency", "type": "string"},
+    {"name": "current_balance", "type": "string", "doc": "Decimal as string"},
+    {"name": "threshold", "type": "string", "doc": "Decimal as string"},
+    {"name": "severity", "type": {"type": "enum", "name": "WarningSeverity", "symbols": ["low", "medium", "critical"]}},
+    {"name": "message", "type": "string"}
+  ]
+}

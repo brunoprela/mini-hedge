@@ -49,6 +49,7 @@ from app.modules.platform.seed import (
     PORTFOLIO_BETA_STAT_ARB_ID,
     PORTFOLIO_GAMMA_EVENT_DRIVEN_ID,
     build_seed_api_keys,
+    build_seed_customers,
     build_seed_funds,
     build_seed_operators,
     build_seed_portfolios,
@@ -149,6 +150,20 @@ def _seed_platform_sync(engine) -> None:  # type: ignore[no-untyped-def]
     from sqlalchemy.orm import Session
 
     with Session(engine) as session:
+        # Customers (must precede funds/users — FK dependency)
+        for c in build_seed_customers():
+            session.execute(
+                PlatformBase.metadata.tables["platform.customers"]
+                .insert()
+                .values(
+                    id=c.id,
+                    slug=c.slug,
+                    name=c.name,
+                    customer_type=c.customer_type,
+                    status=c.status,
+                )
+            )
+
         # Funds
         for fund in build_seed_funds():
             session.execute(
@@ -156,6 +171,7 @@ def _seed_platform_sync(engine) -> None:  # type: ignore[no-untyped-def]
                 .insert()
                 .values(
                     id=fund.id,
+                    customer_id=fund.customer_id,
                     slug=fund.slug,
                     name=fund.name,
                     status=fund.status,
@@ -184,6 +200,7 @@ def _seed_platform_sync(engine) -> None:  # type: ignore[no-untyped-def]
                 .insert()
                 .values(
                     id=u.id,
+                    customer_id=u.customer_id,
                     email=u.email,
                     name=u.name,
                     is_active=u.is_active,

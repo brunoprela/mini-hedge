@@ -67,6 +67,40 @@ class InstrumentRepository(BaseRepository):
             result = await session.execute(stmt)
             return list(result.scalars().all())
 
+    async def insert(
+        self,
+        record: InstrumentRecord,
+        *,
+        session: AsyncSession | None = None,
+    ) -> InstrumentRecord:
+        """Insert a single instrument."""
+        async with self._session(session) as session:
+            session.add(record)
+            await session.commit()
+            await session.refresh(record)
+            return record
+
+    async def update(
+        self,
+        instrument_id: str,
+        updates: dict[str, object],
+        *,
+        session: AsyncSession | None = None,
+    ) -> InstrumentRecord | None:
+        """Update an instrument by ID, returning the updated record or None."""
+        async with self._session(session) as session:
+            stmt = select(InstrumentRecord).where(InstrumentRecord.id == instrument_id)
+            result = await session.execute(stmt)
+            record = result.scalar_one_or_none()
+            if record is None:
+                return None
+            for key, value in updates.items():
+                if hasattr(record, key):
+                    setattr(record, key, value)
+            await session.commit()
+            await session.refresh(record)
+            return record
+
     async def insert_batch(
         self,
         instruments: list[InstrumentRecord],

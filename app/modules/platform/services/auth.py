@@ -36,6 +36,7 @@ from app.shared.auth import (
     hash_api_key,
     resolve_permissions,
 )
+from app.shared.auth.jwt import resolve_customer_realm
 from app.shared.auth.request_context import ActorType, RequestContext
 from app.shared.errors import AuthenticationError, AuthorizationError
 
@@ -148,14 +149,20 @@ class AuthService:
         # The signature is the unique part — no need to hash the full token.
         return hashlib.sha256(token.rpartition(".")[2].encode()).hexdigest()[:16]
 
-    async def authenticate_jwt(self, token: str, *, fund_slug: str | None = None) -> RequestContext:
+    async def authenticate_jwt(
+        self,
+        token: str,
+        *,
+        fund_slug: str | None = None,
+        acting_as_customer_id: str | None = None,
+    ) -> RequestContext:
         """Validate a JWT and return a RequestContext, or None if invalid.
 
         Detects Keycloak-issued tokens (RS256 with ``iss`` claim) vs
         app-issued tokens (HS256) and routes accordingly.
         """
         # Fast path: return cached context for repeated requests with same token
-        ctx_key = (self._token_hash(token), fund_slug)
+        ctx_key = (self._token_hash(token), fund_slug, acting_as_customer_id)
         cached_ctx: RequestContext | None = self._ctx_cache.get(ctx_key)
         if cached_ctx is not None:
             return cached_ctx
@@ -178,7 +185,9 @@ class AuthService:
             if self._keycloak_ops_realm and f"/realms/{self._keycloak_ops_realm}" in issuer:
                 request_context = await self._authenticate_keycloak_operator(token)
             else:
-                request_context = await self._authenticate_keycloak(token, fund_slug=fund_slug)
+                request_context = await self._authenticate_keycloak(
+                    token, fund_slug=fund_slug, acting_as_customer_id=acting_as_customer_id
+                )
         else:
             # App-issued HS256 token (agent tokens, legacy)
             try:
@@ -242,18 +251,32 @@ class AuthService:
 
     # ----- Keycloak fund user authentication -----
 
-    async def _authenticate_keycloak(self, token: str, *, fund_slug: str | None) -> RequestContext:
+    async def _authenticate_keycloak(
+        self,
+        token: str,
+        *,
+        fund_slug: str | None,
+        acting_as_customer_id: str | None = None,
+    ) -> RequestContext:
         """Validate a Keycloak RS256 JWT for a fund user, resolve roles from FGA."""
         if not self._keycloak_url:
             logger.warning("keycloak_not_configured")
             raise AuthenticationError("Identity provider not configured", code="IDP_UNAVAILABLE")
 
+        # Resolve realm: if acting_as_customer_id is provided, use that customer's
+        # realm; otherwise fall back to the default fund realm.
+        realm, client_id = resolve_customer_realm(
+            acting_as_customer_id,
+            default_realm=self._keycloak_realm,
+            default_client_id=self._keycloak_client_id,
+        )
+
         try:
             kc_claims = await decode_keycloak_token(
                 token,
                 keycloak_url=self._keycloak_url,
-                realm=self._keycloak_realm,
-                client_id=self._keycloak_client_id,
+                realm=realm,
+                client_id=client_id,
                 keycloak_browser_url=self._keycloak_browser_url,
             )
         except PyJWTError as e:
@@ -315,7 +338,7 @@ class AuthService:
             fund_id = fund.id
 
         # Resolve roles + permissions from FGA (with cache)
-        roles, permissions = await self._resolve_fund_access(user.id, fund_id)
+        roles, permissions = await self._resolve_fund_access(user.id, fund_id, customer_id)
         if not roles and not permissions:
             logger.warning("keycloak_user_no_fund_role", user_id=user.id, fund_slug=fund_slug)
             raise AuthorizationError("No fund access", code="NO_FUND_ACCESS")
@@ -323,26 +346,28 @@ class AuthService:
         # Resolve customer context from user and fund
         home_customer_id: str | None = getattr(user, "customer_id", None)
         fund_customer_id: str | None = getattr(fund, "customer_id", None)
-        customer_id = fund_customer_id  # the active customer is always the fund's owner
-        acting_as_customer_id: str | None = None
+        # X-Acting-As header overrides the target customer for delegated sessions
+        target_customer_id = acting_as_customer_id or fund_customer_id
+        customer_id = target_customer_id  # the active customer is always the target
+        resolved_acting_as: str | None = None
 
         if (
             home_customer_id
-            and fund_customer_id
-            and home_customer_id != fund_customer_id
+            and target_customer_id
+            and home_customer_id != target_customer_id
             and self._servicing_edge_repo is not None
         ):
             # Fund-admin user acting on a client customer's fund — delegated access.
             # Verify a servicing edge exists.
             edge = await self._servicing_edge_repo.get_active_edge(
                 admin_customer_id=home_customer_id,
-                client_customer_id=fund_customer_id,
+                client_customer_id=target_customer_id,
             )
             if edge is None:
                 logger.warning(
                     "no_servicing_edge",
                     home_customer=home_customer_id,
-                    fund_customer=fund_customer_id,
+                    target_customer=target_customer_id,
                 )
                 raise AuthorizationError(
                     "No servicing relationship", code="NO_SERVICING_EDGE"
@@ -351,14 +376,14 @@ class AuthService:
             edge_roles = frozenset(edge.scoped_roles)
             roles = [r for r in roles if r in edge_roles]
             permissions = resolve_permissions(frozenset(roles))
-            acting_as_customer_id = fund_customer_id
+            resolved_acting_as = target_customer_id
 
         return RequestContext(
             actor_id=user.id,
             actor_type=ActorType.USER,
             customer_id=customer_id,
             home_customer_id=home_customer_id,
-            acting_as_customer_id=acting_as_customer_id,
+            acting_as_customer_id=resolved_acting_as,
             fund_slug=fund_slug,
             fund_id=fund_id,
             roles=frozenset(roles),
@@ -366,7 +391,7 @@ class AuthService:
         )
 
     async def _resolve_fund_access(
-        self, user_id: str, fund_id: str
+        self, user_id: str, fund_id: str, fund_customer_id: str | None = None
     ) -> tuple[list[str], frozenset[str]]:
         """Resolve fund user roles and permissions from FGA, with TTL cache.
 
@@ -374,7 +399,7 @@ class AuthService:
         permission relations (can_read_instruments, can_execute_trades, ...).
         FGA computes the union: permissions granted by role + direct grants.
         """
-        cache_key = (user_id, fund_id)
+        cache_key = (user_id, fund_id, fund_customer_id)
         cached: tuple[list[str], frozenset[str]] | None = self._fga_cache.get(cache_key)
         if cached is not None:
             return cached
@@ -382,10 +407,13 @@ class AuthService:
         if self._fga_client is None:
             return [], frozenset()
 
+        from app.shared.fga.client import qualify_object_id
+
+        fga_object = qualify_object_id("fund", fund_id, fund_customer_id)
         # Single FGA call resolves both roles and effective permissions
         all_relations = await self._fga_client.list_relations(
             user=f"user:{user_id}",
-            object=f"fund:{fund_id}",
+            object=fga_object,
             relations=_FUND_USER_ROLES + FGA_FUND_PERMISSIONS,
         )
 
@@ -486,7 +514,20 @@ class AuthService:
                 continue
             roles, _perms = await self._resolve_fund_access(user_id, fund_id)
             role = roles[0] if roles else "viewer"
-            result.append(FundInfo(fund_slug=fund.slug, fund_name=fund.name, role=role))
+            # Resolve customer name if customer_repo is available
+            customer_name: str | None = None
+            if self._customer_repo is not None and fund.customer_id:
+                customer = await self._customer_repo.get_by_id(fund.customer_id)
+                customer_name = customer.name if customer else None
+            result.append(
+                FundInfo(
+                    fund_slug=fund.slug,
+                    fund_name=fund.name,
+                    role=role,
+                    customer_id=fund.customer_id,
+                    customer_name=customer_name,
+                )
+            )
 
         return result
 

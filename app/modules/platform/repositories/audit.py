@@ -126,6 +126,10 @@ class AuditLogRepository(BaseRepository):
         *,
         fund_slug: str | None = None,
         event_type: str | None = None,
+        actor_id: str | None = None,
+        entity_type: str | None = None,
+        entity_id: str | None = None,
+        correlation_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
         session: AsyncSession | None = None,
@@ -141,6 +145,14 @@ class AuditLogRepository(BaseRepository):
                 conditions.append(AuditLogRecord.fund_slug == fund_slug)
             if event_type:
                 conditions.append(AuditLogRecord.event_type == event_type)
+            if actor_id:
+                conditions.append(AuditLogRecord.actor_id == actor_id)
+            if entity_type:
+                conditions.append(AuditLogRecord.payload["entity_type"].astext == entity_type)
+            if entity_id:
+                conditions.append(AuditLogRecord.payload["entity_id"].astext == entity_id)
+            if correlation_id:
+                conditions.append(AuditLogRecord.payload["correlation_id"].astext == correlation_id)
 
             # Total count
             count_stmt = select(func.count(AuditLogRecord.id))

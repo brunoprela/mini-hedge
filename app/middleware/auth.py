@@ -15,6 +15,7 @@ import structlog
 
 from app.shared.auth.request_context import RequestContext, set_request_context
 from app.shared.errors import AuthenticationError, AuthorizationError
+from app.shared.fga.client import clear_request_fga_cache, init_request_fga_cache
 
 if TYPE_CHECKING:
     from starlette.types import ASGIApp, Receive, Scope, Send
@@ -70,6 +71,7 @@ class AuthMiddleware:
         headers = dict(scope.get("headers", []))
         auth_header = headers.get(b"authorization", b"").decode()
         fund_slug_header = headers.get(b"x-fund-slug", b"").decode() or None
+        acting_as_header = headers.get(b"x-acting-as", b"").decode() or None
 
         # SSE endpoints pass the JWT as a query parameter (EventSource has no headers)
         query_token = None
@@ -87,12 +89,16 @@ class AuthMiddleware:
             if query_token:
                 token_str = query_token
                 request_context = await auth_service.authenticate_jwt(
-                    query_token, fund_slug=fund_slug_header
+                    query_token,
+                    fund_slug=fund_slug_header,
+                    acting_as_customer_id=acting_as_header,
                 )
             elif auth_header.startswith("Bearer "):
                 token_str = auth_header[7:]
                 request_context = await auth_service.authenticate_jwt(
-                    token_str, fund_slug=fund_slug_header
+                    token_str,
+                    fund_slug=fund_slug_header,
+                    acting_as_customer_id=acting_as_header,
                 )
             elif auth_header.startswith("ApiKey "):
                 raw_key = auth_header[7:]
@@ -135,6 +141,7 @@ class AuthMiddleware:
                 logger.warning("revocation_check_failed", path=path)
 
         set_request_context(request_context)
+        init_request_fga_cache()
 
         # Set tenant scopes for per-customer/per-fund isolation
         sf = getattr(app.state, "session_factory", None) if app else None

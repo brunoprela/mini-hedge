@@ -35,11 +35,13 @@ class KafkaEventBus:
         bootstrap_servers: str,
         *,
         consumer_group: str = "minihedge",
+        customer_id: str | None = None,
         replication_factor: int = 1,
         num_partitions: int = 3,
     ) -> None:
         self._bootstrap_servers = bootstrap_servers
-        self._consumer_group = consumer_group
+        # Include customer_id in group prefix for tenant-isolated consumption
+        self._consumer_group = f"{consumer_group}-{customer_id}" if customer_id else consumer_group
         self._replication_factor = replication_factor
         self._num_partitions = num_partitions
 

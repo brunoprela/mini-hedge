@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from app.modules.cash_management.repositories.cash_projection import CashProjectionRepository
     from app.modules.cash_management.repositories.scheduled_flow import ScheduledFlowRepository
     from app.modules.cash_management.repositories.settlement import SettlementRepository
+    from app.modules.market_data.core.fx import FXConverter
     from app.modules.security_master.services import SecurityMasterService
     from app.shared.database import TenantSessionFactory
     from app.shared.events import EventBus
@@ -63,6 +64,7 @@ class CashManagementService:
         projection_repo: CashProjectionRepository,
         security_master_service: SecurityMasterService,
         event_bus: EventBus | None = None,
+        fx_converter: FXConverter | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._balance_repo = balance_repo
@@ -72,6 +74,24 @@ class CashManagementService:
         self._projection_repo = projection_repo
         self._security_master_service = security_master_service
         self._event_bus = event_bus
+        self._fx_converter = fx_converter
+
+    def _convert_to_base(
+        self, amount: Decimal, from_ccy: str, base_currency: str
+    ) -> Decimal:
+        """Convert amount to base currency. Returns unconverted amount if no rate."""
+        if from_ccy == base_currency or self._fx_converter is None:
+            return amount
+        converted = self._fx_converter.convert(amount, from_ccy, base_currency)
+        if converted is None:
+            logger.warning(
+                "fx_conversion_unavailable",
+                from_ccy=from_ccy,
+                to_ccy=base_currency,
+                amount=str(amount),
+            )
+            return amount
+        return converted
 
     # ------------------------------------------------------------------
     # Cash balances
@@ -321,6 +341,7 @@ class CashManagementService:
         portfolio_id: UUID,
         horizon_days: int = 10,
         *,
+        base_currency: str = "USD",
         session: AsyncSession | None = None,
     ) -> SettlementLadder:
         """Build a settlement ladder showing expected flows by date."""
@@ -338,10 +359,12 @@ class CashManagementService:
             session=session,
         )
 
-        # Start with current available balance (simplified: USD only)
+        # Start with current available balance converted to base currency
         current_balance = ZERO
         for b in balances:
-            current_balance += b.available_balance
+            current_balance += self._convert_to_base(
+                b.available_balance, b.currency, base_currency
+            )
 
         # Group by settlement date
         by_date: dict[date, tuple[Decimal, Decimal]] = {}
@@ -349,11 +372,14 @@ class CashManagementService:
             if s.status != SettlementStatus.PENDING:
                 continue
             d = s.settlement_date
+            amt = self._convert_to_base(
+                s.settlement_amount, getattr(s, "currency", base_currency), base_currency
+            )
             inflow, outflow = by_date.get(d, (ZERO, ZERO))
-            if s.settlement_amount > ZERO:
-                inflow += s.settlement_amount
+            if amt > ZERO:
+                inflow += amt
             else:
-                outflow += abs(s.settlement_amount)
+                outflow += abs(amt)
             by_date[d] = (inflow, outflow)
 
         entries: list[SettlementLadderEntry] = []
@@ -367,7 +393,7 @@ class CashManagementService:
                 entries.append(
                     SettlementLadderEntry(
                         settlement_date=current,
-                        currency="USD",
+                        currency=base_currency,
                         expected_inflow=inflow,
                         expected_outflow=outflow,
                         net_flow=net,
@@ -393,6 +419,7 @@ class CashManagementService:
         portfolio_id: UUID,
         horizon_days: int = 30,
         *,
+        base_currency: str = "USD",
         session: AsyncSession | None = None,
     ) -> CashProjection:
         """Generate a forward-looking cash projection."""
@@ -417,7 +444,9 @@ class CashManagementService:
         )
         current_balance = ZERO
         for b in balances:
-            current_balance += b.available_balance
+            current_balance += self._convert_to_base(
+                b.available_balance, b.currency, base_currency
+            )
 
         # Build daily projection (business days only)
         entries: list[CashProjectionEntry] = []
@@ -433,36 +462,46 @@ class CashManagementService:
             # Settlements
             for s in settlements:
                 if s.settlement_date == current and s.status == "pending":
-                    if s.settlement_amount > ZERO:
-                        inflows += s.settlement_amount
+                    amt = self._convert_to_base(
+                        s.settlement_amount,
+                        getattr(s, "currency", base_currency),
+                        base_currency,
+                    )
+                    if amt > ZERO:
+                        inflows += amt
                         details.append(
                             {
                                 "type": "settlement",
                                 "instrument": s.instrument_id,
-                                "amount": str(s.settlement_amount),
+                                "amount": str(amt),
                             }
                         )
                     else:
-                        outflows += abs(s.settlement_amount)
+                        outflows += abs(amt)
                         details.append(
                             {
                                 "type": "settlement",
                                 "instrument": s.instrument_id,
-                                "amount": str(s.settlement_amount),
+                                "amount": str(amt),
                             }
                         )
 
             # Scheduled flows
             for f in scheduled:
                 if f.flow_date == current:
-                    if f.amount > ZERO:
-                        inflows += f.amount
+                    amt = self._convert_to_base(
+                        f.amount,
+                        getattr(f, "currency", base_currency),
+                        base_currency,
+                    )
+                    if amt > ZERO:
+                        inflows += amt
                     else:
-                        outflows += abs(f.amount)
+                        outflows += abs(amt)
                     details.append(
                         {
                             "type": f.flow_type,
-                            "amount": str(f.amount),
+                            "amount": str(amt),
                             "description": f.description or "",
                         }
                     )
@@ -473,7 +512,7 @@ class CashManagementService:
             entries.append(
                 CashProjectionEntry(
                     projection_date=current,
-                    currency="USD",
+                    currency=base_currency,
                     opening_balance=opening,
                     inflows=inflows,
                     outflows=outflows,
@@ -487,7 +526,7 @@ class CashManagementService:
 
         return CashProjection(
             portfolio_id=portfolio_id,
-            base_currency="USD",
+            base_currency=base_currency,
             horizon_days=horizon_days,
             entries=entries,
             projected_at=datetime.now(UTC),

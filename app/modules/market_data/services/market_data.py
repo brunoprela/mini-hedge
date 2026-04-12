@@ -6,7 +6,7 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.market_data.core.fx import FXConverter
-from app.modules.market_data.interfaces import FXRateSnapshot, PriceSnapshot
+from app.modules.market_data.interfaces import FXRateSnapshot, OHLCVBar, PriceSnapshot
 from app.modules.market_data.models.fx_rate import FXRateRecord
 from app.modules.market_data.models.price import PriceRecord
 from app.modules.market_data.repositories import FXRateRepository, PriceRepository
@@ -93,6 +93,34 @@ class MarketDataService:
             source=snapshot.source,
         )
         await self._price_repo.insert(record, session=session)
+
+    async def get_ohlcv_bars(
+        self,
+        instrument_id: str,
+        start: datetime,
+        end: datetime,
+        interval: str = "1 day",
+        *,
+        session: AsyncSession | None = None,
+    ) -> list[OHLCVBar]:
+        """Return OHLCV bars aggregated from raw price ticks."""
+        rows = await self._price_repo.get_ohlcv_bars(
+            instrument_id, start, end, interval, session=session
+        )
+        return [
+            OHLCVBar(
+                instrument_id=instrument_id,
+                open=row["open"],
+                high=row["high"],
+                low=row["low"],
+                close=row["close"],
+                volume=row["volume"],
+                period_start=row["period_start"],
+                period_end=row["period_start"],  # end = start of next bucket
+                source="aggregated",
+            )
+            for row in rows
+        ]
 
     # ── FX rates ──────────────────────────────────────────────
 

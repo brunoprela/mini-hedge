@@ -25,6 +25,9 @@ class RuleType(StrEnum):
     COUNTRY_LIMIT = "country_limit"
     RESTRICTED_LIST = "restricted_list"
     SHORT_SELLING = "short_selling"
+    AGGREGATE_EXPOSURE = "aggregate_exposure"
+    ASSET_CLASS_LIMIT = "asset_class_limit"
+    LEVERAGE_LIMIT = "leverage_limit"
 
 
 class Severity(StrEnum):

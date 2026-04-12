@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "UserRoleChanged",
+  "namespace": "com.minihedge.users",
+  "doc": "Emitted when a user's role assignment changes.",
+  "fields": [
+    {"name": "user_id", "type": "string"},
+    {"name": "fund_slug", "type": ["null", "string"], "default": null},
+    {"name": "previous_roles", "type": {"type": "array", "items": "string"}},
+    {"name": "new_roles", "type": {"type": "array", "items": "string"}},
+    {"name": "changed_by", "type": "string"}
+  ]
+}

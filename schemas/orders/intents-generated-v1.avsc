@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "OrderIntentGenerated",
+  "namespace": "com.minihedge.orders",
+  "doc": "Emitted by the alpha engine when it generates order intents for execution.",
+  "fields": [
+    {"name": "intent_id", "type": "string"},
+    {"name": "portfolio_id", "type": "string"},
+    {"name": "instrument_id", "type": "string"},
+    {"name": "side", "type": {"type": "enum", "name": "IntentSide", "symbols": ["buy", "sell"]}},
+    {"name": "target_quantity", "type": "string", "doc": "Decimal as string"},
+    {"name": "urgency", "type": "string", "doc": "low, medium, high"},
+    {"name": "strategy", "type": ["null", "string"], "default": null, "doc": "Suggested algo strategy"},
+    {"name": "reason", "type": ["null", "string"], "default": null}
+  ]
+}

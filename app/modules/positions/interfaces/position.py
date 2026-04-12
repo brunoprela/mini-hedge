@@ -97,3 +97,18 @@ class PositionReader(Protocol):
         portfolio_id: UUID,
         instrument_id: str,
     ) -> list[PositionLot]: ...
+
+    async def get_position_at(
+        self,
+        portfolio_id: UUID,
+        instrument_id: str,
+        at: datetime,
+    ) -> Position | None: ...
+
+    async def get_portfolio_pnl(
+        self,
+        portfolio_id: UUID,
+        *,
+        from_date: date | None = None,
+        to_date: date | None = None,
+    ) -> list[PnLSummary]: ...
