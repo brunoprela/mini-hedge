@@ -1,0 +1,62 @@
+@import "tailwindcss";
+@source "../../packages/ui/src/**/*.{ts,tsx}";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  /* Clean, modern investor portal — light theme */
+  --background: #ffffff;
+  --foreground: #111827;
+  --foreground-bright: #030712;
+
+  /* Primary accent — professional deep blue */
+  --primary: #1e3a5f;
+  --primary-foreground: #ffffff;
+  --primary-muted: rgba(30, 58, 95, 0.08);
+
+  /* Neutral / muted */
+  --muted: #f9fafb;
+  --muted-foreground: #6b7280;
+  --accent: #f0f4ff;
+  --accent-foreground: #1e3a5f;
+
+  /* Cards */
+  --card: #ffffff;
+  --card-foreground: #111827;
+
+  /* Borders */
+  --border: #e5e7eb;
+  --border-bright: #d1d5db;
+  --input: #ffffff;
+  --input-border: #e5e7eb;
+  --ring: rgba(30, 58, 95, 0.25);
+
+  /* Status */
+  --success: #059669;
+  --success-muted: rgba(5, 150, 105, 0.1);
+  --destructive: #dc2626;
+  --destructive-muted: rgba(220, 38, 38, 0.1);
+  --warning: #d97706;
+  --warning-muted: rgba(217, 119, 6, 0.1);
+
+  /* Tables */
+  --table-header: #f9fafb;
+  --table-row-hover: #f3f4f6;
+  --table-border: #f3f4f6;
+
+  /* Popover */
+  --popover: #ffffff;
+  --popover-foreground: #111827;
+
+  /* Sidebar */
+  --sidebar: #f8fafc;
+  --sidebar-width: 240px;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--background);
+  color: var(--foreground);
+}

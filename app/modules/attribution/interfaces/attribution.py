@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
@@ -27,6 +27,18 @@ class AttributionMethod(StrEnum):
 
 
 @dataclass(frozen=True)
+class InstrumentAttribution:
+    """Brinson-Fachler attribution contribution for a single instrument within a sector."""
+
+    instrument_id: str
+    portfolio_weight: Decimal
+    benchmark_weight: Decimal
+    portfolio_return: Decimal
+    benchmark_return: Decimal
+    contribution: Decimal
+
+
+@dataclass(frozen=True)
 class SectorAttribution:
     """Brinson-Fachler attribution for a single sector."""
 
@@ -39,6 +51,7 @@ class SectorAttribution:
     selection_effect: Decimal
     interaction_effect: Decimal
     total_effect: Decimal
+    instruments: list[InstrumentAttribution] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

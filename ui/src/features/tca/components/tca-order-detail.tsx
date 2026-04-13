@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { computeTCA, orderTCAQueryOptions } from "../api";
+import { ExecutionTimelineChart } from "./execution-timeline-chart";
+import { ImplementationShortfallChart } from "./implementation-shortfall-chart";
 
 function fmtBps(v: string) {
   return parseFloat(v).toFixed(2);
@@ -128,6 +130,12 @@ export function TCAOrderDetail({ orderId }: { orderId: string }) {
           </div>
         </div>
       </div>
+
+      {/* Execution timeline chart */}
+      <ExecutionTimelineChart orderId={orderId} report={report} />
+
+      {/* Implementation shortfall waterfall */}
+      <ImplementationShortfallChart report={report} />
 
       {/* Execution metrics */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

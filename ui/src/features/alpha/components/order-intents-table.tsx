@@ -3,11 +3,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { toast } from "sonner";
+import { InstrumentLink } from "@/shared/components/instrument-link";
+import { useTradeTicket } from "@/shared/components/trade-ticket-provider";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { approveIntent, cancelIntent, orderIntentsQueryOptions } from "../api";
 
 export function OrderIntentsTable({ portfolioId }: { portfolioId: string }) {
   const { fundSlug } = useFundContext();
+  const { openTradeTicket } = useTradeTicket();
   const queryClient = useQueryClient();
 
   const { data: intents, isLoading } = useQuery(orderIntentsQueryOptions(fundSlug, portfolioId));
@@ -72,7 +75,12 @@ export function OrderIntentsTable({ portfolioId }: { portfolioId: string }) {
         <tbody>
           {intents.map((intent) => (
             <tr key={intent.instrument_id} className="border-b border-[var(--border)]">
-              <td className="py-2 pr-4 font-mono font-medium">{intent.instrument_id}</td>
+              <td className="py-2 pr-4">
+                <InstrumentLink
+                  instrument={intent.instrument_id}
+                  side={intent.side as "buy" | "sell"}
+                />
+              </td>
               <td className="py-2 pr-4">
                 <span
                   className={`text-sm font-medium ${
@@ -89,6 +97,19 @@ export function OrderIntentsTable({ portfolioId }: { portfolioId: string }) {
               <td className="py-2 pr-4 text-sm text-[var(--muted-foreground)]">{intent.reason}</td>
               <td className="py-2 text-right">
                 <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openTradeTicket({
+                        instrument: intent.instrument_id,
+                        side: intent.side as "buy" | "sell",
+                        quantity: intent.quantity,
+                      })
+                    }
+                    className="rounded-md border border-[var(--border)] px-3 py-1 text-xs font-medium transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
+                  >
+                    Send to Ticket
+                  </button>
                   <button
                     type="button"
                     onClick={() => approveMutation.mutate(intent.instrument_id)}

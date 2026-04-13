@@ -188,33 +188,32 @@ export function CustomStressForm({ portfolioId }: { portfolioId: string }) {
 
           {result.position_impacts.length > 0 && (
             <div className="overflow-x-auto rounded-md border border-[var(--border)]">
-              <table className="w-full text-sm">
+              <table className="min-w-full divide-y divide-[var(--border)] text-sm">
                 <thead>
-                  <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
-                    <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
+                  <tr>
+                    <th scope="col" className="px-3 py-2 text-left font-semibold whitespace-nowrap text-[var(--muted-foreground)]">
                       Instrument
                     </th>
-                    <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
+                    <th scope="col" className="px-3 py-2 text-right font-semibold whitespace-nowrap text-[var(--muted-foreground)]">
                       Current
                     </th>
-                    <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
+                    <th scope="col" className="px-3 py-2 text-right font-semibold whitespace-nowrap text-[var(--muted-foreground)]">
                       Stressed
                     </th>
-                    <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
+                    <th scope="col" className="px-3 py-2 text-right font-semibold whitespace-nowrap text-[var(--muted-foreground)]">
                       PnL Impact
                     </th>
-                    <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
+                    <th scope="col" className="px-3 py-2 text-right font-semibold whitespace-nowrap text-[var(--muted-foreground)]">
                       % Change
                     </th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-[var(--table-border)]">
                   {result.position_impacts.map((impact) => {
                     const impactPnl = parseFloat(impact.pnl_impact);
                     return (
                       <tr
                         key={impact.instrument_id}
-                        className="border-b border-[var(--table-border)] last:border-0"
                       >
                         <td className="px-3 py-1.5 font-medium">{impact.instrument_id}</td>
                         <td className="px-3 py-1.5 text-right font-mono">

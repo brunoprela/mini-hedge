@@ -39,22 +39,23 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
 
     seeded = 0
     for fund in active_funds:
-        portfolios = await portfolio_repo.get_by_fund(fund.id)
-        for portfolio in portfolios:
-            pid = UUID(portfolio.id)
-            existing = await cash_service.get_balances(pid)
-            if existing:
-                continue
+        async with sf.fund_scope(fund.slug):
+            portfolios = await portfolio_repo.get_by_fund(fund.id)
+            for portfolio in portfolios:
+                pid = UUID(portfolio.id)
+                existing = await cash_service.get_balances(pid)
+                if existing:
+                    continue
 
-            for currency, amount, desc in _INITIAL_BALANCES:
-                await cash_service.credit(
-                    pid,
-                    currency,
-                    amount,
-                    CashFlowType.SUBSCRIPTION,
-                    description=desc,
-                )
-            seeded += 1
+                for currency, amount, desc in _INITIAL_BALANCES:
+                    await cash_service.credit(
+                        pid,
+                        currency,
+                        amount,
+                        CashFlowType.SUBSCRIPTION,
+                        description=desc,
+                    )
+                seeded += 1
 
     if seeded:
         logger.info("cash_management_seed_complete", portfolios_seeded=seeded)

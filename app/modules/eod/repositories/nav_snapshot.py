@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
 from app.modules.eod.models.nav_snapshot import NAVSnapshotRecord
@@ -16,6 +17,25 @@ if TYPE_CHECKING:
 
 class NAVSnapshotRepository(BaseRepository):
     """Data access for NAV snapshots."""
+
+    async def get_history(
+        self,
+        portfolio_ids: list[str],
+        *,
+        since: date | None = None,
+        session: AsyncSession | None = None,
+    ) -> list[NAVSnapshotRecord]:
+        """Return NAV snapshots for given portfolios ordered by date ascending."""
+        async with self._session(session) as s:
+            stmt = (
+                select(NAVSnapshotRecord)
+                .where(NAVSnapshotRecord.portfolio_id.in_(portfolio_ids))
+            )
+            if since is not None:
+                stmt = stmt.where(NAVSnapshotRecord.business_date >= since)
+            stmt = stmt.order_by(NAVSnapshotRecord.business_date.asc())
+            result = await s.execute(stmt)
+            return list(result.scalars().all())
 
     async def upsert(
         self,

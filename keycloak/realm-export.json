@@ -29,12 +29,30 @@
   ],
   "roles": {
     "realm": [
-      { "name": "admin", "description": "Full system access" },
-      { "name": "portfolio_manager", "description": "Trade and manage positions" },
-      { "name": "analyst", "description": "Read-only market and position data" },
-      { "name": "risk_manager", "description": "Risk monitoring and configuration" },
-      { "name": "compliance_officer", "description": "Compliance monitoring and rule management" },
-      { "name": "viewer", "description": "Read-only access" }
+      {
+        "name": "admin",
+        "description": "Full system access"
+      },
+      {
+        "name": "portfolio_manager",
+        "description": "Trade and manage positions"
+      },
+      {
+        "name": "analyst",
+        "description": "Read-only market and position data"
+      },
+      {
+        "name": "risk_manager",
+        "description": "Risk monitoring and configuration"
+      },
+      {
+        "name": "compliance_officer",
+        "description": "Compliance monitoring and rule management"
+      },
+      {
+        "name": "viewer",
+        "description": "Read-only access"
+      }
     ]
   },
   "authenticationFlows": [
@@ -141,7 +159,11 @@
         "http://localhost:3000",
         "http://localhost:5173"
       ],
-      "defaultClientScopes": ["openid", "profile", "email"],
+      "defaultClientScopes": [
+        "openid",
+        "profile",
+        "email"
+      ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
         "post.logout.redirect.uris": "http://localhost:3000/*"
@@ -187,8 +209,10 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["admin"],
-      "requiredActions": ["CONFIGURE_TOTP"]
+      "realmRoles": [
+        "admin"
+      ],
+      "requiredActions": []
     }
   ]
 }

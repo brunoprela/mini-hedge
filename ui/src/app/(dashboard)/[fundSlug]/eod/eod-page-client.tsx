@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { EODHistory, EODRunStatus, triggerEODRun } from "@/features/eod";
+import { EODHistory, EODRunStatus, NAVHistoryChart, triggerEODRun } from "@/features/eod";
 import { StatusDot } from "@/shared/components/charts";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 
@@ -19,11 +19,11 @@ export function EODPageClient() {
   const [runDate, setRunDate] = useState(todayISO());
 
   const runMutation = useMutation({
-    mutationFn: () => triggerEODRun(fundSlug, runDate),
-    onSuccess: () => {
+    mutationFn: (date?: string) => triggerEODRun(fundSlug, date ?? runDate),
+    onSuccess: (_data, date) => {
       queryClient.invalidateQueries({ queryKey: ["eod-status"] });
       queryClient.invalidateQueries({ queryKey: ["eod-history"] });
-      setSelectedDate(runDate);
+      setSelectedDate(date ?? runDate);
     },
   });
 
@@ -53,7 +53,7 @@ export function EODPageClient() {
           </div>
           <button
             type="button"
-            onClick={() => runMutation.mutate()}
+            onClick={() => runMutation.mutate(undefined)}
             disabled={runMutation.isPending}
             className="rounded-md bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
@@ -80,6 +80,9 @@ export function EODPageClient() {
         )}
       </div>
 
+      {/* NAV History Chart */}
+      <NAVHistoryChart />
+
       {/* Current run status */}
       <div>
         <div className="mb-2 flex items-center gap-3">
@@ -93,7 +96,11 @@ export function EODPageClient() {
             className="rounded-md border border-[var(--border)] bg-transparent px-2 py-1 text-xs"
           />
         </div>
-        <EODRunStatus businessDate={selectedDate} />
+        <EODRunStatus
+          businessDate={selectedDate}
+          onRerun={(date) => runMutation.mutate(date)}
+          isRerunPending={runMutation.isPending}
+        />
       </div>
 
       {/* History */}

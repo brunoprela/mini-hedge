@@ -53,26 +53,26 @@ export function TCADashboard({ portfolioId }: { portfolioId: string }) {
 
       {/* Reports table */}
       <div className="overflow-x-auto rounded-md border border-[var(--border)]">
-        <table className="w-full text-sm">
+        <table className="min-w-full divide-y divide-[var(--border)] text-sm">
           <thead>
-            <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)] text-left text-xs text-[var(--muted-foreground)]">
-              <th className="px-3 py-2">Instrument</th>
-              <th className="px-3 py-2">Side</th>
-              <th className="px-3 py-2 text-right">Qty</th>
-              <th className="px-3 py-2 text-right">Arrival Price</th>
-              <th className="px-3 py-2 text-right">Avg Fill</th>
-              <th className="px-3 py-2 text-right">VWAP</th>
-              <th className="px-3 py-2 text-right">Spread (bps)</th>
-              <th className="px-3 py-2 text-right">Impact (bps)</th>
-              <th className="px-3 py-2 text-right">Total Cost (bps)</th>
-              <th className="px-3 py-2 text-right">Total Cost ($)</th>
+            <tr className="text-left text-xs text-[var(--muted-foreground)]">
+              <th scope="col" className="whitespace-nowrap px-3 py-2 font-semibold">Instrument</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 font-semibold">Side</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-right font-semibold">Qty</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-right font-semibold">Arrival Price</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-right font-semibold">Avg Fill</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-right font-semibold">VWAP</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-right font-semibold">Spread (bps)</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-right font-semibold">Impact (bps)</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-right font-semibold">Total Cost (bps)</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-right font-semibold">Total Cost ($)</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-[var(--table-border)]">
             {report.reports.map((r: TCAReport) => (
               <tr
                 key={r.order_id}
-                className="border-b border-[var(--table-border)] hover:bg-[var(--table-row-hover)]"
+                className="hover:bg-[var(--table-row-hover)]"
               >
                 <td className="px-3 py-2 font-mono">{r.instrument_id}</td>
                 <td className="px-3 py-2">

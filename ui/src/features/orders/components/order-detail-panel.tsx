@@ -8,6 +8,7 @@ import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { orderFillsQueryOptions } from "../api";
 import type { OrderSummary } from "../types";
 import { OrderStateBadge } from "./order-state-badge";
+import { OrderTimeline } from "./order-timeline";
 
 interface OrderDetailPanelProps {
   order: OrderSummary;
@@ -69,18 +70,13 @@ export function OrderDetailPanel({ order, onClose, onClone }: OrderDetailPanelPr
           {order.broker_id && <DetailField label="Broker" value={order.broker_id} />}
         </div>
 
-        {/* Timestamps */}
+        {/* State timeline */}
         <div className="rounded-md border border-[var(--border)] bg-[var(--muted)] p-2">
-          <div className="mb-1 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+          <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
             <Clock className="h-3 w-3" />
             Timeline
           </div>
-          <div className="space-y-1 text-xs">
-            <TimelineRow label="Created" time={order.created_at} />
-            {order.updated_at !== order.created_at && (
-              <TimelineRow label="Updated" time={order.updated_at} />
-            )}
-          </div>
+          <OrderTimeline order={order} fills={fills ?? []} />
         </div>
 
         {/* Fills */}
@@ -90,18 +86,18 @@ export function OrderDetailPanel({ order, onClose, onClone }: OrderDetailPanelPr
               Fills ({fills.length})
             </p>
             <div className="max-h-40 overflow-y-auto rounded-md border border-[var(--border)]">
-              <table className="w-full text-xs">
+              <table className="min-w-full divide-y divide-[var(--border)] text-xs">
                 <thead>
-                  <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)] text-left text-[var(--muted-foreground)]">
-                    <th className="px-2 py-1 font-medium">Qty</th>
-                    <th className="px-2 py-1 font-medium">Price</th>
-                    <th className="px-2 py-1 font-medium">Broker</th>
-                    <th className="px-2 py-1 font-medium">Time</th>
+                  <tr>
+                    <th scope="col" className="px-2 py-1 text-left font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Qty</th>
+                    <th scope="col" className="px-2 py-1 text-left font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Price</th>
+                    <th scope="col" className="px-2 py-1 text-left font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Broker</th>
+                    <th scope="col" className="px-2 py-1 text-left font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Time</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-[var(--table-border)]">
                   {fills.map((f) => (
-                    <tr key={f.id} className="border-b border-[var(--table-border)] last:border-0">
+                    <tr key={f.id}>
                       <td className="px-2 py-1 font-mono">
                         {parseFloat(f.quantity).toLocaleString()}
                       </td>
@@ -179,11 +175,3 @@ function DetailField({ label, value }: { label: string; value: string }) {
   );
 }
 
-function TimelineRow({ label, time }: { label: string; time: string }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-[var(--muted-foreground)]">{label}</span>
-      <span className="font-mono text-[var(--foreground)]">{new Date(time).toLocaleString()}</span>
-    </div>
-  );
-}

@@ -1,6 +1,7 @@
 """FastAPI routes for EOD processing."""
 
-from datetime import date
+from datetime import date, timedelta
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -8,7 +9,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.eod.core.orchestrator import EODOrchestrator
-from app.modules.eod.dependencies import get_eod_orchestrator
+from app.modules.eod.dependencies import get_eod_orchestrator, get_nav_snapshot_repo
 from app.modules.eod.interfaces.run import (
     EODRunResult,
     EODRunSummary,
@@ -16,6 +17,8 @@ from app.modules.eod.interfaces.run import (
     EODStepResult,
     EODStepStatus,
 )
+from app.modules.eod.interfaces.snapshot import NAVHistoryPoint
+from app.modules.eod.repositories import NAVSnapshotRepository
 from app.shared.auth import Permission, require_permission
 from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_db
@@ -122,3 +125,58 @@ async def get_eod_history(
             )
         )
     return summaries
+
+
+_PERIOD_DAYS = {"30d": 30, "90d": 90, "1y": 365}
+
+
+@router.get("/nav/history", response_model=list[NAVHistoryPoint])
+async def get_nav_history(
+    request_context: RequestContext = require_permission(Permission.RISK_READ),
+    nav_repo: NAVSnapshotRepository = Depends(get_nav_snapshot_repo),
+    orchestrator: EODOrchestrator = Depends(get_eod_orchestrator),
+    session: AsyncSession = Depends(get_db),
+    period: str = Query("90d", pattern="^(30d|90d|1y)$"),
+) -> list[NAVHistoryPoint]:
+    """Return aggregated NAV history for the fund's portfolios."""
+    if not request_context.fund_slug:
+        raise HTTPException(status_code=400, detail="Fund context required")
+
+    fund_repo = orchestrator._fund_repo
+    portfolio_repo = orchestrator._portfolio_repo
+
+    fund = await fund_repo.get_by_slug(request_context.fund_slug)
+    if fund is None:
+        raise HTTPException(status_code=404, detail="Fund not found")
+
+    portfolios = await portfolio_repo.get_by_fund(fund.id)
+    portfolio_ids = [p.id for p in portfolios]
+    if not portfolio_ids:
+        return []
+
+    days = _PERIOD_DAYS.get(period, 90)
+    since = date.today() - timedelta(days=days)
+
+    snapshots = await nav_repo.get_history(portfolio_ids, since=since)
+
+    # Aggregate across portfolios per date
+    date_totals: dict[date, Decimal] = {}
+    date_shares: dict[date, Decimal] = {}
+    for snap in snapshots:
+        date_totals[snap.business_date] = date_totals.get(
+            snap.business_date, Decimal(0)
+        ) + snap.nav
+        date_shares[snap.business_date] = date_shares.get(
+            snap.business_date, Decimal(0)
+        ) + snap.shares_outstanding
+
+    return [
+        NAVHistoryPoint(
+            business_date=d,
+            nav=date_totals[d],
+            nav_per_share=(
+                date_totals[d] / date_shares[d] if date_shares[d] else Decimal(0)
+            ),
+        )
+        for d in sorted(date_totals.keys())
+    ]

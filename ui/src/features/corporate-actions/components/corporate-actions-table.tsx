@@ -47,19 +47,19 @@ export function CorporateActionsTable() {
 
   return (
     <div className="overflow-x-auto rounded-md border border-[var(--border)] bg-[var(--card)]">
-      <table className="w-full text-sm">
+      <table className="min-w-full divide-y divide-[var(--border)] text-sm">
         <thead>
-          <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)] text-left text-[var(--muted-foreground)]">
-            <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider" />
-            <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider">Date</th>
-            <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider">Instrument</th>
-            <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider">Type</th>
-            <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider">Status</th>
-            <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider">Description</th>
-            <th className="px-3 py-2 text-xs font-medium uppercase tracking-wider">Adjustments</th>
+          <tr className="text-left text-[var(--muted-foreground)]">
+            <th scope="col" className="whitespace-nowrap px-3 py-2 text-xs font-semibold uppercase tracking-wider" />
+            <th scope="col" className="whitespace-nowrap px-3 py-2 text-xs font-semibold uppercase tracking-wider">Date</th>
+            <th scope="col" className="whitespace-nowrap px-3 py-2 text-xs font-semibold uppercase tracking-wider">Instrument</th>
+            <th scope="col" className="whitespace-nowrap px-3 py-2 text-xs font-semibold uppercase tracking-wider">Type</th>
+            <th scope="col" className="whitespace-nowrap px-3 py-2 text-xs font-semibold uppercase tracking-wider">Status</th>
+            <th scope="col" className="whitespace-nowrap px-3 py-2 text-xs font-semibold uppercase tracking-wider">Description</th>
+            <th scope="col" className="whitespace-nowrap px-3 py-2 text-xs font-semibold uppercase tracking-wider">Adjustments</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-[var(--table-border)]">
           {actions.map((action) => {
             const isExpanded = expandedId === action.id;
             return (
@@ -90,7 +90,7 @@ function TableRow({
 
   return (
     <>
-      <tr className="border-b border-[var(--table-border)] last:border-0 hover:bg-[var(--table-row-hover)]">
+      <tr className="hover:bg-[var(--table-row-hover)]">
         <td className="px-3 py-2">
           {action.adjustments.length > 0 && (
             <button
@@ -122,26 +122,26 @@ function TableRow({
         <td className="px-3 py-2 text-xs text-[var(--muted-foreground)]">{adjustmentSummary}</td>
       </tr>
       {isExpanded && action.adjustments.length > 0 && (
-        <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
+        <tr className="bg-[var(--table-header)]">
           <td colSpan={7} className="px-6 py-3">
             <div className="space-y-2">
               <p className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
                 Adjustment Details
               </p>
               <div className="overflow-x-auto rounded-md border border-[var(--border)]">
-                <table className="w-full text-sm">
+                <table className="min-w-full divide-y divide-[var(--border)] text-sm">
                   <thead>
-                    <tr className="border-b border-[var(--table-border)] text-left text-[var(--muted-foreground)]">
-                      <th className="px-3 py-1.5 text-xs font-medium">#</th>
-                      <th className="px-3 py-1.5 text-xs font-medium">Quantity Delta</th>
-                      <th className="px-3 py-1.5 text-xs font-medium">Cost Basis Adj.</th>
-                      <th className="px-3 py-1.5 text-xs font-medium">Cash Amount</th>
+                    <tr className="text-left text-[var(--muted-foreground)]">
+                      <th scope="col" className="whitespace-nowrap px-3 py-1.5 text-xs font-semibold">#</th>
+                      <th scope="col" className="whitespace-nowrap px-3 py-1.5 text-xs font-semibold">Quantity Delta</th>
+                      <th scope="col" className="whitespace-nowrap px-3 py-1.5 text-xs font-semibold">Cost Basis Adj.</th>
+                      <th scope="col" className="whitespace-nowrap px-3 py-1.5 text-xs font-semibold">Cash Amount</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-[var(--table-border)]">
                     {action.adjustments.map((adj, idx) => (
                       // biome-ignore lint/suspicious/noArrayIndexKey: adjustments lack stable IDs
-                      <tr key={idx} className="border-b border-[var(--table-border)] last:border-0">
+                      <tr key={idx}>
                         <td className="px-3 py-1.5 text-xs text-[var(--muted-foreground)]">
                           {idx + 1}
                         </td>

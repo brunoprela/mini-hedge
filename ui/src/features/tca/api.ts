@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import { clientFetch } from "@/shared/lib/api";
+import type { BrokerScorecard } from "@mini-hedge/api-types";
 import type { FundTCASummary, PortfolioTCAReport, TCAReport } from "./types";
 
 export function orderTCAQueryOptions(fundSlug: string, orderId: string) {
@@ -29,6 +30,17 @@ export function fundTCASummaryQueryOptions(fundSlug: string, days?: number) {
     queryKey: ["fund-tca-summary", fundSlug, days],
     queryFn: () =>
       clientFetch<FundTCASummary>(`/orders/tca/summary${days != null ? `?days=${days}` : ""}`, {
+        fundSlug,
+      }),
+    staleTime: 120_000,
+  });
+}
+
+export function brokerScorecardsQueryOptions(fundSlug: string) {
+  return queryOptions({
+    queryKey: ["broker-scorecards", fundSlug],
+    queryFn: () =>
+      clientFetch<BrokerScorecard[]>("/brokers/scorecards", {
         fundSlug,
       }),
     staleTime: 120_000,

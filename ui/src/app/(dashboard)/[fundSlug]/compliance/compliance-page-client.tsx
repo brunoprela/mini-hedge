@@ -10,6 +10,7 @@ import { RemediationPanel } from "@/features/compliance/components/remediation-p
 import { RuleTable } from "@/features/compliance/components/rule-table";
 import type { Violation } from "@/features/compliance/types";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
+import { ViolationsTrendChart } from "@/features/compliance/components/violations-trend-chart";
 import { DonutChart, StatusDot } from "@/shared/components/charts";
 import { PortfolioSelector } from "@/shared/components/portfolio-selector";
 import { SectionPanel, ToolbarTab } from "@/shared/components/section-panel";
@@ -175,8 +176,8 @@ export function CompliancePageClient() {
       {activeTab === "dashboard" && (
         <SectionPanel title="Compliance Officer Dashboard" tabs={tabs}>
           <div className="p-3 space-y-3">
-            {/* KPI Strip */}
-            <div className="grid grid-cols-5 gap-3">
+            {/* KPI Strip — Tailwind UI stats/05-shared-borders pattern */}
+            <dl className="grid grid-cols-5 gap-px overflow-hidden rounded-lg bg-[var(--border)]">
               <KpiTile
                 label="Total Violations"
                 value={String(violations?.length ?? 0)}
@@ -196,7 +197,10 @@ export function CompliancePageClient() {
                 }
                 color="var(--success)"
               />
-            </div>
+            </dl>
+
+            {/* 30-day violations trend */}
+            <ViolationsTrendChart violations={violations ?? []} />
 
             {/* Charts row: Donut + Violation breakdown by rule */}
             <div className="grid grid-cols-12 gap-3">
@@ -257,20 +261,20 @@ export function CompliancePageClient() {
                     View all &rarr;
                   </button>
                 </div>
-                <table className="w-full text-sm">
+                <table className="min-w-full divide-y divide-[var(--border)]">
                   <thead>
-                    <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)] text-left text-xs text-[var(--muted-foreground)]">
-                      <th className="px-3 py-1.5 font-medium">Severity</th>
-                      <th className="px-3 py-1.5 font-medium">Rule</th>
-                      <th className="px-3 py-1.5 font-medium">Message</th>
-                      <th className="px-3 py-1.5 font-medium text-right">Detected</th>
+                    <tr>
+                      <th scope="col" className="px-3 py-2 text-left text-xs font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Severity</th>
+                      <th scope="col" className="px-3 py-2 text-left text-xs font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Rule</th>
+                      <th scope="col" className="px-3 py-2 text-left text-xs font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Message</th>
+                      <th scope="col" className="px-3 py-2 text-right text-xs font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Detected</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-[var(--table-border)]">
                     {violations.slice(0, 8).map((v) => (
                       <tr
                         key={v.id}
-                        className="border-b border-[var(--table-border)] last:border-0 hover:bg-[var(--table-row-hover)]"
+                        className="transition-colors hover:bg-[var(--table-row-hover)]"
                       >
                         <td className="px-3 py-1.5">
                           <span
@@ -557,13 +561,13 @@ export function CompliancePageClient() {
 
 function KpiTile({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div className="rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-center">
-      <p className="font-mono text-xl font-bold" style={color ? { color } : undefined}>
+    <div className="bg-[var(--card)] px-3 py-2 text-center">
+      <dd className="font-mono text-xl font-bold" style={color ? { color } : undefined}>
         {value}
-      </p>
-      <p className="mt-0.5 text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">
+      </dd>
+      <dt className="mt-0.5 text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">
         {label}
-      </p>
+      </dt>
     </div>
   );
 }
@@ -600,20 +604,20 @@ function ViolationsByRule({
   }
 
   return (
-    <table className="w-full text-sm">
+    <table className="min-w-full divide-y divide-[var(--border)]">
       <thead>
-        <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)] text-left text-xs text-[var(--muted-foreground)]">
-          <th className="px-3 py-1.5 font-medium">Rule</th>
-          <th className="px-3 py-1.5 font-medium">Severity</th>
-          <th className="px-3 py-1.5 font-medium text-right">Count</th>
-          <th className="px-3 py-1.5" />
+        <tr>
+          <th scope="col" className="px-3 py-2 text-left text-xs font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Rule</th>
+          <th scope="col" className="px-3 py-2 text-left text-xs font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Severity</th>
+          <th scope="col" className="px-3 py-2 text-right text-xs font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Count</th>
+          <th scope="col" className="px-3 py-2" />
         </tr>
       </thead>
-      <tbody>
+      <tbody className="divide-y divide-[var(--table-border)]">
         {grouped.map(([ruleName, { count, severity }]) => (
           <tr
             key={ruleName}
-            className="border-b border-[var(--table-border)] last:border-0 hover:bg-[var(--table-row-hover)]"
+            className="transition-colors hover:bg-[var(--table-row-hover)]"
           >
             <td className="px-3 py-1.5 text-xs font-medium">{ruleName}</td>
             <td className="px-3 py-1.5">

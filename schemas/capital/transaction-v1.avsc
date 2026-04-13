@@ -1,0 +1,18 @@
+{
+  "type": "record",
+  "name": "CapitalTransaction",
+  "namespace": "com.minihedge.capital",
+  "doc": "Emitted when a capital subscription, redemption, or allocation occurs.",
+  "fields": [
+    {"name": "investor_id", "type": ["null", "string"], "default": null},
+    {"name": "amount", "type": ["null", "string"], "default": null, "doc": "Decimal as string"},
+    {"name": "shares", "type": ["null", "string"], "default": null, "doc": "Decimal as string"},
+    {"name": "shares_redeemed", "type": ["null", "string"], "default": null},
+    {"name": "nav_per_share", "type": ["null", "string"], "default": null, "doc": "Decimal as string"},
+    {"name": "share_class", "type": ["null", "string"], "default": null},
+    {"name": "business_date", "type": ["null", "string"], "default": null, "doc": "ISO date"},
+    {"name": "account_id", "type": ["null", "string"], "default": null},
+    {"name": "accounts_allocated", "type": ["null", "int"], "default": null},
+    {"name": "fund_pnl", "type": ["null", "string"], "default": null}
+  ]
+}

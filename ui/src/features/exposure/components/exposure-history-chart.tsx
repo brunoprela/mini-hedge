@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { exposureHistoryQueryOptions } from "@/features/exposure/api";
+import { LineChart } from "@/shared/components/charts";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 
 const fmt = (v: string) =>
@@ -11,6 +12,18 @@ const fmt = (v: string) =>
     currency: "USD",
     maximumFractionDigits: 0,
   });
+
+const fmtChartY = (v: number) =>
+  Math.abs(v) >= 1_000_000 ? `$${(v / 1_000_000).toFixed(1)}M` : `$${(v / 1_000).toFixed(0)}K`;
+
+/**
+ * Default exposure limits (dollar amounts).
+ * In production these would come from compliance rules or fund configuration.
+ * Set to null to disable a limit line.
+ */
+const GROSS_EXPOSURE_LIMIT: number | null = 50_000_000; // $50M
+const NET_EXPOSURE_UPPER_LIMIT: number | null = 25_000_000; // $25M
+const NET_EXPOSURE_LOWER_LIMIT: number | null = -25_000_000; // -$25M
 
 function toISODate(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -37,10 +50,64 @@ export function ExposureHistoryChart({ portfolioId }: { portfolioId: string }) {
     exposureHistoryQueryOptions(fundSlug, portfolioId, start, end),
   );
 
-  const _maxGross = useMemo(() => {
-    if (!data || data.length === 0) return 1;
-    return Math.max(...data.map((e) => Math.abs(Number(e.gross_value))), 1);
+  const sorted = useMemo(() => {
+    if (!data || data.length === 0) return [];
+    return [...data].sort((a, b) => a.date.localeCompare(b.date));
   }, [data]);
+
+  const chartSeries = useMemo(() => {
+    if (sorted.length < 2) return [];
+    return [
+      {
+        label: "Gross",
+        color: "var(--primary)",
+        data: sorted.map((e) => ({ x: e.date, y: Number(e.gross_value) })),
+      },
+      {
+        label: "Net",
+        color: "var(--warning)",
+        data: sorted.map((e) => ({ x: e.date, y: Number(e.net_value) })),
+      },
+      {
+        label: "Long",
+        color: "var(--success)",
+        dashed: true,
+        data: sorted.map((e) => ({ x: e.date, y: Number(e.long_value) })),
+      },
+      {
+        label: "Short",
+        color: "var(--destructive)",
+        dashed: true,
+        data: sorted.map((e) => ({ x: e.date, y: Number(e.short_value) })),
+      },
+    ];
+  }, [sorted]);
+
+  const limitLines = useMemo(() => {
+    const lines: { value: number; label: string; color?: string; dashed?: boolean }[] = [];
+    if (GROSS_EXPOSURE_LIMIT != null) {
+      lines.push({
+        value: GROSS_EXPOSURE_LIMIT,
+        label: `Gross Limit ${fmtChartY(GROSS_EXPOSURE_LIMIT)}`,
+        color: "var(--destructive)",
+      });
+    }
+    if (NET_EXPOSURE_UPPER_LIMIT != null) {
+      lines.push({
+        value: NET_EXPOSURE_UPPER_LIMIT,
+        label: `Net Limit +${fmtChartY(NET_EXPOSURE_UPPER_LIMIT)}`,
+        color: "var(--destructive)",
+      });
+    }
+    if (NET_EXPOSURE_LOWER_LIMIT != null) {
+      lines.push({
+        value: NET_EXPOSURE_LOWER_LIMIT,
+        label: `Net Limit ${fmtChartY(NET_EXPOSURE_LOWER_LIMIT)}`,
+        color: "var(--destructive)",
+      });
+    }
+    return lines;
+  }, []);
 
   return (
     <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
@@ -66,26 +133,41 @@ export function ExposureHistoryChart({ portfolioId }: { portfolioId: string }) {
 
       {isLoading && <p className="text-xs text-[var(--muted-foreground)]">Loading...</p>}
 
-      {!isLoading && data && data.length > 0 && (
+      {/* Line chart with limit overlays */}
+      {!isLoading && chartSeries.length > 0 && (
+        <div className="mb-4">
+          <LineChart
+            series={chartSeries}
+            height={240}
+            showXLabels
+            xLabelInterval={Math.max(1, Math.floor(sorted.length / 8))}
+            formatY={fmtChartY}
+            referenceLines={limitLines}
+          />
+        </div>
+      )}
+
+      {!isLoading && sorted.length > 0 && (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="min-w-full divide-y divide-[var(--border)] text-sm">
             <thead>
-              <tr className="border-b border-[var(--table-border)] text-left text-xs text-[var(--muted-foreground)]">
-                <th className="bg-[var(--table-header)] px-3 py-1 font-medium">Date</th>
-                <th className="bg-[var(--table-header)] px-3 py-1 font-medium text-right">Long</th>
-                <th className="bg-[var(--table-header)] px-3 py-1 font-medium text-right">Short</th>
-                <th className="bg-[var(--table-header)] px-3 py-1 font-medium text-right">Net</th>
-                <th className="bg-[var(--table-header)] px-3 py-1 font-medium text-right">Gross</th>
+              <tr className="text-left text-xs text-[var(--muted-foreground)]">
+                <th scope="col" className="whitespace-nowrap px-3 py-1 font-semibold">Date</th>
+                <th scope="col" className="whitespace-nowrap px-3 py-1 font-semibold text-right">Long</th>
+                <th scope="col" className="whitespace-nowrap px-3 py-1 font-semibold text-right">Short</th>
+                <th scope="col" className="whitespace-nowrap px-3 py-1 font-semibold text-right">Net</th>
+                <th scope="col" className="whitespace-nowrap px-3 py-1 font-semibold text-right">Gross</th>
                 <th
-                  className="bg-[var(--table-header)] px-3 py-1 font-medium"
+                  scope="col"
+                  className="whitespace-nowrap px-3 py-1 font-semibold"
                   style={{ minWidth: 120 }}
                 >
                   Net / Gross
                 </th>
               </tr>
             </thead>
-            <tbody>
-              {data.map((entry) => {
+            <tbody className="divide-y divide-[var(--table-border)]">
+              {sorted.map((entry) => {
                 const net = Number(entry.net_value);
                 const gross = Number(entry.gross_value);
                 const pct = gross === 0 ? 0 : (net / gross) * 100;
@@ -94,7 +176,7 @@ export function ExposureHistoryChart({ portfolioId }: { portfolioId: string }) {
                 return (
                   <tr
                     key={entry.date}
-                    className="border-b border-[var(--table-border)] hover:bg-[var(--table-row-hover)]"
+                    className="hover:bg-[var(--table-row-hover)]"
                   >
                     <td className="px-3 py-1.5 font-mono text-xs">{entry.date}</td>
                     <td className="px-3 py-1.5 text-right text-[var(--success)]">

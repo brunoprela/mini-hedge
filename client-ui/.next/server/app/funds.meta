@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/(portal)/layout,_N_T_/(portal)/funds/layout,_N_T_/(portal)/funds/page,_N_T_/funds"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/!KHBvcnRhbCk/funds/__PAGE__",
+    "/!KHBvcnRhbCk/funds",
+    "/!KHBvcnRhbCk",
+    "/_index",
+    "/_head"
+  ]
+}

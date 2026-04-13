@@ -1,9 +1,11 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Download } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { SortableHeader, TablePagination, TableSearch } from "@/shared/components/table-controls";
+import { useExportCSV } from "@/shared/hooks/use-export-csv";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { usePermission } from "@/shared/hooks/use-permission";
 import { useTableState } from "@/shared/hooks/use-table-state";
@@ -57,6 +59,7 @@ export function RuleTable() {
 
   const [dialogRule, setDialogRule] = useState<RuleDefinition | undefined>();
   const [showDialog, setShowDialog] = useState(false);
+  const exportCSV = useExportCSV();
 
   const canWrite = can(Permission.COMPLIANCE_WRITE);
 
@@ -90,6 +93,18 @@ export function RuleTable() {
     },
   });
 
+  const handleExport = () => {
+    if (!rules || rules.length === 0) return;
+    const exportData = rules.map((r) => ({
+      name: r.name,
+      rule_type: r.rule_type,
+      severity: r.severity,
+      parameters: JSON.stringify(r.parameters),
+      is_active: r.is_active,
+    }));
+    exportCSV(exportData as unknown as Record<string, unknown>[], "compliance-rules");
+  };
+
   function openCreate() {
     setDialogRule(undefined);
     setShowDialog(true);
@@ -112,12 +127,23 @@ export function RuleTable() {
   return (
     <>
       <div className="flex items-center justify-between gap-3">
-        <div className="w-72">
-          <TableSearch
-            value={table.search}
-            onChange={table.setSearch}
-            placeholder="Search rules..."
-          />
+        <div className="flex items-center gap-2">
+          <div className="w-72">
+            <TableSearch
+              value={table.search}
+              onChange={table.setSearch}
+              placeholder="Search rules..."
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleExport}
+            title="Export to CSV"
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+          >
+            <Download className="h-4 w-4" />
+            CSV
+          </button>
         </div>
         {canWrite && (
           <button
@@ -131,9 +157,9 @@ export function RuleTable() {
       </div>
 
       <div className="overflow-x-auto rounded-md border border-[var(--border)] bg-[var(--card)]">
-        <table className="w-full text-sm">
+        <table className="min-w-full divide-y divide-[var(--border)] text-sm">
           <thead>
-            <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
+            <tr>
               <SortableHeader<keyof Record<string, unknown>>
                 label="Name"
                 sortKey="name"
@@ -175,7 +201,7 @@ export function RuleTable() {
               )}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-[var(--table-border)]">
             {table.rows.length === 0 && (
               <tr>
                 <td
@@ -191,7 +217,7 @@ export function RuleTable() {
               return (
                 <tr
                   key={rule.id}
-                  className="border-b border-[var(--table-border)] last:border-0 hover:bg-[var(--table-row-hover)]"
+                  className="transition-colors hover:bg-[var(--table-row-hover)]"
                 >
                   <td className="px-3 py-1.5 font-medium">{rule.name}</td>
                   <td className="px-3 py-1.5">{formatRuleType(rule.rule_type)}</td>

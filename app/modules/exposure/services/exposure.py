@@ -9,9 +9,11 @@ from uuid import UUID
 
 import structlog
 
-from app.modules.exposure.core.calculator import calculate_exposure
+from app.modules.exposure.core.calculator import calculate_drilldown, calculate_exposure
 from app.modules.exposure.core.normalizers import EXPOSURE_NORMALIZERS, ExposureNormalizer
 from app.modules.exposure.interfaces import (
+    DimensionDrilldown,
+    ExposureDimension,
     ExposureSnapshot,
     PortfolioExposure,
     PositionValue,
@@ -59,15 +61,15 @@ class ExposureService:
         self._base_currency = base_currency
         self._normalizers = normalizers or EXPOSURE_NORMALIZERS
 
-    async def get_current(
+    async def _build_position_values(
         self, portfolio_id: UUID, *, session: AsyncSession | None = None
-    ) -> PortfolioExposure:
-        """Calculate current exposure from live positions."""
+    ) -> list[PositionValue]:
+        """Build valued position list from live positions + security master."""
         positions = await self._position_service.get_by_portfolio(portfolio_id, session=session)
         instruments = await self._security_master_service.get_all_active(session=session)
         instr_map = {i.ticker: i for i in instruments}
 
-        position_values = []
+        position_values: list[PositionValue] = []
         for pos in positions:
             if pos.quantity == ZERO:
                 continue
@@ -90,7 +92,26 @@ class ExposureService:
                     currency=pos.currency,
                 )
             )
+        return position_values
+
+    async def get_current(
+        self, portfolio_id: UUID, *, session: AsyncSession | None = None
+    ) -> PortfolioExposure:
+        """Calculate current exposure from live positions."""
+        position_values = await self._build_position_values(portfolio_id, session=session)
         return calculate_exposure(portfolio_id, position_values, normalizers=self._normalizers)
+
+    async def get_drilldown(
+        self,
+        portfolio_id: UUID,
+        dimension: ExposureDimension,
+        key: str,
+        *,
+        session: AsyncSession | None = None,
+    ) -> DimensionDrilldown:
+        """Return per-instrument detail for a single dimension key."""
+        position_values = await self._build_position_values(portfolio_id, session=session)
+        return calculate_drilldown(dimension, key, position_values)
 
     async def get_history(
         self,
@@ -156,7 +177,7 @@ class ExposureService:
         )
         await self._exposure_repo.save_snapshot(record, session=session)
         await self._publish_exposure_event(exposure, fund_slug)
-        logger.info(
+        logger.debug(
             "exposure_snapshot_saved",
             portfolio_id=str(portfolio_id),
             gross=str(exposure.gross_exposure),

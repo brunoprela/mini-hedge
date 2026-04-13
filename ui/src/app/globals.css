@@ -180,3 +180,15 @@ table {
   background: var(--primary-muted);
   color: var(--foreground-bright);
 }
+
+/* Flash-on-change animations for live price updates */
+@keyframes flash-up {
+  0% { background-color: var(--success); opacity: 0.3; }
+  100% { background-color: transparent; opacity: 1; }
+}
+@keyframes flash-down {
+  0% { background-color: var(--destructive); opacity: 0.3; }
+  100% { background-color: transparent; opacity: 1; }
+}
+.flash-up { animation: flash-up 0.7s ease-out; }
+.flash-down { animation: flash-down 0.7s ease-out; }

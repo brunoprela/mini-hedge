@@ -82,6 +82,29 @@ class PortfolioExposure(BaseModel):
     breakdowns: dict[str, list[ExposureBreakdown]] = {}
 
 
+class DrilldownItem(BaseModel):
+    """Single instrument within a dimension drill-down."""
+
+    model_config = ConfigDict(frozen=True)
+
+    instrument_id: str
+    long_value: Decimal
+    short_value: Decimal
+    net_value: Decimal
+    gross_value: Decimal
+    weight_pct: Decimal
+
+
+class DimensionDrilldown(BaseModel):
+    """Instruments contributing to a single dimension key (e.g. sector=Technology)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    dimension: str
+    key: str
+    items: list[DrilldownItem]
+
+
 class ExposureSnapshot(BaseModel):
     """Persisted exposure snapshot."""
 

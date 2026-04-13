@@ -12,6 +12,8 @@ from app.modules.exposure.core.normalizers import (
     normalize_exposure,
 )
 from app.modules.exposure.interfaces import (
+    DimensionDrilldown,
+    DrilldownItem,
     ExposureBreakdown,
     ExposureDimension,
     PortfolioExposure,
@@ -124,3 +126,37 @@ def _breakdown_by_dimension(
         )
 
     return result
+
+
+def calculate_drilldown(
+    dimension: ExposureDimension,
+    key: str,
+    positions: list[PositionValue],
+) -> DimensionDrilldown:
+    """Return per-instrument breakdown for positions matching dimension=key."""
+    matching = [p for p in positions if _get_dimension_key(dimension, p) == key]
+    gross_total = sum(
+        (abs(p.market_value) for p in matching),
+        ZERO,
+    )
+
+    items: list[DrilldownItem] = []
+    for pv in matching:
+        mv = pv.market_value
+        long_val = mv if mv > ZERO else ZERO
+        short_val = mv if mv < ZERO else ZERO
+        gross_val = abs(mv)
+        weight = (gross_val / gross_total * 100) if gross_total else ZERO
+        items.append(
+            DrilldownItem(
+                instrument_id=pv.instrument_id,
+                long_value=long_val,
+                short_value=short_val,
+                net_value=mv,
+                gross_value=gross_val,
+                weight_pct=weight,
+            )
+        )
+
+    items.sort(key=lambda i: i.gross_value, reverse=True)
+    return DimensionDrilldown(dimension=dimension.value, key=key, items=items)

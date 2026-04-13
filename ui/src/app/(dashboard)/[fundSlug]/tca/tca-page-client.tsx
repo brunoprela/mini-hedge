@@ -3,17 +3,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
+import { BrokerScorecardComparison } from "@/features/tca/components/broker-scorecard-comparison";
 import { FundTCASummaryCard } from "@/features/tca/components/fund-tca-summary";
 import { TCADashboard } from "@/features/tca/components/tca-dashboard";
 import { PortfolioSelector } from "@/shared/components/portfolio-selector";
 import { SectionPanel, ToolbarTab } from "@/shared/components/section-panel";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 
-type TCATab = "fund" | "portfolio";
+type TCATab = "fund" | "portfolio" | "broker-scorecard";
 
 const TABS: { id: TCATab; label: string }[] = [
   { id: "fund", label: "Fund Summary" },
   { id: "portfolio", label: "Portfolio Detail" },
+  { id: "broker-scorecard", label: "Broker Scorecard" },
 ];
 
 export function TCAPageClient() {
@@ -54,6 +56,7 @@ export function TCAPageClient() {
           {activeTab === "portfolio" && activePortfolioId && (
             <TCADashboard portfolioId={activePortfolioId} />
           )}
+          {activeTab === "broker-scorecard" && <BrokerScorecardComparison />}
         </div>
       </SectionPanel>
     </div>

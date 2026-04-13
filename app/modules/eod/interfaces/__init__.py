@@ -21,6 +21,7 @@ from app.modules.eod.interfaces.run import (
 )
 from app.modules.eod.interfaces.snapshot import (
     FinalizedPrice,
+    NAVHistoryPoint,
     NAVSnapshot,
     PnLSnapshot,
     PriceFinalizationResult,
@@ -39,6 +40,7 @@ __all__ = [
     "EODStepResult",
     "EODStepStatus",
     "FinalizedPrice",
+    "NAVHistoryPoint",
     "NAVSnapshot",
     "PnLSnapshot",
     "PriceFinalizationResult",

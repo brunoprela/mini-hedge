@@ -1,5 +1,7 @@
 "use client";
 
+import type React from "react";
+
 /**
  * Lightweight SVG chart components — no external dependencies.
  */
@@ -13,12 +15,20 @@ interface LineChartSeries {
   dashed?: boolean;
 }
 
+interface ReferenceLine {
+  value: number;
+  label: string;
+  color?: string;
+  dashed?: boolean;
+}
+
 interface LineChartProps {
   series: LineChartSeries[];
   height?: number;
   showXLabels?: boolean;
   xLabelInterval?: number;
   formatY?: (v: number) => string;
+  referenceLines?: ReferenceLine[];
 }
 
 export function LineChart({
@@ -27,14 +37,17 @@ export function LineChart({
   showXLabels = true,
   xLabelInterval = 5,
   formatY,
+  referenceLines,
 }: LineChartProps) {
   if (series.length === 0 || series[0].data.length < 2) {
     return <p className="text-sm text-[var(--muted-foreground)]">Not enough data</p>;
   }
 
   const allY = series.flatMap((s) => s.data.map((d) => d.y));
-  const minY = Math.min(...allY);
-  const maxY = Math.max(...allY);
+  // Include reference line values in Y range so they are always visible
+  const refValues = referenceLines?.map((r) => r.value) ?? [];
+  const minY = Math.min(...allY, ...refValues);
+  const maxY = Math.max(...allY, ...refValues);
   const rangeY = maxY - minY || 1;
 
   const padTop = 16;
@@ -99,6 +112,36 @@ export function LineChart({
           strokeDasharray="4,3"
         />
       )}
+
+      {/* Reference lines (limit overlays) */}
+      {referenceLines?.map((ref) => {
+        const y = toY(ref.value);
+        const lineColor = ref.color ?? "var(--destructive)";
+        return (
+          <g key={ref.label}>
+            <line
+              x1={padLeft}
+              x2={viewW - padRight}
+              y1={y}
+              y2={y}
+              stroke={lineColor}
+              strokeWidth={1}
+              strokeDasharray={ref.dashed !== false ? "6,4" : undefined}
+              opacity={0.8}
+            />
+            <text
+              x={viewW - padRight - 2}
+              y={y - 4}
+              textAnchor="end"
+              fontSize={8}
+              fontWeight={500}
+              fill={lineColor}
+            >
+              {ref.label}
+            </text>
+          </g>
+        );
+      })}
 
       {/* Series */}
       {series.map((s) => {
@@ -168,9 +211,10 @@ interface BarChartItem {
 interface HBarChartProps {
   items: BarChartItem[];
   formatValue?: (v: number) => string;
+  renderLabel?: (label: string) => React.ReactNode;
 }
 
-export function HBarChart({ items, formatValue }: HBarChartProps) {
+export function HBarChart({ items, formatValue, renderLabel }: HBarChartProps) {
   if (items.length === 0) {
     return <p className="text-sm text-[var(--muted-foreground)]">No data</p>;
   }
@@ -191,7 +235,7 @@ export function HBarChart({ items, formatValue }: HBarChartProps) {
         return (
           <div key={item.label} className="flex items-center gap-2 text-xs">
             <span className="w-16 truncate text-right font-mono text-[var(--foreground)]">
-              {item.label}
+              {renderLabel ? renderLabel(item.label) : item.label}
             </span>
             <div className="flex-1">
               <div
@@ -204,6 +248,79 @@ export function HBarChart({ items, formatValue }: HBarChartProps) {
               />
             </div>
             <span className="w-20 text-right font-mono" style={{ color }}>
+              {isPositive ? "+" : ""}
+              {fmt(item.value)}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Diverging Horizontal Bar Chart (centered on zero) ─────
+
+interface DivergingHBarChartProps {
+  items: BarChartItem[];
+  formatValue?: (v: number) => string;
+  renderLabel?: (label: string) => React.ReactNode;
+  positiveColor?: string;
+  negativeColor?: string;
+}
+
+export function DivergingHBarChart({
+  items,
+  formatValue,
+  renderLabel,
+  positiveColor = "var(--primary)",
+  negativeColor = "var(--destructive)",
+}: DivergingHBarChartProps) {
+  if (items.length === 0) {
+    return <p className="text-sm text-[var(--muted-foreground)]">No data</p>;
+  }
+
+  const maxAbs = Math.max(...items.map((i) => Math.abs(i.value)), 0.01);
+  const fmt = formatValue ?? ((v: number) => v.toFixed(4));
+
+  return (
+    <div className="space-y-1">
+      {items.map((item) => {
+        const pct = (Math.abs(item.value) / maxAbs) * 50;
+        const isPositive = item.value >= 0;
+        const color = item.color ?? (isPositive ? positiveColor : negativeColor);
+
+        return (
+          <div key={item.label} className="flex items-center gap-2 text-xs">
+            <span className="w-20 shrink-0 truncate text-right text-[var(--foreground)]">
+              {renderLabel ? renderLabel(item.label) : item.label}
+            </span>
+            <div className="relative flex-1 h-5">
+              {/* Center line */}
+              <div className="absolute left-1/2 top-0 h-full w-px bg-[var(--border)]" />
+              {/* Bar */}
+              {isPositive ? (
+                <div
+                  className="absolute top-0.5 h-4 rounded-r-sm"
+                  style={{
+                    left: "50%",
+                    width: `${Math.max(pct, 1)}%`,
+                    backgroundColor: color,
+                    opacity: 0.8,
+                  }}
+                />
+              ) : (
+                <div
+                  className="absolute top-0.5 h-4 rounded-l-sm"
+                  style={{
+                    right: "50%",
+                    width: `${Math.max(pct, 1)}%`,
+                    backgroundColor: color,
+                    opacity: 0.8,
+                  }}
+                />
+              )}
+            </div>
+            <span className="w-16 shrink-0 text-right font-mono" style={{ color }}>
               {isPositive ? "+" : ""}
               {fmt(item.value)}
             </span>
@@ -556,6 +673,64 @@ export function DonutChart({
         ))}
       </div>
     </div>
+  );
+}
+
+// ─── Spark Line (tiny inline polyline) ─────────────────────
+
+interface SparkLineProps {
+  data: number[];
+  width?: number;
+  height?: number;
+  /** Stroke color — defaults to green/red based on trend */
+  color?: string;
+  strokeWidth?: number;
+}
+
+export function SparkLine({
+  data,
+  width = 64,
+  height = 22,
+  color,
+  strokeWidth = 1.5,
+}: SparkLineProps) {
+  if (data.length < 2) return null;
+
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+
+  const padY = 2;
+  const chartH = height - padY * 2;
+
+  const points = data
+    .map((v, i) => {
+      const x = (i / (data.length - 1)) * width;
+      const y = padY + chartH - ((v - min) / range) * chartH;
+      return `${x},${y}`;
+    })
+    .join(" ");
+
+  const trendColor =
+    color ?? (data[data.length - 1] >= data[0] ? "var(--success)" : "var(--destructive)");
+
+  return (
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      className="inline-block align-middle"
+    >
+      <title>Trend</title>
+      <polyline
+        points={points}
+        fill="none"
+        stroke={trendColor}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 

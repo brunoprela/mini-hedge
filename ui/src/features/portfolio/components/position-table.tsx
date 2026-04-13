@@ -1,12 +1,14 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Download, Filter } from "lucide-react";
+import { ArrowRightLeft, Download, Filter } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { instrumentsQueryOptions } from "@/features/instruments/api";
 import { Can } from "@/shared/components/can";
+import { InstrumentLink } from "@/shared/components/instrument-link";
 import { SortableHeader, TablePagination, TableSearch } from "@/shared/components/table-controls";
+import { useTradeTicket } from "@/shared/components/trade-ticket-provider";
 import { useExportCSV } from "@/shared/hooks/use-export-csv";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { useTableState } from "@/shared/hooks/use-table-state";
@@ -20,7 +22,6 @@ import {
 import { Permission } from "@/shared/lib/permissions";
 import { usePositions } from "../hooks/use-positions";
 import { LotDrawer } from "./lot-drawer";
-import { TradeTicket } from "./trade-ticket";
 
 type GroupBy = "none" | "sector" | "asset_class";
 
@@ -28,8 +29,8 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
   const { fundSlug } = useFundContext();
   const { data: positions, isLoading } = usePositions(portfolioId);
   const { data: instruments } = useQuery(instrumentsQueryOptions(fundSlug));
+  const { openTradeTicket } = useTradeTicket();
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
-  const [showTradeTicket, setShowTradeTicket] = useState(false);
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
   const [showFilters, setShowFilters] = useState(false);
   const [sideFilter, setSideFilter] = useState<"all" | "long" | "short">("all");
@@ -189,7 +190,7 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
           <Can permission={Permission.TRADES_EXECUTE}>
             <button
               type="button"
-              onClick={() => setShowTradeTicket(true)}
+              onClick={() => openTradeTicket({ portfolioId })}
               className="rounded-md bg-[var(--foreground)] px-3 py-1.5 text-sm font-medium text-[var(--background)] transition-colors hover:opacity-90"
             >
               New Trade
@@ -322,9 +323,9 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
         </p>
       ) : (
         <div className="overflow-x-auto rounded-md border border-[var(--border)] bg-[var(--card)]">
-          <table className="w-full text-sm">
+          <table className="min-w-full divide-y divide-[var(--border)] text-sm">
             <thead>
-              <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
+              <tr>
                 <SortableHeader
                   label="Instrument"
                   sortKey="instrument_id"
@@ -419,7 +420,7 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
                   return [
                     <tr
                       key={`group-${groupName}`}
-                      className="border-b border-[var(--table-border)] bg-[var(--table-header)]"
+                      className="bg-[var(--table-header)]"
                     >
                       <td
                         colSpan={5}
@@ -496,10 +497,6 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
           />
         </div>
       )}
-
-      {showTradeTicket && (
-        <TradeTicket portfolioId={portfolioId} onClose={() => setShowTradeTicket(false)} />
-      )}
     </>
   );
 }
@@ -537,10 +534,10 @@ function PositionRow({
     <>
       <tr
         onClick={onToggle}
-        className="cursor-pointer border-b border-[var(--table-border)] last:border-0 hover:bg-[var(--table-row-hover)]"
+        className="cursor-pointer transition-colors hover:bg-[var(--table-row-hover)]"
       >
         <td className="px-3 py-1.5 font-mono font-medium">
-          {pos.instrument_id}
+          <InstrumentLink instrument={pos.instrument_id} />
           <span className="ml-1 text-xs text-[var(--muted-foreground)]">
             {expanded ? "▼" : "▶"}
           </span>

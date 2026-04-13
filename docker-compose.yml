@@ -537,7 +537,7 @@ services:
       KEYCLOAK_OPS_REALM: "minihedge-ops"
       KEYCLOAK_OPS_CLIENT_ID: "mini-hedge-ops-ui"
       APP_ENV: "local"
-      LOG_LEVEL: "DEBUG"
+      LOG_LEVEL: "INFO"
       MOCK_EXCHANGE_URL: "http://mock-exchange:8100"
       MOCK_EXCHANGE_KAFKA_BOOTSTRAP_SERVERS: "mock-exchange-kafka:29092"
       MARKET_DATA_SOURCE: "mock-exchange"

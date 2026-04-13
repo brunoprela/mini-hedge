@@ -25,31 +25,31 @@ export function RemediationPanel({ portfolioId }: { portfolioId: string; fundSlu
         Suggested Remediation Trades
       </h3>
       <div className="overflow-x-auto rounded-md border border-[var(--border)] bg-[var(--card)]">
-        <table className="w-full text-sm">
+        <table className="min-w-full divide-y divide-[var(--border)] text-sm">
           <thead>
-            <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
-              <th className="px-3 py-1.5 text-left text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+            <tr>
+              <th scope="col" className="whitespace-nowrap px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
                 Instrument
               </th>
-              <th className="px-3 py-1.5 text-left text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+              <th scope="col" className="whitespace-nowrap px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
                 Side
               </th>
-              <th className="px-3 py-1.5 text-left text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+              <th scope="col" className="whitespace-nowrap px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
                 Quantity
               </th>
-              <th className="px-3 py-1.5 text-left text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+              <th scope="col" className="whitespace-nowrap px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
                 Reason
               </th>
-              <th className="px-3 py-1.5 text-left text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+              <th scope="col" className="whitespace-nowrap px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
                 Action
               </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-[var(--table-border)]">
             {suggestions.map((s) => (
               <tr
                 key={`${s.violation_id}-${s.instrument_id}`}
-                className="border-b border-[var(--table-border)] last:border-0 hover:bg-[var(--table-row-hover)]"
+                className="hover:bg-[var(--table-row-hover)]"
               >
                 <td className="px-3 py-1.5 font-medium">{s.instrument_id}</td>
                 <td className="px-3 py-1.5">

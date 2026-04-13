@@ -47,6 +47,14 @@ class NAVSnapshot(BaseModel):
     computed_at: datetime
 
 
+class NAVHistoryPoint(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    business_date: date
+    nav: Decimal
+    nav_per_share: Decimal
+
+
 class PnLSnapshot(BaseModel):
     model_config = ConfigDict(frozen=True)
 

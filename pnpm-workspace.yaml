@@ -1,4 +1,5 @@
 packages:
   - "ui"
   - "ops-ui"
+  - "client-ui"
   - "packages/*"

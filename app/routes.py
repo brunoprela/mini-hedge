@@ -40,7 +40,7 @@ from app.modules.platform.routes import dlq_router as platform_dlq_router
 from app.modules.platform.routes import router as platform_router
 from app.modules.positions.routes import router as positions_router
 from app.modules.quant_research.routes import router as quant_research_router
-from app.modules.realtime.routes import router as realtime_router
+from app.shared.realtime.routes import router as realtime_router
 from app.modules.regulatory.routes import router as regulatory_router
 from app.modules.risk_engine.routes import counterparty_router as risk_counterparty_router
 from app.modules.risk_engine.routes import liquidity_margin_router as risk_liquidity_margin_router

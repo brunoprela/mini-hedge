@@ -59,79 +59,80 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
     seeded = 0
     now = datetime.now(UTC)
     for fund in active_funds:
-        portfolios = await portfolio_repo.get_by_fund(fund.id)
-        for portfolio in portfolios:
-            existing = await exposure_repo.get_latest(UUID(portfolio.id))
-            if existing is not None:
-                continue
+        async with sf.fund_scope(fund.slug):
+            portfolios = await portfolio_repo.get_by_fund(fund.id)
+            for portfolio in portfolios:
+                existing = await exposure_repo.get_latest(UUID(portfolio.id))
+                if existing is not None:
+                    continue
 
-            # Base NAV for scaling
-            nav = Decimal("10000000")
+                # Base NAV for scaling
+                nav = Decimal("10000000")
 
-            # Create 3 days of snapshots
-            for day_offset in range(3, 0, -1):
-                snap_id = str(uuid4())
-                snap_time = now - timedelta(days=day_offset)
+                # Create 3 days of snapshots
+                for day_offset in range(3, 0, -1):
+                    snap_id = str(uuid4())
+                    snap_time = now - timedelta(days=day_offset)
 
-                long_total = nav * Decimal("1.0")
-                short_total = nav * Decimal("0.20")
+                    long_total = nav * Decimal("1.0")
+                    short_total = nav * Decimal("0.20")
 
-                breakdown_rows = []
-                # Sector breakdowns
-                for sector, long_pct, short_pct in _SECTOR_WEIGHTS:
-                    long_val = long_total * long_pct
-                    short_val = short_total * short_pct
-                    net_val = long_val - short_val
-                    gross_val = long_val + short_val
-                    breakdown_rows.append(
-                        ExposureSnapshotBreakdownRecord(
-                            id=str(uuid4()),
-                            snapshot_id=snap_id,
-                            dimension="sector",
-                            key=sector,
-                            long_value=long_val,
-                            short_value=short_val,
-                            net_value=net_val,
-                            gross_value=gross_val,
-                            weight_pct=net_val / nav,
+                    breakdown_rows = []
+                    # Sector breakdowns
+                    for sector, long_pct, short_pct in _SECTOR_WEIGHTS:
+                        long_val = long_total * long_pct
+                        short_val = short_total * short_pct
+                        net_val = long_val - short_val
+                        gross_val = long_val + short_val
+                        breakdown_rows.append(
+                            ExposureSnapshotBreakdownRecord(
+                                id=str(uuid4()),
+                                snapshot_id=snap_id,
+                                dimension="sector",
+                                key=sector,
+                                long_value=long_val,
+                                short_value=short_val,
+                                net_value=net_val,
+                                gross_value=gross_val,
+                                weight_pct=net_val / nav,
+                            )
                         )
-                    )
 
-                # Country breakdowns
-                for country, long_pct, short_pct in _COUNTRY_WEIGHTS:
-                    long_val = long_total * long_pct
-                    short_val = short_total * short_pct
-                    net_val = long_val - short_val
-                    gross_val = long_val + short_val
-                    breakdown_rows.append(
-                        ExposureSnapshotBreakdownRecord(
-                            id=str(uuid4()),
-                            snapshot_id=snap_id,
-                            dimension="country",
-                            key=country,
-                            long_value=long_val,
-                            short_value=short_val,
-                            net_value=net_val,
-                            gross_value=gross_val,
-                            weight_pct=net_val / nav,
+                    # Country breakdowns
+                    for country, long_pct, short_pct in _COUNTRY_WEIGHTS:
+                        long_val = long_total * long_pct
+                        short_val = short_total * short_pct
+                        net_val = long_val - short_val
+                        gross_val = long_val + short_val
+                        breakdown_rows.append(
+                            ExposureSnapshotBreakdownRecord(
+                                id=str(uuid4()),
+                                snapshot_id=snap_id,
+                                dimension="country",
+                                key=country,
+                                long_value=long_val,
+                                short_value=short_val,
+                                net_value=net_val,
+                                gross_value=gross_val,
+                                weight_pct=net_val / nav,
+                            )
                         )
-                    )
 
-                record = ExposureSnapshotRecord(
-                    id=snap_id,
-                    portfolio_id=portfolio.id,
-                    gross_exposure=long_total + short_total,
-                    net_exposure=long_total - short_total,
-                    long_exposure=long_total,
-                    short_exposure=short_total,
-                    long_count=25,
-                    short_count=8,
-                    breakdowns={},
-                    snapshot_at=snap_time,
-                    breakdown_rows=breakdown_rows,
-                )
-                await exposure_repo.save_snapshot(record)
-                seeded += 1
+                    record = ExposureSnapshotRecord(
+                        id=snap_id,
+                        portfolio_id=portfolio.id,
+                        gross_exposure=long_total + short_total,
+                        net_exposure=long_total - short_total,
+                        long_exposure=long_total,
+                        short_exposure=short_total,
+                        long_count=25,
+                        short_count=8,
+                        breakdowns={},
+                        snapshot_at=snap_time,
+                        breakdown_rows=breakdown_rows,
+                    )
+                    await exposure_repo.save_snapshot(record)
+                    seeded += 1
 
     if seeded:
         logger.info("exposure_seed_complete", snapshots=seeded)

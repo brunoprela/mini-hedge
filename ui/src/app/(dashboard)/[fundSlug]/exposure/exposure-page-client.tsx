@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { exposureQueryOptions } from "@/features/exposure/api";
 import { ExposureBreakdowns } from "@/features/exposure/components/exposure-breakdowns";
+import { ExposureComparison } from "@/features/exposure/components/exposure-comparison";
 import { ExposureHistoryChart } from "@/features/exposure/components/exposure-history-chart";
 import { useExposureSummary } from "@/features/exposure/components/exposure-summary";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
@@ -23,9 +24,11 @@ export function ExposurePageClient() {
   const { fundSlug } = useFundContext();
   const { data: portfolios, isLoading } = useQuery(portfoliosQueryOptions(fundSlug));
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string>("");
+  const [comparing, setComparing] = useState(false);
 
   const activePortfolioId = selectedPortfolioId || portfolios?.[0]?.id || "";
   const exposureSummary = useExposureSummary(activePortfolioId);
+  const canCompare = (portfolios?.length ?? 0) > 1;
 
   const { data: exposure } = useQuery({
     ...exposureQueryOptions(fundSlug, activePortfolioId),
@@ -40,18 +43,39 @@ export function ExposurePageClient() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h1 className="text-sm font-semibold">Exposure</h1>
-        {portfolios && (
-          <PortfolioSelector
-            portfolios={portfolios}
-            value={activePortfolioId}
-            onChange={setSelectedPortfolioId}
-          />
-        )}
+        <div className="flex items-center gap-2">
+          {canCompare && (
+            <button
+              type="button"
+              onClick={() => setComparing((v) => !v)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                comparing
+                  ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                  : "border border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+              }`}
+            >
+              Compare Portfolios
+            </button>
+          )}
+          {!comparing && portfolios && (
+            <PortfolioSelector
+              portfolios={portfolios}
+              value={activePortfolioId}
+              onChange={setSelectedPortfolioId}
+            />
+          )}
+        </div>
       </div>
 
       {isLoading && <p className="text-xs text-[var(--muted-foreground)]">Loading...</p>}
 
-      {activePortfolioId && exposure && (
+      {/* Cross-portfolio comparison mode */}
+      {comparing && portfolios && portfolios.length > 1 && (
+        <ExposureComparison fundSlug={fundSlug} portfolios={portfolios} />
+      )}
+
+      {/* Single-portfolio mode */}
+      {!comparing && activePortfolioId && exposure && (
         <>
           {/* Summary strip */}
           {exposureSummary && (

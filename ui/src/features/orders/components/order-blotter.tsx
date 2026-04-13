@@ -27,6 +27,7 @@ import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { usePermission } from "@/shared/hooks/use-permission";
 import { useTableState } from "@/shared/hooks/use-table-state";
 import { Permission } from "@/shared/lib/permissions";
+import type { OrderSummary } from "../types";
 import { cancelOrder, ordersQueryOptions } from "../api";
 import { AlgoTypeBadge, OrderStateBadge } from "./order-state-badge";
 
@@ -94,17 +95,29 @@ const CANCELLABLE_STATES = new Set([
 
 export function OrderBlotter({
   portfolioId,
+  orders: externalOrders,
+  portfolioNameMap,
   onSelectOrder,
   selectedOrderId,
 }: {
-  portfolioId: string;
+  /** Portfolio ID for single-portfolio mode. Undefined in cross-portfolio mode. */
+  portfolioId?: string;
+  /** Pre-fetched orders (used in cross-portfolio mode). When provided, skips internal fetch. */
+  orders?: OrderSummary[];
+  /** Map of portfolio ID → name, shown as a column in cross-portfolio mode. */
+  portfolioNameMap?: Map<string, string>;
   onSelectOrder?: (orderId: string | null) => void;
   selectedOrderId?: string | null;
 }) {
   const { fundSlug } = useFundContext();
   const { can } = usePermission();
   const queryClient = useQueryClient();
-  const { data: orders, isLoading } = useQuery(ordersQueryOptions(fundSlug, portfolioId));
+  const { data: fetchedOrders, isLoading } = useQuery({
+    ...ordersQueryOptions(fundSlug, portfolioId ?? ""),
+    enabled: !!portfolioId,
+  });
+  const orders = externalOrders ?? fetchedOrders;
+  const isCrossPortfolio = !!portfolioNameMap;
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const exportCSV = useExportCSV();
@@ -115,7 +128,7 @@ export function OrderBlotter({
     mutationFn: (orderId: string) => cancelOrder(fundSlug, orderId),
     onMutate: (orderId) => setCancellingId(orderId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["orders", fundSlug, portfolioId] });
+      queryClient.invalidateQueries({ queryKey: ["orders", fundSlug] });
       toast.success("Order cancelled");
     },
     onError: (err: Error) => {
@@ -163,12 +176,15 @@ export function OrderBlotter({
     data: filteredOrders as unknown as Record<string, unknown>[],
     initialSort: { key: "created_at", direction: "desc" },
     pageSize: 20,
-    searchKeys: ["instrument_id", "side", "state"],
+    searchKeys: ["id", "instrument_id", "side", "state", ...(isCrossPortfolio ? ["portfolio_id"] : [])],
   });
 
   const handleExport = () => {
     if (!filteredOrders || filteredOrders.length === 0) return;
     const exportData = filteredOrders.map((o) => ({
+      ...(isCrossPortfolio
+        ? { portfolio: portfolioNameMap?.get(o.portfolio_id) ?? o.portfolio_id }
+        : {}),
       instrument: o.instrument_id,
       side: o.side,
       type: o.order_type,
@@ -181,7 +197,10 @@ export function OrderBlotter({
       state: o.state,
       created_at: o.created_at,
     }));
-    exportCSV(exportData as unknown as Record<string, unknown>[], `orders-${portfolioId}`);
+    exportCSV(
+      exportData as unknown as Record<string, unknown>[],
+      isCrossPortfolio ? "orders-all-portfolios" : `orders-${portfolioId}`,
+    );
   };
 
   if (isLoading) {
@@ -268,6 +287,15 @@ export function OrderBlotter({
                 direction={table.sortDirection}
                 onSort={table.onSort}
               />
+              {isCrossPortfolio && (
+                <SortableHeader
+                  label="Portfolio"
+                  sortKey="portfolio_id"
+                  currentSort={table.sortKey}
+                  direction={table.sortDirection}
+                  onSort={table.onSort}
+                />
+              )}
               <SortableHeader
                 label="Side"
                 sortKey="side"
@@ -376,6 +404,12 @@ export function OrderBlotter({
                       ) : null}
                     </span>
                   </td>
+                  {isCrossPortfolio && (
+                    <td className="px-2 py-2 text-xs whitespace-nowrap text-[var(--muted-foreground)]">
+                      {portfolioNameMap?.get(order.portfolio_id as string) ??
+                        (order.portfolio_id as string)}
+                    </td>
+                  )}
                   <td className="px-2 py-2 text-sm whitespace-nowrap">
                     <span
                       className={`text-xs font-medium uppercase ${

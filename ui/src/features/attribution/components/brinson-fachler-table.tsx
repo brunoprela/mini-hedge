@@ -1,10 +1,13 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { WaterfallChart } from "@/shared/components/charts";
+import { InstrumentLink } from "@/shared/components/instrument-link";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { brinsonFachlerQueryOptions } from "../api";
+import type { SectorAttribution } from "../types";
+import { ActiveReturnWaterfall } from "./active-return-waterfall";
 
 interface Props {
   portfolioId: string;
@@ -21,6 +24,7 @@ export function BrinsonFachlerTable({ portfolioId, start, end }: Props) {
   const { data, isLoading } = useQuery(
     brinsonFachlerQueryOptions(fundSlug, portfolioId, start, end),
   );
+  const [expandedSector, setExpandedSector] = useState<string | null>(null);
 
   const waterfallItems = useMemo(() => {
     if (!data) return [];
@@ -63,6 +67,9 @@ export function BrinsonFachlerTable({ portfolioId, start, end }: Props) {
         />
       </div>
 
+      {/* Active return waterfall by sector */}
+      <ActiveReturnWaterfall data={data} />
+
       {/* Contribution cards */}
       <div className="grid grid-cols-3 gap-2">
         <SummaryCard label="Total Allocation" value={pct(data.total_allocation)} />
@@ -88,31 +95,16 @@ export function BrinsonFachlerTable({ portfolioId, start, end }: Props) {
           </thead>
           <tbody>
             {data.sectors.map((s) => {
-              const totalEffect = parseFloat(s.total_effect);
+              const isExpanded = expandedSector === s.sector;
+              const hasInstruments = !!(s.instruments && s.instruments.length > 0);
               return (
-                <tr key={s.sector} className="border-b border-[var(--border)] last:border-0">
-                  <td className="px-3 py-1 font-medium">{s.sector}</td>
-                  <td className="px-3 py-2 text-right font-mono">{pct(s.portfolio_weight)}</td>
-                  <td className="px-3 py-2 text-right font-mono">{pct(s.benchmark_weight)}</td>
-                  <td className="px-3 py-2 text-right font-mono">{pct(s.portfolio_return)}</td>
-                  <td className="px-3 py-2 text-right font-mono">{pct(s.benchmark_return)}</td>
-                  <td className="px-3 py-2 text-right font-mono">{pct(s.allocation_effect)}</td>
-                  <td className="px-3 py-2 text-right font-mono">{pct(s.selection_effect)}</td>
-                  <td className="px-3 py-2 text-right font-mono">{pct(s.interaction_effect)}</td>
-                  <td
-                    className="px-3 py-2 text-right font-mono font-semibold"
-                    style={{
-                      color:
-                        totalEffect > 0
-                          ? "var(--success)"
-                          : totalEffect < 0
-                            ? "var(--destructive)"
-                            : undefined,
-                    }}
-                  >
-                    {pct(s.total_effect)}
-                  </td>
-                </tr>
+                <SectorRow
+                  key={s.sector}
+                  sector={s}
+                  isExpanded={isExpanded}
+                  hasInstruments={hasInstruments}
+                  onToggle={() => setExpandedSector(isExpanded ? null : s.sector)}
+                />
               );
             })}
             {data.sectors.length === 0 && (
@@ -126,6 +118,107 @@ export function BrinsonFachlerTable({ portfolioId, start, end }: Props) {
         </table>
       </div>
     </div>
+  );
+}
+
+function SectorRow({
+  sector,
+  isExpanded,
+  hasInstruments,
+  onToggle,
+}: {
+  sector: SectorAttribution;
+  isExpanded: boolean;
+  hasInstruments: boolean;
+  onToggle: () => void;
+}) {
+  const totalEffect = parseFloat(sector.total_effect);
+
+  return (
+    <>
+      <tr
+        className={`border-b border-[var(--border)] last:border-0 ${hasInstruments ? "cursor-pointer" : ""} ${isExpanded ? "bg-[var(--table-row-hover)]" : "hover:bg-[var(--table-row-hover)]"}`}
+        onClick={hasInstruments ? onToggle : undefined}
+      >
+        <td className="px-3 py-1 font-medium">
+          <span className="flex items-center gap-1">
+            {hasInstruments && (
+              <span
+                className="inline-block w-3 text-[10px] text-[var(--muted-foreground)] transition-transform"
+                style={{ transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)" }}
+              >
+                &#9654;
+              </span>
+            )}
+            {sector.sector}
+          </span>
+        </td>
+        <td className="px-3 py-2 text-right font-mono">{pct(sector.portfolio_weight)}</td>
+        <td className="px-3 py-2 text-right font-mono">{pct(sector.benchmark_weight)}</td>
+        <td className="px-3 py-2 text-right font-mono">{pct(sector.portfolio_return)}</td>
+        <td className="px-3 py-2 text-right font-mono">{pct(sector.benchmark_return)}</td>
+        <td className="px-3 py-2 text-right font-mono">{pct(sector.allocation_effect)}</td>
+        <td className="px-3 py-2 text-right font-mono">{pct(sector.selection_effect)}</td>
+        <td className="px-3 py-2 text-right font-mono">{pct(sector.interaction_effect)}</td>
+        <td
+          className="px-3 py-2 text-right font-mono font-semibold"
+          style={{
+            color:
+              totalEffect > 0
+                ? "var(--success)"
+                : totalEffect < 0
+                  ? "var(--destructive)"
+                  : undefined,
+          }}
+        >
+          {pct(sector.total_effect)}
+        </td>
+      </tr>
+      {isExpanded && hasInstruments && (
+        <>
+          {sector.instruments?.map((inst) => {
+            const contribution = parseFloat(inst.contribution);
+            return (
+              <tr
+                key={inst.instrument_id}
+                className="border-b border-[var(--table-border)] bg-[var(--table-header)] last:border-b-0"
+              >
+                <td className="py-1 pl-7 pr-3">
+                  <InstrumentLink instrument={inst.instrument_id} />
+                </td>
+                <td className="px-3 py-1 text-right font-mono text-[var(--muted-foreground)]">
+                  {pct(inst.portfolio_weight)}
+                </td>
+                <td className="px-3 py-1 text-right font-mono text-[var(--muted-foreground)]">
+                  {pct(inst.benchmark_weight)}
+                </td>
+                <td className="px-3 py-1 text-right font-mono text-[var(--muted-foreground)]">
+                  {pct(inst.portfolio_return)}
+                </td>
+                <td className="px-3 py-1 text-right font-mono text-[var(--muted-foreground)]">
+                  {pct(inst.benchmark_return)}
+                </td>
+                {/* Span across allocation/selection/interaction columns */}
+                <td colSpan={3} />
+                <td
+                  className="px-3 py-1 text-right font-mono text-xs"
+                  style={{
+                    color:
+                      contribution > 0
+                        ? "var(--success)"
+                        : contribution < 0
+                          ? "var(--destructive)"
+                          : undefined,
+                  }}
+                >
+                  {pct(inst.contribution)}
+                </td>
+              </tr>
+            );
+          })}
+        </>
+      )}
+    </>
   );
 }
 

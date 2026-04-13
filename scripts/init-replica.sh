@@ -16,12 +16,19 @@ chmod 0700 "$PGDATA"
 # If PGDATA is empty, bootstrap from primary
 if [ ! -s "$PGDATA/PG_VERSION" ]; then
     echo "replica: no data directory found, running pg_basebackup..."
-    gosu postgres env PGPASSWORD="$REPLICATION_PASSWORD" pg_basebackup \
-        -h "$PRIMARY_HOST" \
-        -p "$PRIMARY_PORT" \
-        -U "$REPLICATION_USER" \
-        -D "$PGDATA" \
-        -Fp -Xs -P -R
+    for i in $(seq 1 10); do
+        if gosu postgres env PGPASSWORD="$REPLICATION_PASSWORD" pg_basebackup \
+            -h "$PRIMARY_HOST" \
+            -p "$PRIMARY_PORT" \
+            -U "$REPLICATION_USER" \
+            -D "$PGDATA" \
+            -Fp -Xs -P -R; then
+            break
+        fi
+        echo "replica: pg_basebackup attempt $i failed, retrying in 3s..."
+        rm -rf "$PGDATA"/*
+        sleep 3
+    done
 
     # -R flag creates standby.signal and sets primary_conninfo in postgresql.auto.conf
     # Override hot_standby to ensure read-only queries work

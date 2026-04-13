@@ -183,24 +183,24 @@ export function FundOverview({ fundSlug }: { fundSlug: string }) {
               Portfolios
             </span>
           </div>
-          <table className="w-full text-sm">
+          <table className="min-w-full divide-y divide-[var(--border)] text-sm">
             <thead>
-              <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
-                <th className="px-3 py-1.5 text-left text-xs font-medium text-[var(--muted-foreground)]">
+              <tr>
+                <th scope="col" className="whitespace-nowrap px-3 py-1.5 text-left text-xs font-semibold text-[var(--muted-foreground)]">
                   Portfolio
                 </th>
-                <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">
+                <th scope="col" className="whitespace-nowrap px-3 py-1.5 text-right text-xs font-semibold text-[var(--muted-foreground)]">
                   NAV
                 </th>
-                <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">
+                <th scope="col" className="whitespace-nowrap px-3 py-1.5 text-right text-xs font-semibold text-[var(--muted-foreground)]">
                   P&L
                 </th>
-                <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">
+                <th scope="col" className="whitespace-nowrap px-3 py-1.5 text-right text-xs font-semibold text-[var(--muted-foreground)]">
                   Positions
                 </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-[var(--table-border)]">
               {portfolios.map((p) => {
                 const summary = summaries.find((s) => s.portfolio_id === p.id);
                 return (
@@ -225,7 +225,7 @@ function PortfolioRow({
   summary?: PortfolioSummary;
 }) {
   return (
-    <tr className="border-b border-[var(--table-border)] last:border-0 transition-colors hover:bg-[var(--table-row-hover)]">
+    <tr className="transition-colors hover:bg-[var(--table-row-hover)]">
       <td className="px-3 py-1.5">
         <Link
           href={`/${fundSlug}/portfolio/${portfolio.id}`}

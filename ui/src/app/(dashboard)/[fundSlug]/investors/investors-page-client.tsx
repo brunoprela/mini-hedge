@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CapitalOverviewCards } from "@/features/investors/components/capital-overview-cards";
 import { CreateInvestorDialog } from "@/features/investors/components/create-investor-dialog";
 import { InvestorTable } from "@/features/investors/components/investor-table";
+import { NavAllocationChart } from "@/features/investors/components/nav-allocation-chart";
 import { usePermission } from "@/shared/hooks/use-permission";
 import { Permission } from "@/shared/lib/permissions";
 
@@ -26,7 +27,10 @@ export function InvestorsPageClient() {
         )}
       </div>
       <CapitalOverviewCards />
-      <InvestorTable />
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_280px]">
+        <InvestorTable />
+        <NavAllocationChart />
+      </div>
       {showCreate && <CreateInvestorDialog onClose={() => setShowCreate(false)} />}
     </div>
   );

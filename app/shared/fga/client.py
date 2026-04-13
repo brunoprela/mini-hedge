@@ -89,6 +89,16 @@ def qualify_object_id(type_name: str, resource_id: str, customer_id: str | None 
     return f"{type_name}:{resource_id}"
 
 
+def unqualify_object_id(object_id: str) -> str:
+    """Extract the resource UUID from a potentially customer-qualified FGA ID.
+
+    ``70000000-…/10000000-…`` → ``10000000-…``
+    ``10000000-…`` → ``10000000-…`` (no-op for unqualified IDs)
+    """
+    parts = object_id.rsplit("/", 1)
+    return parts[-1]
+
+
 def register_resource_type(rt: ResourceType) -> ResourceType:
     """Register a resource type. Returns it for assignment convenience."""
     _resource_registry[rt.name] = rt

@@ -100,10 +100,11 @@ async def setup(
                     if not pid_str:
                         return
                     try:
-                        await risk_snapshot_service.take_snapshot(
-                            UUID(pid_str),
-                            fund_slug=slug,
-                        )
+                        async with sf.fund_scope(slug):
+                            await risk_snapshot_service.take_snapshot(
+                                UUID(pid_str),
+                                fund_slug=slug,
+                            )
                     except Exception:
                         logger.exception(
                             "risk_reactive_snapshot_failed",

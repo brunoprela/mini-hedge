@@ -18,6 +18,7 @@ from app.modules.attribution.interfaces import (
     BrinsonFachlerResult,
     CumulativeAttribution,
     FXAttributionResult,
+    InstrumentAttribution,
     PositionFXAttribution,
     RiskBasedResult,
     RiskFactorAttribution,
@@ -118,6 +119,26 @@ def calculate_brinson_fachler(
         total_selection += selection
         total_interaction += interaction
 
+        # Instrument-level detail within this sector
+        inst_details: list[InstrumentAttribution] = []
+        for iid in sector_ids:
+            i_pw = portfolio_weights.get(iid, 0.0)
+            i_bw = benchmark_weights.get(iid, 0.0)
+            i_pr = portfolio_returns.get(iid, 0.0)
+            i_br = benchmark_returns.get(iid, 0.0)
+            # Contribution = weight * (portfolio return - benchmark return)
+            i_contribution = i_pw * (i_pr - i_br)
+            inst_details.append(
+                InstrumentAttribution(
+                    instrument_id=iid,
+                    portfolio_weight=_to_dec6(i_pw),
+                    benchmark_weight=_to_dec6(i_bw),
+                    portfolio_return=_to_dec6(i_pr),
+                    benchmark_return=_to_dec6(i_br),
+                    contribution=_to_dec6(i_contribution),
+                )
+            )
+
         sector_results.append(
             SectorAttribution(
                 sector=sector,
@@ -129,6 +150,7 @@ def calculate_brinson_fachler(
                 selection_effect=_to_dec6(selection),
                 interaction_effect=_to_dec6(interaction),
                 total_effect=_to_dec6(total),
+                instruments=inst_details,
             )
         )
 

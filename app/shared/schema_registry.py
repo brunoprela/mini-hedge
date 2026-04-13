@@ -169,6 +169,9 @@ def load_schemas() -> None:
         AuditEventType.RISK_UPDATED: "risk/updated-v1.avsc",
         AuditEventType.CASH_SETTLEMENT_CREATED: "cash/settlement-v1.avsc",
         AuditEventType.CASH_SETTLEMENT_SETTLED: "cash/settlement-v1.avsc",
+        AuditEventType.CAPITAL_SUBSCRIPTION: "capital/transaction-v1.avsc",
+        AuditEventType.CAPITAL_REDEMPTION: "capital/transaction-v1.avsc",
+        AuditEventType.CAPITAL_ALLOCATION: "capital/transaction-v1.avsc",
     }
     for event_type, schema_file in event_schemas.items():
         schema = _load_avsc(_SCHEMA_DIR / schema_file)

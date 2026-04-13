@@ -3,6 +3,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
+import { InstrumentLink } from "@/shared/components/instrument-link";
+import { useTradeTicket } from "@/shared/components/trade-ticket-provider";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { runOptimization } from "../api";
 import type { OptimizationResult } from "../types";
@@ -15,6 +17,7 @@ const OBJECTIVES = [
 
 export function OptimizationPanel({ portfolioId }: { portfolioId: string }) {
   const { fundSlug } = useFundContext();
+  const { openTradeTicket } = useTradeTicket();
   const queryClient = useQueryClient();
 
   const [objective, setObjective] = useState<string>("min_variance");
@@ -118,13 +121,19 @@ export function OptimizationPanel({ portfolioId }: { portfolioId: string }) {
                     <th className="pb-2 pr-4 text-right">Target Weight</th>
                     <th className="pb-2 pr-4 text-right">Delta Weight</th>
                     <th className="pb-2 pr-4 text-right">Delta Shares</th>
-                    <th className="pb-2 text-right">Delta Value</th>
+                    <th className="pb-2 pr-4 text-right">Delta Value</th>
+                    <th className="pb-2 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {result.weights.map((w) => (
                     <tr key={w.instrument_id} className="border-b border-[var(--border)]">
-                      <td className="py-2 pr-4 font-mono font-medium">{w.instrument_id}</td>
+                      <td className="py-2 pr-4">
+                        <InstrumentLink
+                          instrument={w.instrument_id}
+                          side={parseFloat(w.delta_shares) >= 0 ? "buy" : "sell"}
+                        />
+                      </td>
                       <td className="py-2 pr-4 text-right font-mono">{fmtPct(w.current_weight)}</td>
                       <td className="py-2 pr-4 text-right font-mono">{fmtPct(w.target_weight)}</td>
                       <td
@@ -146,13 +155,30 @@ export function OptimizationPanel({ portfolioId }: { portfolioId: string }) {
                         {w.delta_shares}
                       </td>
                       <td
-                        className={`py-2 text-right font-mono ${
+                        className={`py-2 pr-4 text-right font-mono ${
                           parseFloat(w.delta_value) >= 0
                             ? "text-[var(--success)]"
                             : "text-[var(--destructive)]"
                         }`}
                       >
                         {fmtCurrency(w.delta_value)}
+                      </td>
+                      <td className="py-2 text-right">
+                        {parseFloat(w.delta_shares) !== 0 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openTradeTicket({
+                                instrument: w.instrument_id,
+                                side: parseFloat(w.delta_shares) >= 0 ? "buy" : "sell",
+                                quantity: Math.abs(parseFloat(w.delta_shares)).toString(),
+                              })
+                            }
+                            className="rounded-md border border-[var(--border)] px-3 py-1 text-xs font-medium transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
+                          >
+                            Send to Ticket
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}

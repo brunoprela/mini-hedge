@@ -85,28 +85,41 @@ _SEED_ACTIONS = [
 
 async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
     """Idempotent dev-only seeding for processed corporate actions."""
-    repo = getattr(app.state, "corporate_actions_service", None)
-    if repo is None:
+    service = getattr(app.state, "corporate_actions_service", None)
+    if service is None:
         logger.debug("corporate_actions_seed_skipped", reason="service not available")
         return
 
-    ca_repo = app.state.corporate_actions_service._repo
+    fund_repo = getattr(app.state, "fund_repo", None)
+    if fund_repo is None:
+        logger.debug("corporate_actions_seed_skipped", reason="fund_repo not available")
+        return
 
-    for action_data in _SEED_ACTIONS:
-        existing = await ca_repo.get_by_action_id(action_data["action_id"])
-        if existing is not None:
-            continue
+    ca_repo = service._repo
+    active_funds = await fund_repo.get_all_active()
+    seeded = 0
 
-        record = ProcessedCorporateActionRecord(
-            id=str(uuid4()),
-            action_id=action_data["action_id"],
-            instrument_id=action_data["instrument_id"],
-            action_type=action_data["action_type"],
-            ex_date=action_data["ex_date"],
-            status=action_data["status"],
-            adjustments=action_data["adjustments"],
-            processed_at=datetime.now(UTC),
-        )
-        await ca_repo.save(record)
+    for fund in active_funds:
+        async with sf.fund_scope(fund.slug):
+            for action_data in _SEED_ACTIONS:
+                existing = await ca_repo.get_by_action_id(action_data["action_id"])
+                if existing is not None:
+                    continue
 
-    logger.info("corporate_actions_seed_complete", count=len(_SEED_ACTIONS))
+                record = ProcessedCorporateActionRecord(
+                    id=str(uuid4()),
+                    action_id=action_data["action_id"],
+                    instrument_id=action_data["instrument_id"],
+                    action_type=action_data["action_type"],
+                    ex_date=action_data["ex_date"],
+                    status=action_data["status"],
+                    adjustments=action_data["adjustments"],
+                    processed_at=datetime.now(UTC),
+                )
+                await ca_repo.save(record)
+                seeded += 1
+
+    if seeded:
+        logger.info("corporate_actions_seed_complete", count=seeded)
+    else:
+        logger.debug("corporate_actions_seed_skipped", reason="data already exists")

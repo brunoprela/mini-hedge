@@ -87,83 +87,84 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
     now = datetime.now(UTC)
 
     for fund in active_funds:
-        portfolios = await portfolio_repo.get_by_fund(fund.id)
-        if not portfolios:
-            continue
+        async with sf.fund_scope(fund.slug):
+            portfolios = await portfolio_repo.get_by_fund(fund.id)
+            if not portfolios:
+                continue
 
-        # Seed only for the first portfolio per fund
-        portfolio = portfolios[0]
-        pid = portfolio.id
+            # Seed only for the first portfolio per fund
+            portfolio = portfolios[0]
+            pid = portfolio.id
 
-        # Check if already seeded
-        existing = await scenario_repo.get_many(
-            portfolio_id=pid,
-            limit=1,
-        )
-        if existing:
-            continue
-
-        # Seed scenarios
-        for scenario in _SCENARIOS:
-            record = ScenarioRunRecord(
-                id=str(uuid4()),
+            # Check if already seeded
+            existing = await scenario_repo.get_many(
                 portfolio_id=pid,
-                scenario_name=scenario["name"],
-                trades=scenario["trades"],
-                result_summary=scenario["result_summary"],
-                status="completed",
+                limit=1,
+            )
+            if existing:
+                continue
+
+            # Seed scenarios
+            for scenario in _SCENARIOS:
+                record = ScenarioRunRecord(
+                    id=str(uuid4()),
+                    portfolio_id=pid,
+                    scenario_name=scenario["name"],
+                    trades=scenario["trades"],
+                    result_summary=scenario["result_summary"],
+                    status="completed",
+                    created_at=now,
+                )
+                await scenario_repo.save(record)
+                seeded_scenarios += 1
+
+            # Seed one optimization run with weights and intents
+            opt_id = str(uuid4())
+            opt_record = OptimizationRunRecord(
+                id=opt_id,
+                portfolio_id=pid,
+                objective="max_sharpe",
+                expected_return=Decimal("0.0825"),
+                expected_risk=Decimal("0.0412"),
+                sharpe_ratio=Decimal("2.003"),
                 created_at=now,
             )
-            await scenario_repo.save(record)
-            seeded_scenarios += 1
+            await opt_repo.save(opt_record)
 
-        # Seed one optimization run with weights and intents
-        opt_id = str(uuid4())
-        opt_record = OptimizationRunRecord(
-            id=opt_id,
-            portfolio_id=pid,
-            objective="max_sharpe",
-            expected_return=Decimal("0.0825"),
-            expected_risk=Decimal("0.0412"),
-            sharpe_ratio=Decimal("2.003"),
-            created_at=now,
-        )
-        await opt_repo.save(opt_record)
-
-        weights = []
-        intents = []
-        for ticker, current, target, delta, shares, value in _OPT_WEIGHTS:
-            weights.append(
-                OptimizationWeightRecord(
-                    id=str(uuid4()),
-                    optimization_run_id=opt_id,
-                    instrument_id=ticker,
-                    current_weight=current,
-                    target_weight=target,
-                    delta_weight=delta,
-                    delta_shares=shares,
-                    delta_value=value,
-                )
-            )
-            if delta != Decimal(0):
-                intents.append(
-                    OrderIntentRecord(
+            weights = []
+            intents = []
+            for ticker, current, target, delta, shares, value in _OPT_WEIGHTS:
+                weights.append(
+                    OptimizationWeightRecord(
                         id=str(uuid4()),
                         optimization_run_id=opt_id,
-                        portfolio_id=pid,
                         instrument_id=ticker,
-                        side="buy" if delta > 0 else "sell",
-                        quantity=abs(int(shares)),
-                        estimated_value=abs(value),
-                        reason=f"Rebalance {ticker}: {current} → {target}",
-                        status="draft",
-                        created_at=now,
+                        current_weight=current,
+                        target_weight=target,
+                        delta_weight=delta,
+                        delta_shares=shares,
+                        delta_value=value,
                     )
                 )
+                if delta != Decimal(0):
+                    intents.append(
+                        OrderIntentRecord(
+                            id=str(uuid4()),
+                            optimization_run_id=opt_id,
+                            portfolio_id=pid,
+                            instrument_id=ticker,
+                            side="buy" if delta > 0 else "sell",
+                            quantity=abs(int(shares)),
+                            estimated_value=abs(value),
+                            reason=f"Rebalance {ticker}: {current} → {target}",
+                            status="draft",
+                            created_at=now,
+                        )
+                    )
 
-        await weight_repo.save_many(weights)
-        await intent_repo.save_many(intents)
-        seeded_opts += 1
+            await weight_repo.save_many(weights)
+            await intent_repo.save_many(intents)
+            seeded_opts += 1
 
     if seeded_scenarios or seeded_opts:
         logger.info(

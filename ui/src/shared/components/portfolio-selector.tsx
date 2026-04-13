@@ -4,24 +4,39 @@ import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/shared/lib/cn";
 
+/** Sentinel value indicating "all portfolios" are selected. */
+export const ALL_PORTFOLIOS = "__all__" as const;
+
 interface PortfolioSelectorProps {
   portfolios: { id: string; name: string }[];
   value: string;
   onChange: (id: string) => void;
+  /** When true, prepend an "All Portfolios" option. */
+  showAllOption?: boolean;
 }
 
 /**
  * Portfolio selector — renders as horizontal pill tabs when ≤6 portfolios,
  * falls back to dropdown for larger lists.
  */
-export function PortfolioSelector({ portfolios, value, onChange }: PortfolioSelectorProps) {
-  if (portfolios.length <= 1) return null;
+export function PortfolioSelector({
+  portfolios,
+  value,
+  onChange,
+  showAllOption,
+}: PortfolioSelectorProps) {
+  if (portfolios.length <= 1 && !showAllOption) return null;
+
+  const allOption: { id: string; name: string } | null =
+    showAllOption && portfolios.length > 1 ? { id: ALL_PORTFOLIOS, name: "All Portfolios" } : null;
+
+  const items = allOption ? [allOption, ...portfolios] : portfolios;
 
   // Pill tabs for small sets
-  if (portfolios.length <= 6) {
+  if (items.length <= 7) {
     return (
       <div className="flex items-center gap-1">
-        {portfolios.map((p) => (
+        {items.map((p) => (
           <button
             key={p.id}
             type="button"
@@ -41,7 +56,7 @@ export function PortfolioSelector({ portfolios, value, onChange }: PortfolioSele
   }
 
   // Dropdown for large sets
-  return <PortfolioDropdown portfolios={portfolios} value={value} onChange={onChange} />;
+  return <PortfolioDropdown portfolios={items} value={value} onChange={onChange} />;
 }
 
 function PortfolioDropdown({ portfolios, value, onChange }: PortfolioSelectorProps) {

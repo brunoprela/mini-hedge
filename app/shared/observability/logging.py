@@ -57,3 +57,8 @@ def setup_logging(log_level: str = "DEBUG") -> None:
     handler = logging.StreamHandler(sys.stderr)
     handler.setFormatter(formatter)
     root.addHandler(handler)
+
+    # Silence noisy libraries — these flood logs with per-request TCP details
+    # or high-frequency index/audit writes
+    for noisy in ("httpx", "httpcore", "aiokafka", "hpack", "opensearchpy", "opensearch", "elastic_transport"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)

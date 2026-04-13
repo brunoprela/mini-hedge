@@ -2,10 +2,13 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { orderIntentsQueryOptions } from "@/features/alpha/api";
 import { OptimizationPanel } from "@/features/alpha/components/optimization-panel";
+import { OrderIntentGantt } from "@/features/alpha/components/order-intent-gantt";
 import { OrderIntentsTable } from "@/features/alpha/components/order-intents-table";
 import { WhatIfForm } from "@/features/alpha/components/what-if-form";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
+import { CollapsibleSection } from "@/shared/components/collapsible-section";
 import { PortfolioSelector } from "@/shared/components/portfolio-selector";
 import { SectionPanel, ToolbarTab } from "@/shared/components/section-panel";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
@@ -25,6 +28,11 @@ export function AlphaPageClient() {
   const [activeTab, setActiveTab] = useState<AlphaTab>("what-if");
 
   const activePortfolioId = selectedPortfolioId || portfolios?.[0]?.id || "";
+
+  const { data: intents } = useQuery({
+    ...orderIntentsQueryOptions(fundSlug, activePortfolioId),
+    enabled: !!activePortfolioId,
+  });
 
   return (
     <div className="space-y-3">
@@ -59,6 +67,12 @@ export function AlphaPageClient() {
             {activeTab === "intents" && <OrderIntentsTable portfolioId={activePortfolioId} />}
           </div>
         </SectionPanel>
+      )}
+
+      {activePortfolioId && intents && intents.length > 0 && (
+        <CollapsibleSection title="Execution Timeline" defaultOpen={false}>
+          <OrderIntentGantt intents={intents} />
+        </CollapsibleSection>
       )}
     </div>
   );

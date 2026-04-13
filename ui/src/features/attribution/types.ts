@@ -1,6 +1,7 @@
 export type {
   BrinsonFachlerResult,
   CumulativeAttribution,
+  InstrumentAttribution,
   RiskBasedResult,
   RiskFactorAttribution,
   SectorAttribution,

@@ -1,45 +1,30 @@
 "use client";
 
-import { createContext, type ReactNode, useCallback, useContext, useState } from "react";
+import type { ReactNode } from "react";
+import {
+  useTradeTicketStore,
+  type TradeTicketDefaults,
+} from "@/shared/stores/trade-ticket-store";
 
-export interface TradeTicketDefaults {
-  instrument?: string;
-  side?: "buy" | "sell";
-  quantity?: string;
-  portfolioId?: string;
-}
+export type { TradeTicketDefaults };
 
-interface TradeTicketContextValue {
-  isOpen: boolean;
-  defaults: TradeTicketDefaults;
-  openTradeTicket: (defaults?: TradeTicketDefaults) => void;
-  closeTradeTicket: () => void;
-}
-
-const TradeTicketContext = createContext<TradeTicketContextValue | null>(null);
-
+/**
+ * Thin wrapper kept for layout compatibility — no longer holds state.
+ * All state now lives in the Zustand store (`useTradeTicketStore`).
+ */
 export function TradeTicketProvider({ children }: { children: ReactNode }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [defaults, setDefaults] = useState<TradeTicketDefaults>({});
-
-  const openTradeTicket = useCallback((d?: TradeTicketDefaults) => {
-    setDefaults(d ?? {});
-    setIsOpen(true);
-  }, []);
-
-  const closeTradeTicket = useCallback(() => {
-    setIsOpen(false);
-  }, []);
-
-  return (
-    <TradeTicketContext.Provider value={{ isOpen, defaults, openTradeTicket, closeTradeTicket }}>
-      {children}
-    </TradeTicketContext.Provider>
-  );
+  return <>{children}</>;
 }
 
+/**
+ * Drop-in replacement hook.  Consumers get the same
+ * `{ isOpen, defaults, openTradeTicket, closeTradeTicket }` shape.
+ */
 export function useTradeTicket() {
-  const ctx = useContext(TradeTicketContext);
-  if (!ctx) throw new Error("useTradeTicket must be used within TradeTicketProvider");
-  return ctx;
+  const isOpen = useTradeTicketStore((s) => s.isOpen);
+  const defaults = useTradeTicketStore((s) => s.defaults);
+  const openTradeTicket = useTradeTicketStore((s) => s.openTradeTicket);
+  const closeTradeTicket = useTradeTicketStore((s) => s.closeTradeTicket);
+
+  return { isOpen, defaults, openTradeTicket, closeTradeTicket };
 }

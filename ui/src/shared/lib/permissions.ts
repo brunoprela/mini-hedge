@@ -35,6 +35,7 @@ export const Permission = {
   FX_HEDGING_READ: "fx_hedging:read",
   FX_HEDGING_WRITE: "fx_hedging:write",
   EOD_READ: "eod:read",
+  EOD_RUN: "eod:run",
   FEE_READ: "fee:read",
 } as const;
 
@@ -67,6 +68,7 @@ export const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     Permission.FX_HEDGING_READ,
     Permission.FX_HEDGING_WRITE,
     Permission.EOD_READ,
+    Permission.EOD_RUN,
     Permission.FEE_READ,
   ]),
   [Role.ANALYST]: new Set([

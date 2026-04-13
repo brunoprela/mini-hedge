@@ -4,6 +4,53 @@ export type {
   FundDetail,
   OperatorInfo,
   UserInfo,
+  // EOD
+  EODRunSummary,
+  EODRunResult,
+  EODStepResult,
+  EODStepName,
+  EODStepStatus,
+  // Reconciliation
+  ReconSummary,
+  TrackedBreak,
+  BreakWithSLA,
+  BreakStatus,
+  BreakType,
+  AgingSummary,
+  AgingBucket,
+  SLAStatus,
+  // Cash
+  CashBalance,
+  SettlementRecord,
+  SettlementLadder,
+  SettlementLadderEntry,
+  CashProjection,
+  CashProjectionEntry,
+  NettingResult,
+  // Fees
+  FeeScheduleResponse,
+  FeeAccrualResponse,
+  FeeScheduleUpdate,
+  FeeType,
+  AccrualStatus,
+  // Portfolio
+  PortfolioInfo,
+  // Capital
+  InvestorInfo,
+  CapitalAccountSummary,
+  FundCapitalOverview,
+  ShareClassSummary,
+  // Investor Operations
+  SubscriptionRequestSummary,
+  SubscriptionState,
+  RedemptionRequestSummary,
+  RedemptionState,
+  FundTermsSummary,
+  // Regulatory
+  FormPFData,
+  Filing13FReport,
+  InvestorStatement,
+  MonthlyPerformanceLetter,
 } from "@mini-hedge/api-types";
 
 /** Generic paginated response wrapper (UI-only — backend uses typed pages). */

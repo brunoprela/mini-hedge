@@ -32,8 +32,8 @@ def upgrade() -> None:
                     timescaledb.compress_segmentby = 'instrument_id',
                     timescaledb.compress_orderby = 'timestamp DESC'
                 );
-                SELECT add_compression_policy('market_data.prices', INTERVAL '7 days');
-                SELECT add_retention_policy('market_data.prices', INTERVAL '2 years');
+                PERFORM add_compression_policy('market_data.prices', INTERVAL '7 days');
+                PERFORM add_retention_policy('market_data.prices', INTERVAL '2 years');
             END IF;
         END
         $$;
@@ -45,8 +45,8 @@ def downgrade() -> None:
         DO $$
         BEGIN
             IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'timescaledb') THEN
-                SELECT remove_retention_policy('market_data.prices', if_exists => true);
-                SELECT remove_compression_policy('market_data.prices', if_exists => true);
+                PERFORM remove_retention_policy('market_data.prices', if_exists => true);
+                PERFORM remove_compression_policy('market_data.prices', if_exists => true);
                 ALTER TABLE market_data.prices SET (timescaledb.compress = false);
             END IF;
         END

@@ -56,10 +56,11 @@ async def setup(
                     if not pid_str:
                         return
                     try:
-                        await exposure_service.take_snapshot(
-                            UUID(pid_str),
-                            fund_slug=slug,
-                        )
+                        async with sf.fund_scope(slug):
+                            await exposure_service.take_snapshot(
+                                UUID(pid_str),
+                                fund_slug=slug,
+                            )
                     except Exception:
                         logger.exception(
                             "exposure_reactive_snapshot_failed",
@@ -73,30 +74,39 @@ async def setup(
                 _make_handler(fund.slug),
             )
         # Also subscribe to prices.normalized (shared topic) to recalculate
-        # exposure when market prices change. The handler iterates all portfolios
-        # that hold the affected instrument. For now, it triggers a snapshot for
-        # all portfolios on any price update — a future refinement can maintain
-        # an instrument→portfolio index for targeted recalculation.
+        # exposure when market prices change. Throttled: each portfolio
+        # recalculates at most once per _EXPOSURE_THROTTLE_SECONDS to avoid
+        # a snapshot storm when 50+ instruments tick every second.
+        import time
+
+        _EXPOSURE_THROTTLE_SECONDS = 10
+        _last_snapshot: dict[str, float] = {}  # portfolio_id → timestamp
         portfolio_repo = getattr(app.state, "portfolio_repo", None)
 
         async def on_price_normalized(event: BaseEvent) -> None:
-            """Recalculate exposure for all portfolios when prices change."""
+            """Recalculate exposure for all portfolios when prices change (throttled)."""
             if portfolio_repo is None:
                 return
+            now = time.monotonic()
             for fund in active_funds:
                 try:
                     portfolios = await portfolio_repo.get_by_fund(fund.id)
-                    for port in portfolios:
-                        try:
-                            await exposure_service.take_snapshot(
-                                UUID(port.id),
-                                fund_slug=fund.slug,
-                            )
-                        except Exception:
-                            logger.exception(
-                                "exposure_price_snapshot_failed",
-                                portfolio_id=port.id,
-                            )
+                    async with sf.fund_scope(fund.slug):
+                        for port in portfolios:
+                            last = _last_snapshot.get(port.id, 0.0)
+                            if now - last < _EXPOSURE_THROTTLE_SECONDS:
+                                continue
+                            try:
+                                await exposure_service.take_snapshot(
+                                    UUID(port.id),
+                                    fund_slug=fund.slug,
+                                )
+                                _last_snapshot[port.id] = now
+                            except Exception:
+                                logger.exception(
+                                    "exposure_price_snapshot_failed",
+                                    portfolio_id=port.id,
+                                )
                 except Exception:
                     logger.exception(
                         "exposure_price_fund_failed",

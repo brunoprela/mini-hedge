@@ -11,6 +11,7 @@ export default async function TCAPage({
 
   const { dehydratedState } = await prefetch(fundSlug, [
     { queryKey: ["order-tca", fundSlug, orderId], path: `/orders/${orderId}/tca` },
+    { queryKey: ["order-fills", fundSlug, orderId], path: `/orders/${orderId}/fills` },
   ]);
 
   return (

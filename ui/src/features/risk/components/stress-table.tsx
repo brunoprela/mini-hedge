@@ -59,25 +59,25 @@ export function StressTable({ portfolioId }: { portfolioId: string }) {
         </button>
       </div>
       <div className="overflow-x-auto rounded-md border border-[var(--border)] bg-[var(--card)]">
-        <table className="w-full text-sm">
+        <table className="min-w-full divide-y divide-[var(--border)]">
           <thead>
-            <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
-              <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
+            <tr>
+              <th scope="col" className="px-3 py-2 text-left text-xs font-semibold whitespace-nowrap text-[var(--muted-foreground)]">
                 Scenario
               </th>
-              <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
+              <th scope="col" className="px-3 py-2 text-right text-xs font-semibold whitespace-nowrap text-[var(--muted-foreground)]">
                 PnL Impact
               </th>
-              <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
+              <th scope="col" className="px-3 py-2 text-right text-xs font-semibold whitespace-nowrap text-[var(--muted-foreground)]">
                 % Change
               </th>
-              <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
+              <th scope="col" className="px-3 py-2 text-left text-xs font-semibold whitespace-nowrap text-[var(--muted-foreground)]">
                 Actions
               </th>
-              <th className="w-10 px-3 py-1.5" />
+              <th scope="col" className="w-10 px-3 py-2" />
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-[var(--table-border)]">
             {results.map((result) => (
               <StressRow
                 key={result.scenario_name}
@@ -109,7 +109,7 @@ function StressRow({
   return (
     <>
       <tr
-        className="border-b border-[var(--table-border)] last:border-0 cursor-pointer hover:bg-[var(--table-row-hover)]"
+        className="cursor-pointer transition-colors hover:bg-[var(--table-row-hover)]"
         onClick={() => hasImpacts && setExpanded(!expanded)}
       >
         <td className="px-3 py-1.5 font-medium">{result.scenario_name}</td>
@@ -151,7 +151,7 @@ function StressRow({
           return (
             <tr
               key={impact.instrument_id}
-              className="border-b border-[var(--table-border)] last:border-0 bg-[var(--muted)]"
+              className="bg-[var(--muted)]"
             >
               <td className="px-4 py-1.5 pl-8 text-xs text-[var(--muted-foreground)]">
                 <Link

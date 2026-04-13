@@ -4,9 +4,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { InstrumentLink } from "@/shared/components/instrument-link";
+import { useTradeTicket } from "@/shared/components/trade-ticket-provider";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { runWhatIf } from "../api";
 import type { HypotheticalTrade, WhatIfResult } from "../types";
+import { WhatIfDiffChart } from "./what-if-diff-chart";
 
 type TradeRow = HypotheticalTrade & { _key: string };
 
@@ -23,6 +26,7 @@ function emptyTrade(): TradeRow {
 
 export function WhatIfForm({ portfolioId }: { portfolioId: string }) {
   const { fundSlug } = useFundContext();
+  const { openTradeTicket } = useTradeTicket();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
 
@@ -245,6 +249,13 @@ export function WhatIfForm({ portfolioId }: { portfolioId: string }) {
             </div>
           )}
 
+          {/* Visual Diff Chart */}
+          {result.positions.length > 0 && (
+            <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
+              <WhatIfDiffChart positions={result.positions} />
+            </div>
+          )}
+
           {/* Position Impacts Table */}
           {result.positions.length > 0 && (
             <div className="overflow-x-auto">
@@ -257,13 +268,23 @@ export function WhatIfForm({ portfolioId }: { portfolioId: string }) {
                     <th className="pb-2 pr-4 text-right">Current Value</th>
                     <th className="pb-2 pr-4 text-right">Proposed Value</th>
                     <th className="pb-2 pr-4 text-right">Current Weight</th>
-                    <th className="pb-2 text-right">Proposed Weight</th>
+                    <th className="pb-2 pr-4 text-right">Proposed Weight</th>
+                    <th className="pb-2 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {result.positions.map((pos) => (
                     <tr key={pos.instrument_id} className="border-b border-[var(--border)]">
-                      <td className="py-2 pr-4 font-mono font-medium">{pos.instrument_id}</td>
+                      <td className="py-2 pr-4">
+                        <InstrumentLink
+                          instrument={pos.instrument_id}
+                          side={
+                            parseFloat(pos.proposed_quantity) >= parseFloat(pos.current_quantity)
+                              ? "buy"
+                              : "sell"
+                          }
+                        />
+                      </td>
                       <td className="py-2 pr-4 text-right font-mono">{pos.current_quantity}</td>
                       <td className="py-2 pr-4 text-right font-mono">{pos.proposed_quantity}</td>
                       <td className="py-2 pr-4 text-right font-mono">
@@ -275,7 +296,29 @@ export function WhatIfForm({ portfolioId }: { portfolioId: string }) {
                       <td className="py-2 pr-4 text-right font-mono">
                         {fmtPct(pos.current_weight)}
                       </td>
-                      <td className="py-2 text-right font-mono">{fmtPct(pos.proposed_weight)}</td>
+                      <td className="py-2 pr-4 text-right font-mono">
+                        {fmtPct(pos.proposed_weight)}
+                      </td>
+                      <td className="py-2 text-right">
+                        {parseFloat(pos.proposed_quantity) !== parseFloat(pos.current_quantity) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const delta =
+                                parseFloat(pos.proposed_quantity) -
+                                parseFloat(pos.current_quantity);
+                              openTradeTicket({
+                                instrument: pos.instrument_id,
+                                side: delta >= 0 ? "buy" : "sell",
+                                quantity: Math.abs(delta).toString(),
+                              });
+                            }}
+                            className="rounded-md border border-[var(--border)] px-3 py-1 text-xs font-medium transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
+                          >
+                            Send to Ticket
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

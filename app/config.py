@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     database_pool_timeout: int = 30
 
     app_env: str = "local"
-    log_level: str = "DEBUG"
+    log_level: str = "INFO"
 
     jwt_secret: str = _DEV_JWT_SECRET
     jwt_algorithm: str = "HS256"

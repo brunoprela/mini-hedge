@@ -2,8 +2,83 @@
 
 import { useSession } from "next-auth/react";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
+import { useNotificationPreferences } from "@/shared/hooks/use-notification-preferences";
 import { type TableDensity, useTablePreferences } from "@/shared/hooks/use-table-preferences";
 import { useTheme } from "@/shared/hooks/use-theme";
+import { ApiKeyManagement } from "@/features/settings/components/api-key-management";
+import { ActivityLog } from "@/features/settings/components/activity-log";
+
+/* ------------------------------------------------------------------ */
+/*  Toggle switch                                                     */
+/* ------------------------------------------------------------------ */
+
+function Toggle({
+  checked,
+  onChange,
+  disabled = false,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] ${
+        disabled
+          ? "cursor-not-allowed opacity-40"
+          : "cursor-pointer"
+      } ${checked ? "bg-[var(--primary)]" : "bg-[var(--border)]"}`}
+    >
+      <span
+        className={`pointer-events-none block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${
+          checked ? "translate-x-4" : "translate-x-0.5"
+        }`}
+      />
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Notification category / delivery row                              */
+/* ------------------------------------------------------------------ */
+
+function NotificationRow({
+  label,
+  description,
+  checked,
+  onChange,
+  disabled = false,
+  badge,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  disabled?: boolean;
+  badge?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm font-medium">
+          {label}
+          {badge && (
+            <span className="ml-2 rounded-full border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--muted-foreground)]">
+              {badge}
+            </span>
+          )}
+        </p>
+        <p className="text-xs text-[var(--muted-foreground)]">{description}</p>
+      </div>
+      <Toggle checked={checked} onChange={onChange} disabled={disabled} />
+    </div>
+  );
+}
 
 const DENSITY_OPTIONS: { label: string; value: TableDensity }[] = [
   { label: "Compact", value: "compact" },
@@ -27,6 +102,7 @@ export function SettingsPageClient() {
   const { fundName, role } = useFundContext();
   const { theme, toggle } = useTheme();
   const { preferences, update } = useTablePreferences();
+  const { preferences: notifPrefs, update: updateNotif } = useNotificationPreferences();
 
   const user = session?.user;
 
@@ -158,6 +234,82 @@ export function SettingsPageClient() {
           </div>
         </div>
       </section>
+
+      {/* Notification Categories */}
+      <section className="rounded-md border border-[var(--border)] bg-[var(--card)] p-6">
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+          Notifications
+        </h2>
+        <div className="space-y-5">
+          <NotificationRow
+            label="Order notifications"
+            description="Fills, cancellations, and rejections"
+            checked={notifPrefs.orders}
+            onChange={(v) => updateNotif({ orders: v })}
+          />
+          <NotificationRow
+            label="Compliance alerts"
+            description="Violations and breaches"
+            checked={notifPrefs.compliance}
+            onChange={(v) => updateNotif({ compliance: v })}
+          />
+          <NotificationRow
+            label="EOD notifications"
+            description="Run started, completed, or failed"
+            checked={notifPrefs.eod}
+            onChange={(v) => updateNotif({ eod: v })}
+          />
+          <NotificationRow
+            label="Market data alerts"
+            description="Price threshold triggers"
+            checked={notifPrefs.marketData}
+            onChange={(v) => updateNotif({ marketData: v })}
+          />
+          <NotificationRow
+            label="System notifications"
+            description="Connection status and errors"
+            checked={notifPrefs.system}
+            onChange={(v) => updateNotif({ system: v })}
+          />
+        </div>
+      </section>
+
+      {/* Notification Delivery */}
+      <section className="rounded-md border border-[var(--border)] bg-[var(--card)] p-6">
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+          Notification Delivery
+        </h2>
+        <div className="space-y-5">
+          <NotificationRow
+            label="In-app toasts"
+            description="Show notifications as toast popups in the app"
+            checked={notifPrefs.inAppToasts}
+            onChange={(v) => updateNotif({ inAppToasts: v })}
+          />
+          <NotificationRow
+            label="Email"
+            description="Receive notification summaries via email"
+            checked={notifPrefs.email}
+            onChange={(v) => updateNotif({ email: v })}
+            disabled
+            badge="Coming soon"
+          />
+          <NotificationRow
+            label="Browser push"
+            description="Receive push notifications in your browser"
+            checked={notifPrefs.browserPush}
+            onChange={(v) => updateNotif({ browserPush: v })}
+            disabled
+            badge="Coming soon"
+          />
+        </div>
+      </section>
+
+      {/* API Keys */}
+      <ApiKeyManagement />
+
+      {/* Activity / Audit Log */}
+      <ActivityLog />
     </div>
   );
 }

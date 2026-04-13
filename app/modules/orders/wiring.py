@@ -136,27 +136,28 @@ async def setup(
                     if not portfolio_id_str or not intents:
                         return
                     portfolio_id = UUID(portfolio_id_str)
-                    for intent in intents:
-                        try:
-                            request = CreateOrderRequest(
-                                portfolio_id=portfolio_id,
-                                instrument_id=intent["instrument_id"],
-                                side=OrderSide(intent["side"]),
-                                order_type=OrderType.MARKET,
-                                quantity=Decimal(str(intent["quantity"])),
-                                time_in_force=TimeInForce.DAY,
-                            )
-                            await order_service.create_order(
-                                request,
-                                fund_slug=slug,
-                                actor_id="alpha-engine",
-                            )
-                        except Exception:
-                            logger.exception(
-                                "order_intent_create_failed",
-                                portfolio_id=portfolio_id_str,
-                                instrument_id=intent.get("instrument_id"),
-                            )
+                    async with sf.fund_scope(slug):
+                        for intent in intents:
+                            try:
+                                request = CreateOrderRequest(
+                                    portfolio_id=portfolio_id,
+                                    instrument_id=intent["instrument_id"],
+                                    side=OrderSide(intent["side"]),
+                                    order_type=OrderType.MARKET,
+                                    quantity=Decimal(str(intent["quantity"])),
+                                    time_in_force=TimeInForce.DAY,
+                                )
+                                await order_service.create_order(
+                                    request,
+                                    fund_slug=slug,
+                                    actor_id="alpha-engine",
+                                )
+                            except Exception:
+                                logger.exception(
+                                    "order_intent_create_failed",
+                                    portfolio_id=portfolio_id_str,
+                                    instrument_id=intent.get("instrument_id"),
+                                )
 
                 return on_order_intents_generated
 

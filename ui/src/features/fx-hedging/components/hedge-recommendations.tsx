@@ -13,6 +13,39 @@ function fmtAmount(value: string): string {
   }).format(Number(value));
 }
 
+function fmtCurrency(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+    signDisplay: "never",
+  }).format(Math.abs(value));
+}
+
+/**
+ * Compute the estimated P&L impact (carry cost) of a hedge recommendation.
+ *
+ * impact = (estimated_cost_bps / 10_000) × notional
+ *
+ * Positive cost_bps means the hedge has a carry cost (unfavorable).
+ * Negative cost_bps means the hedge earns carry (favorable / savings).
+ */
+function computePnlImpact(rec: HedgeRecommendation): {
+  amount: number;
+  favorable: boolean;
+  label: string;
+} {
+  const costBps = Number(rec.estimated_cost_bps);
+  const notional = Number(rec.notional);
+  const amount = (costBps / 10_000) * notional;
+  const favorable = amount <= 0;
+  const label = favorable
+    ? `Saves ${fmtCurrency(amount)}`
+    : `Cost ${fmtCurrency(amount)}`;
+  return { amount, favorable, label };
+}
+
 export function HedgeRecommendations({
   portfolioId,
   onExecuteRecommendation,
@@ -58,6 +91,9 @@ export function HedgeRecommendations({
               Cost (bps)
             </th>
             <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
+              P&L Impact
+            </th>
+            <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
               Tenor
             </th>
             {onExecuteRecommendation && (
@@ -92,6 +128,23 @@ export function HedgeRecommendations({
               </td>
               <td className="px-3 py-1.5 text-right tabular-nums">
                 {Number(rec.estimated_cost_bps).toFixed(1)}
+              </td>
+              <td className="px-3 py-1.5 text-right">
+                {(() => {
+                  const impact = computePnlImpact(rec);
+                  return (
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium tabular-nums",
+                        impact.favorable
+                          ? "bg-(--success)/10 text-(--success)"
+                          : "bg-(--destructive)/10 text-(--destructive)",
+                      )}
+                    >
+                      {impact.favorable ? "↓" : "↑"} {impact.label}
+                    </span>
+                  );
+                })()}
               </td>
               <td className="px-3 py-1.5 text-right">{rec.tenor_days}d</td>
               {onExecuteRecommendation && (

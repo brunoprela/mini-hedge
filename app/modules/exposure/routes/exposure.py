@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.exposure.dependencies import get_exposure_service
 from app.modules.exposure.interfaces import (
+    DimensionDrilldown,
+    ExposureDimension,
     ExposureSnapshot,
     PortfolioExposure,
 )
@@ -30,6 +32,21 @@ async def get_portfolio_exposure(
     session: AsyncSession = Depends(get_read_db),
 ) -> PortfolioExposure:
     return await exposure_service.get_current(portfolio_id, session=session)
+
+
+@router.get("/{portfolio_id}/drilldown", response_model=DimensionDrilldown)
+async def get_exposure_drilldown(
+    portfolio_id: UUID,
+    dimension: ExposureDimension = Query(...),
+    key: str = Query(...),
+    request_context: RequestContext = require_permission(Permission.EXPOSURE_READ),
+    _access: None = require_access(Portfolio.relation("can_view")),
+    exposure_service: ExposureService = Depends(get_exposure_service),
+    session: AsyncSession = Depends(get_read_db),
+) -> DimensionDrilldown:
+    return await exposure_service.get_drilldown(
+        portfolio_id, dimension, key, session=session
+    )
 
 
 @router.get(

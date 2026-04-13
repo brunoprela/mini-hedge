@@ -8,10 +8,13 @@ import { exposureQueryOptions } from "@/features/exposure/api";
 import { ordersQueryOptions } from "@/features/orders/api";
 import { portfolioSummaryQueryOptions, portfoliosQueryOptions } from "@/features/portfolio/api";
 import type { PortfolioSummary } from "@/features/portfolio/types";
-import { DonutChart, HBarChart, StatusDot } from "@/shared/components/charts";
+import { navHistoryQueryOptions } from "@/features/eod/api";
+import { DonutChart, HBarChart, SparkLine, StatusDot } from "@/shared/components/charts";
+import { InstrumentLink } from "@/shared/components/instrument-link";
 import { SectionPanel } from "@/shared/components/section-panel";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { usePermission } from "@/shared/hooks/use-permission";
+import { CrossFundSummary } from "@/features/platform/components/cross-fund-summary";
 import { clientFetch } from "@/shared/lib/api";
 import { formatPnL, pnlColorClass } from "@/shared/lib/formatters";
 import { Permission } from "@/shared/lib/permissions";
@@ -38,6 +41,11 @@ const fmtCurrency = (v: string | number) =>
     currency: "USD",
     maximumFractionDigits: 0,
   });
+
+const fmtPct = (v: number) => {
+  const abs = Math.abs(v);
+  return abs < 0.01 ? "0.00%" : `${abs.toFixed(2)}%`;
+};
 
 const DONUT_COLORS = [
   "var(--primary)",
@@ -106,6 +114,13 @@ export function DashboardHome() {
     enabled: !!firstPortfolioId,
   });
 
+  // NAV history for P&L sparkline
+  const { data: navHistory } = useQuery(navHistoryQueryOptions(fundSlug, "30d"));
+  const navSparkData = useMemo(
+    () => (navHistory ?? []).map((p) => p.nav),
+    [navHistory],
+  );
+
   // Exposure for donut chart (sector breakdown)
   const { data: exposure } = useQuery({
     ...exposureQueryOptions(fundSlug, firstPortfolioId),
@@ -135,6 +150,31 @@ export function DashboardHome() {
   const violationCount = violations?.length ?? 0;
   const blockCount = violations?.filter((v) => v.severity === "block").length ?? 0;
   const warningCount = violations?.filter((v) => v.severity === "warning").length ?? 0;
+
+  // ── KPI deltas (derived from available data) ──────────────
+  // Unrealized P&L as % of AUM approximates the day's mark-to-market move.
+  // Without a dedicated previous-day snapshot endpoint we derive what we can.
+  const aumDeltaPct = useMemo(() => {
+    if (!aggregate) return null;
+    const aum = Number(aggregate.total_aum);
+    const unrealized = Number(aggregate.total_unrealized_pnl);
+    if (aum === 0) return null;
+    return (unrealized / aum) * 100;
+  }, [aggregate]);
+
+  const unrealizedPnlPctOfAum = useMemo(() => {
+    if (!aggregate) return null;
+    const aum = Number(aggregate.total_aum);
+    if (aum === 0) return null;
+    return (Number(aggregate.total_unrealized_pnl) / aum) * 100;
+  }, [aggregate]);
+
+  const realizedPnlPctOfAum = useMemo(() => {
+    if (!aggregate) return null;
+    const aum = Number(aggregate.total_aum);
+    if (aum === 0) return null;
+    return (Number(aggregate.total_realized_pnl) / aum) * 100;
+  }, [aggregate]);
 
   const today = new Date().toISOString().slice(0, 10);
   const todayEod = eodRuns?.find((r) => r.run_date === today);
@@ -196,25 +236,30 @@ export function DashboardHome() {
         </p>
       </div>
 
-      {/* Hero KPI Strip — large prominent numbers */}
-      <div className="grid grid-cols-5 gap-3">
-        <div className="col-span-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-          <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">
+      {/* Hero KPI Strip — Tailwind UI stats/01-with-trending + 05-shared-borders pattern */}
+      <dl className="grid grid-cols-1 gap-px overflow-hidden rounded-lg bg-[var(--border)] sm:grid-cols-5">
+        <div className="bg-[var(--card)] px-4 py-4">
+          <dt className="text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
             Total AUM
-          </p>
-          <p className="mt-1 font-mono text-xl font-bold">
-            {aggregate ? fmtCurrency(aggregate.total_aum) : "—"}
-          </p>
-          <p className="mt-0.5 text-[10px] text-[var(--muted-foreground)]">
-            {aggregate?.portfolio_count ?? 0} portfolio
-            {(aggregate?.portfolio_count ?? 0) !== 1 ? "s" : ""}
-          </p>
+          </dt>
+          <dd className="mt-1 flex items-baseline justify-between">
+            <div className="font-mono text-xl font-bold text-[var(--foreground-bright)]">
+              {aggregate ? fmtCurrency(aggregate.total_aum) : "—"}
+            </div>
+          </dd>
+          <dd className="mt-0.5 flex items-center gap-1.5">
+            <KpiDelta value={aumDeltaPct} label="mtm" />
+            <span className="text-[10px] text-[var(--muted-foreground)]">
+              &middot; {aggregate?.portfolio_count ?? 0} portfolio
+              {(aggregate?.portfolio_count ?? 0) !== 1 ? "s" : ""}
+            </span>
+          </dd>
         </div>
-        <div className="col-span-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-          <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">
+        <div className="bg-[var(--card)] px-4 py-4">
+          <dt className="text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
             Unrealized P&L
-          </p>
-          <p
+          </dt>
+          <dd
             className="mt-1 font-mono text-xl font-bold"
             style={{
               color: aggregate
@@ -225,13 +270,19 @@ export function DashboardHome() {
             }}
           >
             {aggregate ? fmtCurrency(aggregate.total_unrealized_pnl) : "—"}
-          </p>
+          </dd>
+          <dd className="mt-0.5 flex items-center gap-2">
+            <KpiDelta value={unrealizedPnlPctOfAum} label="of AUM" />
+            {navSparkData.length >= 2 && (
+              <SparkLine data={navSparkData} width={64} height={20} />
+            )}
+          </dd>
         </div>
-        <div className="col-span-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-          <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">
+        <div className="bg-[var(--card)] px-4 py-4">
+          <dt className="text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
             Realized P&L
-          </p>
-          <p
+          </dt>
+          <dd
             className="mt-1 font-mono text-xl font-bold"
             style={{
               color: aggregate
@@ -242,29 +293,132 @@ export function DashboardHome() {
             }}
           >
             {aggregate ? fmtCurrency(aggregate.total_realized_pnl) : "—"}
-          </p>
+          </dd>
+          <dd className="mt-0.5">
+            <KpiDelta value={realizedPnlPctOfAum} label="of AUM" />
+          </dd>
         </div>
-        <div className="col-span-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-          <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">
+        <div className="bg-[var(--card)] px-4 py-4">
+          <dt className="text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
             Positions
-          </p>
-          <p className="mt-1 font-mono text-xl font-bold">{aggregate?.total_positions ?? "—"}</p>
+          </dt>
+          <dd className="mt-1 font-mono text-xl font-bold text-[var(--foreground-bright)]">
+            {aggregate?.total_positions ?? "—"}
+          </dd>
+          <dd className="mt-0.5 text-[10px] text-[var(--muted-foreground)]">across all portfolios</dd>
         </div>
-        <div className="col-span-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-          <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">
+        <div className="bg-[var(--card)] px-4 py-4">
+          <dt className="text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
             Today&apos;s Orders
-          </p>
-          <p className="mt-1 font-mono text-xl font-bold">{totalOrders}</p>
-          <p className="mt-0.5 text-[10px] text-[var(--muted-foreground)]">
+          </dt>
+          <dd className="mt-1 font-mono text-xl font-bold text-[var(--foreground-bright)]">{totalOrders}</dd>
+          <dd className="mt-0.5 text-[10px] text-[var(--muted-foreground)]">
             {filledToday} filled &middot; {pendingOrders} working
-          </p>
+          </dd>
         </div>
-      </div>
+      </dl>
 
       {/* Main widget grid */}
       <div className="grid grid-cols-12 gap-3">
-        {/* Left column (8 cols): Allocation donut + movers */}
+        {/* Left column (8 cols): Portfolios + Allocation donut + movers */}
         <div className="col-span-8 space-y-3">
+          {/* Portfolios summary table — promoted to top-left */}
+          {portfolios && portfolios.length > 0 && (
+            <SectionPanel
+              title="Portfolios"
+              actions={
+                <Link
+                  href={`/${fundSlug}/portfolio/${portfolios[0]?.id ?? ""}`}
+                  className="text-[10px] text-[var(--primary)] hover:underline"
+                >
+                  View all &rarr;
+                </Link>
+              }
+            >
+              {/* Tailwind UI lists/tables/12-with-condensed-content pattern */}
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-[var(--border)]">
+                  <thead>
+                    <tr>
+                      <th scope="col" className="py-2 pr-3 pl-3 text-left text-[10px] font-semibold whitespace-nowrap text-[var(--muted-foreground)]">
+                        Portfolio
+                      </th>
+                      <th scope="col" className="px-3 py-2 text-right text-[10px] font-semibold whitespace-nowrap text-[var(--muted-foreground)]">
+                        NAV / AUM
+                      </th>
+                      <th scope="col" className="px-3 py-2 text-right text-[10px] font-semibold whitespace-nowrap text-[var(--muted-foreground)]">
+                        P&L
+                      </th>
+                      <th scope="col" className="px-3 py-2 text-right text-[10px] font-semibold whitespace-nowrap text-[var(--muted-foreground)]">
+                        Positions
+                      </th>
+                      <th scope="col" className="px-3 py-2 text-right text-[10px] font-semibold whitespace-nowrap text-[var(--muted-foreground)]">
+                        Open Orders
+                      </th>
+                      <th scope="col" className="py-2 pr-3 pl-3 text-right text-[10px] font-semibold whitespace-nowrap text-[var(--muted-foreground)]">
+                        VaR
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--table-border)]">
+                    {portfolios.map((p) => {
+                      const summary = summaries.find((s) => s.portfolio_id === p.id);
+                      const portfolioOrders =
+                        orders?.filter(
+                          (o) =>
+                            o.portfolio_id === p.id &&
+                            ["pending", "partially_filled", "working", "sent"].includes(o.state),
+                        ).length ?? 0;
+                      return (
+                        <tr
+                          key={p.id}
+                          className="transition-colors hover:bg-[var(--table-row-hover)]"
+                        >
+                          <td className="py-2 pr-3 pl-3 text-xs whitespace-nowrap">
+                            <Link
+                              href={`/${fundSlug}/portfolio/${p.id}`}
+                              className="font-medium text-[var(--foreground-bright)] hover:text-[var(--primary)]"
+                            >
+                              {p.name}
+                            </Link>
+                            {p.strategy && (
+                              <span className="ml-1.5 text-[9px] text-[var(--muted-foreground)]">
+                                {p.strategy}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-right text-xs font-mono whitespace-nowrap text-[var(--foreground)]">
+                            {summary ? formatPnL(summary.total_market_value) : "\u2014"}
+                          </td>
+                          <td className="px-3 py-2 text-right text-xs whitespace-nowrap">
+                            {summary ? (
+                              <span
+                                className={`font-mono ${pnlColorClass(summary.total_unrealized_pnl)}`}
+                              >
+                                {formatPnL(summary.total_unrealized_pnl)}
+                              </span>
+                            ) : (
+                              "\u2014"
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-right text-xs whitespace-nowrap text-[var(--muted-foreground)]">
+                            {summary?.position_count ?? "\u2014"}
+                          </td>
+                          <td className="px-3 py-2 text-right text-xs font-mono whitespace-nowrap text-[var(--muted-foreground)]">
+                            {portfolioOrders}
+                          </td>
+                          <td className="py-2 pr-3 pl-3 text-right text-xs font-mono whitespace-nowrap text-[var(--muted-foreground)]">
+                            &mdash;
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </SectionPanel>
+          )}
+
           {/* Allocation donut + Top movers side by side */}
           <div className="grid grid-cols-2 gap-3">
             {/* Sector Allocation Donut */}
@@ -301,13 +455,23 @@ export function DashboardHome() {
                       <p className="mb-1.5 text-[10px] font-medium uppercase text-[var(--success)]">
                         Gainers
                       </p>
-                      <HBarChart items={movers.top} />
+                      <HBarChart
+                        items={movers.top}
+                        renderLabel={(label) => (
+                          <InstrumentLink instrument={label} side="buy" className="cursor-pointer truncate text-right font-mono text-xs text-[var(--foreground)] underline-offset-2 transition-colors hover:text-[var(--primary)] hover:underline" />
+                        )}
+                      />
                     </div>
                     <div>
                       <p className="mb-1.5 text-[10px] font-medium uppercase text-[var(--destructive)]">
                         Losers
                       </p>
-                      <HBarChart items={movers.bottom} />
+                      <HBarChart
+                        items={movers.bottom}
+                        renderLabel={(label) => (
+                          <InstrumentLink instrument={label} side="sell" className="cursor-pointer truncate text-right font-mono text-xs text-[var(--foreground)] underline-offset-2 transition-colors hover:text-[var(--primary)] hover:underline" />
+                        )}
+                      />
                     </div>
                   </div>
                 ) : (
@@ -394,21 +558,21 @@ export function DashboardHome() {
             }
           >
             {can(Permission.ORDERS_READ) && orders && orders.length > 0 ? (
-              <table className="w-full text-sm">
+              <table className="min-w-full divide-y divide-[var(--border)]">
                 <thead>
-                  <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)] text-left text-xs text-[var(--muted-foreground)]">
-                    <th className="px-3 py-1.5 font-medium">Instrument</th>
-                    <th className="px-3 py-1.5 font-medium">Side</th>
-                    <th className="px-3 py-1.5 font-medium text-right">Qty</th>
-                    <th className="px-3 py-1.5 font-medium">State</th>
-                    <th className="px-3 py-1.5 font-medium text-right">Time</th>
+                  <tr>
+                    <th scope="col" className="py-2 pr-3 pl-3 text-left text-xs font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Instrument</th>
+                    <th scope="col" className="px-3 py-2 text-left text-xs font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Side</th>
+                    <th scope="col" className="px-3 py-2 text-right text-xs font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Qty</th>
+                    <th scope="col" className="px-3 py-2 text-left text-xs font-semibold whitespace-nowrap text-[var(--muted-foreground)]">State</th>
+                    <th scope="col" className="py-2 pr-3 pl-3 text-right text-xs font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Time</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-[var(--table-border)]">
                   {orders.slice(0, 8).map((o) => (
                     <tr
                       key={o.id}
-                      className="border-b border-[var(--table-border)] last:border-0 hover:bg-[var(--table-row-hover)]"
+                      className="transition-colors hover:bg-[var(--table-row-hover)]"
                     >
                       <td className="px-3 py-1.5 font-mono font-medium">
                         <span className="mr-1.5 inline-block">
@@ -423,7 +587,7 @@ export function DashboardHome() {
                             size={5}
                           />
                         </span>
-                        {o.instrument_id}
+                        <InstrumentLink instrument={o.instrument_id} />
                       </td>
                       <td className="px-3 py-1.5">
                         <span
@@ -552,102 +716,9 @@ export function DashboardHome() {
         </div>
       </div>
 
-      {/* Portfolios table — full width at bottom */}
-      {portfolios && portfolios.length > 0 && (
-        <SectionPanel title="Portfolios">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
-                  <th className="px-3 py-1.5 text-left text-xs font-medium text-[var(--muted-foreground)]">
-                    Portfolio
-                  </th>
-                  <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">
-                    NAV
-                  </th>
-                  <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">
-                    Unrealized P&L
-                  </th>
-                  <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">
-                    Realized P&L
-                  </th>
-                  <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">
-                    Cost Basis
-                  </th>
-                  <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]">
-                    Positions
-                  </th>
-                  <th className="px-3 py-1.5 text-right text-xs font-medium text-[var(--muted-foreground)]" />
-                </tr>
-              </thead>
-              <tbody>
-                {portfolios.map((p) => {
-                  const summary = summaries.find((s) => s.portfolio_id === p.id);
-                  return (
-                    <tr
-                      key={p.id}
-                      className="border-b border-[var(--table-border)] last:border-0 transition-colors hover:bg-[var(--table-row-hover)]"
-                    >
-                      <td className="px-3 py-1.5">
-                        <Link
-                          href={`/${fundSlug}/portfolio/${p.id}`}
-                          className="font-medium text-[var(--foreground-bright)] hover:text-[var(--primary)]"
-                        >
-                          {p.name}
-                        </Link>
-                        {p.strategy && (
-                          <span className="ml-2 text-[10px] text-[var(--muted-foreground)]">
-                            {p.strategy}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-1.5 text-right font-mono text-sm">
-                        {summary ? formatPnL(summary.total_market_value) : "—"}
-                      </td>
-                      <td className="px-3 py-1.5 text-right">
-                        {summary ? (
-                          <span
-                            className={`font-mono text-sm ${pnlColorClass(summary.total_unrealized_pnl)}`}
-                          >
-                            {formatPnL(summary.total_unrealized_pnl)}
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="px-3 py-1.5 text-right">
-                        {summary ? (
-                          <span
-                            className={`font-mono text-sm ${pnlColorClass(summary.total_realized_pnl)}`}
-                          >
-                            {formatPnL(summary.total_realized_pnl)}
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="px-3 py-1.5 text-right font-mono text-sm text-[var(--muted-foreground)]">
-                        {summary ? formatPnL(summary.total_cost_basis) : "—"}
-                      </td>
-                      <td className="px-3 py-1.5 text-right text-sm text-[var(--muted-foreground)]">
-                        {summary?.position_count ?? "—"}
-                      </td>
-                      <td className="px-3 py-1.5 text-right">
-                        <Link
-                          href={`/${fundSlug}/portfolio/${p.id}`}
-                          className="text-xs text-[var(--primary)] hover:underline"
-                        >
-                          Open &rarr;
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </SectionPanel>
-      )}
+      {/* Cross-fund summary — visible only when user has access to multiple funds */}
+      <CrossFundSummary />
+
     </div>
   );
 }
@@ -675,6 +746,48 @@ function PeriodSelect({ value, onChange }: { value: Period; onChange: (p: Period
         </button>
       ))}
     </div>
+  );
+}
+
+/**
+ * Compact delta indicator for KPI cards.
+ * Shows a triangle (up/down/neutral) with a percentage or absolute change.
+ */
+function KpiDelta({
+  value,
+  format = "pct",
+  label,
+}: {
+  /** Numeric change value — positive = up, negative = down, 0 = flat */
+  value: number | null | undefined;
+  /** "pct" formats as %, "abs" shows raw number */
+  format?: "pct" | "abs";
+  /** Optional trailing label, e.g. "vs prev day" */
+  label?: string;
+}) {
+  if (value == null || !isFinite(value)) return null;
+
+  const direction = value > 0 ? "up" : value < 0 ? "down" : "flat";
+  const color =
+    direction === "up"
+      ? "var(--success)"
+      : direction === "down"
+        ? "var(--destructive)"
+        : "var(--muted-foreground)";
+  const arrow = direction === "up" ? "\u25B2" : direction === "down" ? "\u25BC" : "\u25C6";
+  const display = format === "pct" ? fmtPct(value) : Math.abs(value).toLocaleString();
+
+  return (
+    <span
+      className="inline-flex items-center gap-0.5 text-[10px] font-medium leading-none"
+      style={{ color }}
+    >
+      <span className="text-[8px]">{arrow}</span>
+      {display}
+      {label && (
+        <span className="font-normal text-[var(--muted-foreground)]"> {label}</span>
+      )}
+    </span>
   );
 }
 

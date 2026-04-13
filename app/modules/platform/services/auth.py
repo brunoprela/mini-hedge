@@ -307,14 +307,16 @@ class AuthService:
                     "Authorization service unavailable",
                     code="FGA_UNAVAILABLE",
                 )
-            fund_ids = await self._fga_client.list_objects(
+            from app.shared.fga.client import unqualify_object_id
+
+            fga_fund_ids = await self._fga_client.list_objects(
                 user=f"user:{user.id}", relation="can_read", type="fund"
             )
-            if not fund_ids:
+            if not fga_fund_ids:
                 logger.warning("keycloak_user_no_fund_access", user_id=user.id)
                 raise AuthorizationError("No fund access", code="NO_FUND_ACCESS")
-            # Pick first fund (deterministic via sorted IDs)
-            fund_ids.sort()
+            # Strip customer qualifier — FGA IDs are "{customer}/{fund}"
+            fund_ids = sorted(unqualify_object_id(fid) for fid in fga_fund_ids)
             fund = await self._fund_repo.get_by_id(fund_ids[0])
             if fund is None or fund.status != FundStatus.ACTIVE:
                 logger.warning("keycloak_fund_inactive", fund_id=fund_ids[0])
@@ -338,7 +340,10 @@ class AuthService:
             fund_id = fund.id
 
         # Resolve roles + permissions from FGA (with cache)
-        roles, permissions = await self._resolve_fund_access(user.id, fund_id, customer_id)
+        # customer_id is resolved below; use fund's customer_id for the FGA lookup
+        roles, permissions = await self._resolve_fund_access(
+            user.id, fund_id, getattr(fund, "customer_id", None),
+        )
         if not roles and not permissions:
             logger.warning("keycloak_user_no_fund_role", user_id=user.id, fund_slug=fund_slug)
             raise AuthorizationError("No fund access", code="NO_FUND_ACCESS")
@@ -503,16 +508,19 @@ class AuthService:
         if self._fga_client is None:
             return []
 
-        fund_ids = await self._fga_client.list_objects(
+        from app.shared.fga.client import unqualify_object_id
+
+        fga_fund_ids = await self._fga_client.list_objects(
             user=f"user:{user_id}", relation="can_read", type="fund"
         )
 
         result: list[FundInfo] = []
-        for fund_id in sorted(fund_ids):
+        for fga_id in sorted(fga_fund_ids):
+            fund_id = unqualify_object_id(fga_id)
             fund = await self._fund_repo.get_by_id(fund_id)
             if fund is None or fund.status != FundStatus.ACTIVE:
                 continue
-            roles, _perms = await self._resolve_fund_access(user_id, fund_id)
+            roles, _perms = await self._resolve_fund_access(user_id, fund_id, fund.customer_id)
             role = roles[0] if roles else "viewer"
             # Resolve customer name if customer_repo is available
             customer_name: str | None = None
@@ -544,7 +552,7 @@ class AuthService:
         if fund is None:
             raise ValueError(f"Fund not found: {fund_slug}")
 
-        roles, _perms = await self._resolve_fund_access(user.id, fund.id)
+        roles, _perms = await self._resolve_fund_access(user.id, fund.id, fund.customer_id)
         if not roles:
             raise ValueError(f"User has no access to fund {fund_slug}")
 

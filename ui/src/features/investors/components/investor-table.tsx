@@ -1,8 +1,10 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { Download } from "lucide-react";
 import Link from "next/link";
 import { capitalAccountsQueryOptions, investorsQueryOptions } from "@/features/investors/api";
+import { useExportCSV } from "@/shared/hooks/use-export-csv";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 
 export function InvestorTable() {
@@ -11,6 +13,26 @@ export function InvestorTable() {
     investorsQueryOptions(fundSlug),
   );
   const { data: accounts } = useQuery(capitalAccountsQueryOptions(fundSlug));
+  const exportCSV = useExportCSV();
+
+  const handleExport = () => {
+    if (!investors || investors.length === 0) return;
+    const accountMap = new Map(accounts?.map((a) => [a.investor_id, a]));
+    const exportData = investors.map((inv) => {
+      const account = accountMap.get(inv.id);
+      return {
+        name: inv.name,
+        entity_type: inv.entity_type,
+        tax_jurisdiction: inv.tax_jurisdiction ?? "",
+        contact_email: inv.contact_email ?? "",
+        is_active: inv.is_active,
+        ending_capital: account?.ending_capital ?? "",
+        ownership_pct: account?.ownership_pct ?? "",
+        shares_held: account?.shares_held ?? "",
+      };
+    });
+    exportCSV(exportData as unknown as Record<string, unknown>[], "investors");
+  };
 
   if (investorsLoading) {
     return <p className="text-sm text-[var(--muted-foreground)]">Loading investors...</p>;
@@ -28,7 +50,19 @@ export function InvestorTable() {
   const accountMap = new Map(accounts?.map((a) => [a.investor_id, a]));
 
   return (
-    <div className="overflow-x-auto rounded-md border border-[var(--border)]">
+    <div className="space-y-3">
+      <div className="flex items-center justify-end">
+        <button
+          type="button"
+          onClick={handleExport}
+          title="Export to CSV"
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+        >
+          <Download className="h-4 w-4" />
+          CSV
+        </button>
+      </div>
+      <div className="overflow-x-auto rounded-md border border-[var(--border)]">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-[var(--border)] bg-[var(--table-header)]">
@@ -84,6 +118,7 @@ export function InvestorTable() {
           })}
         </tbody>
       </table>
+    </div>
     </div>
   );
 }

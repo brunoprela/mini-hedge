@@ -191,7 +191,7 @@ class RiskSnapshotService:
         # Persist
         await self._persist_var_result(result, session=session)
 
-        logger.info(
+        logger.debug(
             "var_calculated",
             portfolio_id=str(portfolio_id),
             method=method,
@@ -214,7 +214,7 @@ class RiskSnapshotService:
         # Persist
         await self._persist_stress_result(result, scenario, session=session)
 
-        logger.info(
+        logger.debug(
             "stress_test_run",
             portfolio_id=str(portfolio_id),
             scenario=scenario.name,
@@ -252,7 +252,7 @@ class RiskSnapshotService:
             base_currency=self._base_currency,
         )
 
-        logger.info(
+        logger.debug(
             "factor_decomposition_calculated",
             portfolio_id=str(portfolio_id),
             systematic_pct=str(result.systematic_pct),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { ordersQueryOptions } from "@/features/orders/api";
@@ -8,7 +8,7 @@ import { BlockAllocationDialog } from "@/features/orders/components/block-alloca
 import { OrderBlotter } from "@/features/orders/components/order-blotter";
 import { OrderDetailPanel } from "@/features/orders/components/order-detail-panel";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
-import { PortfolioSelector } from "@/shared/components/portfolio-selector";
+import { ALL_PORTFOLIOS, PortfolioSelector } from "@/shared/components/portfolio-selector";
 import { useTradeTicket } from "@/shared/components/trade-ticket-provider";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { usePermission } from "@/shared/hooks/use-permission";
@@ -24,11 +24,42 @@ export function OrdersPageClient() {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   const activePortfolioId = selectedPortfolioId || portfolios?.[0]?.id || "";
+  const isAllPortfolios = activePortfolioId === ALL_PORTFOLIOS;
 
-  const { data: orders } = useQuery({
+  // Single-portfolio fetch (used when a specific portfolio is selected)
+  const { data: singlePortfolioOrders } = useQuery({
     ...ordersQueryOptions(fundSlug, activePortfolioId),
-    enabled: !!activePortfolioId,
+    enabled: !!activePortfolioId && !isAllPortfolios,
   });
+
+  // Multi-portfolio fetch (used when "All Portfolios" is selected)
+  const allPortfolioQueries = useQueries({
+    queries:
+      isAllPortfolios && portfolios
+        ? portfolios.map((p) => ({
+            ...ordersQueryOptions(fundSlug, p.id),
+          }))
+        : [],
+  });
+
+  // Merge orders from all portfolios when in cross-portfolio mode
+  const orders = useMemo(() => {
+    if (!isAllPortfolios) return singlePortfolioOrders ?? undefined;
+    const merged = allPortfolioQueries.flatMap((q) => q.data ?? []);
+    return merged.length > 0 || allPortfolioQueries.every((q) => q.isSuccess)
+      ? merged
+      : undefined;
+  }, [isAllPortfolios, singlePortfolioOrders, allPortfolioQueries]);
+
+  // Portfolio name lookup for cross-portfolio mode
+  const portfolioNameMap = useMemo(() => {
+    if (!portfolios) return undefined;
+    const map = new Map<string, string>();
+    for (const p of portfolios) {
+      map.set(p.id, p.name);
+    }
+    return map;
+  }, [portfolios]);
 
   // Summary metrics
   const summary = useMemo(() => {
@@ -81,7 +112,7 @@ export function OrdersPageClient() {
               Block Allocation
             </button>
           )}
-          {can(Permission.TRADES_EXECUTE) && (
+          {can(Permission.TRADES_EXECUTE) && !isAllPortfolios && (
             <button
               type="button"
               onClick={() => openTradeTicket({ portfolioId: activePortfolioId })}
@@ -96,6 +127,7 @@ export function OrdersPageClient() {
               portfolios={portfolios}
               value={activePortfolioId}
               onChange={setSelectedPortfolioId}
+              showAllOption
             />
           )}
         </div>
@@ -130,9 +162,11 @@ export function OrdersPageClient() {
       {/* Main area: blotter + optional detail panel */}
       <div className="flex gap-3">
         <div className="min-w-0 flex-1">
-          {activePortfolioId && (
+          {(activePortfolioId || isAllPortfolios) && (
             <OrderBlotter
-              portfolioId={activePortfolioId}
+              portfolioId={isAllPortfolios ? undefined : activePortfolioId}
+              orders={orders}
+              portfolioNameMap={isAllPortfolios ? portfolioNameMap : undefined}
               onSelectOrder={setSelectedOrderId}
               selectedOrderId={selectedOrderId}
             />
@@ -149,7 +183,7 @@ export function OrdersPageClient() {
                 instrument: o.instrument_id,
                 side: o.side as "buy" | "sell",
                 quantity: o.quantity,
-                portfolioId: activePortfolioId,
+                portfolioId: isAllPortfolios ? o.portfolio_id : activePortfolioId,
               });
             }}
           />

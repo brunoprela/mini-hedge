@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import {
   ForwardsTable,
   FXSummaryCards,
+  HedgeCoverageGauges,
+  HedgeEffectivenessChart,
   HedgeRecommendations,
   InterestRatesPanel,
   OpenForwardDialog,
@@ -108,6 +110,8 @@ export function FXHedgingPageClient() {
       {activePortfolioId && (
         <>
           <FXSummaryCards portfolioId={activePortfolioId} />
+          <HedgeCoverageGauges portfolioId={activePortfolioId} />
+          <HedgeEffectivenessChart portfolioId={activePortfolioId} />
 
           <div className="flex gap-1 border-b border-[var(--border)]">
             {tabs.map((tab) => (

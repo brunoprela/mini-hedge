@@ -408,8 +408,38 @@ def build_seed_fga_tuples() -> list[ClientTuple]:
     - Operator fund access (operator → ops_full/ops_read → fund)
     - Fund user roles (user → role → fund)
     - Portfolio → fund parent pointers
+
+    Fund object IDs are customer-qualified (``fund:{customer_id}/{fund_id}``)
+    to match the format used by ``qualify_object_id`` at runtime.
     """
+    from app.shared.fga.client import qualify_object_id
+
     tuples: list[ClientTuple] = []
+
+    # Fund → customer mapping (mirrors build_seed_funds)
+    fund_customer: dict[str, str] = {
+        FUND_ALPHA_ID: CUSTOMER_ALPHA_ID,
+        FUND_BETA_ID: CUSTOMER_BETA_ID,
+        FUND_GAMMA_ID: CUSTOMER_GAMMA_ID,
+    }
+
+    def fund_obj(fund_id: str) -> str:
+        return qualify_object_id("fund", fund_id, fund_customer[fund_id])
+
+    # Portfolio → customer mapping (derived from portfolio → fund → customer)
+    portfolio_fund: dict[str, str] = {
+        PORTFOLIO_ALPHA_EQUITY_LS_ID: FUND_ALPHA_ID,
+        PORTFOLIO_ALPHA_GLOBAL_MACRO_ID: FUND_ALPHA_ID,
+        PORTFOLIO_BETA_STAT_ARB_ID: FUND_BETA_ID,
+        PORTFOLIO_BETA_MOMENTUM_ID: FUND_BETA_ID,
+        PORTFOLIO_BETA_MARKET_NEUTRAL_ID: FUND_BETA_ID,
+        PORTFOLIO_GAMMA_EVENT_DRIVEN_ID: FUND_GAMMA_ID,
+        PORTFOLIO_GAMMA_DISTRESSED_ID: FUND_GAMMA_ID,
+    }
+
+    def portfolio_obj(portfolio_id: str) -> str:
+        fid = portfolio_fund[portfolio_id]
+        return qualify_object_id("portfolio", portfolio_id, fund_customer[fid])
 
     # --- Customer memberships ---
     # Each PM is a member of their home customer
@@ -439,16 +469,12 @@ def build_seed_fga_tuples() -> list[ClientTuple]:
     )
 
     # Customer → fund parent pointers
-    for fund_id, customer_id in [
-        (FUND_ALPHA_ID, CUSTOMER_ALPHA_ID),
-        (FUND_BETA_ID, CUSTOMER_BETA_ID),
-        (FUND_GAMMA_ID, CUSTOMER_GAMMA_ID),
-    ]:
+    for fund_id, customer_id in fund_customer.items():
         tuples.append(
             ClientTuple(
                 user=f"customer:{customer_id}",
                 relation="customer",
-                object=f"fund:{fund_id}",
+                object=fund_obj(fund_id),
             )
         )
 
@@ -470,22 +496,22 @@ def build_seed_fga_tuples() -> list[ClientTuple]:
 
     # --- Operator fund access ---
     # ops_admin gets ops_full on all funds
-    for fund_id in [FUND_ALPHA_ID, FUND_BETA_ID, FUND_GAMMA_ID]:
+    for fund_id in fund_customer:
         tuples.append(
             ClientTuple(
                 user=f"operator:{OPERATOR_ADMIN_ID}",
                 relation="ops_full",
-                object=f"fund:{fund_id}",
+                object=fund_obj(fund_id),
             )
         )
 
     # ops_viewer gets ops_read on all funds
-    for fund_id in [FUND_ALPHA_ID, FUND_BETA_ID, FUND_GAMMA_ID]:
+    for fund_id in fund_customer:
         tuples.append(
             ClientTuple(
                 user=f"operator:{OPERATOR_VIEWER_ID}",
                 relation="ops_read",
-                object=f"fund:{fund_id}",
+                object=fund_obj(fund_id),
             )
         )
 
@@ -496,7 +522,7 @@ def build_seed_fga_tuples() -> list[ClientTuple]:
         ClientTuple(
             user=f"user:{USER_ADMIN_ID}",
             relation="admin",
-            object=f"fund:{FUND_ALPHA_ID}",
+            object=fund_obj(FUND_ALPHA_ID),
         )
     )
 
@@ -510,46 +536,37 @@ def build_seed_fga_tuples() -> list[ClientTuple]:
             ClientTuple(
                 user=f"user:{user_id}",
                 relation="portfolio_manager",
-                object=f"fund:{fund_id}",
+                object=fund_obj(fund_id),
             )
         )
 
     # Risk manager — risk_manager on all funds
-    for fund_id in [FUND_ALPHA_ID, FUND_BETA_ID, FUND_GAMMA_ID]:
+    for fund_id in fund_customer:
         tuples.append(
             ClientTuple(
                 user=f"user:{USER_RISK_MANAGER_ID}",
                 relation="risk_manager",
-                object=f"fund:{fund_id}",
+                object=fund_obj(fund_id),
             )
         )
 
     # Compliance officer — compliance_officer on all funds
-    for fund_id in [FUND_ALPHA_ID, FUND_BETA_ID, FUND_GAMMA_ID]:
+    for fund_id in fund_customer:
         tuples.append(
             ClientTuple(
                 user=f"user:{USER_COMPLIANCE_ID}",
                 relation="compliance_officer",
-                object=f"fund:{fund_id}",
+                object=fund_obj(fund_id),
             )
         )
 
     # --- Portfolio → fund parent pointers ---
-    portfolio_fund_map = {
-        PORTFOLIO_ALPHA_EQUITY_LS_ID: FUND_ALPHA_ID,
-        PORTFOLIO_ALPHA_GLOBAL_MACRO_ID: FUND_ALPHA_ID,
-        PORTFOLIO_BETA_STAT_ARB_ID: FUND_BETA_ID,
-        PORTFOLIO_BETA_MOMENTUM_ID: FUND_BETA_ID,
-        PORTFOLIO_BETA_MARKET_NEUTRAL_ID: FUND_BETA_ID,
-        PORTFOLIO_GAMMA_EVENT_DRIVEN_ID: FUND_GAMMA_ID,
-        PORTFOLIO_GAMMA_DISTRESSED_ID: FUND_GAMMA_ID,
-    }
-    for portfolio_id, fund_id in portfolio_fund_map.items():
+    for p_id, f_id in portfolio_fund.items():
         tuples.append(
             ClientTuple(
-                user=f"fund:{fund_id}",
+                user=fund_obj(f_id),
                 relation="fund",
-                object=f"portfolio:{portfolio_id}",
+                object=portfolio_obj(p_id),
             )
         )
 

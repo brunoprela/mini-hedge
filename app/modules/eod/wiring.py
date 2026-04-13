@@ -93,6 +93,7 @@ async def setup(
         fund_admin_adapter=fund_admin,
         cash_service=cash_service,
     )
+    app.state.nav_snapshot_repo = nav_repo
     app.state.recon_repo = recon_repo
     app.state.break_repo = break_repo
 

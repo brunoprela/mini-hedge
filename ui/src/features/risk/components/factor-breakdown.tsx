@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { HBarChart } from "@/shared/components/charts";
+import { DivergingHBarChart, HBarChart } from "@/shared/components/charts";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { factorDecompositionQueryOptions } from "../api";
 
@@ -22,6 +22,16 @@ export function FactorBreakdown({
       .map((f) => ({
         label: f.factor,
         value: parseFloat(f.pct_of_total),
+      }))
+      .sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
+  }, [data]);
+
+  const exposureItems = useMemo(() => {
+    if (!data) return [];
+    return data.factor_exposures
+      .map((f) => ({
+        label: f.factor_name,
+        value: parseFloat(f.exposure_value),
       }))
       .sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
   }, [data]);
@@ -69,6 +79,19 @@ export function FactorBreakdown({
     </div>
   );
 
+  const exposureChart =
+    exposureItems.length > 0 ? (
+      <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
+        <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+          Factor Exposure
+        </p>
+        <DivergingHBarChart
+          items={exposureItems}
+          formatValue={(v) => v.toFixed(3)}
+        />
+      </div>
+    ) : null;
+
   const factorChart =
     chartItems.length > 0 ? (
       <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
@@ -82,28 +105,28 @@ export function FactorBreakdown({
   const factorTable =
     data.factor_exposures.length > 0 ? (
       <div className="overflow-x-auto rounded-md border border-[var(--border)] bg-[var(--card)]">
-        <table className="w-full text-sm">
+        <table className="min-w-full divide-y divide-[var(--border)] text-sm">
           <thead>
-            <tr className="border-b border-[var(--table-border)] bg-[var(--table-header)]">
-              <th className="px-3 py-1.5 text-left font-medium text-[var(--muted-foreground)]">
+            <tr>
+              <th scope="col" className="px-3 py-2 text-left font-semibold whitespace-nowrap text-[var(--muted-foreground)]">
                 Factor
               </th>
-              <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
+              <th scope="col" className="px-3 py-2 text-right font-semibold whitespace-nowrap text-[var(--muted-foreground)]">
                 Exposure
               </th>
-              <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
+              <th scope="col" className="px-3 py-2 text-right font-semibold whitespace-nowrap text-[var(--muted-foreground)]">
                 Beta
               </th>
-              <th className="px-3 py-1.5 text-right font-medium text-[var(--muted-foreground)]">
+              <th scope="col" className="px-3 py-2 text-right font-semibold whitespace-nowrap text-[var(--muted-foreground)]">
                 % of Total
               </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-[var(--table-border)]">
             {data.factor_exposures.map((f) => (
               <tr
                 key={f.factor}
-                className="border-b border-[var(--table-border)] last:border-0 hover:bg-[var(--table-row-hover)]"
+                className="transition-colors hover:bg-[var(--table-row-hover)]"
               >
                 <td className="px-3 py-1.5 font-medium">{f.factor}</td>
                 <td className="px-3 py-1.5 text-right font-mono">
@@ -124,10 +147,13 @@ export function FactorBreakdown({
 
   if (fullWidth) {
     return (
-      <div className="grid grid-cols-3 gap-2">
-        <div className="space-y-2">{systematicBar}</div>
-        <div>{factorChart}</div>
-        <div>{factorTable}</div>
+      <div className="space-y-2">
+        <div className="grid grid-cols-3 gap-2">
+          <div>{systematicBar}</div>
+          <div>{factorChart}</div>
+          <div>{exposureChart}</div>
+        </div>
+        {factorTable}
       </div>
     );
   }
@@ -135,6 +161,7 @@ export function FactorBreakdown({
   return (
     <div className="space-y-2">
       {systematicBar}
+      {exposureChart}
       {factorChart}
       {factorTable}
     </div>

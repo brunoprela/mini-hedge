@@ -1,7 +1,8 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ShieldAlert, ShieldCheck } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronRight, ShieldAlert, ShieldCheck } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { runWhatIf } from "@/features/alpha/api";
@@ -12,6 +13,7 @@ import { latestPriceQueryOptions } from "@/features/market-data/api";
 import { createAlgoOrder, createOrder } from "@/features/orders/api";
 import type { AlgoType, OrderSummary } from "@/features/orders/types";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
+import { useTradeTicketStore } from "@/shared/stores/trade-ticket-store";
 
 interface TradeTicketInnerProps {
   portfolioId: string;
@@ -32,27 +34,48 @@ export function TradeTicketInner({
   const { fundSlug } = useFundContext();
   const queryClient = useQueryClient();
 
-  const [portfolioId, setPortfolioId] = useState(initialPortfolioId);
+  /* ---- Zustand-backed persisted form state ---- */
+  const formState = useTradeTicketStore((s) => s.formState);
+  const setFormField = useTradeTicketStore((s) => s.setFormField);
+  const resetForm = useTradeTicketStore((s) => s.resetForm);
 
-  const [side, setSide] = useState<"buy" | "sell">(defaults?.side === "sell" ? "sell" : "buy");
-  const [instrumentId, setInstrumentId] = useState(defaults?.instrument ?? "");
+  const side = formState.side;
+  const instrumentId = formState.instrument;
+  const quantity = formState.quantity;
+  const price = formState.price;
+  const useAlgo = formState.useAlgo;
+  const algoType = formState.algoType;
+  const algoDuration = formState.algoDuration;
+  const algoSlices = formState.algoSlices;
+  const algoVisibleQty = formState.algoVisibleQty;
+
+  const setSide = (v: "buy" | "sell") => setFormField("side", v);
+  const setInstrumentId = (v: string) => setFormField("instrument", v);
+  const setQuantity = (v: string) => setFormField("quantity", v);
+  const setPrice = (v: string) => setFormField("price", v);
+  const setUseAlgo = (v: boolean) => setFormField("useAlgo", v);
+  const setAlgoType = (v: AlgoType) => setFormField("algoType", v);
+  const setAlgoDuration = (v: string) => setFormField("algoDuration", v);
+  const setAlgoSlices = (v: string) => setFormField("algoSlices", v);
+  const setAlgoVisibleQty = (v: string) => setFormField("algoVisibleQty", v);
+
+  /* ---- Local-only ephemeral state ---- */
+  const [portfolioId, setPortfolioId] = useState(initialPortfolioId);
   const [search, setSearch] = useState("");
-  const [quantity, setQuantity] = useState(defaults?.quantity ?? "");
-  const [price, setPrice] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [rejectionDetail, setRejectionDetail] = useState<OrderSummary | null>(null);
   const [impact, setImpact] = useState<WhatIfResult | null>(null);
   const [impactLoading, setImpactLoading] = useState(false);
-  const [showImpact, setShowImpact] = useState(true);
-
+  const [complianceOpen, setComplianceOpen] = useState(true);
+  const [impactOpen, setImpactOpen] = useState(false);
   const [complianceCheck, setComplianceCheck] = useState<ComplianceDecision | null>(null);
   const [complianceLoading, setComplianceLoading] = useState(false);
-
-  const [useAlgo, setUseAlgo] = useState(false);
-  const [algoType, setAlgoType] = useState<AlgoType>("twap");
-  const [algoDuration, setAlgoDuration] = useState("3600");
-  const [algoSlices, setAlgoSlices] = useState("100");
-  const [algoVisibleQty, setAlgoVisibleQty] = useState("");
+  const [confirmedOrder, setConfirmedOrder] = useState<{
+    id: string;
+    instrument_id: string;
+    side: string;
+    quantity: string;
+  } | null>(null);
 
   // Sync defaults when they change (e.g. clicking a different instrument)
   useEffect(() => {
@@ -64,6 +87,21 @@ export function TradeTicketInner({
   useEffect(() => {
     setPortfolioId(initialPortfolioId);
   }, [initialPortfolioId]);
+
+  // Auto-clear confirmation strip when user starts entering a new order
+  useEffect(() => {
+    if (instrumentId || quantity || price) {
+      setConfirmedOrder(null);
+    }
+  }, [instrumentId, quantity, price]);
+
+  const handleNewOrder = () => {
+    setConfirmedOrder(null);
+    resetForm();
+    setRejectionDetail(null);
+    setImpact(null);
+    setComplianceCheck(null);
+  };
 
   const { data: searchResults } = useQuery(instrumentSearchQueryOptions(fundSlug, search));
 
@@ -113,15 +151,18 @@ export function TradeTicketInner({
         setRejectionDetail(order);
         toast.error("Order rejected by compliance");
       } else {
+        setConfirmedOrder({
+          id: order.id,
+          instrument_id: order.instrument_id,
+          side: order.side,
+          quantity: order.quantity,
+        });
         toast.success(`${side.toUpperCase()} ${quantity} ${instrumentId} — ${order.state}`);
         // Reset form
-        setInstrumentId("");
-        setQuantity("");
-        setPrice("");
+        resetForm();
         setRejectionDetail(null);
         setImpact(null);
         setComplianceCheck(null);
-        setUseAlgo(false);
       }
     },
     onError: (err: Error) => {
@@ -203,6 +244,38 @@ export function TradeTicketInner({
                 </option>
               ))}
             </select>
+          </div>
+        )}
+
+        {/* Order confirmation strip */}
+        {confirmedOrder && (
+          <div className="mb-3 rounded-md border border-[var(--success)]/30 bg-[var(--success)]/10 p-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-[var(--success)]" />
+              <span className="text-sm font-medium text-[var(--success)]">Order Submitted</span>
+            </div>
+            <p className="mt-1.5 pl-6 font-mono text-xs text-[var(--foreground)]">
+              {confirmedOrder.side.toUpperCase()} {confirmedOrder.quantity}{" "}
+              {confirmedOrder.instrument_id}
+            </p>
+            <p className="mt-0.5 pl-6 text-[10px] text-[var(--muted-foreground)]">
+              ID: {confirmedOrder.id.slice(0, 8)}
+            </p>
+            <div className="mt-2 flex items-center gap-2 pl-6">
+              <Link
+                href={`/${fundSlug}/orders`}
+                className="rounded-md bg-[var(--success)]/15 px-2 py-1 text-[10px] font-medium text-[var(--success)] transition-colors hover:bg-[var(--success)]/25"
+              >
+                View Orders
+              </Link>
+              <button
+                type="button"
+                onClick={handleNewOrder}
+                className="rounded-md border border-[var(--border)] px-2 py-1 text-[10px] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)]"
+              >
+                New Order
+              </button>
+            </div>
           </div>
         )}
 
@@ -464,31 +537,36 @@ export function TradeTicketInner({
 
         {/* Compliance */}
         {(complianceCheck || complianceLoading) && (
-          <div className="mb-3 rounded-md border border-[var(--border)] bg-[var(--muted)] p-2">
-            <div className="mb-1.5 flex items-center gap-2">
-              {complianceLoading ? (
-                <>
-                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[var(--primary)] border-t-transparent" />
-                  <span className="text-[10px] font-medium text-[var(--muted-foreground)]">
-                    Checking compliance...
-                  </span>
-                </>
-              ) : complianceCheck?.approved ? (
-                <>
-                  <ShieldCheck className="h-3.5 w-3.5 text-[var(--success)]" />
-                  <span className="text-[10px] font-medium text-[var(--success)]">
-                    Compliance Passed
-                  </span>
-                </>
-              ) : (
-                <>
-                  <ShieldAlert className="h-3.5 w-3.5 text-[var(--destructive)]" />
-                  <span className="text-[10px] font-medium text-[var(--destructive)]">
-                    Compliance Failed
-                  </span>
-                </>
-              )}
-            </div>
+          <CollapsibleSection
+            title={
+              <div className="flex items-center gap-2">
+                {complianceLoading ? (
+                  <>
+                    <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[var(--primary)] border-t-transparent" />
+                    <span className="text-[10px] font-medium text-[var(--muted-foreground)]">
+                      Checking compliance...
+                    </span>
+                  </>
+                ) : complianceCheck?.approved ? (
+                  <>
+                    <ShieldCheck className="h-3.5 w-3.5 text-[var(--success)]" />
+                    <span className="text-[10px] font-medium text-[var(--success)]">
+                      Compliance Passed
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldAlert className="h-3.5 w-3.5 text-[var(--destructive)]" />
+                    <span className="text-[10px] font-medium text-[var(--destructive)]">
+                      Compliance Failed
+                    </span>
+                  </>
+                )}
+              </div>
+            }
+            open={complianceOpen}
+            onToggle={() => setComplianceOpen((v) => !v)}
+          >
             {complianceCheck && (
               <div className="space-y-1">
                 {complianceCheck.results.map((r) => {
@@ -510,43 +588,36 @@ export function TradeTicketInner({
                 })}
               </div>
             )}
-          </div>
+          </CollapsibleSection>
         )}
 
         {/* Impact */}
         {(impact || impactLoading) && (
-          <div className="mb-3 rounded-md border border-[var(--border)] bg-[var(--muted)] p-2">
-            <button
-              type="button"
-              onClick={() => setShowImpact(!showImpact)}
-              className="flex w-full items-center justify-between text-xs font-medium"
-            >
-              Impact Preview
-              <span className="text-[10px] text-[var(--muted-foreground)]">
-                {showImpact ? "▾" : "▸"}
-              </span>
-            </button>
-            {showImpact &&
-              (impactLoading ? (
-                <p className="mt-1 text-[10px] text-[var(--muted-foreground)]">Calculating...</p>
-              ) : impact ? (
-                <div className="mt-1 space-y-1">
+          <CollapsibleSection
+            title="Impact Preview"
+            open={impactOpen}
+            onToggle={() => setImpactOpen((v) => !v)}
+          >
+            {impactLoading ? (
+              <p className="text-[10px] text-[var(--muted-foreground)]">Calculating...</p>
+            ) : impact ? (
+              <div className="space-y-1">
+                <ImpactRow
+                  label="NAV"
+                  before={fmtUsd(impact.current_nav)}
+                  after={fmtUsd(impact.proposed_nav)}
+                  delta={impact.nav_change_pct}
+                />
+                {impact.current_var_95 && impact.proposed_var_95 && (
                   <ImpactRow
-                    label="NAV"
-                    before={fmtUsd(impact.current_nav)}
-                    after={fmtUsd(impact.proposed_nav)}
-                    delta={impact.nav_change_pct}
+                    label="VaR 95%"
+                    before={fmtUsd(impact.current_var_95)}
+                    after={fmtUsd(impact.proposed_var_95)}
                   />
-                  {impact.current_var_95 && impact.proposed_var_95 && (
-                    <ImpactRow
-                      label="VaR 95%"
-                      before={fmtUsd(impact.current_var_95)}
-                      after={fmtUsd(impact.proposed_var_95)}
-                    />
-                  )}
-                </div>
-              ) : null)}
-          </div>
+                )}
+              </div>
+            ) : null}
+          </CollapsibleSection>
         )}
       </div>
 
@@ -572,6 +643,44 @@ export function TradeTicketInner({
             ? "Submitting..."
             : `${side === "buy" ? "Buy" : "Sell"} ${instrumentId || "..."}${useAlgo ? ` (${algoType.toUpperCase()})` : ""}`}
         </button>
+      </div>
+    </div>
+  );
+}
+
+function CollapsibleSection({
+  title,
+  open,
+  onToggle,
+  children,
+}: {
+  title: React.ReactNode;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  const Chevron = open ? ChevronDown : ChevronRight;
+  return (
+    <div className="mb-3 rounded-md border border-[var(--border)] bg-[var(--muted)]">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between px-2 py-1.5"
+      >
+        {typeof title === "string" ? (
+          <span className="text-xs font-medium text-[var(--foreground)]">{title}</span>
+        ) : (
+          title
+        )}
+        <Chevron className="h-3.5 w-3.5 shrink-0 text-[var(--muted-foreground)] transition-transform duration-150" />
+      </button>
+      <div
+        className="grid transition-[grid-template-rows] duration-150 ease-out"
+        style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
+      >
+        <div className="overflow-hidden">
+          <div className="px-2 pb-2">{children}</div>
+        </div>
       </div>
     </div>
   );

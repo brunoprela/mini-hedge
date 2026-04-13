@@ -77,7 +77,10 @@ export type VaRContribution = Schemas["VaRContribution"];
 export type VaRResult = Schemas["VaRResult"];
 export type StressPositionImpact = Schemas["StressPositionImpact"];
 export type StressTestResult = Schemas["StressTestResult"];
-export type FactorExposure = Schemas["FactorExposure"];
+export type FactorExposure =
+  Schemas["app__modules__risk_engine__interfaces__factor__FactorExposure"];
+export type QuantFactorExposure =
+  Schemas["app__modules__quant_research__interfaces__quant__FactorExposure"];
 export type FactorDecomposition = Schemas["FactorDecomposition"];
 
 // Cash
@@ -103,6 +106,7 @@ export type OptimizationResult = Schemas["OptimizationResult"];
 export type ScenarioRun = Schemas["ScenarioRun"];
 
 // Attribution
+export type InstrumentAttribution = Schemas["InstrumentAttribution"];
 export type SectorAttribution = Schemas["SectorAttribution"];
 export type BrinsonFachlerResult = Schemas["BrinsonFachlerResult"];
 export type RiskFactorAttribution = Schemas["RiskFactorAttribution"];
@@ -134,6 +138,33 @@ export type FeeAccrualResponse = Schemas["FeeAccrualResponse"];
 export type FeeScheduleUpdate = Schemas["FeeScheduleUpdate"];
 export type FeeType = Schemas["FeeType"];
 export type AccrualStatus = Schemas["AccrualStatus"];
+
+// Reconciliation
+export type ReconSummary = Schemas["ReconSummary"];
+export type TrackedBreak = Schemas["TrackedBreak"];
+export type BreakWithSLA = Schemas["BreakWithSLA"];
+export type BreakStatus = Schemas["BreakStatus"];
+export type BreakType = Schemas["BreakType"];
+export type AgingSummary = Schemas["AgingSummary"];
+export type AgingBucket = Schemas["AgingBucket"];
+export type SLAStatus = Schemas["SLAStatus"];
+
+// Investor Operations
+export type SubscriptionRequestSummary = Schemas["SubscriptionRequestSummary"];
+export type SubscriptionState = Schemas["SubscriptionState"];
+export type RedemptionRequestSummary = Schemas["RedemptionRequestSummary"];
+export type RedemptionState = Schemas["RedemptionState"];
+export type FundTermsSummary = Schemas["FundTermsSummary"];
+
+// Regulatory
+export type FormPFData = Schemas["FormPFData"];
+export type Filing13FReport = Schemas["Filing13FReport"];
+export type InvestorStatement = Schemas["InvestorStatement"];
+export type MonthlyPerformanceLetter = Schemas["MonthlyPerformanceLetter"];
+
+// Cash (extra)
+export type NettingResult = Schemas["NettingResult"];
+export type ShareClassSummary = Schemas["ShareClassSummary"];
 
 // Multi-Broker & TCA
 export type BrokerScorecard = Schemas["BrokerScorecard"];

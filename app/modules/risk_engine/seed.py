@@ -126,53 +126,56 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
         logger.debug("risk_engine_seed_skipped", reason="services not available")
         return
 
-    # Seed counterparties
     cpty_repo = counterparty_service._counterparty_repo
-    existing = await cpty_repo.list_counterparties()
-    existing_ids = {r.id for r in existing}
-    cpty_seeded = 0
-    for cpty in _COUNTERPARTIES:
-        if cpty.id in existing_ids:
-            continue
-        await cpty_repo.save_counterparty(cpty)
-        cpty_seeded += 1
+    snapshot_repo = risk_service._snapshot_repo
 
-    # Seed risk snapshots (one per portfolio, 5 days of history)
     fund_repo: FundRepository = app.state.fund_repo
     portfolio_repo: PortfolioRepository = app.state.portfolio_repo
-    snapshot_repo = risk_service._snapshot_repo
     active_funds = await fund_repo.get_all_active()
 
+    cpty_seeded = 0
     snap_seeded = 0
     now = datetime.now(UTC)
-    for fund in active_funds:
-        portfolios = await portfolio_repo.get_by_fund(fund.id)
-        for portfolio in portfolios:
-            existing_snap = await snapshot_repo.get_latest_snapshot(
-                UUID(portfolio.id),
-            )
-            if existing_snap is not None:
-                continue
 
-            profile = _profile_for(portfolio.name)
-            # Create 5 days of history
-            for day_offset in range(5, 0, -1):
-                snap_time = now - timedelta(days=day_offset)
-                # Add small daily variation (±2%)
-                factor = Decimal("1") + Decimal(str((day_offset % 3 - 1) * 0.01))
-                record = RiskSnapshotRecord(
-                    id=str(uuid4()),
-                    portfolio_id=portfolio.id,
-                    nav=profile["nav"] * factor,
-                    var_95_1d=profile["var_95_1d"] * factor,
-                    var_99_1d=profile["var_99_1d"] * factor,
-                    expected_shortfall_95=profile["expected_shortfall_95"] * factor,
-                    max_drawdown=profile["max_drawdown"],
-                    sharpe_ratio=profile["sharpe_ratio"],
-                    snapshot_at=snap_time,
+    for fund in active_funds:
+        async with sf.fund_scope(fund.slug):
+            # Seed counterparties (per-fund schema)
+            existing = await cpty_repo.list_counterparties()
+            existing_ids = {r.id for r in existing}
+            for cpty in _COUNTERPARTIES:
+                if cpty.id in existing_ids:
+                    continue
+                await cpty_repo.save_counterparty(cpty)
+                cpty_seeded += 1
+
+            # Seed risk snapshots (one per portfolio, 5 days of history)
+            portfolios = await portfolio_repo.get_by_fund(fund.id)
+            for portfolio in portfolios:
+                existing_snap = await snapshot_repo.get_latest_snapshot(
+                    UUID(portfolio.id),
                 )
-                await snapshot_repo.save_snapshot(record)
-                snap_seeded += 1
+                if existing_snap is not None:
+                    continue
+
+                profile = _profile_for(portfolio.name)
+                # Create 5 days of history
+                for day_offset in range(5, 0, -1):
+                    snap_time = now - timedelta(days=day_offset)
+                    # Add small daily variation (±2%)
+                    factor = Decimal("1") + Decimal(str((day_offset % 3 - 1) * 0.01))
+                    record = RiskSnapshotRecord(
+                        id=str(uuid4()),
+                        portfolio_id=portfolio.id,
+                        nav=profile["nav"] * factor,
+                        var_95_1d=profile["var_95_1d"] * factor,
+                        var_99_1d=profile["var_99_1d"] * factor,
+                        expected_shortfall_95=profile["expected_shortfall_95"] * factor,
+                        max_drawdown=profile["max_drawdown"],
+                        sharpe_ratio=profile["sharpe_ratio"],
+                        snapshot_at=snap_time,
+                    )
+                    await snapshot_repo.save_snapshot(record)
+                    snap_seeded += 1
 
     if cpty_seeded or snap_seeded:
         logger.info(
