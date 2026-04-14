@@ -38,3 +38,17 @@ class InvestorStatementRepository(BaseRepository):
             )
             result = await session.execute(stmt)
             return list(result.scalars().all())
+
+    async def list_all(
+        self,
+        *,
+        session: AsyncSession | None = None,
+    ) -> list[InvestorStatementRecord]:
+        async with self._session(session) as session:
+            stmt = (
+                select(InvestorStatementRecord)
+                .order_by(InvestorStatementRecord.period_end.desc())
+                .limit(50)
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all())

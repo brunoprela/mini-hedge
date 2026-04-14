@@ -26,13 +26,13 @@ export default function FundsPage() {
       return Promise.all(
         funds.map(async (f) => {
           const [overview, investors] = await Promise.all([
-            apiFetch<FundCapitalOverview>(`funds/${f.slug}/capital/overview`),
-            apiFetch<InvestorInfo[]>(`funds/${f.slug}/capital/investors`),
+            apiFetch<FundCapitalOverview>(`capital/overview?fund_slug=${f.slug}`),
+            apiFetch<InvestorInfo[]>(`capital/investors?fund_slug=${f.slug}`),
           ]);
           let accounts: CapitalAccountSummary[] = [];
           if (investors.length > 0) {
             accounts = await apiFetch<CapitalAccountSummary[]>(
-              `funds/${f.slug}/capital/investors/${investors[0].id}/accounts`,
+              `capital/investors/${investors[0].id}/history?fund_slug=${f.slug}`,
             );
           }
           return { fund: f, overview, accounts };

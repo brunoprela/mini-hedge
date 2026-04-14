@@ -21,3 +21,21 @@ class PerformanceLetterRepository(BaseRepository):
         async with self._session(session) as session:
             session.add(record)
             await session.commit()
+
+    async def list_all(
+        self,
+        *,
+        session: AsyncSession | None = None,
+    ) -> list[PerformanceLetterRecord]:
+        from sqlalchemy import select
+
+        from app.modules.regulatory.models.performance_letter import PerformanceLetterRecord
+
+        async with self._session(session) as session:
+            stmt = (
+                select(PerformanceLetterRecord)
+                .order_by(PerformanceLetterRecord.period.desc())
+                .limit(50)
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all())

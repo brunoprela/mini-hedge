@@ -35,7 +35,7 @@ export default function ActivityPage() {
   } = useQuery({
     queryKey: ["activity-subs", slug],
     queryFn: () =>
-      apiFetch<SubscriptionRequestSummary[]>(`funds/${slug}/investor-ops/subscriptions`),
+      apiFetch<SubscriptionRequestSummary[]>(`investor-operations/subscriptions?fund_slug=${slug}`),
     enabled: !!slug,
   });
 
@@ -46,7 +46,7 @@ export default function ActivityPage() {
   } = useQuery({
     queryKey: ["activity-reds", slug],
     queryFn: () =>
-      apiFetch<RedemptionRequestSummary[]>(`funds/${slug}/investor-ops/redemptions`),
+      apiFetch<RedemptionRequestSummary[]>(`investor-operations/redemptions?fund_slug=${slug}`),
     enabled: !!slug,
   });
 

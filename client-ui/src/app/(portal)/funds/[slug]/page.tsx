@@ -118,7 +118,7 @@ function PerformanceTab({ slug }: { slug: string }) {
   } = useQuery({
     queryKey: ["capital-overview", slug],
     queryFn: () =>
-      apiFetch<FundCapitalOverview>(`funds/${slug}/capital/overview`),
+      apiFetch<FundCapitalOverview>(`capital/overview?fund_slug=${slug}`),
   });
 
   const isLoading = navLoading || ovLoading;
@@ -470,7 +470,7 @@ function DocumentsTab({ slug }: { slug: string }) {
     queryKey: ["investor-statements", slug],
     queryFn: () =>
       apiFetch<InvestorStatement[]>(
-        `funds/${slug}/regulatory/investor-statements`,
+        `regulatory/investor-statements?fund_slug=${slug}`,
       ),
   });
 
@@ -482,7 +482,7 @@ function DocumentsTab({ slug }: { slug: string }) {
     queryKey: ["performance-letters", slug],
     queryFn: () =>
       apiFetch<MonthlyPerformanceLetter[]>(
-        `funds/${slug}/regulatory/performance-letters`,
+        `regulatory/performance-letters?fund_slug=${slug}`,
       ),
   });
 

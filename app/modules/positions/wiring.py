@@ -62,6 +62,10 @@ async def setup(
         daily_pnl_repo=daily_pnl_repo,
     )
 
+    if event_bus is None or fund_repo is None:
+        logger.warning("positions_skipping_subscriptions", reason="event_bus or fund_repo is None")
+        return
+
     # Subscribe trade handler to trades.executed per fund.
     # When an order is filled, OrderService publishes trades.executed;
     # TradeHandler picks it up here, creates the position, and publishes
@@ -90,6 +94,8 @@ async def setup(
         return [f.slug for f in funds]
 
     async def get_asset_class(instrument_id: str) -> AssetClass | None:
+        if security_master_service is None:
+            return None
         try:
             instrument = await security_master_service.get_by_ticker(instrument_id)
         except Exception:

@@ -133,9 +133,12 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
     for fund in active_funds:
         if fund.slug != "alpha" and fund.slug != "beta":
             continue
+        check_portfolio_id = (
+            PORTFOLIO_ALPHA_EQUITY_LS_ID if fund.slug == "alpha" else PORTFOLIO_BETA_STAT_ARB_ID
+        )
         async with sf.fund_scope(fund.slug), sf() as session:
             existing_fwds = await forward_repo.get_by_portfolio(
-                UUID(PORTFOLIO_ALPHA_EQUITY_LS_ID),
+                UUID(check_portfolio_id),
                 session=session,
             )
             if existing_fwds:

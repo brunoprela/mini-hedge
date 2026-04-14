@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
-from uuid import uuid4
+from uuid import NAMESPACE_DNS, uuid4, uuid5
 
 from app.modules.security_master.models.equity_extension import EquityExtensionRecord
 from app.modules.security_master.models.fixed_income_extension import FixedIncomeExtensionRecord
@@ -556,7 +556,7 @@ def build_seed_records() -> tuple[list[InstrumentRecord], list[EquityExtensionRe
     extensions: list[EquityExtensionRecord] = []
 
     for data in SEED_INSTRUMENTS:
-        instrument_id = str(uuid4())
+        instrument_id = str(uuid5(NAMESPACE_DNS, f"minihedge.instrument.{data['ticker']}"))
 
         # Split extension fields from base instrument fields
         ext_data = {k: data[k] for k in _EQUITY_EXTENSION_FIELDS if k in data}
@@ -811,7 +811,7 @@ def build_all_seed_records() -> dict[str, list]:
 
     fi_ext: list[FixedIncomeExtensionRecord] = []
     for data in SEED_FIXED_INCOME:
-        instrument_id = str(uuid4())
+        instrument_id = str(uuid5(NAMESPACE_DNS, f"minihedge.instrument.{data['ticker']}"))
         ext_data = {k: data[k] for k in _FIXED_INCOME_FIELDS if k in data}
         instr_data = {k: v for k, v in data.items() if k not in _FIXED_INCOME_FIELDS}
         instruments.append(InstrumentRecord(id=instrument_id, **instr_data))
@@ -820,7 +820,7 @@ def build_all_seed_records() -> dict[str, list]:
 
     opt_ext: list[OptionExtensionRecord] = []
     for data in SEED_OPTIONS:
-        instrument_id = str(uuid4())
+        instrument_id = str(uuid5(NAMESPACE_DNS, f"minihedge.instrument.{data['ticker']}"))
         ext_data = {k: data[k] for k in _OPTION_FIELDS if k in data}
         instr_data = {k: v for k, v in data.items() if k not in _OPTION_FIELDS}
         instruments.append(InstrumentRecord(id=instrument_id, **instr_data))
@@ -829,7 +829,7 @@ def build_all_seed_records() -> dict[str, list]:
 
     fut_ext: list[FutureExtensionRecord] = []
     for data in SEED_FUTURES:
-        instrument_id = str(uuid4())
+        instrument_id = str(uuid5(NAMESPACE_DNS, f"minihedge.instrument.{data['ticker']}"))
         ext_data = {k: data[k] for k in _FUTURE_FIELDS if k in data}
         instr_data = {k: v for k, v in data.items() if k not in _FUTURE_FIELDS}
         instruments.append(InstrumentRecord(id=instrument_id, **instr_data))
@@ -838,7 +838,7 @@ def build_all_seed_records() -> dict[str, list]:
 
     fx_ext: list[FXExtensionRecord] = []
     for data in SEED_FX:
-        instrument_id = str(uuid4())
+        instrument_id = str(uuid5(NAMESPACE_DNS, f"minihedge.instrument.{data['ticker']}"))
         ext_data = {k: data[k] for k in _FX_FIELDS if k in data}
         instr_data = {k: v for k, v in data.items() if k not in _FX_FIELDS}
         instruments.append(InstrumentRecord(id=instrument_id, **instr_data))
@@ -847,7 +847,7 @@ def build_all_seed_records() -> dict[str, list]:
 
     swap_ext: list[SwapExtensionRecord] = []
     for data in SEED_SWAPS:
-        instrument_id = str(uuid4())
+        instrument_id = str(uuid5(NAMESPACE_DNS, f"minihedge.instrument.{data['ticker']}"))
         ext_data = {k: data[k] for k in _SWAP_FIELDS if k in data}
         instr_data = {k: v for k, v in data.items() if k not in _SWAP_FIELDS}
         instruments.append(InstrumentRecord(id=instrument_id, **instr_data))

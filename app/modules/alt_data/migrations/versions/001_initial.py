@@ -42,10 +42,10 @@ def upgrade() -> None:
             server_default=sa.text("'[]'::jsonb"),
         ),
         sa.Column("quality", sa.String(16), nullable=False),
-        sa.Column("is_active", sa.Boolean(), nullable=False),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
         sa.Column("config", PG_JSONB(), nullable=True),
         sa.Column("last_updated", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("record_count", sa.Integer(), nullable=False),
+        sa.Column("record_count", sa.Integer(), nullable=False, server_default=sa.text("0")),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),

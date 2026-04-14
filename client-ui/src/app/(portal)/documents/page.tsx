@@ -28,7 +28,7 @@ export default function DocumentsPage() {
   } = useQuery({
     queryKey: ["documents-statements", slug],
     queryFn: () =>
-      apiFetch<InvestorStatement[]>(`funds/${slug}/regulatory/investor-statements`),
+      apiFetch<InvestorStatement[]>(`regulatory/investor-statements?fund_slug=${slug}`),
     enabled: !!slug,
   });
 
@@ -39,7 +39,7 @@ export default function DocumentsPage() {
   } = useQuery({
     queryKey: ["documents-letters", slug],
     queryFn: () =>
-      apiFetch<MonthlyPerformanceLetter[]>(`funds/${slug}/regulatory/performance-letters`),
+      apiFetch<MonthlyPerformanceLetter[]>(`regulatory/performance-letters?fund_slug=${slug}`),
     enabled: !!slug,
   });
 

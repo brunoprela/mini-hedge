@@ -9,35 +9,15 @@ import { FundPortfolioPicker } from "@/shared/components/fund-portfolio-picker";
 import { StatusBadge } from "@/shared/components/status-badge";
 import { apiFetch } from "@/shared/lib/api";
 
-interface StatementRecord {
+interface FilingRecord {
   id: string;
-  investor_id: string;
-  period_start: string;
-  period_end: string;
-  generated_at: string;
+  filing_type: string;
+  reporting_period: string;
   status: string;
-}
-
-interface LetterRecord {
-  id: string;
-  year: number;
-  month: number;
-  fund_nav: string;
-  fund_return: string;
   generated_at: string;
 }
 
 type Tab = "statements" | "letters";
-
-function fmtUSD(value: string | number): string {
-  const num = typeof value === "string" ? parseFloat(value) : value;
-  if (Number.isNaN(num)) return String(value);
-  return num.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-  });
-}
 
 export default function ClientReportingPage() {
   const queryClient = useQueryClient();
@@ -48,8 +28,8 @@ export default function ClientReportingPage() {
   const statementsQuery = useQuery({
     queryKey: ["client-reporting", "statements", fundSlug],
     queryFn: () =>
-      apiFetch<StatementRecord[]>(
-        `funds/${fundSlug}/regulatory/investor-statements`,
+      apiFetch<FilingRecord[]>(
+        `regulatory/filings?filing_type=investor_statement`,
       ),
     enabled: !!fundSlug && activeTab === "statements",
   });
@@ -57,17 +37,16 @@ export default function ClientReportingPage() {
   const lettersQuery = useQuery({
     queryKey: ["client-reporting", "letters", fundSlug],
     queryFn: () =>
-      apiFetch<LetterRecord[]>(
-        `funds/${fundSlug}/regulatory/performance-letters`,
+      apiFetch<FilingRecord[]>(
+        `regulatory/filings?filing_type=performance_letter`,
       ),
     enabled: !!fundSlug && activeTab === "letters",
   });
 
   const generateStatement = useMutation({
     mutationFn: () =>
-      apiFetch(`funds/${fundSlug}/regulatory/generate-investor-statement`, {
+      apiFetch(`regulatory/investor-statement?investor_id=all&period_start=${new Date().toISOString().slice(0, 10)}&period_end=${new Date().toISOString().slice(0, 10)}`, {
         method: "POST",
-        body: JSON.stringify({ fund_slug: fundSlug }),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -80,9 +59,8 @@ export default function ClientReportingPage() {
 
   const generateLetter = useMutation({
     mutationFn: () =>
-      apiFetch(`funds/${fundSlug}/regulatory/generate-performance-letter`, {
+      apiFetch(`regulatory/performance-letter?fund_slug=${fundSlug}&period_end=${new Date().toISOString().slice(0, 10)}`, {
         method: "POST",
-        body: JSON.stringify({ fund_slug: fundSlug }),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -93,8 +71,8 @@ export default function ClientReportingPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
-  const statements = statementsQuery.data ?? [];
-  const letters = lettersQuery.data ?? [];
+  const statements: FilingRecord[] = statementsQuery.data ?? [];
+  const letters: FilingRecord[] = lettersQuery.data ?? [];
 
   return (
     <div>
@@ -165,7 +143,7 @@ export default function ClientReportingPage() {
                   <table className="min-w-full divide-y divide-[var(--border)]">
                     <thead>
                       <tr>
-                        <th scope="col" className="px-3 py-2 text-left text-[10px] font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Investor</th>
+                        <th scope="col" className="px-3 py-2 text-left text-[10px] font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Type</th>
                         <th scope="col" className="px-3 py-2 text-left text-[10px] font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Period</th>
                         <th scope="col" className="px-3 py-2 text-left text-[10px] font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Generated At</th>
                         <th scope="col" className="px-3 py-2 text-left text-[10px] font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Status</th>
@@ -178,10 +156,10 @@ export default function ClientReportingPage() {
                           className="transition-colors hover:bg-[var(--table-row-hover)]"
                         >
                           <td className="px-3 py-2 text-sm">
-                            {row.investor_id}
+                            {row.filing_type}
                           </td>
                           <td className="px-3 py-2 text-sm font-mono">
-                            {row.period_start} &mdash; {row.period_end}
+                            {row.reporting_period}
                           </td>
                           <td className="px-3 py-2 text-sm font-mono text-[var(--muted-foreground)]">
                             {new Date(row.generated_at).toLocaleString()}
@@ -248,10 +226,10 @@ export default function ClientReportingPage() {
                   <table className="min-w-full divide-y divide-[var(--border)]">
                     <thead>
                       <tr>
+                        <th scope="col" className="px-3 py-2 text-left text-[10px] font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Type</th>
                         <th scope="col" className="px-3 py-2 text-left text-[10px] font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Period</th>
-                        <th scope="col" className="px-3 py-2 text-right text-[10px] font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Fund NAV</th>
-                        <th scope="col" className="px-3 py-2 text-right text-[10px] font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Fund Return</th>
                         <th scope="col" className="px-3 py-2 text-left text-[10px] font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Generated At</th>
+                        <th scope="col" className="px-3 py-2 text-left text-[10px] font-semibold whitespace-nowrap text-[var(--muted-foreground)]">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--table-border)]">
@@ -260,17 +238,26 @@ export default function ClientReportingPage() {
                           key={row.id}
                           className="transition-colors hover:bg-[var(--table-row-hover)]"
                         >
+                          <td className="px-3 py-2 text-sm">
+                            {row.filing_type}
+                          </td>
                           <td className="px-3 py-2 text-sm font-mono">
-                            {row.year}-{String(row.month).padStart(2, "0")}
-                          </td>
-                          <td className="px-3 py-2 text-sm text-right font-mono">
-                            {fmtUSD(row.fund_nav)}
-                          </td>
-                          <td className="px-3 py-2 text-sm text-right font-mono">
-                            {row.fund_return}%
+                            {row.reporting_period}
                           </td>
                           <td className="px-3 py-2 text-sm font-mono text-[var(--muted-foreground)]">
                             {new Date(row.generated_at).toLocaleString()}
+                          </td>
+                          <td className="px-3 py-2 text-sm">
+                            <StatusBadge
+                              label={row.status}
+                              variant={
+                                row.status === "completed"
+                                  ? "success"
+                                  : row.status === "pending"
+                                    ? "warning"
+                                    : "neutral"
+                              }
+                            />
                           </td>
                         </tr>
                       ))}

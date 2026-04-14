@@ -34,7 +34,7 @@ export default function DashboardPage() {
     queryFn: () =>
       Promise.all(
         funds.map((f) =>
-          apiFetch<FundCapitalOverview>(`funds/${f.slug}/capital/overview`).then((ov) => ({
+          apiFetch<FundCapitalOverview>(`capital/overview?fund_slug=${f.slug}`).then((ov) => ({
             fund: f,
             overview: ov,
           })),
@@ -47,7 +47,7 @@ export default function DashboardPage() {
   const firstFundSlug = funds[0]?.slug;
   const { data: investors } = useQuery({
     queryKey: ["dashboard-investors", firstFundSlug],
-    queryFn: () => apiFetch<InvestorInfo[]>(`funds/${firstFundSlug}/capital/investors`),
+    queryFn: () => apiFetch<InvestorInfo[]>(`capital/investors?fund_slug=${firstFundSlug}`),
     enabled: !!firstFundSlug,
   });
 
@@ -57,7 +57,7 @@ export default function DashboardPage() {
     queryKey: ["dashboard-accounts", firstFundSlug, firstInvestorId],
     queryFn: () =>
       apiFetch<CapitalAccountSummary[]>(
-        `funds/${firstFundSlug}/capital/investors/${firstInvestorId}/accounts`,
+        `capital/investors/${firstInvestorId}/history?fund_slug=${firstFundSlug}`,
       ),
     enabled: !!firstFundSlug && !!firstInvestorId,
   });
@@ -66,7 +66,7 @@ export default function DashboardPage() {
     queryKey: ["dashboard-transactions", firstFundSlug, firstInvestorId],
     queryFn: () =>
       apiFetch<CapitalTransaction[]>(
-        `funds/${firstFundSlug}/capital/investors/${firstInvestorId}/transactions`,
+        `capital/investors/${firstInvestorId}/transactions?fund_slug=${firstFundSlug}`,
       ),
     enabled: !!firstFundSlug && !!firstInvestorId,
   });

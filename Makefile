@@ -16,7 +16,7 @@ logs:
 
 status:
 	@echo "=== Platform Services ==="
-	@docker compose --profile core ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+	@docker compose --profile core --profile frontend ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
 	@echo ""
 	@echo "=== Kafka Topics ==="
 	@docker compose exec -T kafka kafka-topics --bootstrap-server localhost:29092 --list 2>/dev/null || echo "  Kafka not running"
@@ -111,9 +111,11 @@ dev:
 	@echo "Starting frontends locally (Turbopack)..."
 	@cd ui && pnpm dev --turbopack &
 	@cd ops-ui && pnpm dev --turbopack &
+	@cd client-ui && pnpm dev --turbopack &
 	@echo ""
 	@echo "  UI:        http://localhost:3000"
 	@echo "  Ops UI:    http://localhost:3100"
+	@echo "  Client UI: http://localhost:3200"
 	@echo ""
 	@echo "Press Ctrl+C to stop frontends."
 	@wait
@@ -123,11 +125,11 @@ dev-stop:
 	-@pkill -f "next dev" 2>/dev/null || true
 
 migrate:
-	@for ctx in platform security_master market_data; do \
+	@for ctx in platform security_master market_data eod backtesting quant_research ai_analysis alt_data feature_store; do \
 		echo "Running migrations for $$ctx..."; \
 		uv run alembic -n $$ctx upgrade head; \
 	done
-	@echo "Position schemas are created per-fund on app startup."
+	@echo "Per-fund schemas (positions, orders, etc.) are created on app startup."
 
 seed:
 	uv run python -m app.seed
@@ -145,6 +147,7 @@ lint:
 	cd mock-exchange && uv run ruff check mock_exchange/
 	cd ui && pnpm lint
 	cd ops-ui && pnpm lint
+	cd client-ui && pnpm lint
 
 format:
 	uv run ruff check --fix app/ tests/
@@ -152,6 +155,7 @@ format:
 	cd mock-exchange && uv run ruff check --fix mock_exchange/
 	cd ui && pnpm lint:fix
 	cd ops-ui && pnpm lint:fix
+	cd client-ui && pnpm lint:fix
 
 gen-types:
 	@echo "Exporting OpenAPI schema from FastAPI..."
@@ -164,6 +168,7 @@ typecheck:
 	uv run mypy app/
 	cd ui && pnpm tsc --noEmit
 	cd ops-ui && pnpm tsc --noEmit
+	cd client-ui && pnpm tsc --noEmit
 
 tach-check:
 	uv run tach check

@@ -18,9 +18,10 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger()
 
-# Initial cash balances per currency for each portfolio
+# Initial cash balances per currency for each portfolio.
+# USD balances are seeded by app/seed.py with fund-specific amounts;
+# this module seeds only non-USD currencies.
 _INITIAL_BALANCES: list[tuple[str, Decimal, str]] = [
-    ("USD", Decimal("5000000"), "Initial USD cash allocation"),
     ("EUR", Decimal("2000000"), "Initial EUR cash allocation"),
     ("GBP", Decimal("1500000"), "Initial GBP cash allocation"),
 ]

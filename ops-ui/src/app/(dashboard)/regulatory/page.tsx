@@ -33,12 +33,10 @@ export default function RegulatoryPage() {
   const [investorId, setInvestorId] = useState("");
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
-  const [year, setYear] = useState<number>(new Date().getFullYear());
-  const [month, setMonth] = useState<number>(new Date().getMonth() + 1);
 
   const { data, isLoading } = useQuery({
     queryKey: ["regulatory", "filings"],
-    queryFn: () => apiFetch<{ items: FilingRecord[] }>("regulatory/filings?limit=50"),
+    queryFn: () => apiFetch<FilingRecord[]>("regulatory/filings?limit=50"),
   });
 
   const invalidate = () =>
@@ -46,9 +44,8 @@ export default function RegulatoryPage() {
 
   const generateFormPF = useMutation({
     mutationFn: () =>
-      apiFetch("regulatory/form-pf", {
+      apiFetch(`regulatory/form-pf?fund_slug=${fundSlug}&reporting_date=${asOfDate}`, {
         method: "POST",
-        body: JSON.stringify({ fund_slug: fundSlug, as_of_date: asOfDate }),
       }),
     onSuccess: () => { invalidate(); toast.success("Form PF generated"); },
     onError: (err) => toast.error(err.message),
@@ -56,9 +53,8 @@ export default function RegulatoryPage() {
 
   const generate13F = useMutation({
     mutationFn: () =>
-      apiFetch("regulatory/13f", {
+      apiFetch(`regulatory/13f?fund_slug=${fundSlug}&reporting_date=${asOfDate}`, {
         method: "POST",
-        body: JSON.stringify({ fund_slug: fundSlug, as_of_date: asOfDate }),
       }),
     onSuccess: () => { invalidate(); toast.success("13F generated"); },
     onError: (err) => toast.error(err.message),
@@ -66,14 +62,8 @@ export default function RegulatoryPage() {
 
   const generateStatement = useMutation({
     mutationFn: () =>
-      apiFetch("regulatory/investor-statement", {
+      apiFetch(`regulatory/investor-statement?investor_id=${investorId}&period_start=${periodStart}&period_end=${periodEnd}`, {
         method: "POST",
-        body: JSON.stringify({
-          fund_slug: fundSlug,
-          investor_id: investorId,
-          period_start: periodStart,
-          period_end: periodEnd,
-        }),
       }),
     onSuccess: () => { invalidate(); toast.success("Investor statement generated"); },
     onError: (err) => toast.error(err.message),
@@ -81,15 +71,14 @@ export default function RegulatoryPage() {
 
   const generateLetter = useMutation({
     mutationFn: () =>
-      apiFetch("regulatory/performance-letter", {
+      apiFetch(`regulatory/performance-letter?fund_slug=${fundSlug}&period_end=${periodEnd}`, {
         method: "POST",
-        body: JSON.stringify({ fund_slug: fundSlug, year, month }),
       }),
     onSuccess: () => { invalidate(); toast.success("Performance letter generated"); },
     onError: (err) => toast.error(err.message),
   });
 
-  const filings = data?.items ?? [];
+  const filings = data ?? [];
   const anyPending =
     generateFormPF.isPending ||
     generate13F.isPending ||
@@ -197,35 +186,22 @@ export default function RegulatoryPage() {
               </button>
             </div>
 
-            {/* Row 3: year + month + Letter */}
+            {/* Row 3: period end + Letter */}
             <div className="flex flex-wrap items-end gap-3">
-              <div className="w-24">
+              <div className="w-44">
                 <label className="block text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)] mb-1">
-                  Year
+                  Period End
                 </label>
                 <input
-                  type="number"
-                  value={year}
-                  onChange={(e) => setYear(Number(e.target.value))}
-                  className={inputClass}
-                />
-              </div>
-              <div className="w-20">
-                <label className="block text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)] mb-1">
-                  Month
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={12}
-                  value={month}
-                  onChange={(e) => setMonth(Number(e.target.value))}
+                  type="date"
+                  value={periodEnd}
+                  onChange={(e) => setPeriodEnd(e.target.value)}
                   className={inputClass}
                 />
               </div>
               <button
                 onClick={() => generateLetter.mutate()}
-                disabled={anyPending}
+                disabled={!periodEnd || anyPending}
                 className={btnClass}
               >
                 Generate Letter

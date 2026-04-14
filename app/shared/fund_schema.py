@@ -33,7 +33,16 @@ def fund_schema_name(fund_slug: str) -> str:
 
     Hyphens are replaced with underscores to produce a valid unquoted
     PostgreSQL identifier: ``fund-alpha`` → ``fund_alpha``.
+
+    Raises ``ValueError`` if the slug contains characters outside ``[a-z0-9-]``.
     """
+    import re
+
+    if not re.match(r"^[a-z0-9\-]+$", fund_slug):
+        raise ValueError(
+            f"Fund slug contains invalid characters: {fund_slug!r}. "
+            "Only lowercase alphanumeric and hyphens are allowed."
+        )
     sanitized = fund_slug.replace("-", "_")
     return f"{FUND_SCHEMA_PREFIX}{sanitized}"
 

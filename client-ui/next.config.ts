@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  transpilePackages: ["@mini-hedge/ui"],
+  transpilePackages: ["@mini-hedge/ui", "@mini-hedge/api-types"],
   async headers() {
     return [
       {

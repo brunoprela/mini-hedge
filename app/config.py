@@ -106,6 +106,7 @@ class Settings(BaseSettings):
     cors_origins: list[str] = [
         "http://localhost:3000",
         "http://localhost:3100",
+        "http://localhost:3200",
     ]
 
     @model_validator(mode="after")

@@ -78,7 +78,7 @@ export default function NAVComputationPage() {
   const eodHistory = useQuery({
     queryKey: ["eod", "history", fundSlug],
     queryFn: () =>
-      apiFetch<{ items: EODRunSummary[] }>(
+      apiFetch<EODRunSummary[]>(
         `eod/history?fund_slug=${encodeURIComponent(fundSlug)}&limit=20`,
       ),
     enabled: !!fundSlug,
@@ -103,7 +103,7 @@ export default function NAVComputationPage() {
       )
     : [];
 
-  const runs = eodHistory.data?.items ?? [];
+  const runs = eodHistory.data ?? [];
   const lastRun = runs.length > 0 ? runs[0] : null;
   const latestNav = sortedNav[0] ?? null;
 

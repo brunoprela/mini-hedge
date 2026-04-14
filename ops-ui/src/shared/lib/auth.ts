@@ -104,7 +104,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       name: "authjs.ops-session-token",
       options: {
         httpOnly: true,
-        sameSite: "lax",
+        sameSite: "strict",
         path: "/",
         secure: process.env.NODE_ENV === "production",
       },

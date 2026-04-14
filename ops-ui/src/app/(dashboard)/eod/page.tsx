@@ -44,7 +44,7 @@ export default function EODControlCenterPage() {
   const history = useQuery({
     queryKey: ["eod", "history", fundSlug],
     queryFn: () =>
-      apiFetch<{ items: EODRunSummary[] }>(
+      apiFetch<EODRunSummary[]>(
         `eod/history?fund_slug=${encodeURIComponent(fundSlug)}&limit=20`,
       ),
     enabled: !!fundSlug,
@@ -60,7 +60,7 @@ export default function EODControlCenterPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
-  const items = history.data?.items ?? [];
+  const items = history.data ?? [];
   const lastRun = items.length > 0 ? items[0] : null;
 
   return (

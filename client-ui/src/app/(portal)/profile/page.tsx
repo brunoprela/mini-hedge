@@ -17,7 +17,7 @@ export default function ProfilePage() {
     error: investorsError,
   } = useQuery({
     queryKey: ["profile-investors", firstSlug],
-    queryFn: () => apiFetch<InvestorInfo[]>(`funds/${firstSlug}/capital/investors`),
+    queryFn: () => apiFetch<InvestorInfo[]>(`capital/investors?fund_slug=${firstSlug}`),
     enabled: !!firstSlug,
   });
 

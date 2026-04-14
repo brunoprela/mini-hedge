@@ -38,7 +38,7 @@ def upgrade() -> None:
             unique=True,
         ),
         sa.Column("allocation_pct", sa.Numeric(8, 6), nullable=False),
-        sa.Column("is_active", sa.Boolean(), nullable=False),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -79,7 +79,7 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("1.0"),
         ),
-        sa.Column("is_active", sa.Boolean(), nullable=False),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -121,7 +121,7 @@ def upgrade() -> None:
             server_default=sa.text("0"),
         ),
         sa.Column("is_internal", sa.Boolean(), nullable=False),
-        sa.Column("is_active", sa.Boolean(), nullable=False),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),

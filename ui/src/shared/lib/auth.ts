@@ -90,7 +90,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   cookies: {
     sessionToken: {
       name: "authjs.ui-session-token",
-      options: { httpOnly: true, sameSite: "lax", path: "/", secure: false },
+      options: { httpOnly: true, sameSite: "strict", path: "/", secure: process.env.NODE_ENV === "production" },
     },
   },
   session: { strategy: "jwt" },

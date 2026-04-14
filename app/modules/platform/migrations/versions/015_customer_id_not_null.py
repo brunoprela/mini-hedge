@@ -2,8 +2,8 @@
 
 Follow-up to 014_customer_tenancy. Seed data populates customer_id
 for all rows, so greenfield environments can safely enforce this
-constraint. Production environments should verify the backfill
-completed before applying this migration.
+constraint. This migration backfills any remaining NULL rows with
+the first active customer before applying the constraint.
 
 Revision ID: 015
 Revises: 014
@@ -25,6 +25,27 @@ SCHEMA = "platform"
 
 
 def upgrade() -> None:
+    # Backfill NULL customer_id rows with the first active customer
+    # to prevent constraint violation on environments where seeds
+    # haven't fully populated the column.
+    conn = op.get_bind()
+    first_customer = conn.execute(
+        sa.text(f"SELECT id FROM {SCHEMA}.customers WHERE status = 'active' LIMIT 1")
+    ).scalar()
+    if first_customer:
+        conn.execute(
+            sa.text(
+                f"UPDATE {SCHEMA}.funds SET customer_id = :cid WHERE customer_id IS NULL"
+            ),
+            {"cid": first_customer},
+        )
+        conn.execute(
+            sa.text(
+                f"UPDATE {SCHEMA}.users SET customer_id = :cid WHERE customer_id IS NULL"
+            ),
+            {"cid": first_customer},
+        )
+
     op.alter_column("funds", "customer_id", nullable=False, schema=SCHEMA)
     op.alter_column("users", "customer_id", nullable=False, schema=SCHEMA)
 

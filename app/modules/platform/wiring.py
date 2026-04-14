@@ -83,7 +83,7 @@ async def _seed_platform(
         logger.info(
             "auth_seeded",
             users=len(users),
-            api_key=DEV_API_KEY,
+            api_keys=len(api_keys),
         )
 
     # Seed operators

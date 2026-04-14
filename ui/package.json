@@ -14,7 +14,6 @@
     "@mini-hedge/api-types": "workspace:*",
     "@mini-hedge/ui": "workspace:*",
     "@tanstack/react-query": "^5.96.1",
-    "@tanstack/react-table": "^8.21.3",
     "clsx": "^2.1.1",
     "lucide-react": "^1.7.0",
     "next": "16.2.2",

@@ -112,6 +112,7 @@ async def setup(
         attribution_service=attribution_service,
         subscription_service=getattr(app.state, "subscription_service", None),
         redemption_service=getattr(app.state, "redemption_service", None),
+        corporate_actions_service=getattr(app.state, "corporate_actions_service", None),
     )
     app.state.eod_orchestrator = orchestrator
     logger.info("eod_module_ready")

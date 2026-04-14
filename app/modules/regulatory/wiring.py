@@ -40,10 +40,10 @@ async def setup(
         statement_repo=statement_repo,
         letter_repo=letter_repo,
         position_service=getattr(app.state, "position_service", None),
-        capital_service=getattr(app.state, "capital_service", None),
+        capital_service=getattr(app.state, "capital_account_service", None),
         risk_service=getattr(app.state, "counterparty_risk_service", None),
         exposure_service=getattr(app.state, "exposure_service", None),
-        security_master_service=getattr(app.state, "sm_service", None),
+        security_master_service=getattr(app.state, "security_master_service", None),
         event_bus=event_bus,
     )
     app.state.regulatory_service = svc

@@ -11,7 +11,7 @@ export default function DataQualityPage() {
 
   const { data: instruments } = useQuery({
     queryKey: ["instruments", "count"],
-    queryFn: () => apiFetch<{ items: unknown[]; total: number }>("instruments?limit=1"),
+    queryFn: () => apiFetch<unknown[]>("instruments?limit=1"),
   });
 
   return (
@@ -39,7 +39,7 @@ export default function DataQualityPage() {
             Total Instruments
           </dt>
           <dd className="mt-1 font-mono text-xl font-bold text-[var(--foreground-bright)]">
-            {instruments?.total ?? "--"}
+            {instruments?.length ?? "--"}
           </dd>
         </div>
       </dl>

@@ -103,6 +103,32 @@ async def generate_performance_letter(
     )
 
 
+# -- List investor statements --
+
+
+@router.get("/investor-statements", response_model=list[InvestorStatement])
+async def list_investor_statements(
+    fund_slug: str = Query(...),
+    _ctx: RequestContext = require_permission(Permission.CAPITAL_READ),
+    svc: RegulatoryService = Depends(get_regulatory_service),
+    session: AsyncSession = Depends(get_db),
+) -> list[InvestorStatement]:
+    return await svc.list_investor_statements(session=session)
+
+
+# -- List performance letters --
+
+
+@router.get("/performance-letters", response_model=list[MonthlyPerformanceLetter])
+async def list_performance_letters(
+    fund_slug: str = Query(...),
+    _ctx: RequestContext = require_permission(Permission.CAPITAL_READ),
+    svc: RegulatoryService = Depends(get_regulatory_service),
+    session: AsyncSession = Depends(get_db),
+) -> list[MonthlyPerformanceLetter]:
+    return await svc.list_performance_letters(session=session)
+
+
 # -- Filing history --
 
 

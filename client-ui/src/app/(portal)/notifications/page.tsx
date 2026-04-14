@@ -47,7 +47,7 @@ export default function NotificationsPage() {
     queryKey: ["notif-subs", slug],
     queryFn: () =>
       apiFetch<SubscriptionRequestSummary[]>(
-        `funds/${slug}/investor-ops/subscriptions`,
+        `investor-operations/subscriptions?fund_slug=${slug}`,
       ),
     enabled: !!slug,
   });
@@ -60,7 +60,7 @@ export default function NotificationsPage() {
     queryKey: ["notif-reds", slug],
     queryFn: () =>
       apiFetch<RedemptionRequestSummary[]>(
-        `funds/${slug}/investor-ops/redemptions`,
+        `investor-operations/redemptions?fund_slug=${slug}`,
       ),
     enabled: !!slug,
   });

@@ -22,13 +22,20 @@ async function proxyRequest(req: NextRequest, { params }: { params: Promise<{ pa
 
   const body = ["GET", "HEAD"].includes(req.method) ? undefined : await req.text();
 
-  const res = await fetch(url.toString(), { method: req.method, headers, body });
-  const data = await res.text();
+  try {
+    const res = await fetch(url.toString(), { method: req.method, headers, body });
+    const data = await res.text();
 
-  return new NextResponse(data, {
-    status: res.status,
-    headers: { "Content-Type": res.headers.get("Content-Type") ?? "application/json" },
-  });
+    return new NextResponse(data, {
+      status: res.status,
+      headers: { "Content-Type": res.headers.get("Content-Type") ?? "application/json" },
+    });
+  } catch {
+    return NextResponse.json(
+      { detail: "Backend unavailable" },
+      { status: 502 },
+    );
+  }
 }
 
 export const GET = proxyRequest;

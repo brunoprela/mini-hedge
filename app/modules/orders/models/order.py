@@ -51,7 +51,7 @@ class OrderRecord(Base):
     avg_fill_price: Mapped[Decimal | None] = mapped_column(Numeric(18, 8), nullable=True)
     state: Mapped[str] = mapped_column(String(32), nullable=False)
     rejection_reason: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    compliance_results: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    compliance_results: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, nullable=True)
     time_in_force: Mapped[str] = mapped_column(String(8), nullable=False)
     fund_slug: Mapped[str] = mapped_column(String(64), nullable=False)
 

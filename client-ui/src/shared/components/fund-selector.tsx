@@ -2,12 +2,32 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/shared/lib/api";
-import type { FundDetail, FundPage } from "@/shared/types";
+
+interface FundInfo {
+  fund_slug: string;
+  fund_name: string;
+  role: string;
+  customer_id?: string | null;
+  customer_name?: string | null;
+}
 
 export function useFunds() {
   return useQuery({
-    queryKey: ["funds"],
-    queryFn: () => apiFetch<FundPage>("admin/funds?limit=100"),
+    queryKey: ["my-funds"],
+    queryFn: async () => {
+      const funds = await apiFetch<FundInfo[]>("me/funds");
+      // Normalize to FundDetail-like shape for downstream consumers
+      return {
+        items: funds.map((f) => ({
+          slug: f.fund_slug,
+          name: f.fund_name,
+          base_currency: "USD",
+        })),
+        total: funds.length,
+        limit: funds.length,
+        offset: 0,
+      };
+    },
   });
 }
 
@@ -16,7 +36,7 @@ export function FundSelector({
   value,
   onChange,
 }: {
-  funds: FundDetail[];
+  funds: { slug: string; name: string }[];
   value: string;
   onChange: (slug: string) => void;
 }) {

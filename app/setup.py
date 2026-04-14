@@ -100,7 +100,10 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
     api_key_repo = APIKeyRepository(sf)
     instrument_repo = InstrumentRepository(sf)
 
-    await _seed_platform(fund_repo, portfolio_repo, user_repo, operator_repo, api_key_repo)
+    from app.modules.platform.repositories import CustomerRepository
+
+    customer_repo = CustomerRepository(sf)
+    await _seed_platform(customer_repo, fund_repo, portfolio_repo, user_repo, operator_repo, api_key_repo)
     await _seed_instruments(instrument_repo)
 
 
@@ -215,6 +218,7 @@ async def setup_all(
         settings=settings,
         broker=broker,
         broker_registry=broker_registry,
+        fund_repo=fund_repo,
     )
     await _setup_module("tca", app, sf, event_bus=event_bus, settings=settings)
     logger.info("phase_2_modules_ready")

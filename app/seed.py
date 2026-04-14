@@ -93,7 +93,10 @@ async def main() -> None:
 
     # ── Initial cash balances ──────────────────────────────────────────
     cash_repo = CashBalanceRepository(session_factory)
-    all_portfolios = build_seed_portfolios()
+    # Load portfolios from database instead of rebuilding (avoids duplicate calls)
+    all_portfolios = []
+    for fund in funds:
+        all_portfolios.extend(await portfolio_repo.get_by_fund(str(fund.id)))
     # Group portfolios by fund for fund_scope
     fund_id_to_slug = {f.id: f.slug for f in funds}
     cash_seeded = 0

@@ -104,6 +104,7 @@ services:
     volumes:
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
       - ./keycloak/ops-realm-export.json:/opt/keycloak/data/import/ops-realm-export.json:ro
+      - ./keycloak/investors-realm-export.json:/opt/keycloak/data/import/investors-realm-export.json:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -238,7 +239,7 @@ services:
     image: grafana/loki:3.0.0
     profiles: ["core"]
     ports:
-      - "3100:3100"
+      - "3101:3100"
     volumes:
       - ./infrastructure/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
       - loki-data:/loki
@@ -254,7 +255,7 @@ services:
     image: grafana/grafana:10.4.0
     profiles: ["core"]
     ports:
-      - "3200:3000"
+      - "3300:3000"
     environment:
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_AUTH_ANONYMOUS_ENABLED: "true"
@@ -656,6 +657,35 @@ services:
       retries: 3
       start_period: 15s
 
+  client-ui:
+    build:
+      context: ./client-ui
+      dockerfile: Dockerfile.dev
+    profiles: ["frontend"]
+    command: pnpm dev --hostname 0.0.0.0
+    ports:
+      - "3200:3200"
+    environment:
+      NEXTAUTH_URL: "http://localhost:3200"
+      NEXTAUTH_SECRET: "minihedge-client-dev-secret-change-in-production"
+      KEYCLOAK_CLIENT_ID: "investor-portal"
+      KEYCLOAK_CLIENT_SECRET: "investor-portal-secret"
+      KEYCLOAK_ISSUER: "http://keycloak:8180/realms/investors"
+      API_URL: "http://app:8000"
+    volumes:
+      - ./client-ui/src:/app/src
+      - ./client-ui/public:/app/public
+      - client-ui-node-modules:/app/node_modules
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3200/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
 volumes:
   pgdata:
   pgdata-replica:
@@ -667,3 +697,4 @@ volumes:
   mock-exchange-venv:
   ui-node-modules:
   ops-ui-node-modules:
+  client-ui-node-modules:

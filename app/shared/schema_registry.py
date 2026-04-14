@@ -86,6 +86,15 @@ def fund_topics_for_slug(fund_slug: str) -> list[str]:
     """Return all fund-scoped Kafka topics for a given fund slug."""
     return fund_audit_topics_for_slug(fund_slug) + [
         fund_topic(fund_slug, "pnl.updated"),
+        fund_topic(fund_slug, "order_intents.generated"),
+        fund_topic(fund_slug, "fees.accrued"),
+        fund_topic(fund_slug, "fees.crystallized"),
+        fund_topic(fund_slug, "corporate_actions.processed"),
+        fund_topic(fund_slug, "tca.computed"),
+        fund_topic(fund_slug, "risk.limit_breached"),
+        fund_topic(fund_slug, "cash.projected"),
+        fund_topic(fund_slug, "cash.settlement_due"),
+        fund_topic(fund_slug, "cash.balance_warning"),
     ]
 
 
@@ -118,6 +127,12 @@ def shared_topics() -> list[str]:
         shared_topic("fx-rates.normalized"),
         shared_topic("interest-rates"),
         shared_topic("fx-forwards"),
+        shared_topic("audit"),
+        shared_topic("regulatory"),
+        shared_topic("capital.allocation"),
+        shared_topic("capital.subscription"),
+        shared_topic("capital.redemption"),
+        shared_topic("market-data.status"),
     ]
 
 

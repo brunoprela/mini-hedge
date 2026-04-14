@@ -55,13 +55,13 @@ export default function CustomReportsPage() {
     isError: filingsError,
   } = useQuery({
     queryKey: ["regulatory", "filings"],
-    queryFn: () => apiFetch<{ items: FilingRecord[] }>("regulatory/filings?limit=50"),
+    queryFn: () => apiFetch<FilingRecord[]>("regulatory/filings?limit=50"),
   });
 
   // Fetch investors for the selected fund
   const { data: investors } = useQuery({
     queryKey: ["investors", fundSlug],
-    queryFn: () => apiFetch<InvestorInfo[]>(`funds/${fundSlug}/capital/investors`),
+    queryFn: () => apiFetch<InvestorInfo[]>(`capital/investors?fund_slug=${fundSlug}`),
     enabled: !!fundSlug && reportType === "investor-statement",
   });
 
@@ -70,9 +70,8 @@ export default function CustomReportsPage() {
 
   const generateFormPF = useMutation({
     mutationFn: () =>
-      apiFetch("regulatory/form-pf", {
+      apiFetch(`regulatory/form-pf?fund_slug=${fundSlug}&reporting_date=${asOfDate}`, {
         method: "POST",
-        body: JSON.stringify({ fund_slug: fundSlug, as_of_date: asOfDate }),
       }),
     onSuccess: () => { invalidate(); toast.success("Form PF report generated"); },
     onError: (err) => toast.error(err.message),
@@ -80,9 +79,8 @@ export default function CustomReportsPage() {
 
   const generate13F = useMutation({
     mutationFn: () =>
-      apiFetch("regulatory/13f", {
+      apiFetch(`regulatory/13f?fund_slug=${fundSlug}&reporting_date=${asOfDate}`, {
         method: "POST",
-        body: JSON.stringify({ fund_slug: fundSlug, as_of_date: asOfDate }),
       }),
     onSuccess: () => { invalidate(); toast.success("13F Filing report generated"); },
     onError: (err) => toast.error(err.message),
@@ -90,14 +88,8 @@ export default function CustomReportsPage() {
 
   const generateStatement = useMutation({
     mutationFn: () =>
-      apiFetch("regulatory/investor-statement", {
+      apiFetch(`regulatory/investor-statement?investor_id=${investorId}&period_start=${periodStart}&period_end=${periodEnd}`, {
         method: "POST",
-        body: JSON.stringify({
-          fund_slug: fundSlug,
-          investor_id: investorId,
-          period_start: periodStart,
-          period_end: periodEnd,
-        }),
       }),
     onSuccess: () => { invalidate(); toast.success("Investor Statement generated"); },
     onError: (err) => toast.error(err.message),
@@ -105,9 +97,8 @@ export default function CustomReportsPage() {
 
   const generateLetter = useMutation({
     mutationFn: () =>
-      apiFetch("regulatory/performance-letter", {
+      apiFetch(`regulatory/performance-letter?fund_slug=${fundSlug}&period_end=${periodEnd}`, {
         method: "POST",
-        body: JSON.stringify({ fund_slug: fundSlug, period_end: periodEnd }),
       }),
     onSuccess: () => { invalidate(); toast.success("Performance Letter generated"); },
     onError: (err) => toast.error(err.message),
@@ -119,7 +110,7 @@ export default function CustomReportsPage() {
     generateStatement.isPending ||
     generateLetter.isPending;
 
-  const filings = filingsData?.items ?? [];
+  const filings = filingsData ?? [];
 
   const completedCount = filings.filter((f) => f.status === "completed").length;
   const pendingCount = filings.filter((f) => f.status === "pending").length;

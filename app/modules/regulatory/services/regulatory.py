@@ -230,10 +230,15 @@ class RegulatoryService:
                     # Only include equities (13F securities)
                     sec = None
                     if self._sec_master:
-                        sec = await self._sec_master.get_instrument(
-                            pos.instrument_id,
-                            session=session,
-                        )
+                        from uuid import UUID as _UUID
+
+                        try:
+                            sec = await self._sec_master.get_by_id(
+                                _UUID(pos.instrument_id),
+                                session=session,
+                            )
+                        except Exception:
+                            sec = None
                     asset_class = getattr(sec, "asset_class", "equity") or "equity"
                     if asset_class != "equity":
                         continue
@@ -502,4 +507,28 @@ class RegulatoryService:
                 "generated_at": str(r.generated_at),
             }
             for r in records
+        ]
+
+    async def list_investor_statements(
+        self,
+        *,
+        session: AsyncSession | None = None,
+    ) -> list[InvestorStatement]:
+        records = await self._statement_repo.list_all(session=session)
+        return [
+            InvestorStatement(**r.data)
+            for r in records
+            if r.data
+        ]
+
+    async def list_performance_letters(
+        self,
+        *,
+        session: AsyncSession | None = None,
+    ) -> list[MonthlyPerformanceLetter]:
+        records = await self._letter_repo.list_all(session=session)
+        return [
+            MonthlyPerformanceLetter(**r.data)
+            for r in records
+            if r.data
         ]
