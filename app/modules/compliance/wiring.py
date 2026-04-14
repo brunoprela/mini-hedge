@@ -76,6 +76,8 @@ async def setup(
         event_bus=event_bus,
         cash_balance_repo=cash_balance_repo,
     )
+    if event_bus is None or fund_repo is None:
+        return
     active_funds = await fund_repo.get_all_active()
     for fund in active_funds:
         topic = fund_topic(fund.slug, "positions.changed")

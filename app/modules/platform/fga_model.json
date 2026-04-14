@@ -237,6 +237,16 @@
             ]
           }
         },
+        "can_write_risk": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "portfolio_manager" } },
+              { "computed_userset": { "relation": "risk_manager" } }
+            ]
+          }
+        },
         "can_read_cash": {
           "union": {
             "child": [
@@ -313,6 +323,28 @@
               { "computed_userset": { "relation": "portfolio_manager" } }
             ]
           }
+        },
+        "can_read_fx_hedging": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "portfolio_manager" } },
+              { "computed_userset": { "relation": "analyst" } },
+              { "computed_userset": { "relation": "risk_manager" } },
+              { "computed_userset": { "relation": "compliance_officer" } },
+              { "computed_userset": { "relation": "viewer" } }
+            ]
+          }
+        },
+        "can_write_fx_hedging": {
+          "union": {
+            "child": [
+              { "this": {} },
+              { "computed_userset": { "relation": "admin" } },
+              { "computed_userset": { "relation": "portfolio_manager" } }
+            ]
+          }
         }
       },
       "metadata": {
@@ -343,13 +375,16 @@
           "can_manage_compliance": { "directly_related_user_types": [{ "type": "user" }] },
           "can_read_exposure": { "directly_related_user_types": [{ "type": "user" }] },
           "can_read_risk": { "directly_related_user_types": [{ "type": "user" }] },
+          "can_write_risk": { "directly_related_user_types": [{ "type": "user" }] },
           "can_read_cash": { "directly_related_user_types": [{ "type": "user" }] },
           "can_write_cash": { "directly_related_user_types": [{ "type": "user" }] },
           "can_read_attribution": { "directly_related_user_types": [{ "type": "user" }] },
           "can_read_alpha": { "directly_related_user_types": [{ "type": "user" }] },
           "can_write_alpha": { "directly_related_user_types": [{ "type": "user" }] },
           "can_read_capital": { "directly_related_user_types": [{ "type": "user" }] },
-          "can_write_capital": { "directly_related_user_types": [{ "type": "user" }] }
+          "can_write_capital": { "directly_related_user_types": [{ "type": "user" }] },
+          "can_read_fx_hedging": { "directly_related_user_types": [{ "type": "user" }] },
+          "can_write_fx_hedging": { "directly_related_user_types": [{ "type": "user" }] }
         }
       }
     },

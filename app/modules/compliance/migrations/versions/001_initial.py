@@ -88,7 +88,7 @@ def upgrade() -> None:
         sa.Column("side", sa.String(8), nullable=False),
         sa.Column("quantity", sa.Numeric(18, 8), nullable=False),
         sa.Column("price", sa.Numeric(18, 8), nullable=False),
-        sa.Column("approved", sa.Boolean(), nullable=False),
+        sa.Column("approved", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("results", PG_JSONB(), nullable=False, server_default=sa.text("'{}'")),
         sa.Column(
             "decided_at",

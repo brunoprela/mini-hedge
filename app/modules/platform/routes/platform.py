@@ -1,5 +1,6 @@
 """FastAPI routes for the platform module — auth endpoints, fund info."""
 
+import re
 from datetime import datetime
 from uuid import uuid4
 
@@ -15,6 +16,7 @@ from app.modules.platform.dependencies import (
     get_portfolio_repo,
 )
 from app.modules.platform.interfaces.fund import FundInfo, PortfolioInfo
+from app.modules.platform.models.portfolio import PortfolioRecord
 from app.modules.platform.repositories import AuditLogRepository, PortfolioRepository
 from app.modules.platform.services import AuthService
 from app.shared.audit.events import AuditEventType
@@ -60,6 +62,14 @@ class AuditVerifyResponse(BaseModel):
     is_valid: bool
     records_checked: int
     first_broken_link: str | None = None
+
+
+class CreatePortfolioRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    strategy: str | None = None
+    base_currency: str | None = None  # accepted but ignored — currency is fund-level
 
 
 class RevokeTokenRequest(BaseModel):
@@ -180,6 +190,39 @@ async def list_portfolios(
         )
         for r in records
     ]
+
+
+@router.post("/portfolios", response_model=PortfolioInfo, status_code=201)
+async def create_portfolio(
+    body: CreatePortfolioRequest,
+    request_context: RequestContext = require_permission(Permission.POSITIONS_READ),
+    portfolio_repo: PortfolioRepository = Depends(get_portfolio_repo),
+    session: AsyncSession = Depends(get_db),
+) -> PortfolioInfo:
+    """Create a new portfolio within the authenticated user's fund."""
+    if not request_context.fund_id:
+        raise HTTPException(status_code=400, detail="Fund context required")
+
+    # Generate slug from name: lowercase, replace non-alphanumeric with hyphens
+    slug = re.sub(r"[^a-z0-9]+", "-", body.name.lower()).strip("-")
+    if not slug:
+        raise HTTPException(status_code=400, detail="Name must contain alphanumeric characters")
+
+    record = PortfolioRecord(
+        fund_id=request_context.fund_id,
+        slug=slug,
+        name=body.name,
+        strategy=body.strategy,
+    )
+    await portfolio_repo.insert(record, session=session)
+
+    return PortfolioInfo(
+        id=record.id,
+        slug=record.slug,
+        name=record.name,
+        strategy=record.strategy,
+        fund_id=record.fund_id,
+    )
 
 
 @router.get("/audit/verify", response_model=AuditVerifyResponse)

@@ -48,7 +48,7 @@ export default function RedemptionsPage() {
     mutationFn: (id: string) =>
       apiFetch(`investor-operations/redemptions/${id}/validate`, {
         method: "POST",
-        body: JSON.stringify({ validated_by: "ops-console" }),
+        body: JSON.stringify({}),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["redemptions"] });
@@ -74,7 +74,7 @@ export default function RedemptionsPage() {
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       apiFetch(`investor-operations/redemptions/${id}/cancel`, {
         method: "POST",
-        body: JSON.stringify({ reason }),
+        body: JSON.stringify({ reason, cancelled_by: "ops-console" }),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["redemptions"] });

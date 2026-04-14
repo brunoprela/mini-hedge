@@ -124,7 +124,7 @@ def upgrade() -> None:
         sa.Column("business_date", sa.Date(), primary_key=True),
         sa.Column("total_positions", sa.Integer(), nullable=False),
         sa.Column("matched_positions", sa.Integer(), nullable=False),
-        sa.Column("is_clean", sa.Boolean(), nullable=False),
+        sa.Column("is_clean", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("breaks", PG_JSONB(), nullable=False, server_default=sa.text("'[]'")),
         sa.Column(
             "reconciled_at",

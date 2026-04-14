@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -118,7 +118,7 @@ async def check_trade(
 
 @router.get("/violations", response_model=list[Violation])
 async def list_violations(
-    portfolio_id: UUID,
+    portfolio_id: UUID = Query(...),
     request_context: RequestContext = require_permission(Permission.COMPLIANCE_READ),
     compliance_service: ComplianceService = Depends(get_compliance_service),
     session: AsyncSession = Depends(get_db),
@@ -169,7 +169,7 @@ async def waive_violation(
     response_model=list[RemediationSuggestion],
 )
 async def suggest_remediation(
-    portfolio_id: UUID,
+    portfolio_id: UUID = Query(...),
     request_context: RequestContext = require_permission(Permission.COMPLIANCE_READ),
     compliance_service: ComplianceService = Depends(get_compliance_service),
     session: AsyncSession = Depends(get_db),

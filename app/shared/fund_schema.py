@@ -112,6 +112,7 @@ _FUND_SCOPED_MODULES = [
     "fund_structures",
     "regulatory",
     "investor_operations",
+    "tca",
 ]
 
 

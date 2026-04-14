@@ -46,7 +46,7 @@ export default function SubscriptionsPage() {
     mutationFn: ({ id, approved }: { id: string; approved: boolean }) =>
       apiFetch(`investor-operations/subscriptions/${id}/ops-review`, {
         method: "POST",
-        body: JSON.stringify({ approved, reviewer: "ops-console" }),
+        body: JSON.stringify({ approved, decision_by: "ops-console" }),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
@@ -59,7 +59,7 @@ export default function SubscriptionsPage() {
     mutationFn: ({ id, approved }: { id: string; approved: boolean }) =>
       apiFetch(`investor-operations/subscriptions/${id}/gp-decision`, {
         method: "POST",
-        body: JSON.stringify({ approved, decided_by: "ops-console" }),
+        body: JSON.stringify({ approved, decision_by: "ops-console" }),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
@@ -85,7 +85,7 @@ export default function SubscriptionsPage() {
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       apiFetch(`investor-operations/subscriptions/${id}/cancel`, {
         method: "POST",
-        body: JSON.stringify({ reason }),
+        body: JSON.stringify({ reason, cancelled_by: "ops-console" }),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["subscriptions"] });

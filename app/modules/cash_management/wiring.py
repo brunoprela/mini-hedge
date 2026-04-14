@@ -57,6 +57,8 @@ async def setup(
         await seed_dev_data(app, sf)
 
     # Subscribe to trades.executed for automatic settlement creation
+    if event_bus is None or fund_repo is None:
+        return
     active_funds = await fund_repo.get_all_active()
     for fund in active_funds:
         topic = fund_topic(fund.slug, "trades.executed")

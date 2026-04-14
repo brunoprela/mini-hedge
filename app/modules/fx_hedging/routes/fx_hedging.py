@@ -124,7 +124,7 @@ async def roll_forward(
 
 
 @router.post(
-    "/mtm/{portfolio_id}",
+    "/forwards/{portfolio_id}/mtm",
     response_model=list[FXForwardContract],
 )
 async def mark_to_market(

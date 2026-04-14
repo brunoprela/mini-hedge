@@ -72,6 +72,23 @@ _ALL_PERMISSIONS = frozenset(
         "trades:execute",
         "funds:read",
         "funds:manage",
+        "orders:read",
+        "orders:create",
+        "orders:cancel",
+        "compliance:read",
+        "compliance:write",
+        "exposure:read",
+        "risk:read",
+        "risk:write",
+        "cash:read",
+        "cash:write",
+        "attribution:read",
+        "alpha:read",
+        "alpha:write",
+        "capital:read",
+        "capital:write",
+        "fx_hedging:read",
+        "fx_hedging:write",
     }
 )
 

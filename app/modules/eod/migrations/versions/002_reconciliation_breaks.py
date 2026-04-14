@@ -38,7 +38,7 @@ def upgrade() -> None:
         sa.Column("broker_quantity", sa.Numeric(18, 8), nullable=False),
         sa.Column("admin_quantity", sa.Numeric(18, 8), nullable=True),
         sa.Column("difference", sa.Numeric(18, 8), nullable=False),
-        sa.Column("is_material", sa.Boolean(), nullable=False),
+        sa.Column("is_material", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         # Cash break fields (null for position breaks)
         sa.Column("currency", sa.String(3), nullable=True),
         sa.Column("internal_balance", sa.Numeric(18, 2), nullable=True),

@@ -120,7 +120,7 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("0"),
         ),
-        sa.Column("is_internal", sa.Boolean(), nullable=False),
+        sa.Column("is_internal", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
         sa.Column(
             "created_at",

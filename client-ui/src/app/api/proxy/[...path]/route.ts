@@ -9,6 +9,10 @@ async function proxyRequest(req: NextRequest, { params }: { params: Promise<{ pa
     return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
   }
 
+  if ((session as any).error === "RefreshTokenError") {
+    return NextResponse.json({ detail: "Session expired" }, { status: 401 });
+  }
+
   const { path } = await params;
   const target = `${API_URL}/api/v1/${path.join("/")}`;
   const url = new URL(target);
@@ -30,7 +34,8 @@ async function proxyRequest(req: NextRequest, { params }: { params: Promise<{ pa
       status: res.status,
       headers: { "Content-Type": res.headers.get("Content-Type") ?? "application/json" },
     });
-  } catch {
+  } catch (error) {
+    console.error(`[proxy] ${req.method} ${url.pathname} failed:`, error);
     return NextResponse.json(
       { detail: "Backend unavailable" },
       { status: 502 },
