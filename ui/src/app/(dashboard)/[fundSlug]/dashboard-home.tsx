@@ -117,7 +117,7 @@ export function DashboardHome() {
   // NAV history for P&L sparkline
   const { data: navHistory } = useQuery(navHistoryQueryOptions(fundSlug, "30d"));
   const navSparkData = useMemo(
-    () => (navHistory ?? []).map((p) => p.nav),
+    () => (navHistory ?? []).map((p) => Number(p.nav)),
     [navHistory],
   );
 

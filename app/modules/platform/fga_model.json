@@ -8,6 +8,9 @@
       "type": "operator"
     },
     {
+      "type": "investor"
+    },
+    {
       "type": "customer",
       "relations": {
         "member": { "this": {} },
@@ -47,6 +50,7 @@
         "viewer": { "this": {} },
         "ops_full": { "this": {} },
         "ops_read": { "this": {} },
+        "investor": { "this": {} },
 
         "can_read": {
           "union": {
@@ -58,7 +62,8 @@
               { "computed_userset": { "relation": "compliance_officer" } },
               { "computed_userset": { "relation": "viewer" } },
               { "computed_userset": { "relation": "ops_full" } },
-              { "computed_userset": { "relation": "ops_read" } }
+              { "computed_userset": { "relation": "ops_read" } },
+              { "computed_userset": { "relation": "investor" } }
             ]
           }
         },
@@ -358,6 +363,7 @@
           "viewer": { "directly_related_user_types": [{ "type": "user" }] },
           "ops_full": { "directly_related_user_types": [{ "type": "operator" }] },
           "ops_read": { "directly_related_user_types": [{ "type": "operator" }] },
+          "investor": { "directly_related_user_types": [{ "type": "investor" }] },
           "can_read": { "directly_related_user_types": [] },
           "can_admin": { "directly_related_user_types": [] },
           "can_read_instruments": { "directly_related_user_types": [{ "type": "user" }] },

@@ -62,7 +62,7 @@ class LiquidityMarginService:
         session: AsyncSession | None = None,
     ) -> LiquidityProfile:
         """Compute and persist liquidity risk profile."""
-        positions = await self._position_service.get_positions(portfolio_id, session=session)
+        positions = await self._position_service.get_by_portfolio(portfolio_id, session=session)
         if not positions:
             now = datetime.now(UTC)
             return LiquidityProfile(
@@ -89,7 +89,7 @@ class LiquidityMarginService:
             )
             total_nav += mv
             # Estimate ADV from security master or use a heuristic
-            sec = await self._security_master_service.get_instrument(
+            sec = await self._security_master_service.get_by_ticker(
                 p.instrument_id,
                 session=session,
             )
@@ -150,7 +150,7 @@ class LiquidityMarginService:
         session: AsyncSession | None = None,
     ) -> MarginSummary:
         """Compute and persist margin requirements."""
-        positions = await self._position_service.get_positions(portfolio_id, session=session)
+        positions = await self._position_service.get_by_portfolio(portfolio_id, session=session)
 
         pos_data: list[tuple[str, Decimal, str]] = []
         for p in positions:
@@ -159,7 +159,7 @@ class LiquidityMarginService:
                 if hasattr(p, "market_value")
                 else p.quantity * getattr(p, "current_price", ZERO)
             )
-            sec = await self._security_master_service.get_instrument(
+            sec = await self._security_master_service.get_by_ticker(
                 p.instrument_id,
                 session=session,
             )

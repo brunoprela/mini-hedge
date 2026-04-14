@@ -11,6 +11,8 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
+from app.shared.schema_registry import shared_topic
+
 from app.modules.investor_operations.core.fund_terms import (
     compute_lock_up_expiry,
     compute_next_dealing_date,
@@ -92,7 +94,7 @@ class RedemptionService:
         await self._redemption_repo.save(record, session=session)
 
         await self._event_bus.publish(
-            "investor_operations",
+            shared_topic("investor-operations"),
             BaseEvent(
                 event_type=AuditEventType.REDEMPTION_SUBMITTED,
                 data={
@@ -161,7 +163,7 @@ class RedemptionService:
             record.lock_up_expiry_date = extra["lock_up_expiry_date"]  # type: ignore[assignment]
 
         await self._event_bus.publish(
-            "investor_operations",
+            shared_topic("investor-operations"),
             BaseEvent(
                 event_type=AuditEventType.REDEMPTION_VALIDATED,
                 data={
@@ -222,7 +224,7 @@ class RedemptionService:
 
         if result.gate_triggered:
             await self._event_bus.publish(
-                "investor_operations",
+                shared_topic("investor-operations"),
                 BaseEvent(
                     event_type=AuditEventType.REDEMPTION_GATE_APPLIED,
                     data={
@@ -306,7 +308,7 @@ class RedemptionService:
             record.payment_due_date = payment_due
 
             await self._event_bus.publish(
-                "investor_operations",
+                shared_topic("investor-operations"),
                 BaseEvent(
                     event_type=AuditEventType.REDEMPTION_EXECUTED,
                     data={
@@ -352,7 +354,7 @@ class RedemptionService:
         record.payment_reference = payment_reference
 
         await self._event_bus.publish(
-            "investor_operations",
+            shared_topic("investor-operations"),
             BaseEvent(
                 event_type=AuditEventType.REDEMPTION_PAYMENT_CONFIRMED,
                 data={
@@ -393,7 +395,7 @@ class RedemptionService:
         record.cancellation_reason = reason
 
         await self._event_bus.publish(
-            "investor_operations",
+            shared_topic("investor-operations"),
             BaseEvent(
                 event_type=AuditEventType.REDEMPTION_CANCELLED,
                 data={

@@ -56,10 +56,15 @@ export async function runCustomStressTest(
 }
 
 export function riskHistoryQueryOptions(fundSlug: string, portfolioId: string) {
+  const end = new Date().toISOString();
+  const start = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   return queryOptions({
     queryKey: ["risk-history", fundSlug, portfolioId],
     queryFn: () =>
-      clientFetch<RiskSnapshot[]>(`/risk/${portfolioId}/snapshot/history`, { fundSlug }),
+      clientFetch<RiskSnapshot[]>(
+        `/risk/${portfolioId}/snapshot/history?start=${start}&end=${end}`,
+        { fundSlug },
+      ),
     staleTime: 120_000,
   });
 }

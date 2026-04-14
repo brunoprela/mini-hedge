@@ -22,8 +22,10 @@ GRANT USAGE ON SCHEMA market_data TO debezium_replication;
 GRANT SELECT ON ALL TABLES IN SCHEMA market_data TO debezium_replication;
 GRANT USAGE ON SCHEMA platform TO debezium_replication;
 GRANT SELECT ON ALL TABLES IN SCHEMA platform TO debezium_replication;
+GRANT USAGE ON SCHEMA eod TO debezium_replication;
+GRANT SELECT ON ALL TABLES IN SCHEMA eod TO debezium_replication;
 
 -- CDC publication — publish specific schemas rather than FOR ALL TABLES,
 -- because TimescaleDB cannot convert a published table into a hypertable.
 -- Per-fund schemas are added dynamically via ALTER PUBLICATION in fund_schema.py.
-CREATE PUBLICATION minihedge_cdc FOR TABLES IN SCHEMA platform, security_master;
+CREATE PUBLICATION minihedge_cdc FOR TABLES IN SCHEMA platform, security_master, eod;

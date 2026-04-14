@@ -7,6 +7,8 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+from app.shared.schema_registry import shared_topic
+
 from app.modules.investor_operations.interfaces import (
     FundTermsSummary,
     InvestorKYCInfo,
@@ -105,7 +107,7 @@ class InvestorKYCService:
 
         if self._event_bus is not None:
             await self._event_bus.publish(
-                "investor_operations",
+                shared_topic("investor-operations"),
                 BaseEvent(
                     event_type=AuditEventType.INVESTOR_KYC_SCREENED,
                     data={

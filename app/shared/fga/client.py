@@ -244,9 +244,10 @@ class FGAClient:
 
     async def list_relations(self, *, user: str, object: str, relations: list[str]) -> list[str]:
         """Return which of *relations* the *user* has on *object*."""
-        return await self._client.list_relations(  # type: ignore[no-any-return]
+        response = await self._client.list_relations(
             body=ClientListRelationsRequest(user=user, object=object, relations=relations),
         )
+        return list(response.relations or [])
 
     async def read_tuples(self, *, object: str) -> list[tuple[str, str, str]]:
         """Read all relationship tuples on *object*.

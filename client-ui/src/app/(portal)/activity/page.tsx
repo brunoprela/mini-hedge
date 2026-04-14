@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
+import { toast } from "sonner";
 import { apiFetch } from "@/shared/lib/api";
 import { ErrorState } from "@/shared/components/error-state";
 import { useFunds, FundSelector } from "@/shared/components/fund-selector";
@@ -93,6 +94,7 @@ export default function ActivityPage() {
         <div className="flex gap-2">
           <button
             type="button"
+            onClick={() => toast.info("Subscription requests will be available soon.")}
             className="inline-flex items-center gap-1.5 rounded-md bg-[var(--primary)] px-3.5 py-2 text-sm font-medium text-white hover:opacity-90"
           >
             <Plus size={15} />
@@ -100,6 +102,7 @@ export default function ActivityPage() {
           </button>
           <button
             type="button"
+            onClick={() => toast.info("Redemption requests will be available soon.")}
             className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--muted)]"
           >
             Request Redemption

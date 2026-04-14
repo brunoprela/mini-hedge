@@ -350,7 +350,7 @@ class EODOrchestrator:
                             cls_aum, _, _ = await self._capital_service.get_share_class_nav(cls)
                             # Scale NAV to this class's share
                             all_accounts = (
-                                await self._capital_service._accounts.get_latest_by_fund()
+                                await self._capital_service._account_repo.get_latest_by_fund()
                             )
                             total_aum = sum((a.ending_capital for a in all_accounts), Decimal(0))
                             cls_nav = (

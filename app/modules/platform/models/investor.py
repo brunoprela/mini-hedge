@@ -24,6 +24,7 @@ class InvestorRecord(Base):
     id: Mapped[str] = mapped_column(
         PG_UUID(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
     )
+    keycloak_sub: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     # individual, institution, fund_of_funds
     entity_type: Mapped[str] = mapped_column(String(32), nullable=False)

@@ -8,6 +8,6 @@ export type {
 
 export interface NAVHistoryPoint {
   business_date: string;
-  nav: number;
-  nav_per_share: number;
+  nav: string;
+  nav_per_share: string;
 }

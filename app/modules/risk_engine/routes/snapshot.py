@@ -85,12 +85,14 @@ async def get_risk_history(
 @router.post("/{portfolio_id}/snapshot", response_model=RiskSnapshot)
 async def take_risk_snapshot(
     portfolio_id: UUID,
-    request_context: RequestContext = require_permission(Permission.RISK_READ),
+    request_context: RequestContext = require_permission(Permission.RISK_WRITE),
     _access: None = require_access(Portfolio.relation("can_view")),
     risk_snapshot_service: RiskSnapshotService = Depends(get_risk_snapshot_service),
     session: AsyncSession = Depends(get_db),
 ) -> RiskSnapshot:
-    return await risk_snapshot_service.take_snapshot(portfolio_id, session=session)
+    return await risk_snapshot_service.take_snapshot(
+        portfolio_id, fund_slug=request_context.fund_slug, session=session
+    )
 
 
 @router.post("/{portfolio_id}/var", response_model=VaRResult)

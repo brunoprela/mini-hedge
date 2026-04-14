@@ -45,7 +45,7 @@ export function FundPortfolioPicker({
             onFundChange(e.target.value);
             onPortfolioChange("");
           }}
-          className="rounded-md border border-[var(--border)] bg-white px-3 py-1.5 text-sm outline-none focus:border-[var(--ring)]"
+          className="rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-sm outline-none focus:border-[var(--ring)]"
         >
           <option value="">Select fund…</option>
           {funds.map((f) => (
@@ -66,7 +66,7 @@ export function FundPortfolioPicker({
             value={portfolioId}
             onChange={(e) => onPortfolioChange(e.target.value)}
             disabled={!fundSlug}
-            className="rounded-md border border-[var(--border)] bg-white px-3 py-1.5 text-sm outline-none focus:border-[var(--ring)] disabled:opacity-50"
+            className="rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-sm outline-none focus:border-[var(--ring)] disabled:opacity-50"
           >
             <option value="">Select portfolio…</option>
             {portfolios?.map((p) => (

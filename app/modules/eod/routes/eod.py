@@ -45,7 +45,7 @@ class RunEODRequest(BaseModel):
 @router.post("/run", response_model=EODRunResult)
 async def trigger_eod_run(
     body: RunEODRequest,
-    request_context: RequestContext = require_permission(Permission.RISK_READ),
+    request_context: RequestContext = require_permission(Permission.RISK_WRITE),
     orchestrator: EODOrchestrator = Depends(get_eod_orchestrator),
     session: AsyncSession = Depends(get_db),
 ) -> EODRunResult:

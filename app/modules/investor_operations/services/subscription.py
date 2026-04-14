@@ -11,6 +11,8 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
+from app.shared.schema_registry import shared_topic
+
 from app.modules.investor_operations.core.fund_terms import (
     compute_next_dealing_date,
     validate_minimum_amount,
@@ -94,7 +96,7 @@ class SubscriptionService:
         await self._subscription_repo.save(record, session=session)
 
         await self._event_bus.publish(
-            "investor_operations",
+            shared_topic("investor-operations"),
             BaseEvent(
                 event_type=AuditEventType.SUBSCRIPTION_SUBMITTED,
                 data={
@@ -141,7 +143,7 @@ class SubscriptionService:
         record.kyc_notes = notes
 
         await self._event_bus.publish(
-            "investor_operations",
+            shared_topic("investor-operations"),
             BaseEvent(
                 event_type=AuditEventType.SUBSCRIPTION_KYC_DECIDED,
                 data={
@@ -193,7 +195,7 @@ class SubscriptionService:
         record.ops_notes = notes
 
         await self._event_bus.publish(
-            "investor_operations",
+            shared_topic("investor-operations"),
             BaseEvent(
                 event_type=AuditEventType.SUBSCRIPTION_OPS_REVIEWED,
                 data={
@@ -245,7 +247,7 @@ class SubscriptionService:
         record.gp_decision_by = decision_by
 
         await self._event_bus.publish(
-            "investor_operations",
+            shared_topic("investor-operations"),
             BaseEvent(
                 event_type=AuditEventType.SUBSCRIPTION_GP_DECIDED,
                 data={
@@ -293,7 +295,7 @@ class SubscriptionService:
         record.wire_reference = wire_reference
 
         await self._event_bus.publish(
-            "investor_operations",
+            shared_topic("investor-operations"),
             BaseEvent(
                 event_type=AuditEventType.SUBSCRIPTION_WIRE_CONFIRMED,
                 data={
@@ -353,7 +355,7 @@ class SubscriptionService:
             record.shares_issued = shares
 
             await self._event_bus.publish(
-                "investor_operations",
+                shared_topic("investor-operations"),
                 BaseEvent(
                     event_type=AuditEventType.SUBSCRIPTION_EXECUTED,
                     data={
@@ -399,7 +401,7 @@ class SubscriptionService:
         record.cancellation_reason = reason
 
         await self._event_bus.publish(
-            "investor_operations",
+            shared_topic("investor-operations"),
             BaseEvent(
                 event_type=AuditEventType.SUBSCRIPTION_CANCELLED,
                 data={

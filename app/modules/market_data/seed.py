@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 
 import structlog
 
+from sqlalchemy.exc import IntegrityError
+
 from app.modules.market_data.interfaces import FXRateSnapshot, PriceSnapshot
 
 if TYPE_CHECKING:
@@ -81,8 +83,8 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
         try:
             await market_data_service.store_fx_rate(snapshot)
             fx_seeded += 1
-        except Exception:
-            # Duplicate key or other DB issue — in-memory cache is updated, move on
+        except IntegrityError:
+            # Duplicate key — in-memory cache is updated, move on — in-memory cache is updated, move on
             pass
 
     # Seed instrument prices
@@ -106,8 +108,8 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
         try:
             await market_data_service.store_price(snapshot)
             price_seeded += 1
-        except Exception:
-            # Duplicate key or other DB issue — in-memory is updated, move on
+        except IntegrityError:
+            # Duplicate key — in-memory cache is updated, move on — in-memory is updated, move on
             pass
 
     if fx_seeded or price_seeded:

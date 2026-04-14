@@ -43,7 +43,7 @@ mock-exchange-status:
 
 # --- Full Stack (platform + mock-exchange, all in core profile) ---
 
-up-all: up
+up-all: up mock-exchange-up
 	@echo "Waiting for platform..."
 	@until curl -sf http://localhost:8000/health > /dev/null 2>&1; do sleep 2; done
 	@echo "All services running."
@@ -52,7 +52,7 @@ up-all: up
 	@echo "  Mock Exchange:  http://localhost:8100"
 	@echo "  Mock Exchange Kafka: localhost:9192"
 
-down-all: down
+down-all: mock-exchange-down down
 
 # --- Reset Commands ---
 

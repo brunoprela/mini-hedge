@@ -169,8 +169,11 @@ async def setup(
         keycloak_client_id=settings.keycloak_client_id,
         keycloak_ops_realm=settings.keycloak_ops_realm,
         keycloak_ops_client_id=settings.keycloak_ops_client_id,
+        keycloak_investors_realm=settings.keycloak_investors_realm,
+        keycloak_investors_client_id=settings.keycloak_investors_client_id,
     )
     app.state.auth_service = auth_service
+    app.state.api_key_repo = api_key_repo
     app.state.customer_repo = customer_repo
     app.state.fund_repo = fund_repo
     app.state.portfolio_repo = portfolio_repo
@@ -178,6 +181,10 @@ async def setup(
 
     audit_repo = AuditLogRepository(sf)
     app.state.audit_repo = audit_repo
+
+    from app.modules.platform.core.audit_verifier import AuditIntegrityVerifier
+
+    app.state.audit_verifier = AuditIntegrityVerifier(sf)
 
     # Admin service (only if FGA is available)
     if fga_client is not None:

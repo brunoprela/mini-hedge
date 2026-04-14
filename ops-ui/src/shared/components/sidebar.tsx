@@ -101,7 +101,7 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-[var(--sidebar-width)] border-r border-[var(--border)] bg-white flex flex-col">
+    <aside className="fixed left-0 top-0 h-full w-[var(--sidebar-width)] border-r border-[var(--border)] bg-[var(--card)] flex flex-col">
       <div className="p-4 border-b border-[var(--border)]">
         <h1 className="text-lg font-semibold text-[var(--primary)]">Ops Console</h1>
         <p className="text-xs text-[var(--muted-foreground)]">Platform Administration</p>

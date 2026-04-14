@@ -378,7 +378,7 @@ def build_seed_investors() -> list[InvestorRecord]:
             name="James Chen (GP)",
             entity_type="individual",
             tax_jurisdiction="US",
-            contact_email="james.chen@alphacap.dev",
+            contact_email="investor@minihedge.dev",
             is_active=True,
         ),
     ]
@@ -559,6 +559,48 @@ def build_seed_fga_tuples() -> list[ClientTuple]:
                 object=fund_obj(fund_id),
             )
         )
+
+    # --- Investor → fund access ---
+    # Demo investor (GP) can read the Alpha fund
+    tuples.append(
+        ClientTuple(
+            user=f"investor:{INVESTOR_FOUNDER_ID}",
+            relation="investor",
+            object=fund_obj(FUND_ALPHA_ID),
+        )
+    )
+    # Sovereign wealth fund can read Alpha
+    tuples.append(
+        ClientTuple(
+            user=f"investor:{INVESTOR_SOVEREIGN_WEALTH_ID}",
+            relation="investor",
+            object=fund_obj(FUND_ALPHA_ID),
+        )
+    )
+    # Pension fund can read Alpha
+    tuples.append(
+        ClientTuple(
+            user=f"investor:{INVESTOR_PENSION_FUND_ID}",
+            relation="investor",
+            object=fund_obj(FUND_ALPHA_ID),
+        )
+    )
+    # Family office can read Alpha
+    tuples.append(
+        ClientTuple(
+            user=f"investor:{INVESTOR_FAMILY_OFFICE_ID}",
+            relation="investor",
+            object=fund_obj(FUND_ALPHA_ID),
+        )
+    )
+    # Endowment can read Alpha
+    tuples.append(
+        ClientTuple(
+            user=f"investor:{INVESTOR_ENDOWMENT_ID}",
+            relation="investor",
+            object=fund_obj(FUND_ALPHA_ID),
+        )
+    )
 
     # --- Portfolio → fund parent pointers ---
     for p_id, f_id in portfolio_fund.items():

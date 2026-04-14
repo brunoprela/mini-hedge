@@ -23,6 +23,7 @@ class ActorType(StrEnum):
     API_KEY = "apikey"
     AGENT = "agent"
     OPERATOR = "operator"
+    INVESTOR = "investor"
     SYSTEM = "system"
 
 

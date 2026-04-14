@@ -29,6 +29,7 @@ from app.shared.auth import (
     FGA_PERMISSION_MAP,
     PLATFORM_ROLE_PERMISSIONS,
     PlatformRole,
+    Role,
     TokenClaims,
     decode_keycloak_token,
     decode_token,
@@ -52,6 +53,7 @@ if TYPE_CHECKING:
         ServicingEdgeRepository,
         UserRepository,
     )
+    from app.modules.capital_accounts.repositories.investor import InvestorRepository
     from app.shared.fga import FGAClient
 
 logger = structlog.get_logger()
@@ -106,6 +108,9 @@ class AuthService:
         keycloak_client_id: str = "",
         keycloak_ops_realm: str = "",
         keycloak_ops_client_id: str = "",
+        keycloak_investors_realm: str = "",
+        keycloak_investors_client_id: str = "",
+        investor_repo: InvestorRepository | None = None,
     ) -> None:
         self._user_repo = user_repo
         self._fund_repo = fund_repo
@@ -123,6 +128,9 @@ class AuthService:
         self._keycloak_client_id = keycloak_client_id
         self._keycloak_ops_realm = keycloak_ops_realm
         self._keycloak_ops_client_id = keycloak_ops_client_id
+        self._keycloak_investors_realm = keycloak_investors_realm
+        self._keycloak_investors_client_id = keycloak_investors_client_id
+        self._investor_repo = investor_repo
         self._fga_cache: TTLCache[tuple[str, str], tuple[list[str], frozenset[str]]] = TTLCache(
             maxsize=_FGA_CACHE_MAX, ttl=_FGA_CACHE_TTL
         )
@@ -184,6 +192,10 @@ class AuthService:
             issuer = unverified.get("iss", "")
             if self._keycloak_ops_realm and f"/realms/{self._keycloak_ops_realm}" in issuer:
                 request_context = await self._authenticate_keycloak_operator(token)
+            elif self._keycloak_investors_realm and f"/realms/{self._keycloak_investors_realm}" in issuer:
+                request_context = await self._authenticate_keycloak_investor(
+                    token, fund_slug=fund_slug,
+                )
             else:
                 request_context = await self._authenticate_keycloak(
                     token, fund_slug=fund_slug, acting_as_customer_id=acting_as_customer_id
@@ -233,6 +245,7 @@ class AuthService:
         actor_type: ActorType,
         fund_slug: str | None = None,
         fund_id: str | None = None,
+        customer_id: str | None = None,
         roles: list[str],
         delegated_by: str | None = None,
     ) -> str:
@@ -242,6 +255,7 @@ class AuthService:
             actor_type=actor_type,
             fund_slug=fund_slug,
             fund_id=fund_id,
+            customer_id=customer_id,
             roles=roles,
             secret=self._jwt_secret,
             algorithm=self._jwt_algorithm,
@@ -432,6 +446,90 @@ class AuthService:
         self._fga_cache[cache_key] = result
         return result
 
+    # ----- Keycloak investor authentication -----
+
+    async def _authenticate_keycloak_investor(
+        self,
+        token: str,
+        *,
+        fund_slug: str | None,
+    ) -> RequestContext:
+        """Validate a Keycloak RS256 JWT from the investors realm."""
+        if not self._keycloak_url:
+            raise AuthenticationError("Identity provider not configured", code="IDP_UNAVAILABLE")
+        if self._investor_repo is None:
+            raise AuthenticationError("Investor auth not configured", code="IDP_UNAVAILABLE")
+
+        try:
+            kc_claims = await decode_keycloak_token(
+                token,
+                keycloak_url=self._keycloak_url,
+                realm=self._keycloak_investors_realm,
+                client_id=self._keycloak_investors_client_id,
+                keycloak_browser_url=self._keycloak_browser_url,
+            )
+        except PyJWTError as e:
+            logger.warning("investor_jwt_validation_failed", error=str(e))
+            raise AuthenticationError("Invalid token", code="INVALID_TOKEN") from e
+
+        # Look up investor by keycloak_sub (JIT sync).  If not yet linked,
+        # fall back to email match and persist the keycloak_sub for next time.
+        investor = await self._investor_repo.get_by_keycloak_sub(kc_claims.sub)
+        if investor is None and kc_claims.email:
+            investor = await self._investor_repo.get_by_email(kc_claims.email)
+            if investor is not None:
+                await self._investor_repo.update(
+                    investor.id, keycloak_sub=kc_claims.sub
+                )
+        if investor is None:
+            logger.warning("investor_keycloak_sub_not_found", sub=kc_claims.sub, email=kc_claims.email)
+            raise AuthorizationError("Investor account not found", code="INVESTOR_NOT_FOUND")
+        if not investor.is_active:
+            raise AuthorizationError("Investor account is inactive", code="USER_INACTIVE")
+
+        # Resolve fund — investor must specify which fund they want to view,
+        # or we pick the first fund they have a capital account in.
+        investor_fund_slug = fund_slug
+        investor_fund_id: str | None = None
+        if investor_fund_slug:
+            fund = await self._fund_repo.get_by_slug(investor_fund_slug)
+            if fund is None or fund.status != FundStatus.ACTIVE:
+                raise AuthorizationError("Fund not found", code="FUND_NOT_FOUND")
+            investor_fund_id = fund.id
+        else:
+            # Discover funds from FGA
+            if self._fga_client is not None:
+                from app.shared.fga.client import unqualify_object_id
+
+                fga_fund_ids = await self._fga_client.list_objects(
+                    user=f"investor:{investor.id}", relation="can_read", type="fund"
+                )
+                if fga_fund_ids:
+                    fund_ids = sorted(unqualify_object_id(fid) for fid in fga_fund_ids)
+                    fund = await self._fund_repo.get_by_id(fund_ids[0])
+                    if fund is not None and fund.status == FundStatus.ACTIVE:
+                        investor_fund_slug = fund.slug
+                        investor_fund_id = fund.id
+
+        roles = frozenset({Role.INVESTOR})
+        permissions = resolve_permissions(roles)
+        fund_customer_id: str | None = None
+        if investor_fund_id:
+            fund_record = await self._fund_repo.get_by_id(investor_fund_id)
+            if fund_record:
+                fund_customer_id = getattr(fund_record, "customer_id", None)
+
+        return RequestContext(
+            actor_id=investor.id,
+            actor_type=ActorType.INVESTOR,
+            customer_id=fund_customer_id,
+            home_customer_id=fund_customer_id,
+            fund_slug=investor_fund_slug,
+            fund_id=investor_fund_id,
+            roles=roles,
+            permissions=permissions,
+        )
+
     # ----- Keycloak operator authentication -----
 
     async def _authenticate_keycloak_operator(self, token: str) -> RequestContext:
@@ -503,15 +601,18 @@ class AuthService:
 
     # ----- Public API -----
 
-    async def get_user_funds(self, user_id: str) -> list[FundInfo]:
-        """Return funds the user has access to (for /me/funds endpoint)."""
+    async def get_user_funds(
+        self, user_id: str, *, actor_type: ActorType = ActorType.USER
+    ) -> list[FundInfo]:
+        """Return funds the user/investor has access to (for /me/funds endpoint)."""
         if self._fga_client is None:
             return []
 
         from app.shared.fga.client import unqualify_object_id
 
+        fga_type = "investor" if actor_type == ActorType.INVESTOR else "user"
         fga_fund_ids = await self._fga_client.list_objects(
-            user=f"user:{user_id}", relation="can_read", type="fund"
+            user=f"{fga_type}:{user_id}", relation="can_read", type="fund"
         )
 
         result: list[FundInfo] = []
@@ -520,8 +621,11 @@ class AuthService:
             fund = await self._fund_repo.get_by_id(fund_id)
             if fund is None or fund.status != FundStatus.ACTIVE:
                 continue
-            roles, _perms = await self._resolve_fund_access(user_id, fund_id, fund.customer_id)
-            role = roles[0] if roles else "viewer"
+            if actor_type == ActorType.INVESTOR:
+                role = "investor"
+            else:
+                roles, _perms = await self._resolve_fund_access(user_id, fund_id, fund.customer_id)
+                role = roles[0] if roles else "viewer"
             # Resolve customer name if customer_repo is available
             customer_name: str | None = None
             if self._customer_repo is not None and fund.customer_id:
@@ -561,6 +665,7 @@ class AuthService:
             actor_type=ActorType.USER,
             fund_slug=fund_slug,
             fund_id=fund.id,
+            customer_id=fund.customer_id,
             roles=roles,
         )
         return token, fund_slug, roles
@@ -589,6 +694,8 @@ class AuthService:
         return RequestContext(
             actor_id=claims.sub,
             actor_type=claims.actor_type,
+            customer_id=claims.customer_id,
+            home_customer_id=claims.customer_id,
             fund_slug=claims.fund_slug,
             fund_id=claims.fund_id,
             roles=roles,

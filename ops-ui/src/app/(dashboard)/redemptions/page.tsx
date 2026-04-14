@@ -61,7 +61,7 @@ export default function RedemptionsPage() {
     mutationFn: ({ id, payment_reference }: { id: string; payment_reference: string }) =>
       apiFetch(`investor-operations/redemptions/${id}/confirm-payment`, {
         method: "POST",
-        body: JSON.stringify({ payment_reference, confirmed_by: "ops-console" }),
+        body: JSON.stringify({ payment_reference }),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["redemptions"] });

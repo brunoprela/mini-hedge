@@ -133,6 +133,7 @@ def shared_topics() -> list[str]:
         shared_topic("capital.subscription"),
         shared_topic("capital.redemption"),
         shared_topic("market-data.status"),
+        shared_topic("investor-operations"),
     ]
 
 
@@ -187,6 +188,8 @@ def load_schemas() -> None:
         AuditEventType.CAPITAL_SUBSCRIPTION: "capital/transaction-v1.avsc",
         AuditEventType.CAPITAL_REDEMPTION: "capital/transaction-v1.avsc",
         AuditEventType.CAPITAL_ALLOCATION: "capital/transaction-v1.avsc",
+        AuditEventType.ATTRIBUTION_DAILY_CALCULATED: "attribution/calculated-v1.avsc",
+        AuditEventType.ATTRIBUTION_CUMULATIVE_UPDATED: "attribution/calculated-v1.avsc",
     }
     for event_type, schema_file in event_schemas.items():
         schema = _load_avsc(_SCHEMA_DIR / schema_file)

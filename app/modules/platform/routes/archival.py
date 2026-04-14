@@ -24,7 +24,7 @@ async def list_archives(
 
 @router.post("/archival/run")
 async def run_archival(
-    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_AUDIT_READ),
+    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_AUDIT_WRITE),
     archival_service: ArchivalService = Depends(get_archival_service),
 ) -> dict[str, Any]:
     """Trigger archival of all eligible months across all active funds."""
@@ -48,7 +48,7 @@ async def archive_fund_month(
     fund_slug: str,
     year: int,
     month: int,
-    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_AUDIT_READ),
+    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_AUDIT_WRITE),
     archival_service: ArchivalService = Depends(get_archival_service),
 ) -> dict[str, Any]:
     """Archive a specific fund/month to cold storage."""

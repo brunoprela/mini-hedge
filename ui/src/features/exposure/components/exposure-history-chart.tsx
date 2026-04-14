@@ -52,7 +52,7 @@ export function ExposureHistoryChart({ portfolioId }: { portfolioId: string }) {
 
   const sorted = useMemo(() => {
     if (!data || data.length === 0) return [];
-    return [...data].sort((a, b) => a.date.localeCompare(b.date));
+    return [...data].sort((a, b) => a.snapshot_at.localeCompare(b.snapshot_at));
   }, [data]);
 
   const chartSeries = useMemo(() => {
@@ -61,24 +61,24 @@ export function ExposureHistoryChart({ portfolioId }: { portfolioId: string }) {
       {
         label: "Gross",
         color: "var(--primary)",
-        data: sorted.map((e) => ({ x: e.date, y: Number(e.gross_value) })),
+        data: sorted.map((e) => ({ x: e.snapshot_at, y: Number(e.gross_exposure) })),
       },
       {
         label: "Net",
         color: "var(--warning)",
-        data: sorted.map((e) => ({ x: e.date, y: Number(e.net_value) })),
+        data: sorted.map((e) => ({ x: e.snapshot_at, y: Number(e.net_exposure) })),
       },
       {
         label: "Long",
         color: "var(--success)",
         dashed: true,
-        data: sorted.map((e) => ({ x: e.date, y: Number(e.long_value) })),
+        data: sorted.map((e) => ({ x: e.snapshot_at, y: Number(e.long_exposure) })),
       },
       {
         label: "Short",
         color: "var(--destructive)",
         dashed: true,
-        data: sorted.map((e) => ({ x: e.date, y: Number(e.short_value) })),
+        data: sorted.map((e) => ({ x: e.snapshot_at, y: Number(e.short_exposure) })),
       },
     ];
   }, [sorted]);
@@ -168,25 +168,25 @@ export function ExposureHistoryChart({ portfolioId }: { portfolioId: string }) {
             </thead>
             <tbody className="divide-y divide-[var(--table-border)]">
               {sorted.map((entry) => {
-                const net = Number(entry.net_value);
-                const gross = Number(entry.gross_value);
+                const net = Number(entry.net_exposure);
+                const gross = Number(entry.gross_exposure);
                 const pct = gross === 0 ? 0 : (net / gross) * 100;
                 const barWidth = Math.min(Math.abs(pct), 100);
 
                 return (
                   <tr
-                    key={entry.date}
+                    key={entry.snapshot_at}
                     className="hover:bg-[var(--table-row-hover)]"
                   >
-                    <td className="px-3 py-1.5 font-mono text-xs">{entry.date}</td>
+                    <td className="px-3 py-1.5 font-mono text-xs">{entry.snapshot_at}</td>
                     <td className="px-3 py-1.5 text-right text-[var(--success)]">
-                      {fmt(entry.long_value)}
+                      {fmt(entry.long_exposure)}
                     </td>
                     <td className="px-3 py-1.5 text-right text-[var(--destructive)]">
-                      {fmt(entry.short_value)}
+                      {fmt(entry.short_exposure)}
                     </td>
-                    <td className="px-3 py-1.5 text-right">{fmt(entry.net_value)}</td>
-                    <td className="px-3 py-1.5 text-right">{fmt(entry.gross_value)}</td>
+                    <td className="px-3 py-1.5 text-right">{fmt(entry.net_exposure)}</td>
+                    <td className="px-3 py-1.5 text-right">{fmt(entry.gross_exposure)}</td>
                     <td className="px-3 py-1.5">
                       <div className="flex items-center gap-1">
                         <div className="relative h-3 w-full rounded bg-[var(--border)]">

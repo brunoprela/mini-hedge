@@ -25,6 +25,12 @@ async function proxyRequest(req: NextRequest, { params }: { params: Promise<{ pa
     Authorization: `Bearer ${session.accessToken}`,
   };
 
+  // Forward fund/customer context headers
+  const fundSlug = req.nextUrl.searchParams.get("fund_slug") || req.headers.get("x-fund-slug");
+  if (fundSlug) headers["X-Fund-Slug"] = fundSlug;
+  const customerId = req.headers.get("x-customer-id");
+  if (customerId) headers["X-Customer-Id"] = customerId;
+
   const contentType = req.headers.get("content-type");
   if (contentType) {
     headers["Content-Type"] = contentType;

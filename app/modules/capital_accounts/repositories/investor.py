@@ -48,6 +48,7 @@ class InvestorRepository(BaseRepository):
         entity_type: str | None = None,
         tax_jurisdiction: str | None = None,
         contact_email: str | None = None,
+        keycloak_sub: str | None = None,
         is_active: bool | None = None,
         session: AsyncSession | None = None,
     ) -> InvestorRecord | None:
@@ -67,11 +68,32 @@ class InvestorRepository(BaseRepository):
                 record.tax_jurisdiction = tax_jurisdiction
             if contact_email is not None:
                 record.contact_email = contact_email
+            if keycloak_sub is not None:
+                record.keycloak_sub = keycloak_sub
             if is_active is not None:
                 record.is_active = is_active
             await session.commit()
             await session.refresh(record)
             return record
+
+    async def get_by_email(
+        self, email: str, *, session: AsyncSession | None = None
+    ) -> InvestorRecord | None:
+        async with self._session(session) as session:
+            stmt = select(InvestorRecord).where(
+                InvestorRecord.contact_email == email,
+                InvestorRecord.is_active.is_(True),
+            )
+            result = await session.execute(stmt)
+            return result.scalar_one_or_none()
+
+    async def get_by_keycloak_sub(
+        self, keycloak_sub: str, *, session: AsyncSession | None = None
+    ) -> InvestorRecord | None:
+        async with self._session(session) as session:
+            stmt = select(InvestorRecord).where(InvestorRecord.keycloak_sub == keycloak_sub)
+            result = await session.execute(stmt)
+            return result.scalar_one_or_none()
 
     async def insert_batch(
         self, records: list[InvestorRecord], *, session: AsyncSession | None = None

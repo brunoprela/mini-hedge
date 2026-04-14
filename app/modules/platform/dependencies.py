@@ -4,6 +4,7 @@ from fastapi import HTTPException, Request
 
 from app.modules.platform.core.audit_verifier import AuditIntegrityVerifier
 from app.modules.platform.repositories import AuditLogRepository, PortfolioRepository
+from app.modules.platform.repositories.api_key import APIKeyRepository
 from app.modules.platform.services import AdminService, AuthService
 from app.shared.audit.archival_service import ArchivalService
 
@@ -41,6 +42,13 @@ def get_audit_verifier(request: Request) -> AuditIntegrityVerifier:
     if verifier is None:
         raise HTTPException(status_code=503, detail="AuditIntegrityVerifier not initialized")
     return verifier
+
+
+def get_api_key_repo(request: Request) -> APIKeyRepository:
+    repo: APIKeyRepository | None = getattr(request.app.state, "api_key_repo", None)
+    if repo is None:
+        raise HTTPException(status_code=503, detail="APIKeyRepository not initialized")
+    return repo
 
 
 def get_archival_service(request: Request) -> ArchivalService:

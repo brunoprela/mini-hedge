@@ -130,7 +130,7 @@ class OrderRepository(BaseRepository):
         *,
         session: AsyncSession | None = None,
     ) -> list[OrderRecord]:
-        active_states = ["draft", "approved", "sent", "partially_filled"]
+        active_states = ["draft", "pending_compliance", "approved", "sent", "working", "partially_filled"]
         async with self._session(session) as session:
             stmt = (
                 select(OrderRecord)

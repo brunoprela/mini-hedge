@@ -130,7 +130,7 @@ export default function DashboardPage() {
       {/* Two-column grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Workflow Queue */}
-        <div className="rounded-lg border border-[var(--border)] bg-white">
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--card)]">
           <div className="border-b border-[var(--border)] px-4 py-3">
             <h3 className="text-sm font-semibold text-[var(--foreground)]">Workflow Queue</h3>
           </div>
@@ -186,7 +186,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Recent Activity */}
-        <div className="rounded-lg border border-[var(--border)] bg-white">
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--card)]">
           <div className="border-b border-[var(--border)] px-4 py-3">
             <h3 className="text-sm font-semibold text-[var(--foreground)]">Recent Activity</h3>
           </div>

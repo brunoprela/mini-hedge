@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 import structlog
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -57,8 +58,8 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
                         ])
                         await session.commit()
                         logger.info("master_feeder_links_seeded", master="alpha", feeders=["beta", "gamma"])
-        except Exception:
-            logger.debug("master_feeder_seed_skipped", reason="already exists or error")
+        except IntegrityError:
+            logger.debug("master_feeder_seed_skipped", reason="already exists")
 
     # --- Strategy books for alpha fund ---
     if "alpha" in fund_slugs:
@@ -112,7 +113,7 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
                         ])
                         await session.commit()
                         logger.info("strategy_books_seeded", fund="alpha", books=6)
-        except Exception:
-            logger.debug("strategy_books_seed_skipped", reason="already exists or error")
+        except IntegrityError:
+            logger.debug("strategy_books_seed_skipped", reason="already exists")
 
     logger.info("fund_structures_seed_complete")

@@ -19,7 +19,8 @@ services:
       test: ["CMD-SHELL", "pg_isready -U minihedge"]
       interval: 5s
       timeout: 3s
-      retries: 5
+      retries: 10
+      start_period: 15s
 
   postgres-replica:
     image: timescale/timescaledb:latest-pg16
@@ -43,9 +44,9 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U minihedge"]
       interval: 5s
-      timeout: 3s
-      retries: 10
-      start_period: 15s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
 
   openfga-migrate:
     image: openfga/openfga:latest
@@ -81,10 +82,11 @@ services:
       openfga-migrate:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "grpc_health_probe", "-addr=localhost:8081"]
+      test: ["CMD", "/usr/local/bin/grpc_health_probe", "-addr=localhost:8081"]
       interval: 5s
       timeout: 3s
-      retries: 5
+      retries: 10
+      start_period: 10s
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.2
@@ -537,6 +539,8 @@ services:
       KEYCLOAK_CLIENT_ID: "mini-hedge-ui"
       KEYCLOAK_OPS_REALM: "minihedge-ops"
       KEYCLOAK_OPS_CLIENT_ID: "mini-hedge-ops-ui"
+      KEYCLOAK_INVESTORS_REALM: "investors"
+      KEYCLOAK_INVESTORS_CLIENT_ID: "investor-portal"
       APP_ENV: "local"
       LOG_LEVEL: "INFO"
       MOCK_EXCHANGE_URL: "http://mock-exchange:8100"
@@ -549,7 +553,7 @@ services:
       REDIS_URL: "redis://redis:6379/0"
       REDIS_ENABLED: "true"
       OTEL_ENABLED: "true"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://jaeger:4317"
+      OTEL_ENDPOINT: "http://jaeger:4317"
       OTEL_SERVICE_NAME: "minihedge"
       IMMUDB_ENABLED: "true"
       IMMUDB_HOST: "immudb"
@@ -589,6 +593,12 @@ services:
       immudb:
         condition: service_healthy
       opensearch:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+      vault:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]

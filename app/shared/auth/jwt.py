@@ -31,6 +31,7 @@ class TokenClaims(BaseModel):
     actor_type: ActorType
     fund_slug: str | None = None
     fund_id: str | None = None  # UUID of the fund
+    customer_id: str | None = None  # UUID of the customer tenant
     roles: list[str]
     exp: datetime
     iat: datetime
@@ -44,6 +45,7 @@ def encode_token(
     actor_type: ActorType,
     fund_slug: str | None = None,
     fund_id: str | None = None,
+    customer_id: str | None = None,
     roles: list[str],
     secret: str,
     algorithm: str = "HS256",
@@ -64,6 +66,8 @@ def encode_token(
         payload["fund_slug"] = fund_slug
     if fund_id:
         payload["fund_id"] = fund_id
+    if customer_id:
+        payload["customer_id"] = customer_id
     if delegated_by:
         payload["delegated_by"] = delegated_by
     return jwt.encode(payload, secret, algorithm=algorithm)
@@ -80,9 +84,10 @@ def decode_token(
     return TokenClaims(
         sub=payload["sub"],
         actor_type=ActorType(payload["actor_type"]),
-        fund_slug=payload["fund_slug"],
+        fund_slug=payload.get("fund_slug"),
         fund_id=payload.get("fund_id"),
-        roles=payload["roles"],
+        customer_id=payload.get("customer_id"),
+        roles=payload.get("roles", []),
         exp=datetime.fromtimestamp(payload["exp"], tz=UTC),
         iat=datetime.fromtimestamp(payload["iat"], tz=UTC),
         jti=payload["jti"],

@@ -37,7 +37,7 @@ export function EditModal({
         if (e.target === overlayRef.current) onClose();
       }}
     >
-      <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4">
+      <div className="bg-[var(--card)] rounded-lg shadow-lg w-full max-w-md mx-4">
         <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
           <h3 className="text-sm font-semibold">{title}</h3>
           <button

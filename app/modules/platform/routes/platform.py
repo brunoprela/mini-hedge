@@ -10,11 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.platform.core.audit_verifier import AuditIntegrityVerifier, AuditVerificationResult
 from app.modules.platform.dependencies import (
+    get_api_key_repo,
     get_audit_repo,
     get_audit_verifier,
     get_auth_service,
     get_portfolio_repo,
 )
+from app.modules.platform.repositories.api_key import APIKeyRepository
 from app.modules.platform.interfaces.fund import FundInfo, PortfolioInfo
 from app.modules.platform.models.portfolio import PortfolioRecord
 from app.modules.platform.repositories import AuditLogRepository, PortfolioRepository
@@ -108,7 +110,9 @@ async def list_my_funds(
     Requires authentication only — no specific permission needed.
     This endpoint bootstraps the fund selector before fund context exists.
     """
-    return await auth_service.get_user_funds(request_context.actor_id)
+    return await auth_service.get_user_funds(
+        request_context.actor_id, actor_type=request_context.actor_type
+    )
 
 
 @router.post("/auth/agent-token", response_model=AgentTokenResponse)
@@ -195,7 +199,7 @@ async def list_portfolios(
 @router.post("/portfolios", response_model=PortfolioInfo, status_code=201)
 async def create_portfolio(
     body: CreatePortfolioRequest,
-    request_context: RequestContext = require_permission(Permission.POSITIONS_READ),
+    request_context: RequestContext = require_permission(Permission.FUNDS_MANAGE),
     portfolio_repo: PortfolioRepository = Depends(get_portfolio_repo),
     session: AsyncSession = Depends(get_db),
 ) -> PortfolioInfo:
@@ -228,6 +232,7 @@ async def create_portfolio(
 @router.get("/audit/verify", response_model=AuditVerifyResponse)
 async def verify_audit_integrity(
     limit: int = 10000,
+    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_AUDIT_READ),
     verifier: AuditIntegrityVerifier = Depends(get_audit_verifier),
     session: AsyncSession = Depends(get_db),
 ) -> AuditVerifyResponse:
@@ -238,6 +243,118 @@ async def verify_audit_integrity(
         records_checked=result.records_checked,
         first_broken_link=result.first_broken_link,
     )
+
+
+# ---------------------------------------------------------------------------
+# API Key Management
+# ---------------------------------------------------------------------------
+
+import hashlib
+import secrets
+
+
+class ApiKeyCreateRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    name: str
+    scopes: list[str] = []
+
+
+class ApiKeyInfo(BaseModel):
+    id: str
+    name: str
+    key_hint: str
+    scopes: list[str]
+    created_at: datetime
+    last_used_at: datetime | None = None
+
+
+class ApiKeyCreateResponse(ApiKeyInfo):
+    key: str
+
+
+@router.get("/api-keys", response_model=list[ApiKeyInfo])
+async def list_api_keys(
+    request_context: RequestContext = require_permission(Permission.FUNDS_MANAGE),
+    api_key_repo: APIKeyRepository = Depends(get_api_key_repo),
+    session: AsyncSession = Depends(get_db),
+) -> list[ApiKeyInfo]:
+    """List API keys for the current fund."""
+    from sqlalchemy import select
+
+    from app.modules.platform.models.api_key import APIKeyRecord
+
+    stmt = select(APIKeyRecord).where(
+        APIKeyRecord.fund_id == request_context.fund_id,
+        APIKeyRecord.is_active.is_(True),
+    )
+    result = await session.execute(stmt)
+    records = list(result.scalars().all())
+    return [
+        ApiKeyInfo(
+            id=r.id,
+            name=r.name,
+            key_hint=f"...{r.key_hash[-6:]}",
+            scopes=r.roles,
+            created_at=r.created_at,
+        )
+        for r in records
+    ]
+
+
+@router.post("/api-keys", response_model=ApiKeyCreateResponse, status_code=201)
+async def create_api_key(
+    body: ApiKeyCreateRequest,
+    request_context: RequestContext = require_permission(Permission.FUNDS_MANAGE),
+    api_key_repo: APIKeyRepository = Depends(get_api_key_repo),
+) -> ApiKeyCreateResponse:
+    """Create a new API key for the current fund."""
+    from app.modules.platform.models.api_key import APIKeyRecord
+
+    raw_key = f"mh_{secrets.token_urlsafe(32)}"
+    key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+
+    record = APIKeyRecord(
+        name=body.name,
+        key_hash=key_hash,
+        actor_type="apikey",
+        fund_id=request_context.fund_id,
+        roles=body.scopes or ["viewer"],
+        is_active=True,
+        created_by=request_context.actor_id,
+    )
+    await api_key_repo.insert(record)
+    return ApiKeyCreateResponse(
+        id=record.id,
+        name=record.name,
+        key=raw_key,
+        key_hint=f"...{key_hash[-6:]}",
+        scopes=record.roles,
+        created_at=record.created_at,
+    )
+
+
+@router.delete("/api-keys/{key_id}", status_code=204)
+async def revoke_api_key(
+    key_id: str,
+    request_context: RequestContext = require_permission(Permission.FUNDS_MANAGE),
+    session: AsyncSession = Depends(get_db),
+) -> None:
+    """Revoke (soft-delete) an API key."""
+    from sqlalchemy import update
+
+    from app.modules.platform.models.api_key import APIKeyRecord
+
+    result = await session.execute(
+        update(APIKeyRecord)
+        .where(
+            APIKeyRecord.id == key_id,
+            APIKeyRecord.fund_id == request_context.fund_id,
+        )
+        .values(is_active=False)
+    )
+    if result.rowcount == 0:
+        raise HTTPException(status_code=404, detail="API key not found")
+    await session.commit()
 
 
 # ---------------------------------------------------------------------------

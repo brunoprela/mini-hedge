@@ -39,7 +39,7 @@ export function AccessCard({
   const isUser = entry.user_type === "user";
 
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-white">
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--card)]">
       <div className="p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">

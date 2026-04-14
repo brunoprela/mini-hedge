@@ -78,8 +78,11 @@ jobs:
         with:
           node-version: 22
       - run: corepack enable pnpm
-      - run: cd ui && pnpm install --frozen-lockfile && pnpm lint && pnpm tsc --noEmit
-      - run: cd ops-ui && pnpm install --frozen-lockfile && pnpm lint && pnpm tsc --noEmit
+      - run: pnpm install --frozen-lockfile
+        working-directory: .
+      - run: cd ui && pnpm lint && pnpm exec tsc --noEmit
+      - run: cd ops-ui && pnpm lint && pnpm exec tsc --noEmit
+      - run: cd client-ui && pnpm lint && pnpm exec tsc --noEmit
 
   docker:
     runs-on: ubuntu-latest

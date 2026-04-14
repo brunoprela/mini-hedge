@@ -55,7 +55,7 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
                     report = await tca_service.compute_for_order(UUID(order.id))
                     if report is not None:
                         seeded += 1
-                except Exception:
+                except (ValueError, AttributeError, RuntimeError):
                     logger.debug(
                         "tca_seed_order_skipped",
                         order_id=order.id,

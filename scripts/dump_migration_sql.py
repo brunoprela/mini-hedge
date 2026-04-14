@@ -26,6 +26,17 @@ CONTEXTS = [
     "eod",
     "corporate_actions",
     "fee_accounting",
+    "backtesting",
+    "quant_research",
+    "ai_analysis",
+    "alt_data",
+    "feature_store",
+    "capital_accounts",
+    "fx_hedging",
+    "fund_structures",
+    "regulatory",
+    "investor_operations",
+    "tca",
 ]
 
 

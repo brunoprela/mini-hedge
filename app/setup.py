@@ -250,4 +250,9 @@ async def setup_all(
         logger.info("setup_done", module=name)
     logger.info("phase_3_modules_ready")
 
+    # Late-bind investor_repo to auth_service (platform wires before capital_accounts)
+    investor_repo = getattr(app.state, "investor_repo", None)
+    if investor_repo is not None and hasattr(app.state, "auth_service"):
+        app.state.auth_service._investor_repo = investor_repo
+
     return fund_slugs

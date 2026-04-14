@@ -75,7 +75,7 @@ export async function processSubscription(
 
 export async function createInvestor(
   fundSlug: string,
-  data: { name: string; entity_type: string; email?: string; tax_id?: string },
+  data: { name: string; entity_type: string; contact_email?: string; tax_jurisdiction?: string },
 ): Promise<InvestorInfo> {
   return clientFetch<InvestorInfo>("/capital/investors", {
     fundSlug,

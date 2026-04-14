@@ -130,7 +130,7 @@ async def roll_forward(
 async def mark_to_market(
     portfolio_id: UUID,
     request_context: RequestContext = require_permission(Permission.FX_HEDGING_WRITE),
-    _access: None = require_access(Portfolio.relation("can_view")),
+    _access: None = require_access(Portfolio.relation("can_trade")),
     service: FXHedgingService = Depends(get_fx_hedging_service),
     session: AsyncSession = Depends(get_read_db),
 ) -> list[FXForwardContract]:

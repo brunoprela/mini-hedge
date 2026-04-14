@@ -13,6 +13,7 @@ Idempotent: skips if data already exists.
 
 import asyncio
 from decimal import Decimal
+from uuid import UUID
 
 import structlog
 
@@ -107,7 +108,7 @@ async def main() -> None:
         initial_amount = _INITIAL_CASH.get(portfolio.id, Decimal("10_000_000"))
         async with session_factory.fund_scope(fund_slug):
             existing = await cash_repo.get_by_portfolio_currency(
-                __import__("uuid").UUID(portfolio.id), "USD"
+                UUID(portfolio.id), "USD"
             )
             if existing is not None:
                 continue

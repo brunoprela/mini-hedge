@@ -21,6 +21,9 @@ async function proxyRequest(req: NextRequest, { params }: { params: Promise<{ pa
   const headers: Record<string, string> = {
     Authorization: `Bearer ${(session as any).accessToken}`,
   };
+  // Forward fund context from query params or request headers
+  const fundSlug = req.nextUrl.searchParams.get("fund_slug") || req.headers.get("x-fund-slug");
+  if (fundSlug) headers["X-Fund-Slug"] = fundSlug;
   const contentType = req.headers.get("content-type");
   if (contentType) headers["Content-Type"] = contentType;
 

@@ -98,6 +98,9 @@ class Settings(BaseSettings):
     keycloak_ops_realm: str = "minihedge-ops"
     keycloak_ops_client_id: str = "mini-hedge-ops-ui"
 
+    keycloak_investors_realm: str = "investors"
+    keycloak_investors_client_id: str = "investor-portal"
+
     # Per-customer Keycloak realm mapping.
     # JSON string: {"customer-id": {"realm": "realm-name", "client_id": "client-id"}}
     # When a customer is not in the map, the default keycloak_realm is used.

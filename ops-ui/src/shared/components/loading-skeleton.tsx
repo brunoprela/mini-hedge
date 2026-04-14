@@ -31,7 +31,7 @@ export function CardSkeleton({ count = 3 }: { count?: number }) {
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={`card-${i}`}
-          className="rounded-lg border border-[var(--border)] p-6 bg-white animate-pulse"
+          className="rounded-lg border border-[var(--border)] p-6 bg-[var(--card)] animate-pulse"
         >
           <div className="flex items-center gap-3 mb-3">
             <div className="w-5 h-5 rounded bg-[var(--muted)]" />

@@ -16,6 +16,8 @@ from app.modules.fee_accounting.interfaces import AccrualStatus, FeeType
 from app.modules.fee_accounting.models.fee_schedule import FeeScheduleRecord
 from app.modules.fee_accounting.repositories.fee_schedule import FeeScheduleRepository
 from app.modules.fee_accounting.services import FeeAccountingService
+from app.shared.auth import Permission, require_permission
+from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_db
 
 router = APIRouter(prefix="/funds/{fund_slug}/fees", tags=["fees"])
@@ -66,6 +68,7 @@ async def list_accruals(
     portfolio_id: UUID = Query(...),
     start: date | None = Query(None),
     end: date | None = Query(None),
+    request_context: RequestContext = require_permission(Permission.CAPITAL_READ),
     fee_service: FeeAccountingService = Depends(get_fee_accounting_service),
     session: AsyncSession = Depends(get_db),
 ) -> list[FeeAccrualResponse]:
@@ -90,6 +93,7 @@ async def list_accruals(
 async def get_fee_schedule(
     fund_slug: str,
     share_class: str = Query("default"),
+    request_context: RequestContext = require_permission(Permission.CAPITAL_READ),
     schedule_repo: FeeScheduleRepository = Depends(get_fee_schedule_repo),
     session: AsyncSession = Depends(get_db),
 ) -> FeeScheduleResponse:
@@ -106,6 +110,7 @@ async def get_fee_schedule(
 @router.get("/schedules", response_model=list[FeeScheduleResponse])
 async def list_fee_schedules(
     fund_slug: str,
+    request_context: RequestContext = require_permission(Permission.CAPITAL_READ),
     schedule_repo: FeeScheduleRepository = Depends(get_fee_schedule_repo),
     session: AsyncSession = Depends(get_db),
 ) -> list[FeeScheduleResponse]:
@@ -117,6 +122,7 @@ async def list_fee_schedules(
 async def update_fee_schedule(
     fund_slug: str,
     body: FeeScheduleUpdate,
+    request_context: RequestContext = require_permission(Permission.CAPITAL_WRITE),
     schedule_repo: FeeScheduleRepository = Depends(get_fee_schedule_repo),
     session: AsyncSession = Depends(get_db),
 ) -> FeeScheduleResponse:
@@ -156,6 +162,7 @@ class CrystallizationTriggerRequest(BaseModel):
 async def get_fee_summary(
     fund_slug: str,
     portfolio_id: UUID = Query(...),
+    request_context: RequestContext = require_permission(Permission.CAPITAL_READ),
     fee_service: FeeAccountingService = Depends(get_fee_accounting_service),
     session: AsyncSession = Depends(get_db),
 ) -> FeeSummaryResponse:
@@ -167,6 +174,7 @@ async def get_fee_summary(
 async def trigger_daily_accrual(
     fund_slug: str,
     body: AccrualTriggerRequest,
+    request_context: RequestContext = require_permission(Permission.CAPITAL_WRITE),
     fee_service: FeeAccountingService = Depends(get_fee_accounting_service),
     session: AsyncSession = Depends(get_db),
 ) -> list[FeeAccrualResponse]:
@@ -198,6 +206,7 @@ async def trigger_daily_accrual(
 async def trigger_crystallization(
     fund_slug: str,
     body: CrystallizationTriggerRequest,
+    request_context: RequestContext = require_permission(Permission.CAPITAL_WRITE),
     fee_service: FeeAccountingService = Depends(get_fee_accounting_service),
     session: AsyncSession = Depends(get_db),
 ) -> None:

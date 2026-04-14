@@ -34,8 +34,8 @@ export function CreateInvestorDialog({ onClose }: Props) {
       createInvestor(fundSlug, {
         name,
         entity_type: entityType,
-        email: email || undefined,
-        tax_id: taxId || undefined,
+        contact_email: email || undefined,
+        tax_jurisdiction: taxId || undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["investors"] });

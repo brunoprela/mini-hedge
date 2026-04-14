@@ -55,16 +55,23 @@ class BreakWithSLA(BaseModel):
 async def list_breaks(
     portfolio_id: UUID,
     business_date: date | None = Query(None),
+    status: str | None = Query(None, description="Filter by status: open, resolved, etc."),
     request_context: RequestContext = require_permission(Permission.RISK_READ),
     break_repo: ReconciliationBreakRepository = Depends(get_break_repo),
     session: AsyncSession = Depends(get_db),
 ) -> list[TrackedBreak]:
-    """List breaks for a portfolio — by date or all open breaks."""
+    """List breaks for a portfolio — by date, status, or all open breaks."""
     if business_date:
         records = await break_repo.list_by_portfolio_date(
             str(portfolio_id), business_date, session=session
         )
+    elif status and status.lower() == "resolved":
+        since = date.today().replace(day=1)  # resolved this month
+        records = await break_repo.list_recently_resolved(
+            str(portfolio_id), since=since, session=session
+        )
     else:
+        # Default (status=open or no status): return all open/investigating/escalated
         records = await break_repo.list_open(str(portfolio_id), session=session)
 
     return [_to_tracked_break(r) for r in records]
@@ -88,7 +95,7 @@ async def get_break(
 async def update_break(
     break_id: UUID,
     body: UpdateBreakRequest,
-    request_context: RequestContext = require_permission(Permission.RISK_READ),
+    request_context: RequestContext = require_permission(Permission.RISK_WRITE),
     break_repo: ReconciliationBreakRepository = Depends(get_break_repo),
     session: AsyncSession = Depends(get_db),
 ) -> TrackedBreak:

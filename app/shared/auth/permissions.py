@@ -65,6 +65,7 @@ class Role(StrEnum):
     RISK_MANAGER = "risk_manager"
     COMPLIANCE_OFFICER = "compliance_officer"
     VIEWER = "viewer"
+    INVESTOR = "investor"
 
 
 class Permission(StrEnum):
@@ -120,6 +121,7 @@ class Permission(StrEnum):
     PLATFORM_OPERATORS_READ = "platform:operators.read"
     PLATFORM_OPERATORS_WRITE = "platform:operators.write"
     PLATFORM_AUDIT_READ = "platform:audit.read"
+    PLATFORM_AUDIT_WRITE = "platform:audit.write"
     PLATFORM_ACCESS_READ = "platform:access.read"
     PLATFORM_ACCESS_WRITE = "platform:access.write"
     PLATFORM_CUSTOMERS_READ = "platform:customers.read"
@@ -141,6 +143,7 @@ PLATFORM_ROLE_PERMISSIONS: dict[PlatformRole, frozenset[Permission]] = {
             Permission.PLATFORM_OPERATORS_READ,
             Permission.PLATFORM_OPERATORS_WRITE,
             Permission.PLATFORM_AUDIT_READ,
+            Permission.PLATFORM_AUDIT_WRITE,
             Permission.PLATFORM_ACCESS_READ,
             Permission.PLATFORM_ACCESS_WRITE,
             Permission.PLATFORM_CUSTOMERS_READ,
@@ -276,6 +279,14 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.FUNDS_READ,
             Permission.ORDERS_READ,
             Permission.FX_HEDGING_READ,
+        }
+    ),
+    Role.INVESTOR: frozenset(
+        {
+            Permission.FUNDS_READ,
+            Permission.CAPITAL_READ,
+            Permission.POSITIONS_READ,
+            Permission.RISK_READ,
         }
     ),
 }

@@ -414,7 +414,6 @@ async def _seed_via_order_flow(session_factory) -> None:
     )
 
     # Subscribe trade handler to execution events so positions are created
-    event_bus.subscribe("trades.executed", trade_handler.handle_trade_event)
     for slug in FUND_SLUG_TO_ID:
         event_bus.subscribe(f"fund-{slug}.trades.executed", trade_handler.handle_trade_event)
 
