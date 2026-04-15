@@ -96,7 +96,7 @@ class LiquidityMarginService:
             adv = Decimal(str(getattr(sec, "avg_daily_volume", 0) or 0))
             # Convert ADV shares to USD
             price = getattr(p, "current_price", ZERO) or ZERO
-            adv_usd = adv * price if price > 0 else adv
+            adv_usd = adv * price if price > 0 else ZERO
             pos_data.append((p.instrument_id, mv, adv_usd))
 
         now = datetime.now(UTC)

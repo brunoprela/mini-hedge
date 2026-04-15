@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
@@ -37,7 +37,7 @@ class FeeAccrualRecord(Base):
     portfolio_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)
     share_class: Mapped[str] = mapped_column(String(32), nullable=False, default="default")
     fee_type: Mapped[str] = mapped_column(String(16), nullable=False)
-    accrual_date: Mapped[datetime] = mapped_column(Date, nullable=False)
+    accrual_date: Mapped[date] = mapped_column(Date, nullable=False)
     nav_basis: Mapped[Decimal] = mapped_column(Numeric(20, 2), nullable=False)
     accrued_amount: Mapped[Decimal] = mapped_column(Numeric(20, 2), nullable=False)
     cumulative_amount: Mapped[Decimal] = mapped_column(Numeric(20, 2), nullable=False)

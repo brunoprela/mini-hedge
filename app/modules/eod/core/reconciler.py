@@ -196,7 +196,8 @@ class PositionReconciler:
                 )
             elif admin is not None:
                 # Internal and broker agree — check admin
-                assert adm_qty is not None
+                if adm_qty is None:
+                    raise ValueError(f"Admin position for {iid} has no quantity")
                 if adm_qty == ZERO and int_qty != ZERO:
                     breaks.append(
                         self._break(
@@ -325,7 +326,8 @@ class PositionReconciler:
         """Persist individual break records for tracking and resolution."""
         from app.modules.eod.models import ReconciliationBreakRecord
 
-        assert self._break_repo is not None
+        if self._break_repo is None:
+            raise RuntimeError("Break repository not configured — cannot persist breaks")
 
         records: list[ReconciliationBreakRecord] = []
 

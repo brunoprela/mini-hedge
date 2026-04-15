@@ -50,7 +50,7 @@ class FXConverter:
         # from_ccy → USD → to_ccy
         from_to_usd = self._rate_to_usd(from_ccy)
         usd_to_target = self._rate_from_usd(to_ccy)
-        if from_to_usd is not None and usd_to_target is not None:
+        if from_to_usd is not None and usd_to_target is not None and usd_to_target != 0:
             return from_to_usd * usd_to_target
 
         logger.warning("fx_rate_not_found", from_ccy=from_ccy, to_ccy=to_ccy)

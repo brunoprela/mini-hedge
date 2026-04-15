@@ -190,6 +190,11 @@ def load_schemas() -> None:
         AuditEventType.CAPITAL_ALLOCATION: "capital/transaction-v1.avsc",
         AuditEventType.ATTRIBUTION_DAILY_CALCULATED: "attribution/calculated-v1.avsc",
         AuditEventType.ATTRIBUTION_CUMULATIVE_UPDATED: "attribution/calculated-v1.avsc",
+        AuditEventType.ORDER_CANCELLED: "orders/canceled-v1.avsc",
+        AuditEventType.ORDER_INTENTS_GENERATED: "orders/intents-generated-v1.avsc",
+        AuditEventType.MARKET_DATA_STATUS: "market-data/status-v1.avsc",
+        AuditEventType.CASH_PROJECTED: "cash/projected-v1.avsc",
+        AuditEventType.CASH_BALANCE_WARNING: "cash/balance-warning-v1.avsc",
     }
     for event_type, schema_file in event_schemas.items():
         schema = _load_avsc(_SCHEMA_DIR / schema_file)

@@ -116,7 +116,7 @@ class MarketDataService:
                 close=row["close"],
                 volume=row["volume"],
                 period_start=row["period_start"],
-                period_end=row["period_start"],  # end = start of next bucket
+                period_end=row["period_end"],
                 source="aggregated",
             )
             for row in rows

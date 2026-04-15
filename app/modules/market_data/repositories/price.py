@@ -75,6 +75,7 @@ class PriceRepository(BaseRepository):
                 stmt = text("""
                     SELECT
                         time_bucket(:interval, "timestamp") AS period_start,
+                        time_bucket(:interval, "timestamp") + :interval::interval AS period_end,
                         (array_agg(mid ORDER BY "timestamp" ASC))[1] AS open,
                         MAX(ask) AS high,
                         MIN(bid) AS low,
@@ -84,7 +85,7 @@ class PriceRepository(BaseRepository):
                     WHERE instrument_id = :instrument_id
                       AND "timestamp" >= :start
                       AND "timestamp" <= :end
-                    GROUP BY period_start
+                    GROUP BY period_start, period_end
                     ORDER BY period_start
                 """)
                 result = await session.execute(
@@ -102,6 +103,7 @@ class PriceRepository(BaseRepository):
                 stmt = text(f"""
                     SELECT
                         date_trunc(:unit, "timestamp") AS period_start,
+                        date_trunc(:unit, "timestamp") + :interval::interval AS period_end,
                         (array_agg(mid ORDER BY "timestamp" ASC))[1] AS open,
                         MAX(ask) AS high,
                         MIN(bid) AS low,
@@ -111,13 +113,14 @@ class PriceRepository(BaseRepository):
                     WHERE instrument_id = :instrument_id
                       AND "timestamp" >= :start
                       AND "timestamp" <= :end
-                    GROUP BY period_start
+                    GROUP BY period_start, period_end
                     ORDER BY period_start
                 """)
                 result = await session.execute(
                     stmt,
                     {
                         "unit": unit,
+                        "interval": interval,
                         "instrument_id": instrument_id,
                         "start": start,
                         "end": end,
@@ -128,6 +131,7 @@ class PriceRepository(BaseRepository):
             return [
                 {
                     "period_start": row.period_start,
+                    "period_end": row.period_end,
                     "open": Decimal(str(row.open)) if row.open is not None else Decimal(0),
                     "high": Decimal(str(row.high)) if row.high is not None else Decimal(0),
                     "low": Decimal(str(row.low)) if row.low is not None else Decimal(0),

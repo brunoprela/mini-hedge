@@ -30,6 +30,7 @@ class FXForwardRepository(BaseRepository):
         async with self._session(session) as s:
             s.add(record)
             await s.flush()
+            await s.commit()
             return record
 
     async def get_by_id(
@@ -122,6 +123,7 @@ class FXForwardRepository(BaseRepository):
                 .where(FXForwardRecord.id == str(forward_id))
                 .values(**values)
             )
+            await s.commit()
 
     async def update_mtm(
         self,
@@ -137,3 +139,4 @@ class FXForwardRepository(BaseRepository):
                 .where(FXForwardRecord.id == str(forward_id))
                 .values(mtm_value=mtm_value, mtm_timestamp=mtm_timestamp)
             )
+            await s.commit()

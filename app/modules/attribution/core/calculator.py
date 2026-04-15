@@ -288,6 +288,8 @@ def _carino_factor(r: float) -> float:
     """Carino smoothing factor: ln(1+r) / r when r != 0."""
     if abs(r) < 1e-12:
         return 1.0
+    if r <= -1.0:
+        return 1.0
     return math.log(1 + r) / r
 
 
