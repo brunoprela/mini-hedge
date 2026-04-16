@@ -111,6 +111,18 @@ class FeatureStoreService:
 
         return self._def_to_dto(record)
 
+    async def get_feature_by_name(
+        self,
+        feature_name: str,
+        *,
+        session: AsyncSession | None = None,
+    ) -> FeatureDefinition | None:
+        """Retrieve a feature definition by name."""
+        record = await self._definition_repo.get_by_name(feature_name, session=session)
+        if record is None:
+            return None
+        return self._def_to_dto(record)
+
     async def list_features(
         self,
         *,

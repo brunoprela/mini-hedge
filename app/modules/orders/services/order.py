@@ -644,6 +644,19 @@ class OrderService:
         session: AsyncSession | None = None,
     ) -> OrderRecord:
         """Record a fill and publish a trade event."""
+        remaining = order.quantity - order.filled_quantity
+        if fill_quantity > remaining:
+            logger.warning(
+                "overfill_rejected",
+                order_id=order.id,
+                fill_quantity=str(fill_quantity),
+                remaining=str(remaining),
+            )
+            raise ValueError(
+                f"Fill quantity {fill_quantity} exceeds remaining "
+                f"{remaining} on order {order.id}"
+            )
+
         trade_id = uuid4()
         now = filled_at or datetime.now(UTC)
 

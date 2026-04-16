@@ -57,7 +57,7 @@ class RedemptionService:
         redemption_repo: RedemptionRequestRepository,
         fund_terms_repo: FundTermsRepository,
         capital_service: CapitalTransactionService,
-        event_bus: EventBus,
+        event_bus: EventBus | None = None,
     ) -> None:
         self._redemption_repo = redemption_repo
         self._terms_repo = fund_terms_repo
@@ -93,18 +93,19 @@ class RedemptionService:
 
         await self._redemption_repo.save(record, session=session)
 
-        await self._event_bus.publish(
-            shared_topic("investor-operations"),
-            BaseEvent(
-                event_type=AuditEventType.REDEMPTION_SUBMITTED,
-                data={
-                    "request_id": record.id,
-                    "investor_id": investor_id,
-                    "amount": str(amount),
-                    "notice_date": notice_date.isoformat(),
-                },
-            ),
-        )
+        if self._event_bus:
+            await self._event_bus.publish(
+                shared_topic("investor-operations"),
+                BaseEvent(
+                    event_type=AuditEventType.REDEMPTION_SUBMITTED,
+                    data={
+                        "request_id": record.id,
+                        "investor_id": investor_id,
+                        "amount": str(amount),
+                        "notice_date": notice_date.isoformat(),
+                    },
+                ),
+            )
         return _red_to_summary(record)
 
     async def validate_redemption(
@@ -162,17 +163,18 @@ class RedemptionService:
         if "lock_up_expiry_date" in extra:
             record.lock_up_expiry_date = extra["lock_up_expiry_date"]  # type: ignore[assignment]
 
-        await self._event_bus.publish(
-            shared_topic("investor-operations"),
-            BaseEvent(
-                event_type=AuditEventType.REDEMPTION_VALIDATED,
-                data={
-                    "request_id": request_id,
-                    "validated": target == RedemptionState.VALIDATED,
-                    "reason": failed_reason or "",
-                },
-            ),
-        )
+        if self._event_bus:
+            await self._event_bus.publish(
+                shared_topic("investor-operations"),
+                BaseEvent(
+                    event_type=AuditEventType.REDEMPTION_VALIDATED,
+                    data={
+                        "request_id": request_id,
+                        "validated": target == RedemptionState.VALIDATED,
+                        "reason": failed_reason or "",
+                    },
+                ),
+            )
         return _red_to_summary(record)
 
     async def run_gate_check(
@@ -222,7 +224,7 @@ class RedemptionService:
             apply_redemption_transition(current, target)
             await self._redemption_repo.update_state(rid, target, session=session, **extra)
 
-        if result.gate_triggered:
+        if result.gate_triggered and self._event_bus:
             await self._event_bus.publish(
                 shared_topic("investor-operations"),
                 BaseEvent(
@@ -247,6 +249,9 @@ class RedemptionService:
         session: AsyncSession | None = None,
     ) -> list[RedemptionRequestSummary]:
         """Execute all queued redemptions for a dealing date."""
+        if nav_per_share <= 0:
+            raise ValueError(f"Cannot execute redemptions with non-positive NAV per share: {nav_per_share}")
+
         records = await self._redemption_repo.list_by_dealing_date(dealing_date, session=session)
         queued = [
             r
@@ -307,19 +312,20 @@ class RedemptionService:
             record.shares_redeemed = shares
             record.payment_due_date = payment_due
 
-            await self._event_bus.publish(
-                shared_topic("investor-operations"),
-                BaseEvent(
-                    event_type=AuditEventType.REDEMPTION_EXECUTED,
-                    data={
-                        "request_id": record.id,
-                        "investor_id": record.investor_id,
-                        "amount": str(redemption_amount),
-                        "nav_per_share": str(nav_per_share),
-                        "shares_redeemed": str(shares),
-                    },
-                ),
-            )
+            if self._event_bus:
+                await self._event_bus.publish(
+                    shared_topic("investor-operations"),
+                    BaseEvent(
+                        event_type=AuditEventType.REDEMPTION_EXECUTED,
+                        data={
+                            "request_id": record.id,
+                            "investor_id": record.investor_id,
+                            "amount": str(redemption_amount),
+                            "nav_per_share": str(nav_per_share),
+                            "shares_redeemed": str(shares),
+                        },
+                    ),
+                )
             results.append(_red_to_summary(record))
 
         return results
@@ -353,16 +359,17 @@ class RedemptionService:
         record.payment_sent_at = now
         record.payment_reference = payment_reference
 
-        await self._event_bus.publish(
-            shared_topic("investor-operations"),
-            BaseEvent(
-                event_type=AuditEventType.REDEMPTION_PAYMENT_CONFIRMED,
-                data={
-                    "request_id": request_id,
-                    "payment_reference": payment_reference,
-                },
-            ),
-        )
+        if self._event_bus:
+            await self._event_bus.publish(
+                shared_topic("investor-operations"),
+                BaseEvent(
+                    event_type=AuditEventType.REDEMPTION_PAYMENT_CONFIRMED,
+                    data={
+                        "request_id": request_id,
+                        "payment_reference": payment_reference,
+                    },
+                ),
+            )
         return _red_to_summary(record)
 
     async def cancel_redemption(
@@ -394,17 +401,18 @@ class RedemptionService:
         record.cancelled_at = now
         record.cancellation_reason = reason
 
-        await self._event_bus.publish(
-            shared_topic("investor-operations"),
-            BaseEvent(
-                event_type=AuditEventType.REDEMPTION_CANCELLED,
-                data={
-                    "request_id": request_id,
-                    "reason": reason,
-                    "cancelled_by": cancelled_by,
-                },
-            ),
-        )
+        if self._event_bus:
+            await self._event_bus.publish(
+                shared_topic("investor-operations"),
+                BaseEvent(
+                    event_type=AuditEventType.REDEMPTION_CANCELLED,
+                    data={
+                        "request_id": request_id,
+                        "reason": reason,
+                        "cancelled_by": cancelled_by,
+                    },
+                ),
+            )
         return _red_to_summary(record)
 
     async def get_redemption(

@@ -181,6 +181,8 @@ class RegimeDetector:
         price_values = [p[1] for p in sorted_prices]
 
         prev_regime: RegimeType | None = None
+        prev_confidence: Decimal = Decimal("0.5")
+        prev_indicators: dict = {}
         regime_start: date | None = None
 
         for i in range(self._config.lookback_days, len(returns), step):
@@ -202,12 +204,14 @@ class RegimeDetector:
                             regime_type=prev_regime,
                             start_date=regime_start,
                             end_date=current_date,
-                            confidence=confidence,
-                            indicators={"volatility": vol, "trend": trend, "drawdown": dd},
+                            confidence=prev_confidence,
+                            indicators=prev_indicators,
                         )
                     )
                 prev_regime = regime_type
                 regime_start = current_date
+            prev_confidence = confidence
+            prev_indicators = {"volatility": vol, "trend": trend, "drawdown": dd}
 
         # Append final regime (open-ended)
         if prev_regime is not None and regime_start is not None:
@@ -216,8 +220,8 @@ class RegimeDetector:
                     regime_type=prev_regime,
                     start_date=regime_start,
                     end_date=None,
-                    confidence=Decimal("0.5"),
-                    indicators={},
+                    confidence=prev_confidence,
+                    indicators=prev_indicators,
                 )
             )
 

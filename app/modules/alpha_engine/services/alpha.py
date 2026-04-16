@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import numpy as np
 import structlog
@@ -148,7 +149,7 @@ class AlphaService:
                 expected_risk=ZERO,
                 weights=[],
                 order_intents=[],
-                calculated_at=__import__("datetime").datetime.now(__import__("datetime").UTC),
+                calculated_at=datetime.now(UTC),
             )
 
         nav = float(sum((p.market_value for p in positions if p.market_value), ZERO))
@@ -390,7 +391,9 @@ class AlphaService:
     async def _persist_optimization(
         self, result: OptimizationResult, *, session: AsyncSession | None = None
     ) -> None:
+        opt_id = str(uuid4())
         record = OptimizationRunRecord(
+            id=opt_id,
             portfolio_id=str(result.portfolio_id),
             objective=result.objective,
             expected_return=result.expected_return,
@@ -417,7 +420,7 @@ class AlphaService:
                 portfolio_id=str(result.portfolio_id),
                 instrument_id=i.instrument_id,
                 side=i.side,
-                quantity=int(i.quantity),
+                quantity=round(i.quantity),
                 estimated_value=i.estimated_value,
                 reason=i.reason,
             )

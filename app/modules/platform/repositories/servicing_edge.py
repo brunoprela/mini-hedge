@@ -132,13 +132,18 @@ class ServicingEdgeRepository(BaseRepository):
         *,
         session: AsyncSession | None = None,
     ) -> ServicingEdgeRecord | None:
-        """Suspend an active edge."""
+        """Suspend an active edge. Only ACTIVE edges can be suspended."""
         async with self._session(session) as s:
-            await s.execute(
+            result = await s.execute(
                 update(ServicingEdgeRecord)
-                .where(ServicingEdgeRecord.id == edge_id)
+                .where(
+                    ServicingEdgeRecord.id == edge_id,
+                    ServicingEdgeRecord.status == ServicingEdgeStatus.ACTIVE,
+                )
                 .values(status=ServicingEdgeStatus.SUSPENDED)
             )
+            if result.rowcount == 0:
+                return None
             await s.commit()
             return await self.get_by_id(edge_id, session=s)
 
@@ -148,17 +153,25 @@ class ServicingEdgeRepository(BaseRepository):
         *,
         session: AsyncSession | None = None,
     ) -> ServicingEdgeRecord | None:
-        """Terminate an edge by setting status and effective_until."""
+        """Terminate an edge. Only ACTIVE or SUSPENDED edges can be terminated."""
         now = datetime.now(UTC)
         async with self._session(session) as s:
-            await s.execute(
+            result = await s.execute(
                 update(ServicingEdgeRecord)
-                .where(ServicingEdgeRecord.id == edge_id)
+                .where(
+                    ServicingEdgeRecord.id == edge_id,
+                    ServicingEdgeRecord.status.in_([
+                        ServicingEdgeStatus.ACTIVE,
+                        ServicingEdgeStatus.SUSPENDED,
+                    ]),
+                )
                 .values(
                     status=ServicingEdgeStatus.TERMINATED,
                     effective_until=now,
                 )
             )
+            if result.rowcount == 0:
+                return None
             await s.commit()
             return await self.get_by_id(edge_id, session=s)
 

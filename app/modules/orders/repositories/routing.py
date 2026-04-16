@@ -63,12 +63,15 @@ class RoutingRepository(BaseRepository):
         self,
         rule_id: UUID,
         *,
+        fund_slug: str | None = None,
         session: AsyncSession | None = None,
     ) -> bool:
         async with self._session(session) as session:
             stmt = delete(RoutingRuleRecord).where(
                 RoutingRuleRecord.id == str(rule_id),
             )
+            if fund_slug is not None:
+                stmt = stmt.where(RoutingRuleRecord.fund_slug == fund_slug)
             result = await session.execute(stmt)
             await session.commit()
             return bool(getattr(result, "rowcount", 0) > 0)

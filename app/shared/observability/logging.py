@@ -41,7 +41,7 @@ def setup_logging(log_level: str = "DEBUG") -> None:
         processors=[
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
             structlog.dev.ConsoleRenderer()
-            if log_level == "DEBUG"
+            if log_level.upper() == "DEBUG"
             else structlog.processors.JSONRenderer(),
         ],
     )

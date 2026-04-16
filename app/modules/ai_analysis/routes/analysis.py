@@ -3,7 +3,7 @@
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -61,57 +61,59 @@ class CreateResearchNoteBody(BaseModel):
 @router.post("/analyze", response_model=AnalysisResult)
 async def run_analysis(
     body: AnalyzeRequestBody,
-    request_context: RequestContext = require_permission(Permission.RISK_WRITE),  # noqa: ARG001
+    request_context: RequestContext = require_permission(Permission.RISK_WRITE),
     service: AIAnalysisService = Depends(get_ai_analysis_service),
     session: AsyncSession = Depends(get_db),
 ) -> AnalysisResult:
     """Run an AI-driven analysis."""
     from app.modules.ai_analysis.interfaces import AnalysisRequest
 
+    if request_context.fund_slug is None:
+        raise HTTPException(status_code=400, detail="fund_slug is required")
+
     request = AnalysisRequest(
         analysis_type=body.analysis_type,
         context=body.context,
         instruments=body.instruments,
     )
-    return await service.run_analysis(request, session=session)
+    return await service.run_analysis(request, fund_slug=request_context.fund_slug, session=session)
 
 
 @router.get("/history", response_model=list[AnalysisResult])
 async def get_analysis_history(
     analysis_type: AnalysisType | None = Query(default=None),
     limit: int = Query(default=50, le=200),
-    request_context: RequestContext = require_permission(Permission.RISK_READ),  # noqa: ARG001
+    request_context: RequestContext = require_permission(Permission.RISK_READ),
     service: AIAnalysisService = Depends(get_ai_analysis_service),
     session: AsyncSession = Depends(get_read_db),
 ) -> list[AnalysisResult]:
     """Retrieve analysis history."""
+    if request_context.fund_slug is None:
+        raise HTTPException(status_code=400, detail="fund_slug is required")
+
     return await service.get_analysis_history(
-        analysis_type=analysis_type, limit=limit, session=session
+        request_context.fund_slug, analysis_type=analysis_type, limit=limit, session=session
     )
 
 
 @router.get("/results/{result_id}", response_model=AnalysisResult)
 async def get_result(
     result_id: UUID,
-    request_context: RequestContext = require_permission(Permission.RISK_READ),  # noqa: ARG001
+    request_context: RequestContext = require_permission(Permission.RISK_READ),
     service: AIAnalysisService = Depends(get_ai_analysis_service),
     session: AsyncSession = Depends(get_read_db),
 ) -> AnalysisResult:
     """Get a specific analysis result."""
-    from fastapi import HTTPException
-
-    from app.modules.ai_analysis.services import _record_to_result
-
-    record = await service._repo.get_result(str(result_id), session=session)
-    if record is None:
+    result = await service.get_result_by_id(str(result_id), session=session)
+    if result is None:
         raise HTTPException(status_code=404, detail="Analysis result not found")
-    return _record_to_result(record)
+    return result
 
 
 @router.post("/portfolio-insights", response_model=list[PortfolioInsight])
 async def get_portfolio_insights(
     body: PortfolioInsightsRequestBody,
-    request_context: RequestContext = require_permission(Permission.RISK_READ),  # noqa: ARG001
+    request_context: RequestContext = require_permission(Permission.RISK_READ),
     service: AIAnalysisService = Depends(get_ai_analysis_service),
 ) -> list[PortfolioInsight]:
     """Generate rules-based portfolio insights from position data."""
@@ -125,17 +127,21 @@ async def get_portfolio_insights(
 @router.post("/research-notes", response_model=ResearchNote)
 async def create_research_note(
     body: CreateResearchNoteBody,
-    request_context: RequestContext = require_permission(Permission.RISK_WRITE),  # noqa: ARG001
+    request_context: RequestContext = require_permission(Permission.RISK_WRITE),
     service: AIAnalysisService = Depends(get_ai_analysis_service),
     session: AsyncSession = Depends(get_db),
 ) -> ResearchNote:
     """Create a research note."""
+    if request_context.fund_slug is None:
+        raise HTTPException(status_code=400, detail="fund_slug is required")
+
     return await service.create_research_note(
         title=body.title,
         content=body.content,
         analysis_type=body.analysis_type,
         instruments=body.instruments,
         tags=body.tags,
+        fund_slug=request_context.fund_slug,
         session=session,
     )
 
@@ -144,38 +150,39 @@ async def create_research_note(
 async def list_research_notes(
     tags: list[str] | None = Query(default=None),
     limit: int = Query(default=50, le=200),
-    request_context: RequestContext = require_permission(Permission.RISK_READ),  # noqa: ARG001
+    request_context: RequestContext = require_permission(Permission.RISK_READ),
     service: AIAnalysisService = Depends(get_ai_analysis_service),
     session: AsyncSession = Depends(get_read_db),
 ) -> list[ResearchNote]:
     """List research notes with optional tag filter."""
-    return await service.list_research_notes(tags=tags, limit=limit, session=session)
+    if request_context.fund_slug is None:
+        raise HTTPException(status_code=400, detail="fund_slug is required")
+
+    return await service.list_research_notes(
+        request_context.fund_slug, tags=tags, limit=limit, session=session
+    )
 
 
 @router.get("/research-notes/{note_id}", response_model=ResearchNote)
 async def get_research_note(
     note_id: UUID,
-    request_context: RequestContext = require_permission(Permission.RISK_READ),  # noqa: ARG001
+    request_context: RequestContext = require_permission(Permission.RISK_READ),
     service: AIAnalysisService = Depends(get_ai_analysis_service),
     session: AsyncSession = Depends(get_read_db),
 ) -> ResearchNote:
     """Get a specific research note."""
-    from fastapi import HTTPException
-
-    from app.modules.ai_analysis.services import _note_record_to_dto
-
-    record = await service._repo.get_note(str(note_id), session=session)
-    if record is None:
+    result = await service.get_note_by_id(str(note_id), session=session)
+    if result is None:
         raise HTTPException(status_code=404, detail="Research note not found")
-    return _note_record_to_dto(record)
+    return result
 
 
 @router.delete("/research-notes/{note_id}", status_code=204)
 async def delete_research_note(
     note_id: UUID,
-    request_context: RequestContext = require_permission(Permission.RISK_WRITE),  # noqa: ARG001
+    request_context: RequestContext = require_permission(Permission.RISK_WRITE),
     service: AIAnalysisService = Depends(get_ai_analysis_service),
     session: AsyncSession = Depends(get_db),
 ) -> None:
     """Delete a research note."""
-    await service._repo.delete_note(str(note_id), session=session)
+    await service.delete_note(str(note_id), session=session)

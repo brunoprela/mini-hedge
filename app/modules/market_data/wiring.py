@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from app.shared.events import BaseEvent, EventBus, EventHandler
 
 from app.modules.market_data.interfaces import FXRateSnapshot, PriceSnapshot
-from app.modules.market_data.repositories import FXRateRepository, PriceRepository
+from app.modules.market_data.repositories import FXRateRepository, PriceRepository, VolatilitySurfaceRepository
 from app.modules.market_data.services import MarketDataService
 from app.shared.schema_registry import shared_topic
 
@@ -99,8 +99,10 @@ async def setup(
     """Wire market data module: repo, service, price + FX event handler."""
     price_repo = PriceRepository(sf)
     fx_repo = FXRateRepository(sf)
+    vol_surface_repo = VolatilitySurfaceRepository(sf)
     market_data_service = MarketDataService(repository=price_repo, fx_repository=fx_repo)
     app.state.market_data_service = market_data_service
+    app.state.vol_surface_repo = vol_surface_repo
 
     if event_bus is not None:
         price_handler = _make_price_handler(market_data_service)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+import sqlalchemy as sa
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, func, text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -15,6 +16,7 @@ class PortfolioRecord(Base):
     __tablename__ = "portfolios"
     __table_args__ = (
         Index("ix_platform_portfolios_fund", "fund_id"),
+        sa.UniqueConstraint("fund_id", "slug", name="uq_portfolios_fund_slug"),
         {"schema": "platform"},
     )
 

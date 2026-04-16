@@ -25,13 +25,18 @@ class ResearchNoteRepository(BaseRepository):
 
     async def list_notes(
         self,
+        fund_slug: str,
         *,
         tags: list[str] | None = None,
         limit: int = 50,
         session: AsyncSession | None = None,
     ) -> list[ResearchNoteRecord]:
         async with self._session(session) as s:
-            stmt = select(ResearchNoteRecord).order_by(ResearchNoteRecord.created_at.desc())
+            stmt = (
+                select(ResearchNoteRecord)
+                .where(ResearchNoteRecord.fund_slug == fund_slug)
+                .order_by(ResearchNoteRecord.created_at.desc())
+            )
             if tags:
                 # Filter notes that contain any of the requested tags
                 for tag in tags:

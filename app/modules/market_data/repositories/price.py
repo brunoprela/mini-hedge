@@ -97,9 +97,29 @@ class PriceRepository(BaseRepository):
                         "end": end,
                     },
                 )
-            except Exception:
-                # Fallback for standard PostgreSQL (no time_bucket)
-                unit = "day" if "day" in interval else "hour"
+            except Exception as exc:
+                # Fallback for standard PostgreSQL (no time_bucket).
+                # Only fall back on ProgrammingError (missing function);
+                # re-raise connection errors, permission errors, etc.
+                from sqlalchemy.exc import ProgrammingError
+
+                if not isinstance(exc, ProgrammingError):
+                    raise
+                await session.rollback()
+                # Map interval string to date_trunc unit
+                _interval_lower = interval.lower()
+                if "day" in _interval_lower:
+                    unit = "day"
+                elif "hour" in _interval_lower:
+                    unit = "hour"
+                elif "min" in _interval_lower:
+                    unit = "minute"
+                elif "week" in _interval_lower:
+                    unit = "week"
+                elif "month" in _interval_lower:
+                    unit = "month"
+                else:
+                    unit = "hour"
                 stmt = text(f"""
                     SELECT
                         date_trunc(:unit, "timestamp") AS period_start,

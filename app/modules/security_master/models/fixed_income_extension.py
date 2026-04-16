@@ -5,7 +5,9 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Date, ForeignKey, Numeric, String
+from datetime import datetime
+
+from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -18,7 +20,7 @@ class FixedIncomeExtensionRecord(Base):
 
     instrument_id: Mapped[str] = mapped_column(
         PG_UUID(as_uuid=False),
-        ForeignKey("security_master.instruments.id"),
+        ForeignKey("security_master.instruments.id", ondelete="CASCADE"),
         primary_key=True,
     )
     coupon_rate: Mapped[Decimal | None] = mapped_column(Numeric(8, 6), nullable=True)
@@ -32,3 +34,6 @@ class FixedIncomeExtensionRecord(Base):
     seniority: Mapped[str | None] = mapped_column(String(32), nullable=True)  # senior, subordinated, etc.
     callable: Mapped[bool | None] = mapped_column(nullable=True)
     putable: Mapped[bool | None] = mapped_column(nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )

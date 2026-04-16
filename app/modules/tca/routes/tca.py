@@ -78,7 +78,8 @@ async def fund_tca_summary(
     days: int = Query(default=30, description="Number of days to include"),
 ) -> FundTCASummary:
     """Get high-level TCA summary for the current fund."""
-    assert request_context.fund_slug is not None
+    if request_context.fund_slug is None:
+        raise HTTPException(400, "fund_slug is required")
     svc = _get_tca_service(request)
     end = datetime.now(UTC)
     start = end - timedelta(days=days)

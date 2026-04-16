@@ -111,7 +111,7 @@ class ExposureService:
     ) -> DimensionDrilldown:
         """Return per-instrument detail for a single dimension key."""
         position_values = await self._build_position_values(portfolio_id, session=session)
-        return calculate_drilldown(dimension, key, position_values)
+        return calculate_drilldown(dimension, key, position_values, normalizers=self._normalizers)
 
     async def get_history(
         self,

@@ -12,7 +12,12 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 def _get_dlq_manager(request: Request) -> Any:
     """Retrieve the DlqManager from app state."""
-    return request.app.state.dlq_manager
+    manager = getattr(request.app.state, "dlq_manager", None)
+    if manager is None:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=503, detail="DLQ manager not available")
+    return manager
 
 
 @router.get("/dlq")
@@ -56,7 +61,7 @@ async def peek_dlq_topic(
 async def replay_dlq_topic(
     topic: str,
     limit: int = 100,
-    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_AUDIT_READ),
+    request_context: RequestContext = require_platform_permission(Permission.PLATFORM_AUDIT_WRITE),
     dlq_manager: Any = Depends(_get_dlq_manager),
 ) -> dict[str, Any]:
     """Replay DLQ messages back to the source topic."""

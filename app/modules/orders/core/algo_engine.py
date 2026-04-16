@@ -16,6 +16,7 @@ from app.modules.orders.interfaces import AlgoParams, AlgoType
 if TYPE_CHECKING:
     from app.modules.orders.models.order import OrderRecord
     from app.modules.orders.repositories import OrderRepository
+    from app.shared.database import TenantSessionFactory
 
 SubmitChildFn = Callable[..., Awaitable[object]]
 
@@ -29,8 +30,10 @@ class AlgoEngine:
         self,
         *,
         order_repo: OrderRepository,
+        session_factory: TenantSessionFactory | None = None,
     ) -> None:
         self._order_repo = order_repo
+        self._session_factory = session_factory
         self._runners: dict[str, AlgoRunner] = {}
 
         # Set by setup.py after OrderService is created (avoids circular dep)
@@ -105,26 +108,38 @@ class AlgoEngine:
 
     async def recover_active_algos(self, fund_slugs: list[str]) -> None:
         """Restart runners for orders left in WORKING state after a process restart."""
-        for _fund_slug in fund_slugs:
+        for fund_slug in fund_slugs:
             try:
-                working = await self._order_repo.get_working_parents()
-                for parent in working:
-                    children = await self._order_repo.get_children(UUID(parent.id))
-                    resume_from = len(children)
-                    logger.info(
-                        "algo_recovering",
-                        parent_order_id=parent.id,
-                        resume_from=resume_from,
-                        fund_slug=parent.fund_slug,
-                    )
-                    await self.start_algo(parent, parent.fund_slug)
-                    # Adjust runner to resume from last submitted slice
-                    runner = self._runners.get(parent.id)
-                    if runner:
-                        await runner.cancel()
-                        await runner.start(resume_from=resume_from)
+                if self._session_factory is not None:
+                    scope = self._session_factory.fund_scope(fund_slug)
+                else:
+                    from contextlib import asynccontextmanager
+
+                    @asynccontextmanager
+                    async def _noop():
+                        yield
+
+                    scope = _noop()
+
+                async with scope:
+                    working = await self._order_repo.get_working_parents()
+                    for parent in working:
+                        children = await self._order_repo.get_children(UUID(parent.id))
+                        resume_from = len(children)
+                        logger.info(
+                            "algo_recovering",
+                            parent_order_id=parent.id,
+                            resume_from=resume_from,
+                            fund_slug=parent.fund_slug,
+                        )
+                        await self.start_algo(parent, parent.fund_slug)
+                        # Adjust runner to resume from last submitted slice
+                        runner = self._runners.get(parent.id)
+                        if runner:
+                            await runner.cancel()
+                            await runner.start(resume_from=resume_from)
             except Exception:
-                logger.exception("algo_recovery_failed", fund_slug=_fund_slug)
+                logger.exception("algo_recovery_failed", fund_slug=fund_slug)
 
     async def _do_submit_child(
         self,

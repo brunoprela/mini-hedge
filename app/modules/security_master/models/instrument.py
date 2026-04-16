@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     Index,
+    Numeric,
     String,
     func,
     text,
@@ -32,7 +33,7 @@ class InstrumentRecord(Base):
         PG_UUID(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()")
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    ticker: Mapped[str] = mapped_column(String(32), nullable=False, unique=True)
+    ticker: Mapped[str] = mapped_column(String(32), nullable=False)
     asset_class: Mapped[str] = mapped_column(String(32), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     exchange: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -41,7 +42,7 @@ class InstrumentRecord(Base):
     industry: Mapped[str | None] = mapped_column(String(128), nullable=True)
     annual_drift: Mapped[float | None] = mapped_column(Float, nullable=True)
     annual_volatility: Mapped[float | None] = mapped_column(Float, nullable=True)
-    spread_bps: Mapped[float | None] = mapped_column(Float, nullable=True)
+    spread_bps: Mapped[float | None] = mapped_column(Numeric(10, 4), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     listed_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

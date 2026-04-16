@@ -124,6 +124,31 @@ class QuantResearchService:
             for r in records
         ]
 
+    async def get_factor_exposures(
+        self,
+        factor_name: str,
+        as_of_date: date,
+        *,
+        session: AsyncSession | None = None,
+    ) -> list[FactorExposure]:
+        """Retrieve precomputed factor exposures by factor name and date."""
+        factor_record = await self._factor_def_repo.get_by_name(factor_name, session=session)
+        if factor_record is None:
+            return []
+        records = await self._factor_exp_repo.get_by_factor_date(
+            factor_record.id, as_of_date, session=session
+        )
+        return [
+            FactorExposure(
+                factor_name=factor_name,
+                instrument_id=r.instrument_id,
+                exposure=r.exposure,
+                z_score=r.z_score,
+                as_of_date=r.as_of_date,
+            )
+            for r in records
+        ]
+
     async def compute_factor_exposures(
         self,
         factor_name: str,

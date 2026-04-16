@@ -28,7 +28,8 @@ async def best_execution_report(
     days: int = Query(default=30, description="Number of days to include"),
 ) -> BestExecutionReport:
     """Generate a best execution report for the fund."""
-    assert request_context.fund_slug is not None
+    if request_context.fund_slug is None:
+        raise HTTPException(400, "fund_slug is required")
     svc = _get_best_execution_service(request)
     end = datetime.now(UTC)
     start = end - timedelta(days=days)
@@ -42,6 +43,7 @@ async def order_execution_detail(
     request_context: RequestContext = require_permission(Permission.ORDERS_READ),
 ) -> dict[str, Any]:
     """Get detailed execution analysis for a single order."""
-    assert request_context.fund_slug is not None
+    if request_context.fund_slug is None:
+        raise HTTPException(400, "fund_slug is required")
     svc = _get_best_execution_service(request)
     return await svc.get_order_execution_detail(order_id, request_context.fund_slug)

@@ -97,7 +97,8 @@ class CorporateActionsService:
         session: AsyncSession | None = None,
     ) -> ProcessedAction:
         """Process a single corporate action with idempotency."""
-        assert isinstance(action, CorporateAction)
+        if not isinstance(action, CorporateAction):
+            raise TypeError(f"Expected CorporateAction, got {type(action).__name__}")
 
         # 1. Idempotency check
         existing = await self._repo.get_by_action_id(action.action_id, session=session)

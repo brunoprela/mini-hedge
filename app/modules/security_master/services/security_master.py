@@ -128,7 +128,7 @@ class SecurityMasterService:
         """Create a new instrument and publish an event."""
         record = InstrumentRecord(
             name=name,
-            ticker=ticker,
+            ticker=ticker.upper(),
             asset_class=asset_class.value,
             currency=currency,
             exchange=exchange,
@@ -185,5 +185,5 @@ class SecurityMasterService:
         if changes:
             data["changed_fields"] = changes
         event = BaseEvent(event_type=event_type, data=data)
-        topic_stem = "instruments.created" if "created" in event_type else "instruments.updated"
+        topic_stem = "instruments.created" if event_type == AuditEventType.INSTRUMENT_CREATED else "instruments.updated"
         await self._event_bus.publish(shared_topic(topic_stem), event)

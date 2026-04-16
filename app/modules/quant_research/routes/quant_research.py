@@ -95,22 +95,7 @@ async def get_factor_exposures(
     service: QuantResearchService = Depends(get_quant_research_service),
     session: AsyncSession = Depends(get_read_db),
 ) -> list[FactorExposure]:
-    factor_record = await service._factor_repo.get_by_name(factor_name, session=session)
-    if factor_record is None:
-        return []
-    records = await service._factor_repo.get_exposures(
-        factor_record.id, as_of_date, session=session
-    )
-    return [
-        FactorExposure(
-            factor_name=factor_name,
-            instrument_id=r.instrument_id,
-            exposure=r.exposure,
-            z_score=r.z_score,
-            as_of_date=r.as_of_date,
-        )
-        for r in records
-    ]
+    return await service.get_factor_exposures(factor_name, as_of_date, session=session)
 
 
 @router.get(

@@ -47,6 +47,15 @@ def check_gate(
     gate_capacity = fund_nav * gate_pct
     total_requested = sum(amt for _, amt in requests)
 
+    if total_requested <= Decimal(0):
+        return GateCheckResult(
+            gate_triggered=False,
+            total_requested=Decimal(0),
+            total_approved=Decimal(0),
+            gate_capacity=gate_capacity,
+            allocations=[],
+        )
+
     if total_requested <= gate_capacity:
         return GateCheckResult(
             gate_triggered=False,

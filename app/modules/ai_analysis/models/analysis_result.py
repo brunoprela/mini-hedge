@@ -28,6 +28,7 @@ class AnalysisResultRecord(Base):
         primary_key=True,
         server_default=text("gen_random_uuid()"),
     )
+    fund_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     analysis_type: Mapped[str] = mapped_column(String(32), nullable=False)
     request_context: Mapped[dict] = mapped_column(JSONB, nullable=False)
     summary: Mapped[str] = mapped_column(Text, nullable=False)

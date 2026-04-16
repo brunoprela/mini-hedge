@@ -134,7 +134,7 @@ class MarketDataIngestionService:
             instrument_id=snapshot.instrument_id,
             source=snapshot.source,
             timestamp=snapshot.timestamp,
-            price=float(snapshot.mid),
+            price=snapshot.mid,
         )
 
         # 6. Publish

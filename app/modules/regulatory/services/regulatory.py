@@ -55,7 +55,7 @@ class RegulatoryService:
         filing_repo: RegulatoryFilingRepository,
         statement_repo: InvestorStatementRepository,
         letter_repo: PerformanceLetterRepository,
-        position_service: PositionService,
+        position_service: PositionService | None = None,
         capital_service: CapitalAccountService | None = None,
         risk_service: CounterpartyRiskService | None = None,
         exposure_service: ExposureService | None = None,
@@ -115,7 +115,7 @@ class RegulatoryService:
                         }
                     )
             except Exception:
-                pass
+                logger.warning("counterparty_lookup_failed", exc_info=True)
 
         # Liquidity
         pct_1d = pct_7d = pct_30d = pct_90d = pct_illiq = ZERO
@@ -217,7 +217,7 @@ class RegulatoryService:
         total_mv = ZERO
 
         # Aggregate positions across portfolios
-        if portfolio_ids:
+        if portfolio_ids and self._positions:
             for pid_str in portfolio_ids:
                 pid = _UUID(pid_str)
                 positions = await self._positions.get_positions(pid, session=session)
@@ -230,14 +230,13 @@ class RegulatoryService:
                     # Only include equities (13F securities)
                     sec = None
                     if self._sec_master:
-                        from uuid import UUID as _UUID
-
                         try:
                             sec = await self._sec_master.get_by_id(
                                 _UUID(pos.instrument_id),
                                 session=session,
                             )
                         except Exception:
+                            logger.warning("security_master_lookup_failed", instrument_id=pos.instrument_id, exc_info=True)
                             sec = None
                     asset_class = getattr(sec, "asset_class", "equity") or "equity"
                     if asset_class != "equity":

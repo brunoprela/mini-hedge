@@ -80,7 +80,7 @@ class OptionPositionStrategy:
 
     def market_value(self, quantity: Decimal, market_price: Decimal, **kwargs: Any) -> Decimal:
         multiplier = kwargs.get("contract_multiplier", Decimal(100))
-        return quantity * market_price * multiplier
+        return abs(quantity) * market_price * multiplier
 
     def unrealized_pnl(
         self,
@@ -89,8 +89,13 @@ class OptionPositionStrategy:
         market_price: Decimal,
         **kwargs: Any,
     ) -> Decimal:
+        # cost_basis is the total cost (sum of qty * entry_price * multiplier),
+        # so P&L = current_market_value - cost_basis, respecting long/short direction
         multiplier = kwargs.get("contract_multiplier", Decimal(100))
-        return quantity * (market_price - cost_basis) * multiplier
+        mv = abs(quantity) * market_price * multiplier
+        if quantity < 0:
+            return cost_basis - mv
+        return mv - cost_basis
 
 
 class FuturePositionStrategy:
@@ -98,7 +103,7 @@ class FuturePositionStrategy:
 
     def market_value(self, quantity: Decimal, market_price: Decimal, **kwargs: Any) -> Decimal:
         contract_size = kwargs.get("contract_size", Decimal(1))
-        return quantity * market_price * contract_size
+        return abs(quantity) * market_price * contract_size
 
     def unrealized_pnl(
         self,
@@ -107,8 +112,13 @@ class FuturePositionStrategy:
         market_price: Decimal,
         **kwargs: Any,
     ) -> Decimal:
+        # cost_basis is the total cost (sum of qty * entry_price * contract_size),
+        # so P&L = current_market_value - cost_basis, respecting long/short direction
         contract_size = kwargs.get("contract_size", Decimal(1))
-        return quantity * (market_price - cost_basis) * contract_size
+        mv = abs(quantity) * market_price * contract_size
+        if quantity < 0:
+            return cost_basis - mv
+        return mv - cost_basis
 
 
 # Registry: maps asset class to strategy implementation.

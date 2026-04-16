@@ -36,10 +36,17 @@ class BaseRepository:
         """Use the provided session, or create one from the factory.
 
         When a session is provided (HTTP request path), it is yielded as-is
-        — no new pool checkout, no commit (caller manages the lifecycle).
+        — no new pool checkout. The repository method is responsible for
+        calling ``commit()`` to persist its changes.
 
         When no session is provided (Kafka handler path), a fresh session
-        is created and yielded — the caller is responsible for committing.
+        is created and yielded — the repository method is responsible for
+        calling ``commit()``.
+
+        Note: when multiple repository calls share a passed-in session,
+        each call commits independently. For operations that must be
+        atomic across multiple repositories, use an explicit transaction
+        wrapper at the service layer.
         """
         if session is not None:
             yield session

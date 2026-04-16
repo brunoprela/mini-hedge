@@ -140,8 +140,8 @@ class ArchivalService:
 
         # Archive each completed month up to (but not including) the current month
         current_month_start = datetime(now.year, now.month, 1, tzinfo=UTC)
-        # Start from a reasonable lookback — 2 years max
-        cursor = datetime(now.year - 2, now.month, 1, tzinfo=UTC)
+        # Start from 7 years back to meet regulatory retention requirements
+        cursor = datetime(now.year - 7, now.month, 1, tzinfo=UTC)
 
         while cursor < current_month_start:
             result = await self.archive_fund_month(

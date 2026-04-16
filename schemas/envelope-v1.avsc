@@ -11,6 +11,8 @@
     {"name": "actor_id", "type": ["null", "string"], "default": null},
     {"name": "actor_type", "type": ["null", "string"], "default": null},
     {"name": "fund_slug", "type": ["null", "string"], "default": null},
+    {"name": "customer_id", "type": ["null", "string"], "default": null},
+    {"name": "acted_on_behalf_of", "type": ["null", "string"], "default": null},
     {"name": "data", "type": "bytes", "doc": "Avro-encoded event payload"}
   ]
 }

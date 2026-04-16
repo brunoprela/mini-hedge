@@ -174,7 +174,7 @@ class DlqManager:
                         )
                         failed += 1
 
-            if batch:
+            if batch and failed == 0:
                 await consumer.commit()
 
             logger.info(

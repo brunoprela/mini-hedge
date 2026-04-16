@@ -28,6 +28,7 @@ class BacktestRunRecord(Base):
         primary_key=True,
         server_default=text("gen_random_uuid()"),
     )
+    fund_slug: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     strategy_name: Mapped[str] = mapped_column(String(128), nullable=False)
     config: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)

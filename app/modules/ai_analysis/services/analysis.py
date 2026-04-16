@@ -58,7 +58,7 @@ class AIAnalysisService:
         self._event_bus = event_bus
 
     async def run_analysis(
-        self, request: AnalysisRequest, *, session: AsyncSession | None = None
+        self, request: AnalysisRequest, *, fund_slug: str, session: AsyncSession | None = None
     ) -> AnalysisResult:
         """Run an LLM-based analysis and persist the result."""
         prompt = build_prompt(request.analysis_type, request.context)
@@ -83,6 +83,7 @@ class AIAnalysisService:
         data_sources = _extract_data_sources(request)
 
         record = AnalysisResultRecord(
+            fund_slug=fund_slug,
             analysis_type=request.analysis_type.value,
             request_context={**request.context, "_data_sources": data_sources},
             summary=str(parsed.get("summary", "")),
@@ -141,8 +142,42 @@ class AIAnalysisService:
             factor_exposures=factor_exposures,
         )
 
+    async def get_result_by_id(
+        self,
+        result_id: str,
+        *,
+        session: AsyncSession | None = None,
+    ) -> AnalysisResult | None:
+        """Retrieve a single analysis result by ID."""
+        record = await self._result_repo.get_result(result_id, session=session)
+        if record is None:
+            return None
+        return _record_to_result(record)
+
+    async def get_note_by_id(
+        self,
+        note_id: str,
+        *,
+        session: AsyncSession | None = None,
+    ) -> ResearchNote | None:
+        """Retrieve a single research note by ID."""
+        record = await self._note_repo.get_note(note_id, session=session)
+        if record is None:
+            return None
+        return _note_record_to_dto(record)
+
+    async def delete_note(
+        self,
+        note_id: str,
+        *,
+        session: AsyncSession | None = None,
+    ) -> None:
+        """Delete a research note by ID."""
+        await self._note_repo.delete_note(note_id, session=session)
+
     async def get_analysis_history(
         self,
+        fund_slug: str,
         *,
         analysis_type: AnalysisType | None = None,
         limit: int = 50,
@@ -151,7 +186,7 @@ class AIAnalysisService:
         """Retrieve past analysis results."""
         type_str = analysis_type.value if analysis_type else None
         records = await self._result_repo.list_results(
-            analysis_type=type_str, limit=limit, session=session
+            fund_slug, analysis_type=type_str, limit=limit, session=session
         )
         return [_record_to_result(r) for r in records]
 
@@ -163,10 +198,12 @@ class AIAnalysisService:
         instruments: list[str] | None = None,
         tags: list[str] | None = None,
         *,
+        fund_slug: str,
         session: AsyncSession | None = None,
     ) -> ResearchNote:
         """Create and persist a research note."""
         record = ResearchNoteRecord(
+            fund_slug=fund_slug,
             title=title,
             content=content,
             analysis_type=analysis_type.value,
@@ -202,13 +239,14 @@ class AIAnalysisService:
 
     async def list_research_notes(
         self,
+        fund_slug: str,
         *,
         tags: list[str] | None = None,
         limit: int = 50,
         session: AsyncSession | None = None,
     ) -> list[ResearchNote]:
         """List research notes with optional tag filter."""
-        records = await self._note_repo.list_notes(tags=tags, limit=limit, session=session)
+        records = await self._note_repo.list_notes(fund_slug, tags=tags, limit=limit, session=session)
         return [_note_record_to_dto(r) for r in records]
 
 

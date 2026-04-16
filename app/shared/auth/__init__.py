@@ -73,3 +73,17 @@ __all__ = [
     "require_platform_permission",
     "resolve_permissions",
 ]
+
+# Startup check: ensure SYSTEM_CONTEXT permissions stay in sync with ADMIN role.
+# These are defined in separate files to avoid circular imports, so this
+# cross-module assertion catches drift when a developer adds a new permission.
+_admin_perm_values = frozenset(p.value for p in ROLE_PERMISSIONS[Role.ADMIN])
+_system_perm_values = SYSTEM_CONTEXT.permissions
+_missing = _admin_perm_values - _system_perm_values
+_extra = _system_perm_values - _admin_perm_values
+if _missing or _extra:
+    raise RuntimeError(
+        f"SYSTEM_CONTEXT permissions out of sync with ROLE_PERMISSIONS[ADMIN]. "
+        f"Missing: {sorted(_missing)}. Extra: {sorted(_extra)}. "
+        f"Update _ALL_PERMISSIONS in request_context.py."
+    )

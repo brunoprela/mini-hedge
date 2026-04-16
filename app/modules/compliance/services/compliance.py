@@ -220,6 +220,8 @@ class ComplianceService:
         if record is None:
             raise LookupError(f"Violation {violation_id} not found")
         violation = _to_violation(record)
+        from app.shared.auth.request_context import get_request_context_or_system
+
         ctx = get_request_context_or_system()
         await self._audit_event(
             AuditEventType.COMPLIANCE_VIOLATION_WAIVED,

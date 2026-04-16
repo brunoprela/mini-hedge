@@ -92,12 +92,12 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
                         session.add_all([
                             StrategyBookRecord(
                                 fund_slug="alpha", name="Equity Long",
-                                level="sub-strategy", parent_id=eq_book.id,
+                                level="sub_strategy", parent_id=eq_book.id,
                                 target_allocation_pct=Decimal("0.70"),
                             ),
                             StrategyBookRecord(
                                 fund_slug="alpha", name="Equity Short",
-                                level="sub-strategy", parent_id=eq_book.id,
+                                level="sub_strategy", parent_id=eq_book.id,
                                 target_allocation_pct=Decimal("0.30"),
                             ),
                             StrategyBookRecord(

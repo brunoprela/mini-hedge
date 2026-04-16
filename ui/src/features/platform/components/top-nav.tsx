@@ -53,8 +53,8 @@ const NAV_SECTIONS: NavSection[] = [
     label: "Operations",
     children: [
       { label: "Cash", href: "/cash", permission: Permission.CASH_READ },
-      { label: "EOD & NAV", href: "/eod", permission: Permission.EOD_READ },
-      { label: "Fees", href: "/fees", permission: Permission.FEE_READ },
+      { label: "EOD & NAV", href: "/eod", permission: Permission.RISK_READ },
+      { label: "Fees", href: "/fees", permission: Permission.CAPITAL_READ },
       { label: "Corp Actions", href: "/corporate-actions", permission: Permission.POSITIONS_READ },
       { label: "Investors", href: "/investors", permission: Permission.CAPITAL_READ },
     ],

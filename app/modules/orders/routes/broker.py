@@ -64,7 +64,8 @@ async def list_scorecards(
     request_context: RequestContext = require_permission(Permission.ORDERS_READ),
 ) -> list[BrokerScorecard]:
     """Get scorecards for all brokers."""
-    assert request_context.fund_slug is not None
+    if request_context.fund_slug is None:
+        raise HTTPException(400, "fund_slug is required")
     svc = _get_scorecard_service(request)
     return await svc.get_all_scorecards(request_context.fund_slug)
 
@@ -76,7 +77,8 @@ async def get_scorecard(
     request_context: RequestContext = require_permission(Permission.ORDERS_READ),
 ) -> BrokerScorecard:
     """Get scorecard for a specific broker."""
-    assert request_context.fund_slug is not None
+    if request_context.fund_slug is None:
+        raise HTTPException(400, "fund_slug is required")
     svc = _get_scorecard_service(request)
     sc = await svc.get_scorecard(broker_id, request_context.fund_slug)
     if sc is None:
@@ -93,7 +95,8 @@ async def list_routing_rules(
     request_context: RequestContext = require_permission(Permission.ORDERS_READ),
 ) -> list[RoutingRule]:
     """List routing rules for the current fund."""
-    assert request_context.fund_slug is not None
+    if request_context.fund_slug is None:
+        raise HTTPException(400, "fund_slug is required")
     repo = _get_routing_repo(request)
     records = await repo.get_rules_for_fund(request_context.fund_slug)
     return [
@@ -124,10 +127,13 @@ async def create_routing_rule(
 
     from app.modules.orders.models.routing_rule import RoutingRuleRecord
 
+    if request_context.fund_slug is None:
+        raise HTTPException(400, "fund_slug is required")
+
     repo = _get_routing_repo(request)
     record = RoutingRuleRecord(
         id=str(uuid4()),
-        fund_slug=body.fund_slug,
+        fund_slug=request_context.fund_slug,
         strategy=body.strategy,
         instrument_class=body.instrument_class,
         min_size=body.min_size,
@@ -156,8 +162,10 @@ async def delete_routing_rule(
     request_context: RequestContext = require_permission(Permission.ORDERS_CREATE),
 ) -> dict[str, bool]:
     """Delete a routing rule."""
+    if request_context.fund_slug is None:
+        raise HTTPException(400, "fund_slug is required")
     repo = _get_routing_repo(request)
-    deleted = await repo.delete_rule(rule_id)
+    deleted = await repo.delete_rule(rule_id, fund_slug=request_context.fund_slug)
     if not deleted:
         raise HTTPException(404, f"Rule {rule_id} not found")
     return {"deleted": True}

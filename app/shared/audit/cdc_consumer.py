@@ -84,7 +84,8 @@ class CdcAuditConsumer:
         )
 
     async def _consume_loop(self) -> None:
-        assert self._consumer is not None
+        if self._consumer is None:
+            raise RuntimeError("CDC audit consumer not started — call start() first")
 
         while self._running:
             try:

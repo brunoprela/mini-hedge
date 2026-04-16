@@ -54,7 +54,7 @@ def calculate_exposure(
     # Build breakdowns by each dimension
     breakdowns: dict[str, list[ExposureBreakdown]] = {}
     for dim in ExposureDimension:
-        bd = _breakdown_by_dimension(dim, positions, gross)
+        bd = _breakdown_by_dimension(dim, positions, gross, normalizers=normalizers)
         if bd:
             breakdowns[dim.value] = bd
 
@@ -90,6 +90,8 @@ def _breakdown_by_dimension(
     dim: ExposureDimension,
     positions: list[PositionValue],
     gross_total: Decimal,
+    *,
+    normalizers: dict[str, ExposureNormalizer] | None = None,
 ) -> list[ExposureBreakdown]:
     """Group positions by dimension and compute per-group exposure."""
     longs: dict[str, Decimal] = defaultdict(lambda: ZERO)
@@ -97,10 +99,11 @@ def _breakdown_by_dimension(
 
     for pv in positions:
         key = _get_dimension_key(dim, pv)
-        if pv.market_value > ZERO:
-            longs[key] += pv.market_value
-        elif pv.market_value < ZERO:
-            shorts[key] += pv.market_value
+        exposure = normalize_exposure(pv, normalizers=normalizers) if normalizers else pv.market_value
+        if exposure > ZERO:
+            longs[key] += exposure
+        elif exposure < ZERO:
+            shorts[key] += exposure
 
     all_keys = set(longs.keys()) | set(shorts.keys())
     if not all_keys:
@@ -132,17 +135,19 @@ def calculate_drilldown(
     dimension: ExposureDimension,
     key: str,
     positions: list[PositionValue],
+    *,
+    normalizers: dict[str, ExposureNormalizer] | None = None,
 ) -> DimensionDrilldown:
     """Return per-instrument breakdown for positions matching dimension=key."""
     matching = [p for p in positions if _get_dimension_key(dimension, p) == key]
     gross_total = sum(
-        (abs(p.market_value) for p in matching),
+        (abs(normalize_exposure(p, normalizers=normalizers) if normalizers else p.market_value) for p in matching),
         ZERO,
     )
 
     items: list[DrilldownItem] = []
     for pv in matching:
-        mv = pv.market_value
+        mv = normalize_exposure(pv, normalizers=normalizers) if normalizers else pv.market_value
         long_val = mv if mv > ZERO else ZERO
         short_val = mv if mv < ZERO else ZERO
         gross_val = abs(mv)

@@ -106,7 +106,8 @@ class OrderRepository(BaseRepository):
             await session.execute(stmt)
             await session.commit()
         result = await self.get_by_id(order_id)
-        assert result is not None, f"Order {order_id} not found after update"
+        if result is None:
+            raise RuntimeError(f"Order {order_id} not found after update")
         return result
 
     async def get_children(

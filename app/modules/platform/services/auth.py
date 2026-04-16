@@ -491,11 +491,23 @@ class AuthService:
         # or we pick the first fund they have a capital account in.
         investor_fund_slug = fund_slug
         investor_fund_id: str | None = None
+        fund_customer_id: str | None = None
         if investor_fund_slug:
             fund = await self._fund_repo.get_by_slug(investor_fund_slug)
             if fund is None or fund.status != FundStatus.ACTIVE:
                 raise AuthorizationError("Fund not found", code="FUND_NOT_FOUND")
             investor_fund_id = fund.id
+            fund_customer_id = getattr(fund, "customer_id", None)
+
+            # Verify investor has FGA access to this fund
+            if self._fga_client is not None:
+                has_access = await self._fga_client.check(
+                    user=f"investor:{investor.id}",
+                    relation="can_read",
+                    object=f"fund:{investor_fund_id}",
+                )
+                if not has_access:
+                    raise AuthorizationError("Fund not found", code="FUND_NOT_FOUND")
         else:
             # Discover funds from FGA
             if self._fga_client is not None:
@@ -510,14 +522,10 @@ class AuthService:
                     if fund is not None and fund.status == FundStatus.ACTIVE:
                         investor_fund_slug = fund.slug
                         investor_fund_id = fund.id
+                        fund_customer_id = getattr(fund, "customer_id", None)
 
         roles = frozenset({Role.INVESTOR})
         permissions = resolve_permissions(roles)
-        fund_customer_id: str | None = None
-        if investor_fund_id:
-            fund_record = await self._fund_repo.get_by_id(investor_fund_id)
-            if fund_record:
-                fund_customer_id = getattr(fund_record, "customer_id", None)
 
         return RequestContext(
             actor_id=investor.id,
@@ -595,7 +603,13 @@ class AuthService:
 
     def invalidate_fga_cache(self, user_id: str, fund_id: str) -> None:
         """Evict a cached FGA role lookup so access changes take effect immediately."""
-        self._fga_cache.pop((user_id, fund_id), None)
+        # Cache keys are 3-tuples (user_id, fund_id, fund_customer_id) — evict
+        # all entries matching the user+fund pair regardless of customer_id.
+        keys_to_evict = [
+            k for k in self._fga_cache if k[0] == user_id and k[1] == fund_id
+        ]
+        for k in keys_to_evict:
+            self._fga_cache.pop(k, None)
         # Also clear context cache — roles/permissions may have changed.
         self._ctx_cache.clear()
 

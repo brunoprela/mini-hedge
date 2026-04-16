@@ -369,7 +369,7 @@ def calculate_factor_decomposition(
     currency_systematic_var = 0.0
 
     if currency_map:
-        currencies = sorted({ccy for ccy in currency_map.values() if ccy != base_currency})
+        currencies = sorted({ccy for ccy in currency_map.values() if ccy and ccy != base_currency})
         for ccy in currencies:
             ccy_ids = [iid for iid in instrument_ids if currency_map.get(iid) == ccy]
             if not ccy_ids:

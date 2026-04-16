@@ -73,6 +73,8 @@ class OperatorAdminService:
         request_context: RequestContext,
         session: AsyncSession | None = None,
     ) -> OperatorInfo:
+        if platform_role not in _PLATFORM_ROLES:
+            raise ValidationError(f"Invalid platform role: {platform_role}. Must be one of {_PLATFORM_ROLES}")
         existing = await self._operator_repo.get_by_email(email, session=session)
         if existing is not None:
             raise ValidationError("Operator with this email already exists")
@@ -117,6 +119,8 @@ class OperatorAdminService:
             raise NotFoundError("Operator", operator_id)
 
         # Update platform role if requested
+        if updates.platform_role is not None and updates.platform_role not in _PLATFORM_ROLES:
+            raise ValidationError(f"Invalid platform role: {updates.platform_role}. Must be one of {_PLATFORM_ROLES}")
         if updates.platform_role is not None:
             # Remove old roles, add new one
             old_roles = await self._fga_client.list_relations(

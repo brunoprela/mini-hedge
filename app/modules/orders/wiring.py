@@ -86,7 +86,7 @@ async def setup(
     )
 
     # Wire algo engine (circular dep resolved via callback injection)
-    algo_engine = AlgoEngine(order_repo=order_repo)
+    algo_engine = AlgoEngine(order_repo=order_repo, session_factory=sf)
     algo_engine.set_submit_child(order_service.create_child_order)
     order_service._algo_engine = algo_engine
 

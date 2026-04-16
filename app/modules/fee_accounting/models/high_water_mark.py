@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
@@ -32,6 +32,6 @@ class HighWaterMarkRecord(Base):
     )
     portfolio_id: Mapped[str] = mapped_column(PG_UUID(as_uuid=False), nullable=False)
     share_class: Mapped[str] = mapped_column(String(32), nullable=False, default="default")
-    hwm_date: Mapped[datetime] = mapped_column(Date, nullable=False)
+    hwm_date: Mapped[date] = mapped_column(Date, nullable=False)
     hwm_nav: Mapped[Decimal] = mapped_column(Numeric(20, 2), nullable=False)
     peak_nav: Mapped[Decimal] = mapped_column(Numeric(20, 2), nullable=False)

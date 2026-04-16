@@ -67,8 +67,10 @@ async def verify_audit_batch(
             logger.warning("immudb_verification_missing", event_id=event_id)
             continue
 
-        # Compare the payload — PostgreSQL stores it as JSONB, immudb as JSON string
-        pg_payload = json.dumps(record.payload, default=str, sort_keys=True)
+        # Compare the inner data — PG payload wraps it as {"data": ..., "event_version": ..., "timestamp": ...}
+        # while immudb stores event.data directly under the "data" key
+        pg_data = record.payload.get("data", {}) if isinstance(record.payload, dict) else {}
+        pg_payload = json.dumps(pg_data, default=str, sort_keys=True)
         immudb_payload = json.dumps(immudb_entry.get("data", {}), default=str, sort_keys=True)
 
         if pg_payload == immudb_payload:

@@ -29,6 +29,7 @@ class IdentifierRepository(BaseRepository):
                 .where(
                     InstrumentIdentifierRecord.id_type == id_type,
                     InstrumentIdentifierRecord.id_value == id_value.upper(),
+                    InstrumentRecord.is_active.is_(True),
                 )
             )
             result = await session.execute(stmt)

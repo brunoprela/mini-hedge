@@ -67,7 +67,6 @@ async def _event_stream(
 async def stream_events(
     request: Request,
     token: str = Query(..., description="JWT for authentication (used by middleware)"),
-    fund_slug: str | None = Query(None, description="Fund slug override"),
 ) -> StreamingResponse:
     """SSE endpoint for real-time event streaming.
 

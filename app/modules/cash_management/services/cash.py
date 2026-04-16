@@ -603,6 +603,7 @@ class CashManagementService:
                 "cash_trade_handler_failed",
                 event_id=event.event_id,
             )
+            raise
 
     # ------------------------------------------------------------------
     # Internal

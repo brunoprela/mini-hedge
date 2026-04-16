@@ -401,7 +401,10 @@ class EODOrchestrator:
             for snap in nav_snapshots.values():
                 total_nav += snap.nav
                 total_shares += snap.shares_outstanding
-            nav_per_share = total_nav / total_shares if total_shares > 0 else Decimal(1)
+            if total_shares <= 0:
+                logger.warning("nav_zero_shares_outstanding", step="capital_allocation")
+                return {"message": "no_shares_outstanding", "skipped": True}
+            nav_per_share = total_nav / total_shares
 
             count = await self._capital_transaction_service.allocate_daily(
                 fund_pnl=step_data.get("fund_pnl", Decimal(0)),
@@ -424,7 +427,10 @@ class EODOrchestrator:
             for snap in nav_snapshots.values():
                 total_nav += snap.nav
                 total_shares += snap.shares_outstanding
-            nav_per_share = total_nav / total_shares if total_shares > 0 else Decimal(1)
+            if total_shares <= 0:
+                logger.warning("nav_zero_shares_outstanding", step="dealing_date_execution")
+                return {"message": "no_shares_outstanding", "skipped": True}
+            nav_per_share = total_nav / total_shares
 
             # Use the first portfolio for execution
             portfolio_id = portfolio_ids[0] if portfolio_ids else None

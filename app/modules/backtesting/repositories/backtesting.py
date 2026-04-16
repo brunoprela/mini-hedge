@@ -44,14 +44,17 @@ class BacktestRepository(BaseRepository):
 
     async def list_all(
         self,
+        fund_slug: str,
         *,
         status: str | None = None,
         limit: int = 50,
         session: AsyncSession | None = None,
     ) -> list[BacktestRunRecord]:
         async with self._session(session) as s:
-            stmt = select(BacktestRunRecord).order_by(
-                BacktestRunRecord.created_at.desc(),
+            stmt = (
+                select(BacktestRunRecord)
+                .where(BacktestRunRecord.fund_slug == fund_slug)
+                .order_by(BacktestRunRecord.created_at.desc())
             )
             if status is not None:
                 stmt = stmt.where(BacktestRunRecord.status == status)

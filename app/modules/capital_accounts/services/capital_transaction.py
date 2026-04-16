@@ -403,10 +403,17 @@ class CapitalTransactionService:
             msg = f"Redemption {amount} exceeds ending capital {existing.ending_capital}"
             raise ValueError(msg)
 
-        shares_to_redeem = amount / nav_per_share if nav_per_share > 0 else ZERO
+        if nav_per_share <= 0:
+            raise ValueError(
+                f"Cannot redeem with non-positive NAV per share: {nav_per_share}"
+            )
+        shares_to_redeem = amount / nav_per_share
         new_shares = existing.shares_held - shares_to_redeem
         if new_shares < 0:
-            new_shares = ZERO
+            raise ValueError(
+                f"Shares to redeem ({shares_to_redeem}) exceed shares held "
+                f"({existing.shares_held}) for investor {investor_id}"
+            )
 
         new_account = CapitalAccountRecord(
             id=str(uuid4()),
@@ -501,6 +508,10 @@ class CapitalTransactionService:
 
         # Update in-place (these are the latest snapshots for today)
         ownership_map = dict(new_ownership)
+        updated = False
         for a in accounts:
             if a.effective_date == business_date:
                 a.ownership_pct = ownership_map.get(a.id, ZERO)
+                updated = True
+        if updated and session is not None:
+            await session.flush()

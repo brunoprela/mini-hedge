@@ -235,8 +235,10 @@ class CdcTransformer:
 
     async def _consume_loop(self) -> None:
         """Main consume loop -- reads CDC events and publishes domain events."""
-        assert self._consumer is not None
-        assert self._producer is not None
+        if self._consumer is None:
+            raise RuntimeError("CDC transformer consumer not started — call start() first")
+        if self._producer is None:
+            raise RuntimeError("CDC transformer producer not started — call start() first")
 
         while self._running:
             try:
@@ -309,7 +311,8 @@ class CdcTransformer:
             "source": "cdc",
         }
 
-        assert self._producer is not None
+        if self._producer is None:
+            raise RuntimeError("CDC transformer producer not started — call start() first")
         try:
             key = (
                 payload.get("instrument_id")

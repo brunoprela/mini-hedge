@@ -104,13 +104,13 @@ export const NAV_ITEMS: NavItem[] = [
     label: "EOD & NAV",
     href: "/eod",
     icon: "Calendar",
-    permission: Permission.EOD_READ,
+    permission: Permission.RISK_READ,
   },
   {
     label: "Fees",
     href: "/fees",
     icon: "Receipt",
-    permission: Permission.FEE_READ,
+    permission: Permission.CAPITAL_READ,
   },
 
   // Compliance

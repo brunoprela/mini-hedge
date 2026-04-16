@@ -34,13 +34,18 @@ class AnalysisResultRepository(BaseRepository):
 
     async def list_results(
         self,
+        fund_slug: str,
         *,
         analysis_type: str | None = None,
         limit: int = 50,
         session: AsyncSession | None = None,
     ) -> list[AnalysisResultRecord]:
         async with self._session(session) as s:
-            stmt = select(AnalysisResultRecord).order_by(AnalysisResultRecord.created_at.desc())
+            stmt = (
+                select(AnalysisResultRecord)
+                .where(AnalysisResultRecord.fund_slug == fund_slug)
+                .order_by(AnalysisResultRecord.created_at.desc())
+            )
             if analysis_type is not None:
                 stmt = stmt.where(AnalysisResultRecord.analysis_type == analysis_type)
             stmt = stmt.limit(limit)

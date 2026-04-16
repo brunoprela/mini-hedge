@@ -53,7 +53,7 @@ class SubscriptionService:
         fund_terms_repo: FundTermsRepository,
         kyc_repo: InvestorKYCRepository,
         capital_service: CapitalTransactionService,
-        event_bus: EventBus,
+        event_bus: EventBus | None = None,
     ) -> None:
         self._subscription_repo = subscription_repo
         self._terms_repo = fund_terms_repo
@@ -95,18 +95,19 @@ class SubscriptionService:
 
         await self._subscription_repo.save(record, session=session)
 
-        await self._event_bus.publish(
-            shared_topic("investor-operations"),
-            BaseEvent(
-                event_type=AuditEventType.SUBSCRIPTION_SUBMITTED,
-                data={
-                    "request_id": record.id,
-                    "investor_id": investor_id,
-                    "amount": str(amount),
-                    "share_class": share_class,
-                },
-            ),
-        )
+        if self._event_bus:
+            await self._event_bus.publish(
+                shared_topic("investor-operations"),
+                BaseEvent(
+                    event_type=AuditEventType.SUBSCRIPTION_SUBMITTED,
+                    data={
+                        "request_id": record.id,
+                        "investor_id": investor_id,
+                        "amount": str(amount),
+                        "share_class": share_class,
+                    },
+                ),
+            )
         return _sub_to_summary(record)
 
     async def record_kyc_decision(
@@ -142,17 +143,18 @@ class SubscriptionService:
         record.kyc_decision_by = decision_by
         record.kyc_notes = notes
 
-        await self._event_bus.publish(
-            shared_topic("investor-operations"),
-            BaseEvent(
-                event_type=AuditEventType.SUBSCRIPTION_KYC_DECIDED,
-                data={
-                    "request_id": request_id,
-                    "approved": approved,
-                    "decision_by": decision_by,
-                },
-            ),
-        )
+        if self._event_bus:
+            await self._event_bus.publish(
+                shared_topic("investor-operations"),
+                BaseEvent(
+                    event_type=AuditEventType.SUBSCRIPTION_KYC_DECIDED,
+                    data={
+                        "request_id": request_id,
+                        "approved": approved,
+                        "decision_by": decision_by,
+                    },
+                ),
+            )
         return _sub_to_summary(record)
 
     async def ops_review(
@@ -194,17 +196,18 @@ class SubscriptionService:
         record.ops_decision_by = decision_by
         record.ops_notes = notes
 
-        await self._event_bus.publish(
-            shared_topic("investor-operations"),
-            BaseEvent(
-                event_type=AuditEventType.SUBSCRIPTION_OPS_REVIEWED,
-                data={
-                    "request_id": request_id,
-                    "approved": approved,
-                    "decision_by": decision_by,
-                },
-            ),
-        )
+        if self._event_bus:
+            await self._event_bus.publish(
+                shared_topic("investor-operations"),
+                BaseEvent(
+                    event_type=AuditEventType.SUBSCRIPTION_OPS_REVIEWED,
+                    data={
+                        "request_id": request_id,
+                        "approved": approved,
+                        "decision_by": decision_by,
+                    },
+                ),
+            )
         return _sub_to_summary(record)
 
     async def gp_decision(
@@ -246,17 +249,18 @@ class SubscriptionService:
         record.gp_decision_at = extra["gp_decision_at"]  # type: ignore[assignment]
         record.gp_decision_by = decision_by
 
-        await self._event_bus.publish(
-            shared_topic("investor-operations"),
-            BaseEvent(
-                event_type=AuditEventType.SUBSCRIPTION_GP_DECIDED,
-                data={
-                    "request_id": request_id,
-                    "approved": approved,
-                    "decision_by": decision_by,
-                },
-            ),
-        )
+        if self._event_bus:
+            await self._event_bus.publish(
+                shared_topic("investor-operations"),
+                BaseEvent(
+                    event_type=AuditEventType.SUBSCRIPTION_GP_DECIDED,
+                    data={
+                        "request_id": request_id,
+                        "approved": approved,
+                        "decision_by": decision_by,
+                    },
+                ),
+            )
         return _sub_to_summary(record)
 
     async def confirm_wire(
@@ -294,16 +298,17 @@ class SubscriptionService:
         record.wire_confirmed_at = now
         record.wire_reference = wire_reference
 
-        await self._event_bus.publish(
-            shared_topic("investor-operations"),
-            BaseEvent(
-                event_type=AuditEventType.SUBSCRIPTION_WIRE_CONFIRMED,
-                data={
-                    "request_id": request_id,
-                    "wire_reference": wire_reference,
-                },
-            ),
-        )
+        if self._event_bus:
+            await self._event_bus.publish(
+                shared_topic("investor-operations"),
+                BaseEvent(
+                    event_type=AuditEventType.SUBSCRIPTION_WIRE_CONFIRMED,
+                    data={
+                        "request_id": request_id,
+                        "wire_reference": wire_reference,
+                    },
+                ),
+            )
         return _sub_to_summary(record)
 
     async def execute_subscriptions(
@@ -318,6 +323,9 @@ class SubscriptionService:
 
         Calls the capital accounts engine to create the actual accounting entries.
         """
+        if nav_per_share <= 0:
+            raise ValueError(f"Cannot execute subscriptions with non-positive NAV per share: {nav_per_share}")
+
         records = await self._subscription_repo.list_by_dealing_date(dealing_date, session=session)
         queued = [r for r in records if r.state == SubscriptionState.QUEUED_FOR_NAV]
 
@@ -354,19 +362,20 @@ class SubscriptionService:
             record.nav_per_share = nav_per_share
             record.shares_issued = shares
 
-            await self._event_bus.publish(
-                shared_topic("investor-operations"),
-                BaseEvent(
-                    event_type=AuditEventType.SUBSCRIPTION_EXECUTED,
-                    data={
-                        "request_id": record.id,
-                        "investor_id": record.investor_id,
-                        "amount": str(record.requested_amount),
-                        "nav_per_share": str(nav_per_share),
-                        "shares_issued": str(shares),
-                    },
-                ),
-            )
+            if self._event_bus:
+                await self._event_bus.publish(
+                    shared_topic("investor-operations"),
+                    BaseEvent(
+                        event_type=AuditEventType.SUBSCRIPTION_EXECUTED,
+                        data={
+                            "request_id": record.id,
+                            "investor_id": record.investor_id,
+                            "amount": str(record.requested_amount),
+                            "nav_per_share": str(nav_per_share),
+                            "shares_issued": str(shares),
+                        },
+                    ),
+                )
             results.append(_sub_to_summary(record))
 
         return results
@@ -400,17 +409,18 @@ class SubscriptionService:
         record.cancelled_at = now
         record.cancellation_reason = reason
 
-        await self._event_bus.publish(
-            shared_topic("investor-operations"),
-            BaseEvent(
-                event_type=AuditEventType.SUBSCRIPTION_CANCELLED,
-                data={
-                    "request_id": request_id,
-                    "reason": reason,
-                    "cancelled_by": cancelled_by,
-                },
-            ),
-        )
+        if self._event_bus:
+            await self._event_bus.publish(
+                shared_topic("investor-operations"),
+                BaseEvent(
+                    event_type=AuditEventType.SUBSCRIPTION_CANCELLED,
+                    data={
+                        "request_id": request_id,
+                        "reason": reason,
+                        "cancelled_by": cancelled_by,
+                    },
+                ),
+            )
         return _sub_to_summary(record)
 
     async def get_subscription(

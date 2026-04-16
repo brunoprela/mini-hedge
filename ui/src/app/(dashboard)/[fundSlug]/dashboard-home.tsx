@@ -103,7 +103,7 @@ export function DashboardHome() {
     queryKey: ["eod-runs", fundSlug],
     queryFn: () => clientFetch<EodRun[]>("/eod/runs", { fundSlug }),
     staleTime: 120_000,
-    enabled: can(Permission.EOD_READ),
+    enabled: can(Permission.RISK_READ),
   });
 
   const { data: positions } = useQuery({

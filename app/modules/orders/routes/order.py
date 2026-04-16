@@ -28,7 +28,8 @@ async def create_order(
     order_service: OrderService = Depends(get_order_service),
     session: AsyncSession = Depends(get_db),
 ) -> OrderSummary:
-    assert request_context.fund_slug is not None, "fund_slug is required"
+    if request_context.fund_slug is None:
+        raise HTTPException(status_code=400, detail="fund_slug is required")
     return await order_service.create_order(
         request=body,
         fund_slug=request_context.fund_slug,
@@ -78,7 +79,8 @@ async def create_algo_order(
     order_service: OrderService = Depends(get_order_service),
     session: AsyncSession = Depends(get_db),
 ) -> OrderSummary:
-    assert request_context.fund_slug is not None, "fund_slug is required"
+    if request_context.fund_slug is None:
+        raise HTTPException(status_code=400, detail="fund_slug is required")
     return await order_service.create_algo_order(
         request=body,
         fund_slug=request_context.fund_slug,

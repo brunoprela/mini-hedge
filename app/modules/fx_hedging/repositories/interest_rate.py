@@ -35,6 +35,7 @@ class FXInterestRateRepository(BaseRepository):
                 row.rate = record.rate
                 row.source = record.source
                 row.updated_at = record.updated_at
+                await s.flush()
                 return row
             s.add(record)
             await s.flush()

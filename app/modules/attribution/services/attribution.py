@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -103,7 +103,7 @@ class AttributionService:
                 total_selection=ZERO,
                 total_interaction=ZERO,
                 sectors=[],
-                calculated_at=__import__("datetime").datetime.now(__import__("datetime").UTC),
+                calculated_at=datetime.now(UTC),
             )
 
         nav = float(sum((p.market_value for p in positions if p.market_value), ZERO))
@@ -184,7 +184,7 @@ class AttributionService:
                 idiosyncratic_pnl=ZERO,
                 systematic_pct=ZERO,
                 factor_contributions=[],
-                calculated_at=__import__("datetime").datetime.now(__import__("datetime").UTC),
+                calculated_at=datetime.now(UTC),
             )
 
         nav = float(sum((p.market_value for p in positions if p.market_value), ZERO))

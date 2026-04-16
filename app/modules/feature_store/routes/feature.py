@@ -105,10 +105,10 @@ async def get_feature(
     service: FeatureStoreService = Depends(get_feature_store_service),
     session: AsyncSession = Depends(get_read_db),
 ) -> FeatureDefinition:
-    record = await service._repo.get_by_name(feature_name, session=session)
-    if record is None:
+    result = await service.get_feature_by_name(feature_name, session=session)
+    if result is None:
         raise HTTPException(status_code=404, detail="Feature not found")
-    return FeatureStoreService._def_to_dto(record)
+    return result
 
 
 @router.get("/features/{feature_name}/stats", response_model=FeatureStats)

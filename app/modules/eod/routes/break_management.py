@@ -183,7 +183,8 @@ async def get_sla_status(
 def _to_tracked_break(record: object) -> TrackedBreak:
     from app.modules.eod.models import ReconciliationBreakRecord
 
-    assert isinstance(record, ReconciliationBreakRecord)
+    if not isinstance(record, ReconciliationBreakRecord):
+        raise TypeError(f"Expected ReconciliationBreakRecord, got {type(record).__name__}")
     return TrackedBreak(
         id=UUID(record.id),
         portfolio_id=UUID(record.portfolio_id),

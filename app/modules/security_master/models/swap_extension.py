@@ -5,7 +5,9 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Date, ForeignKey, Numeric, String
+from datetime import datetime
+
+from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -18,7 +20,7 @@ class SwapExtensionRecord(Base):
 
     instrument_id: Mapped[str] = mapped_column(
         PG_UUID(as_uuid=False),
-        ForeignKey("security_master.instruments.id"),
+        ForeignKey("security_master.instruments.id", ondelete="CASCADE"),
         primary_key=True,
     )
     swap_type: Mapped[str | None] = mapped_column(String(32), nullable=True)  # interest_rate, credit_default, total_return, equity
@@ -30,4 +32,11 @@ class SwapExtensionRecord(Base):
     day_count_convention: Mapped[str | None] = mapped_column(String(16), nullable=True)
     effective_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     maturity_date: Mapped[date | None] = mapped_column(Date, nullable=True)
-    underlying_id: Mapped[str | None] = mapped_column(PG_UUID(as_uuid=False), nullable=True)
+    underlying_id: Mapped[str | None] = mapped_column(
+        PG_UUID(as_uuid=False),
+        ForeignKey("security_master.instruments.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )

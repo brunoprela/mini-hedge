@@ -93,26 +93,27 @@ async def initialize_fga(*, api_url: str, store_name: str) -> FGAClient:
     store_config = ClientConfiguration(api_url=api_url, store_id=store_id)
     store_client = OpenFgaClient(store_config)
 
-    # Load local model from JSON file
-    model_json = _load_model_json()
-    local_types = _normalize(model_json.get("type_definitions", []))
+    try:
+        # Load local model from JSON file
+        model_json = _load_model_json()
+        local_types = _normalize(model_json.get("type_definitions", []))
 
-    # Compare with latest model in store
-    remote_types = await _get_latest_model_types(store_client)
-    remote_types_normalized = _normalize(remote_types) if remote_types else None
+        # Compare with latest model in store
+        remote_types = await _get_latest_model_types(store_client)
+        remote_types_normalized = _normalize(remote_types) if remote_types else None
 
-    if remote_types_normalized == local_types:
-        response = await store_client.read_latest_authorization_model()
-        model_id = response.authorization_model.id
-        logger.info("fga_model_unchanged", store_id=store_id, model_id=model_id)
-    else:
-        model_request = WriteAuthorizationModelRequest(**model_json)  # type: ignore[no-untyped-call]
-        model_response = await store_client.write_authorization_model(body=model_request)
-        model_id = model_response.authorization_model_id
-        local_hash = _model_hash(model_json)
-        logger.info("fga_model_written", store_id=store_id, model_id=model_id, hash=local_hash)
-
-    await store_client.close()  # type: ignore[no-untyped-call]
+        if remote_types_normalized == local_types:
+            response = await store_client.read_latest_authorization_model()
+            model_id = response.authorization_model.id
+            logger.info("fga_model_unchanged", store_id=store_id, model_id=model_id)
+        else:
+            model_request = WriteAuthorizationModelRequest(**model_json)  # type: ignore[no-untyped-call]
+            model_response = await store_client.write_authorization_model(body=model_request)
+            model_id = model_response.authorization_model_id
+            local_hash = _model_hash(model_json)
+            logger.info("fga_model_written", store_id=store_id, model_id=model_id, hash=local_hash)
+    finally:
+        await store_client.close()  # type: ignore[no-untyped-call]
 
     # Validate Python resource declarations match the JSON model
     validate_resource_registry(model_json)

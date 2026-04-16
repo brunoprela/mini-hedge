@@ -82,6 +82,8 @@ class KafkaEventBus:
             "actor_id": event.actor_id,
             "actor_type": event.actor_type,
             "fund_slug": event.fund_slug,
+            "customer_id": event.customer_id,
+            "acted_on_behalf_of": event.acted_on_behalf_of,
         }
         payload = event.data
 
@@ -183,6 +185,8 @@ class KafkaEventBus:
                             actor_id=envelope.get("actor_id"),
                             actor_type=envelope.get("actor_type"),
                             fund_slug=envelope.get("fund_slug"),
+                            customer_id=envelope.get("customer_id"),
+                            acted_on_behalf_of=envelope.get("acted_on_behalf_of"),
                         )
                     except Exception:
                         logger.exception("event_deserialization_failed", topic=topic)

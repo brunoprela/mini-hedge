@@ -16,5 +16,9 @@ async def create_redis_client(redis_url: str, max_connections: int = 50) -> aior
         max_connections=max_connections,
     )
     await client.ping()  # type: ignore[misc,unused-ignore]  # redis stubs type ping() as Awaitable[bool] | bool
-    logger.info("redis_connected", url=redis_url, max_connections=max_connections)
+    # Redact credentials from URL before logging
+    from urllib.parse import urlparse
+    parsed = urlparse(redis_url)
+    safe_url = f"{parsed.scheme}://{parsed.hostname}:{parsed.port}/{parsed.path.lstrip('/')}"
+    logger.info("redis_connected", url=safe_url, max_connections=max_connections)
     return client

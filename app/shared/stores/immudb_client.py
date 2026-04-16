@@ -65,7 +65,8 @@ class ImmudbClient:
         server's Merkle tree — guaranteeing the write was persisted
         immutably.
         """
-        assert self._client is not None, "Call connect() first"
+        if self._client is None:
+            raise RuntimeError("ImmudbClient not connected — call connect() first")
 
         encoded_key = key.encode("utf-8")
         encoded_value = json.dumps(value, default=str, sort_keys=True).encode("utf-8")
@@ -77,13 +78,17 @@ class ImmudbClient:
 
         Returns ``None`` if the key does not exist.
         """
-        assert self._client is not None, "Call connect() first"
+        if self._client is None:
+            raise RuntimeError("ImmudbClient not connected — call connect() first")
 
         try:
             result = await asyncio.to_thread(self._client.verifiedGet, key.encode("utf-8"))
             parsed: dict[str, Any] | None = json.loads(result.value.decode("utf-8"))
             return parsed
+        except KeyError:
+            return None
         except Exception:
+            logger.warning("immudb_verified_get_failed", key=key)
             return None
 
     async def close(self) -> None:

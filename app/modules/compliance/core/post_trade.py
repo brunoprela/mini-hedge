@@ -296,6 +296,7 @@ class PostTradeMonitor:
                 inst.country or "",
             )
         except Exception:
+            logger.warning("instrument_metadata_lookup_failed", instrument_id=instrument_id)
             return ("", "", "")
 
     async def _build_actual_state(

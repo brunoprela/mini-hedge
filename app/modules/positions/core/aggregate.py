@@ -133,7 +133,8 @@ class PositionAggregate:
         ]
 
     def _apply_split(self, event: TradeEvent) -> list[DownstreamEvent]:
-        assert isinstance(event.data, CorporateActionEventData)
+        if not isinstance(event.data, CorporateActionEventData):
+            raise TypeError(f"Expected CorporateActionEventData, got {type(event.data).__name__}")
         ratio = event.data.split_ratio
         self.currency = event.data.currency
 
@@ -151,7 +152,8 @@ class PositionAggregate:
         return [self._position_changed_event()]
 
     def _apply_dividend(self, event: TradeEvent) -> list[DownstreamEvent]:
-        assert isinstance(event.data, CorporateActionEventData)
+        if not isinstance(event.data, CorporateActionEventData):
+            raise TypeError(f"Expected CorporateActionEventData, got {type(event.data).__name__}")
         amount = event.data.dividend_amount
         self.currency = event.data.currency
 

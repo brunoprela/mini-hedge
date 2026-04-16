@@ -54,7 +54,8 @@ class InstrumentRepository(BaseRepository):
         session: AsyncSession | None = None,
     ) -> list[InstrumentRecord]:
         async with self._session(session) as session:
-            pattern = f"%{query}%"
+            escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            pattern = f"%{escaped}%"
             stmt = (
                 select(InstrumentRecord)
                 .where(

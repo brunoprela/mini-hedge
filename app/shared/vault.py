@@ -54,11 +54,10 @@ def load_vault_secrets(
     except ImportError:
         logger.debug("vault_hvac_not_installed")
         return {}
-    except Exception as exc:
-        # InvalidPath (404) is normal in dev when secrets aren't seeded yet.
-        exc_name = type(exc).__name__
-        if exc_name == "InvalidPath":
-            logger.info("vault_path_not_found", vault_addr=vault_addr, path=f"{mount_point}/{path}")
-        else:
-            logger.warning("vault_unreachable", vault_addr=vault_addr, exc_info=True)
+    except hvac.exceptions.InvalidPath:
+        # 404 is normal in dev when secrets aren't seeded yet.
+        logger.info("vault_path_not_found", vault_addr=vault_addr, path=f"{mount_point}/{path}")
+        return {}
+    except Exception:
+        logger.warning("vault_unreachable", vault_addr=vault_addr, exc_info=True)
         return {}

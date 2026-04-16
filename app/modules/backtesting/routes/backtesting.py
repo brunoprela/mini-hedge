@@ -69,10 +69,14 @@ async def run_backtest(
     for inst_id, points in body.price_data.items():
         price_data[inst_id] = [(date_type.fromisoformat(p.date), p.price) for p in points]
 
+    if request_context.fund_slug is None:
+        raise HTTPException(status_code=400, detail="fund_slug is required")
+
     return await service.submit_backtest(
         body.config,
         price_data,
         body.signal_name,
+        fund_slug=request_context.fund_slug,
         session=session,
     )
 
@@ -86,7 +90,11 @@ async def list_backtests(
     session: AsyncSession = Depends(get_read_db),
 ) -> list[BacktestSummary]:
     """List backtests, optionally filtered by status."""
+    if request_context.fund_slug is None:
+        raise HTTPException(status_code=400, detail="fund_slug is required")
+
     return await service.list_backtests(
+        request_context.fund_slug,
         status=status,
         limit=limit,
         session=session,

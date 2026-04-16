@@ -197,6 +197,7 @@ class TradeHandler:
                 "trade_handler_failed",
                 event_id=event.event_id,
             )
+            raise
 
     # ------------------------------------------------------------------
     # Core logic (shared by both paths)

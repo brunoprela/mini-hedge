@@ -161,7 +161,7 @@ export function EODRunStatus({ businessDate, onRerun, isRerunPending }: EODRunSt
   const { data: result, isLoading } = useQuery(eodStatusQueryOptions(fundSlug, businessDate));
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const canRerun = can(Permission.EOD_RUN);
+  const canRerun = can(Permission.RISK_WRITE);
   const isTerminal = result != null && result.completed_at != null;
 
   if (isLoading) {

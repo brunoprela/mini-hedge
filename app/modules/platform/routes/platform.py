@@ -283,9 +283,13 @@ async def list_api_keys(
 
     from app.modules.platform.models.api_key import APIKeyRecord
 
+    from datetime import UTC, datetime
+
+    now = datetime.now(tz=UTC)
     stmt = select(APIKeyRecord).where(
         APIKeyRecord.fund_id == request_context.fund_id,
         APIKeyRecord.is_active.is_(True),
+        (APIKeyRecord.expires_at.is_(None)) | (APIKeyRecord.expires_at > now),
     )
     result = await session.execute(stmt)
     records = list(result.scalars().all())

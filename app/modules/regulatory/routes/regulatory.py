@@ -108,7 +108,6 @@ async def generate_performance_letter(
 
 @router.get("/investor-statements", response_model=list[InvestorStatement])
 async def list_investor_statements(
-    fund_slug: str = Query(...),
     _ctx: RequestContext = require_permission(Permission.CAPITAL_READ),
     svc: RegulatoryService = Depends(get_regulatory_service),
     session: AsyncSession = Depends(get_db),
@@ -121,7 +120,6 @@ async def list_investor_statements(
 
 @router.get("/performance-letters", response_model=list[MonthlyPerformanceLetter])
 async def list_performance_letters(
-    fund_slug: str = Query(...),
     _ctx: RequestContext = require_permission(Permission.CAPITAL_READ),
     svc: RegulatoryService = Depends(get_regulatory_service),
     session: AsyncSession = Depends(get_db),

@@ -252,7 +252,8 @@ class AdminService:
     async def list_customers(
         self, *, limit: int = 100, offset: int = 0, session: AsyncSession | None = None
     ) -> CustomerPage:
-        assert self._customer_service is not None
+        if self._customer_service is None:
+            raise RuntimeError("CustomerService not configured")
         return await self._customer_service.list_customers(
             limit=limit, offset=offset, session=session
         )
@@ -266,7 +267,8 @@ class AdminService:
         request_context: RequestContext,
         session: AsyncSession | None = None,
     ) -> CustomerInfo:
-        assert self._customer_service is not None
+        if self._customer_service is None:
+            raise RuntimeError("CustomerService not configured")
         return await self._customer_service.create_customer(
             slug=slug,
             name=name,
@@ -278,7 +280,8 @@ class AdminService:
     async def get_customer(
         self, customer_id: str, *, session: AsyncSession | None = None
     ) -> CustomerInfo:
-        assert self._customer_service is not None
+        if self._customer_service is None:
+            raise RuntimeError("CustomerService not configured")
         return await self._customer_service.get_customer(customer_id, session=session)
 
     async def update_customer(
@@ -289,7 +292,8 @@ class AdminService:
         request_context: RequestContext,
         session: AsyncSession | None = None,
     ) -> CustomerInfo:
-        assert self._customer_service is not None
+        if self._customer_service is None:
+            raise RuntimeError("CustomerService not configured")
         return await self._customer_service.update_customer(
             customer_id, updates, request_context=request_context, session=session
         )
@@ -333,7 +337,8 @@ class AdminService:
     ) -> ServicingEdgeRecord:
         from app.modules.platform.models.servicing_edge import ServicingEdgeRecord as EdgeRecord
 
-        assert self._servicing_edge_repo is not None
+        if self._servicing_edge_repo is None:
+            raise RuntimeError("ServicingEdgeRepository not configured")
         record = EdgeRecord(
             admin_customer_id=admin_customer_id,
             client_customer_id=client_customer_id,
@@ -349,7 +354,8 @@ class AdminService:
         client_customer_id: str | None = None,
         session: AsyncSession | None = None,
     ) -> list[ServicingEdgeRecord]:
-        assert self._servicing_edge_repo is not None
+        if self._servicing_edge_repo is None:
+            raise RuntimeError("ServicingEdgeRepository not configured")
         if admin_customer_id:
             return await self._servicing_edge_repo.get_client_customers(
                 admin_customer_id, session=session
@@ -367,7 +373,8 @@ class AdminService:
         *,
         session: AsyncSession | None = None,
     ) -> ServicingEdgeRecord:
-        assert self._servicing_edge_repo is not None
+        if self._servicing_edge_repo is None:
+            raise RuntimeError("ServicingEdgeRepository not configured")
         record = await self._servicing_edge_repo.update_scoped_roles(
             edge_id, scoped_roles, session=session
         )
@@ -383,7 +390,8 @@ class AdminService:
         *,
         session: AsyncSession | None = None,
     ) -> ServicingEdgeRecord:
-        assert self._servicing_edge_repo is not None
+        if self._servicing_edge_repo is None:
+            raise RuntimeError("ServicingEdgeRepository not configured")
         record = await self._servicing_edge_repo.suspend(edge_id, session=session)
         if record is None:
             from app.shared.errors import NotFoundError
@@ -397,7 +405,8 @@ class AdminService:
         *,
         session: AsyncSession | None = None,
     ) -> ServicingEdgeRecord:
-        assert self._servicing_edge_repo is not None
+        if self._servicing_edge_repo is None:
+            raise RuntimeError("ServicingEdgeRepository not configured")
         record = await self._servicing_edge_repo.terminate(edge_id, session=session)
         if record is None:
             from app.shared.errors import NotFoundError

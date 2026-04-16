@@ -10,6 +10,7 @@ Index naming follows the schema-per-fund pattern: ``audit-fund-alpha``,
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import structlog
@@ -87,7 +88,8 @@ class OpenSearchClient:
         """Create index if it doesn't exist (lazy, cached per session)."""
         if index in self._ensured_indices:
             return
-        assert self._client is not None
+        if self._client is None:
+            raise RuntimeError("OpenSearchClient not connected — call connect() first")
 
         exists = await self._client.indices.exists(index=index)
         if not exists:
@@ -109,9 +111,8 @@ class OpenSearchClient:
         data: dict[str, Any],
     ) -> None:
         """Index a single audit event."""
-        assert self._client is not None
-
-        import json
+        if self._client is None:
+            raise RuntimeError("OpenSearchClient not connected — call connect() first")
 
         index = _index_name(fund_slug)
         await self._ensure_index(index)
@@ -146,7 +147,8 @@ class OpenSearchClient:
         size: int = 50,
     ) -> list[dict[str, Any]]:
         """Search audit events with filters and full-text search."""
-        assert self._client is not None
+        if self._client is None:
+            raise RuntimeError("OpenSearchClient not connected — call connect() first")
 
         index = _index_name(fund_slug) if fund_slug else "audit-*"
 

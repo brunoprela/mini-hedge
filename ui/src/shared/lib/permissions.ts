@@ -25,6 +25,7 @@ export const Permission = {
   COMPLIANCE_WRITE: "compliance:write",
   EXPOSURE_READ: "exposure:read",
   RISK_READ: "risk:read",
+  RISK_WRITE: "risk:write",
   CASH_READ: "cash:read",
   CASH_WRITE: "cash:write",
   ATTRIBUTION_READ: "attribution:read",
@@ -34,9 +35,6 @@ export const Permission = {
   CAPITAL_WRITE: "capital:write",
   FX_HEDGING_READ: "fx_hedging:read",
   FX_HEDGING_WRITE: "fx_hedging:write",
-  EOD_READ: "eod:read",
-  EOD_RUN: "eod:run",
-  FEE_READ: "fee:read",
 } as const;
 
 export type Permission = (typeof Permission)[keyof typeof Permission];
@@ -58,6 +56,7 @@ export const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     Permission.COMPLIANCE_READ,
     Permission.EXPOSURE_READ,
     Permission.RISK_READ,
+    Permission.RISK_WRITE,
     Permission.CASH_READ,
     Permission.CASH_WRITE,
     Permission.ATTRIBUTION_READ,
@@ -67,9 +66,6 @@ export const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     Permission.CAPITAL_WRITE,
     Permission.FX_HEDGING_READ,
     Permission.FX_HEDGING_WRITE,
-    Permission.EOD_READ,
-    Permission.EOD_RUN,
-    Permission.FEE_READ,
   ]),
   [Role.ANALYST]: new Set([
     Permission.INSTRUMENTS_READ,
@@ -84,8 +80,6 @@ export const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     Permission.ALPHA_READ,
     Permission.CAPITAL_READ,
     Permission.FX_HEDGING_READ,
-    Permission.EOD_READ,
-    Permission.FEE_READ,
   ]),
   [Role.RISK_MANAGER]: new Set([
     Permission.INSTRUMENTS_READ,
@@ -96,12 +90,12 @@ export const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     Permission.COMPLIANCE_READ,
     Permission.EXPOSURE_READ,
     Permission.RISK_READ,
+    Permission.RISK_WRITE,
     Permission.CASH_READ,
     Permission.ATTRIBUTION_READ,
+    Permission.ALPHA_READ,
     Permission.CAPITAL_READ,
     Permission.FX_HEDGING_READ,
-    Permission.EOD_READ,
-    Permission.FEE_READ,
   ]),
   [Role.COMPLIANCE_OFFICER]: new Set([
     Permission.INSTRUMENTS_READ,
@@ -115,10 +109,9 @@ export const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     Permission.RISK_READ,
     Permission.CASH_READ,
     Permission.ATTRIBUTION_READ,
+    Permission.ALPHA_READ,
     Permission.CAPITAL_READ,
     Permission.FX_HEDGING_READ,
-    Permission.EOD_READ,
-    Permission.FEE_READ,
   ]),
   [Role.VIEWER]: new Set([
     Permission.INSTRUMENTS_READ,
@@ -126,6 +119,7 @@ export const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     Permission.POSITIONS_READ,
     Permission.FUNDS_READ,
     Permission.ORDERS_READ,
+    Permission.FX_HEDGING_READ,
   ]),
 };
 

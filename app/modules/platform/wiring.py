@@ -23,6 +23,7 @@ from app.modules.platform.repositories import (
     FundRepository,
     OperatorRepository,
     PortfolioRepository,
+    ServicingEdgeRepository,
     UserRepository,
 )
 from app.modules.platform.seed import (
@@ -134,6 +135,12 @@ async def setup(
     user_repo = UserRepository(sf)
     operator_repo = OperatorRepository(sf)
     api_key_repo = APIKeyRepository(sf)
+    servicing_edge_repo = ServicingEdgeRepository(sf)
+
+    # InvestorRepository lives in capital_accounts module
+    from app.modules.capital_accounts.repositories.investor import InvestorRepository
+
+    investor_repo = InvestorRepository(sf)
 
     # Dev seeding — only populates data in local environment
     if _is_local_env():
@@ -160,6 +167,8 @@ async def setup(
         api_key_repo=api_key_repo,
         fga_client=fga_client,
         customer_repo=customer_repo,
+        servicing_edge_repo=servicing_edge_repo,
+        investor_repo=investor_repo,
         jwt_secret=settings.jwt_secret,
         jwt_algorithm=settings.jwt_algorithm,
         jwt_expiry_minutes=settings.jwt_expiry_minutes,
@@ -193,6 +202,7 @@ async def setup(
             operator_repo=operator_repo,
             fund_repo=fund_repo,
             customer_repo=customer_repo,
+            servicing_edge_repo=servicing_edge_repo,
             fga_client=fga_client,
             audit_repo=audit_repo,
             engine=engine,

@@ -59,6 +59,7 @@ class BacktestingService:
         price_data: dict[str, list[tuple[date, Decimal]]],
         signal_name: str = "equal_weight",
         *,
+        fund_slug: str,
         session: AsyncSession | None = None,
     ) -> BacktestSummary:
         """Create and run a backtest using a built-in signal function."""
@@ -69,6 +70,7 @@ class BacktestingService:
 
         # Create the pending record
         record = BacktestRunRecord(
+            fund_slug=fund_slug,
             strategy_name=config.strategy_name,
             config=config.model_dump(mode="json"),
             status=BacktestStatus.PENDING,
@@ -197,6 +199,7 @@ class BacktestingService:
 
     async def list_backtests(
         self,
+        fund_slug: str,
         *,
         status: str | None = None,
         limit: int = 50,
@@ -204,6 +207,7 @@ class BacktestingService:
     ) -> list[BacktestSummary]:
         """List backtest runs, optionally filtered by status."""
         records = await self._repo.list_all(
+            fund_slug,
             status=status,
             limit=limit,
             session=session,

@@ -3,7 +3,7 @@
 from decimal import Decimal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -148,8 +148,10 @@ async def create_book(
     service: FundStructuresService = Depends(get_fund_structures_service),
     session: AsyncSession = Depends(get_db),
 ) -> StrategyBook:
+    if request_context.fund_slug is None:
+        raise HTTPException(400, "fund_slug is required")
     return await service.create_book(
-        body.fund_slug,
+        request_context.fund_slug,
         body.name,
         body.level,
         parent_id=str(body.parent_id) if body.parent_id else None,
