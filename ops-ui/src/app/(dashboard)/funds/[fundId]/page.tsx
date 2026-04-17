@@ -4,8 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { use, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { CardSkeleton } from "@mini-hedge/ui";
 import { AccessCard } from "@/shared/components/access-card";
-import { apiFetch } from "@/shared/lib/api";
+import { api } from "@/shared/lib/api-client";
 import {
   formatRelation,
   type GroupedAccess,
@@ -13,7 +14,6 @@ import {
   USER_ROLES,
 } from "@/shared/lib/permissions";
 import { useRole } from "@/shared/lib/use-role";
-import type { FundAccessGrant } from "@/shared/types";
 
 export default function FundAccessPage({ params }: { params: Promise<{ fundId: string }> }) {
   const { fundId } = use(params);
@@ -26,7 +26,14 @@ export default function FundAccessPage({ params }: { params: Promise<{ fundId: s
 
   const { data: grants, isLoading } = useQuery({
     queryKey: ["admin", "funds", fundId, "access"],
-    queryFn: () => apiFetch<FundAccessGrant[]>(`admin/funds/${fundId}/access`),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/admin/funds/{fund_id}/access",
+        { params: { path: { fund_id: fundId } } },
+      );
+      if (error) throw error;
+      return data;
+    },
   });
 
   const grouped = useMemo(() => {
@@ -66,35 +73,55 @@ export default function FundAccessPage({ params }: { params: Promise<{ fundId: s
     });
 
   const grantAccess = useMutation({
-    mutationFn: (body: { user_type: string; user_id: string; relation: string }) =>
-      apiFetch(`admin/funds/${fundId}/access`, {
-        method: "POST",
-        body: JSON.stringify(body),
-      }),
+    mutationFn: async (body: {
+      user_type: "user" | "operator";
+      user_id: string;
+      relation: string;
+    }) => {
+      const { data, error } = await api.POST(
+        "/api/v1/admin/funds/{fund_id}/access",
+        {
+          params: { path: { fund_id: fundId } },
+          body,
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       invalidate();
       toast.success("Access granted");
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const revokeAccess = useMutation({
-    mutationFn: (body: { user_type: string; user_id: string; relation: string }) =>
-      apiFetch(`admin/funds/${fundId}/access`, {
-        method: "DELETE",
-        body: JSON.stringify(body),
-      }),
+    mutationFn: async (body: {
+      user_type: "user" | "operator";
+      user_id: string;
+      relation: string;
+    }) => {
+      const { data, error } = await api.DELETE(
+        "/api/v1/admin/funds/{fund_id}/access",
+        {
+          params: { path: { fund_id: fundId } },
+          body,
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       invalidate();
       toast.success("Access revoked");
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const toggleRole = (entry: GroupedAccess, rel: string) => {
     if (!isAdmin) return;
     const body = {
-      user_type: entry.user_type,
+      user_type: entry.user_type as "user" | "operator",
       user_id: entry.user_id,
       relation: rel,
     };
@@ -108,7 +135,7 @@ export default function FundAccessPage({ params }: { params: Promise<{ fundId: s
   const togglePermission = (entry: GroupedAccess, perm: string) => {
     if (!isAdmin) return;
     const body = {
-      user_type: entry.user_type,
+      user_type: entry.user_type as "user" | "operator",
       user_id: entry.user_id,
       relation: perm,
     };
@@ -121,7 +148,11 @@ export default function FundAccessPage({ params }: { params: Promise<{ fundId: s
 
   const handleGrant = () => {
     grantAccess.mutate(
-      { user_type: userType, user_id: userId, relation },
+      {
+        user_type: userType as "user" | "operator",
+        user_id: userId,
+        relation,
+      },
       {
         onSuccess: () => {
           setShowGrant(false);
@@ -211,7 +242,7 @@ export default function FundAccessPage({ params }: { params: Promise<{ fundId: s
       )}
 
       {isLoading ? (
-        <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>
+        <CardSkeleton count={3} />
       ) : grouped.length === 0 ? (
         <p className="text-sm text-[var(--muted-foreground)]">No access grants for this fund.</p>
       ) : (
@@ -227,14 +258,14 @@ export default function FundAccessPage({ params }: { params: Promise<{ fundId: s
               onRemoveAll={() => {
                 for (const rel of entry.roles) {
                   revokeAccess.mutate({
-                    user_type: entry.user_type,
+                    user_type: entry.user_type as "user" | "operator",
                     user_id: entry.user_id,
                     relation: rel,
                   });
                 }
                 for (const perm of entry.directPermissions) {
                   revokeAccess.mutate({
-                    user_type: entry.user_type,
+                    user_type: entry.user_type as "user" | "operator",
                     user_id: entry.user_id,
                     relation: perm,
                   });

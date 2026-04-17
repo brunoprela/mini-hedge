@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Spinner } from "@mini-hedge/ui";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { SectionPanel } from "@/shared/components/section-panel";
 import { activityLogQueryOptions } from "../api";
@@ -226,7 +227,7 @@ export function ActivityLog() {
               disabled={isLoading}
               className="rounded px-3 py-1 text-[11px] font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary-muted)] disabled:opacity-50"
             >
-              {isLoading ? "Loading..." : "Load more"}
+              {isLoading ? <Spinner /> : "Load more"}
             </button>
           </div>
         )}

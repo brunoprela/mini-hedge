@@ -1,32 +1,52 @@
 import { queryOptions } from "@tanstack/react-query";
-import { clientFetch } from "@/shared/lib/api";
-import type {
-  HypotheticalTrade,
-  OptimizationResult,
-  OrderIntent,
-  ScenarioRun,
-  WhatIfResult,
-} from "./types";
+import { api, fundHeaders } from "@/shared/lib/api-client";
+import type { HypotheticalTrade, OptimizationResult, WhatIfResult } from "./types";
 
 export function scenariosQueryOptions(fundSlug: string, portfolioId: string) {
   return queryOptions({
     queryKey: ["alpha-scenarios", fundSlug, portfolioId],
-    queryFn: () => clientFetch<ScenarioRun[]>(`/alpha/${portfolioId}/scenarios`, { fundSlug }),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/alpha/{portfolio_id}/scenarios",
+        {
+          params: { path: { portfolio_id: portfolioId } },
+          headers: fundHeaders(fundSlug),
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
   });
 }
 
 export function optimizationsQueryOptions(fundSlug: string, portfolioId: string) {
   return queryOptions({
     queryKey: ["alpha-optimizations", fundSlug, portfolioId],
-    queryFn: () =>
-      clientFetch<OptimizationResult[]>(`/alpha/${portfolioId}/optimizations`, { fundSlug }),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/alpha/{portfolio_id}/optimizations",
+        {
+          params: { path: { portfolio_id: portfolioId } },
+          headers: fundHeaders(fundSlug),
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
   });
 }
 
 export function orderIntentsQueryOptions(fundSlug: string, portfolioId: string) {
   return queryOptions({
     queryKey: ["alpha-intents", fundSlug, portfolioId],
-    queryFn: () => clientFetch<OrderIntent[]>(`/alpha/${portfolioId}/intents`, { fundSlug }),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/alpha/{portfolio_id}/intents", {
+        params: { path: { portfolio_id: portfolioId } },
+        headers: fundHeaders(fundSlug),
+      });
+      if (error) throw error;
+      return data;
+    },
     staleTime: 30_000,
     refetchInterval: 30_000,
   });
@@ -37,11 +57,13 @@ export async function runWhatIf(
   portfolioId: string,
   body: { scenario_name: string; trades: HypotheticalTrade[] },
 ): Promise<WhatIfResult> {
-  return clientFetch<WhatIfResult>(`/alpha/${portfolioId}/what-if`, {
-    fundSlug,
-    method: "POST",
-    body,
+  const { data, error } = await api.POST("/api/v1/alpha/{portfolio_id}/what-if", {
+    params: { path: { portfolio_id: portfolioId } },
+    body: body as never,
+    headers: fundHeaders(fundSlug),
   });
+  if (error) throw error;
+  return data as WhatIfResult;
 }
 
 export async function runOptimization(
@@ -49,11 +71,13 @@ export async function runOptimization(
   portfolioId: string,
   objective: string,
 ): Promise<OptimizationResult> {
-  return clientFetch<OptimizationResult>(`/alpha/${portfolioId}/optimize`, {
-    fundSlug,
-    method: "POST",
-    body: { objective },
+  const { data, error } = await api.POST("/api/v1/alpha/{portfolio_id}/optimize", {
+    params: { path: { portfolio_id: portfolioId } },
+    body: { objective } as never,
+    headers: fundHeaders(fundSlug),
   });
+  if (error) throw error;
+  return data as OptimizationResult;
 }
 
 export async function approveIntent(
@@ -61,10 +85,15 @@ export async function approveIntent(
   portfolioId: string,
   intentId: string,
 ): Promise<{ status: string }> {
-  return clientFetch<{ status: string }>(`/alpha/${portfolioId}/intents/${intentId}/approve`, {
-    fundSlug,
-    method: "POST",
-  });
+  const { data, error } = await api.POST(
+    "/api/v1/alpha/{portfolio_id}/intents/{intent_id}/approve",
+    {
+      params: { path: { portfolio_id: portfolioId, intent_id: intentId } },
+      headers: fundHeaders(fundSlug),
+    },
+  );
+  if (error) throw error;
+  return data as { status: string };
 }
 
 export async function cancelIntent(
@@ -72,8 +101,13 @@ export async function cancelIntent(
   portfolioId: string,
   intentId: string,
 ): Promise<{ status: string }> {
-  return clientFetch<{ status: string }>(`/alpha/${portfolioId}/intents/${intentId}/cancel`, {
-    fundSlug,
-    method: "POST",
-  });
+  const { data, error } = await api.POST(
+    "/api/v1/alpha/{portfolio_id}/intents/{intent_id}/cancel",
+    {
+      params: { path: { portfolio_id: portfolioId, intent_id: intentId } },
+      headers: fundHeaders(fundSlug),
+    },
+  );
+  if (error) throw error;
+  return data as { status: string };
 }

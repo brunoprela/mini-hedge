@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
+import { CardSkeleton } from "@mini-hedge/ui";
 import {
   ForwardsTable,
   FXSummaryCards,
@@ -105,7 +106,7 @@ export function FXHedgingPageClient() {
         </div>
       </div>
 
-      {isLoading && <p className="text-xs text-[var(--muted-foreground)]">Loading...</p>}
+      {isLoading && <CardSkeleton count={3} />}
 
       {activePortfolioId && (
         <>

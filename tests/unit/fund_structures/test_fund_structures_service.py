@@ -200,7 +200,7 @@ class TestCreateMasterFeeder:
         service: FundStructuresService,
         mf_repo: AsyncMock,
     ):
-        mf_repo.create_link.side_effect = lambda r, **kw: _stamp_mf_link(r)
+        mf_repo.insert_link.side_effect = lambda r, **kw: _stamp_mf_link(r)
 
         result = await service.create_master_feeder_link("master-alpha", "feeder-a", Decimal("0.4"))
 
@@ -214,11 +214,11 @@ class TestCreateMasterFeeder:
         service: FundStructuresService,
         mf_repo: AsyncMock,
     ):
-        mf_repo.create_link.side_effect = lambda r, **kw: _stamp_mf_link(r)
+        mf_repo.insert_link.side_effect = lambda r, **kw: _stamp_mf_link(r)
 
         await service.create_master_feeder_link("master-alpha", "feeder-a", Decimal("0.5"))
 
-        mf_repo.create_link.assert_called_once()
+        mf_repo.insert_link.assert_called_once()
 
     async def test_publishes_audit_event(
         self,
@@ -226,7 +226,7 @@ class TestCreateMasterFeeder:
         mf_repo: AsyncMock,
         capture: EventCapture,
     ):
-        mf_repo.create_link.side_effect = lambda r, **kw: _stamp_mf_link(r)
+        mf_repo.insert_link.side_effect = lambda r, **kw: _stamp_mf_link(r)
 
         await service.create_master_feeder_link("master-alpha", "feeder-a", Decimal("0.4"))
 
@@ -242,7 +242,7 @@ class TestCreateMasterFeeder:
         service_no_bus: FundStructuresService,
         mf_repo: AsyncMock,
     ):
-        mf_repo.create_link.side_effect = lambda r, **kw: _stamp_mf_link(r)
+        mf_repo.insert_link.side_effect = lambda r, **kw: _stamp_mf_link(r)
 
         result = await service_no_bus.create_master_feeder_link(
             "master-alpha", "feeder-a", Decimal("0.4")
@@ -325,7 +325,7 @@ class TestCreateStrategyBook:
         service: FundStructuresService,
         sb_repo: AsyncMock,
     ):
-        sb_repo.create.side_effect = lambda r, **kw: _stamp_strategy_book(r)
+        sb_repo.insert.side_effect = lambda r, **kw: _stamp_strategy_book(r)
 
         result = await service.create_book(
             "alpha", "Equity Book", "strategy", target_pct=Decimal("0.6")
@@ -343,7 +343,7 @@ class TestCreateStrategyBook:
         sb_repo: AsyncMock,
     ):
         parent_id = str(uuid4())
-        sb_repo.create.side_effect = lambda r, **kw: _stamp_strategy_book(r)
+        sb_repo.insert.side_effect = lambda r, **kw: _stamp_strategy_book(r)
 
         result = await service.create_book(
             "alpha",
@@ -362,7 +362,7 @@ class TestCreateStrategyBook:
         sb_repo: AsyncMock,
         capture: EventCapture,
     ):
-        sb_repo.create.side_effect = lambda r, **kw: _stamp_strategy_book(r)
+        sb_repo.insert.side_effect = lambda r, **kw: _stamp_strategy_book(r)
 
         await service.create_book("alpha", "Equity Book", "strategy")
 
@@ -440,7 +440,7 @@ class TestFundOfFundsHoldings:
         service: FundStructuresService,
         fof_repo: AsyncMock,
     ):
-        fof_repo.add_holding.side_effect = lambda r, **kw: _stamp_fof_holding(r)
+        fof_repo.insert_holding.side_effect = lambda r, **kw: _stamp_fof_holding(r)
 
         result = await service.add_fof_holding(
             "fof-alpha",
@@ -460,7 +460,7 @@ class TestFundOfFundsHoldings:
         service: FundStructuresService,
         fof_repo: AsyncMock,
     ):
-        fof_repo.add_holding.side_effect = lambda r, **kw: _stamp_fof_holding(r)
+        fof_repo.insert_holding.side_effect = lambda r, **kw: _stamp_fof_holding(r)
 
         result = await service.add_fof_holding(
             "fof-alpha",
@@ -479,7 +479,7 @@ class TestFundOfFundsHoldings:
         fof_repo: AsyncMock,
         capture: EventCapture,
     ):
-        fof_repo.add_holding.side_effect = lambda r, **kw: _stamp_fof_holding(r)
+        fof_repo.insert_holding.side_effect = lambda r, **kw: _stamp_fof_holding(r)
 
         await service.add_fof_holding(
             "fof-alpha", "Fund B", Decimal("0.3"), underlying_slug="fund-b", is_internal=True

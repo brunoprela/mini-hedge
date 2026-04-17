@@ -58,18 +58,18 @@ def _make_service(
     with_event_bus: bool = False,
 ) -> AlphaService:
     scenario_repo = AsyncMock()
-    scenario_repo.save = AsyncMock()
-    scenario_repo.get_many = AsyncMock(return_value=[])
+    scenario_repo.insert = AsyncMock()
+    scenario_repo.list_by_portfolio = AsyncMock(return_value=[])
 
     opt_run_repo = AsyncMock()
-    opt_run_repo.save = AsyncMock()
-    opt_run_repo.get_many = AsyncMock(return_value=[])
+    opt_run_repo.insert = AsyncMock()
+    opt_run_repo.list_by_portfolio = AsyncMock(return_value=[])
 
     opt_weight_repo = AsyncMock()
-    opt_weight_repo.save_many = AsyncMock()
+    opt_weight_repo.insert_batch = AsyncMock()
 
     intent_repo = AsyncMock()
-    intent_repo.save_many = AsyncMock()
+    intent_repo.insert_batch = AsyncMock()
     intent_repo.get_by_portfolio = AsyncMock(return_value=[])
     intent_repo.get_by_run = AsyncMock(return_value=[])
     intent_repo.update_status = AsyncMock()
@@ -78,7 +78,7 @@ def _make_service(
     position_service.get_by_portfolio = AsyncMock(return_value=positions or [])
 
     security_master = AsyncMock()
-    security_master.get_all_active = AsyncMock(return_value=[])
+    security_master.list_active = AsyncMock(return_value=[])
 
     event_bus = AsyncMock() if with_event_bus else None
 
@@ -111,7 +111,7 @@ class TestRunWhatIf:
 
         assert result.portfolio_id == _PID
         assert result.current_nav > ZERO
-        svc._scenario_repo.save.assert_called_once()
+        svc._scenario_repo.insert.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_what_if_filters_zero_quantity(self) -> None:
@@ -175,7 +175,7 @@ class TestOptimize:
             result = await svc.optimize(_PID, OptimizationObjective.MAX_SHARPE)
 
         assert result.expected_return == Decimal("0.12")
-        svc._opt_run_repo.save.assert_called_once()
+        svc._opt_run_repo.insert.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_optimization_with_intents_publishes(self) -> None:
@@ -214,7 +214,7 @@ class TestScenarioHistory:
         record.created_at = datetime.now(timezone.utc)
 
         svc = _make_service()
-        svc._scenario_repo.get_many = AsyncMock(return_value=[record])
+        svc._scenario_repo.list_by_portfolio = AsyncMock(return_value=[record])
 
         scenarios = await svc.get_scenarios(_PID)
 
@@ -266,7 +266,7 @@ class TestOptimizationHistory:
         run_record.created_at = datetime.now(timezone.utc)
 
         svc = _make_service()
-        svc._opt_run_repo.get_many = AsyncMock(return_value=[run_record])
+        svc._opt_run_repo.list_by_portfolio = AsyncMock(return_value=[run_record])
 
         results = await svc.get_optimizations(_PID)
 

@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { LoadingSkeleton } from "@mini-hedge/ui";
 import { riskHistoryQueryOptions } from "@/features/risk/api";
 import type { RiskSnapshot } from "@/features/risk/types";
 import { LineChart } from "@/shared/components/charts";
@@ -277,7 +278,7 @@ export function RiskHistoryChart({ portfolioId }: { portfolioId: string }) {
       : null;
 
   if (isLoading) {
-    return <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>;
+    return <LoadingSkeleton height="18rem" />;
   }
 
   if (!data || data.length < 2) {

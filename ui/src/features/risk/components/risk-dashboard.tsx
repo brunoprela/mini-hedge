@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { LoadingSkeleton } from "@mini-hedge/ui";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { riskSnapshotQueryOptions, takeRiskSnapshot } from "../api";
 
@@ -74,7 +75,7 @@ export function RiskSnapshotPrompt({ portfolioId }: { portfolioId: string }) {
     },
   });
 
-  if (isLoading) return <div className="text-xs text-[var(--muted-foreground)]">Loading...</div>;
+  if (isLoading) return <LoadingSkeleton height="4rem" />;
   if (snapshot) return null;
 
   return (

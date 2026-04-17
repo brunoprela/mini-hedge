@@ -100,7 +100,7 @@ class ComplianceService:
     # ---- Rules -------------------------------------------------------
 
     async def get_rules(self, *, session: AsyncSession | None = None) -> list[RuleDefinition]:
-        records = await self._rule_repo.get_all(session=session)
+        records = await self._rule_repo.list_all(session=session)
         return [_to_rule(r) for r in records]
 
     async def create_rule(
@@ -169,9 +169,17 @@ class ComplianceService:
     # ---- Violations --------------------------------------------------
 
     async def get_violations(
-        self, portfolio_id: UUID, *, session: AsyncSession | None = None
+        self,
+        portfolio_id: UUID | None = None,
+        *,
+        session: AsyncSession | None = None,
     ) -> list[Violation]:
-        records = await self._violation_repo.get_active_by_portfolio(portfolio_id, session=session)
+        if portfolio_id is None:
+            records = await self._violation_repo.list_active(session=session)
+        else:
+            records = await self._violation_repo.list_active_by_portfolio(
+                portfolio_id, session=session
+            )
         return [_to_violation(r) for r in records]
 
     async def resolve_violation(
@@ -253,7 +261,7 @@ class ComplianceService:
         if self._position_service is None:
             return []
 
-        violations = await self._violation_repo.get_active_by_portfolio(
+        violations = await self._violation_repo.list_active_by_portfolio(
             portfolio_id,
             session=session,
         )

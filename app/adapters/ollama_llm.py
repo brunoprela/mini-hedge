@@ -42,7 +42,9 @@ class OllamaLLMAdapter:
             },
         }
 
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(self._timeout, connect=2.0),
+        ) as client:
             resp = await client.post(url, json=payload)
             resp.raise_for_status()
             data = resp.json()

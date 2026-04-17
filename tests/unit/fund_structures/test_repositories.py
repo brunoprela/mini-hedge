@@ -61,22 +61,22 @@ def _scalar_one_or_none_result(value):
 
 class TestMasterFeederRepository:
     @pytest.mark.asyncio
-    async def test_create_link_adds_and_commits(self) -> None:
+    async def test_insert_link_adds_and_commits(self) -> None:
         repo, session = _make_repo(MasterFeederRepository)
         record = MagicMock()
 
-        await repo.create_link(record)
+        await repo.insert_link(record)
 
         session.add.assert_called_once_with(record)
         session.commit.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_create_link_with_explicit_session(self) -> None:
+    async def test_insert_link_with_explicit_session(self) -> None:
         repo, _ = _make_repo(MasterFeederRepository)
         explicit = _mock_session()
         record = MagicMock()
 
-        await repo.create_link(record, session=explicit)
+        await repo.insert_link(record, session=explicit)
 
         explicit.add.assert_called_once_with(record)
         explicit.commit.assert_awaited_once()
@@ -143,22 +143,22 @@ class TestMasterFeederRepository:
 
 class TestStrategyBookRepository:
     @pytest.mark.asyncio
-    async def test_create_adds_and_commits(self) -> None:
+    async def test_insert_adds_and_commits(self) -> None:
         repo, session = _make_repo(StrategyBookRepository)
         record = MagicMock()
 
-        await repo.create(record)
+        await repo.insert(record)
 
         session.add.assert_called_once_with(record)
         session.commit.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_create_with_explicit_session(self) -> None:
+    async def test_insert_with_explicit_session(self) -> None:
         repo, _ = _make_repo(StrategyBookRepository)
         explicit = _mock_session()
         record = MagicMock()
 
-        await repo.create(record, session=explicit)
+        await repo.insert(record, session=explicit)
 
         explicit.add.assert_called_once_with(record)
         explicit.commit.assert_awaited_once()
@@ -282,22 +282,22 @@ class TestStrategyBookRepository:
 
 class TestFundOfFundsRepository:
     @pytest.mark.asyncio
-    async def test_add_holding_adds_and_commits(self) -> None:
+    async def test_insert_holding_adds_and_commits(self) -> None:
         repo, session = _make_repo(FundOfFundsRepository)
         record = MagicMock()
 
-        await repo.add_holding(record)
+        await repo.insert_holding(record)
 
         session.add.assert_called_once_with(record)
         session.commit.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_add_holding_with_explicit_session(self) -> None:
+    async def test_insert_holding_with_explicit_session(self) -> None:
         repo, _ = _make_repo(FundOfFundsRepository)
         explicit = _mock_session()
         record = MagicMock()
 
-        await repo.add_holding(record, session=explicit)
+        await repo.insert_holding(record, session=explicit)
 
         explicit.add.assert_called_once_with(record)
         explicit.commit.assert_awaited_once()
@@ -331,10 +331,10 @@ class TestFundOfFundsRepository:
         session.commit.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_remove_holding_soft_deletes(self) -> None:
+    async def test_delete_holding_soft_deletes(self) -> None:
         repo, session = _make_repo(FundOfFundsRepository)
 
-        await repo.remove_holding("holding-1")
+        await repo.delete_holding("holding-1")
 
         session.execute.assert_awaited_once()
         session.commit.assert_awaited_once()

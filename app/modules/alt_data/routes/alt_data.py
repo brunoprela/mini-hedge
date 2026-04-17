@@ -90,12 +90,12 @@ async def get_feed(
     service: AltDataService = Depends(get_alt_data_service),
     session: AsyncSession = Depends(get_read_db),
 ) -> AltDataFeed:
-    feed = await service._repo.get_feed(str(feed_id), session=session)
+    feed = await service.get_feed(str(feed_id), session=session)
     if feed is None:
         from fastapi import HTTPException
 
         raise HTTPException(status_code=404, detail="Feed not found")
-    return AltDataService._feed_to_dto(feed)
+    return feed
 
 
 @router.get("/feeds/{feed_id}/summary", response_model=AltDataSummary)

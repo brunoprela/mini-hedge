@@ -36,7 +36,7 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
 
     fund_repo: FundRepository = app.state.fund_repo
     portfolio_repo: PortfolioRepository = app.state.portfolio_repo
-    active_funds = await fund_repo.get_all_active()
+    active_funds = await fund_repo.list_active()
 
     seeded = 0
     for fund in active_funds:

@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from app.modules.market_data.seed import _FX_RATES, _PRICES, seed_dev_data
 
@@ -74,7 +75,9 @@ class TestSeedDevData:
     async def test_fx_store_failure_does_not_crash(self) -> None:
         """If store_fx_rate raises, seed continues."""
         svc = _make_market_data_service()
-        svc.store_fx_rate = AsyncMock(side_effect=RuntimeError("db duplicate"))
+        svc.store_fx_rate = AsyncMock(
+            side_effect=IntegrityError("INSERT", {}, Exception("db duplicate")),
+        )
         app = _make_app(service=svc)
         sf = MagicMock()
 
@@ -87,7 +90,9 @@ class TestSeedDevData:
     async def test_price_store_failure_does_not_crash(self) -> None:
         """If store_price raises, seed continues."""
         svc = _make_market_data_service()
-        svc.store_price = AsyncMock(side_effect=RuntimeError("db duplicate"))
+        svc.store_price = AsyncMock(
+            side_effect=IntegrityError("INSERT", {}, Exception("db duplicate")),
+        )
         app = _make_app(service=svc)
         sf = MagicMock()
 
@@ -100,8 +105,12 @@ class TestSeedDevData:
     async def test_no_log_when_data_already_exists(self) -> None:
         """When store fails for all, fx_seeded and price_seeded are 0 — takes else branch."""
         svc = _make_market_data_service()
-        svc.store_fx_rate = AsyncMock(side_effect=RuntimeError("dup"))
-        svc.store_price = AsyncMock(side_effect=RuntimeError("dup"))
+        svc.store_fx_rate = AsyncMock(
+            side_effect=IntegrityError("INSERT", {}, Exception("dup")),
+        )
+        svc.store_price = AsyncMock(
+            side_effect=IntegrityError("INSERT", {}, Exception("dup")),
+        )
         app = _make_app(service=svc)
         sf = MagicMock()
 

@@ -54,12 +54,12 @@ def snapshot_repo() -> AsyncMock:
     repo = AsyncMock()
     repo.get_latest_snapshot.return_value = None
 
-    # save_snapshot should assign an id to the record (mimicking DB default)
-    async def _save_snapshot(record, *, session=None):
+    # insert_snapshot should assign an id to the record (mimicking DB default)
+    async def _insert_snapshot(record, *, session=None):
         if record.id is None:
             record.id = uuid4()
 
-    repo.save_snapshot.side_effect = _save_snapshot
+    repo.insert_snapshot.side_effect = _insert_snapshot
     return repo
 
 
@@ -126,7 +126,7 @@ def market_data_service() -> AsyncMock:
 @pytest.fixture
 def security_master_service() -> AsyncMock:
     svc = AsyncMock()
-    svc.get_all_active.return_value = [
+    svc.list_active.return_value = [
         _mock_instrument("AAPL", "Technology"),
         _mock_instrument("JNJ", "Healthcare"),
     ]
@@ -217,7 +217,7 @@ class TestCalculateVaR:
 
     async def test_var_persisted(self, service, var_result_repo):
         await service.calculate_var(uuid4())
-        var_result_repo.save_var_result.assert_called_once()
+        var_result_repo.insert_var_result.assert_called_once()
 
     async def test_empty_portfolio_returns_zero(self, service, position_service):
         position_service.get_by_portfolio.return_value = []
@@ -248,7 +248,7 @@ class TestStressTest:
             shocks={"market": -0.10},
         )
         await service.run_stress_test(uuid4(), scenario)
-        stress_result_repo.save_stress_result.assert_called_once()
+        stress_result_repo.insert_stress_result.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -272,7 +272,7 @@ class TestFactorModel:
 class TestTakeSnapshot:
     async def test_snapshot_persisted(self, service, snapshot_repo):
         result = await service.take_snapshot(uuid4(), fund_slug="alpha")
-        snapshot_repo.save_snapshot.assert_called_once()
+        snapshot_repo.insert_snapshot.assert_called_once()
         assert result.var_95_1d > 0
         assert result.var_99_1d > 0
         assert result.var_99_1d > result.var_95_1d

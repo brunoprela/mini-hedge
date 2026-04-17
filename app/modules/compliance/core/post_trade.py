@@ -124,7 +124,7 @@ class PostTradeMonitor:
     ) -> None:
         """Load portfolio, evaluate rules, persist/resolve violations."""
         # Load active rules (session is already fund-scoped)
-        rule_records = await self._rule_repo.get_active()
+        rule_records = await self._rule_repo.list_active()
         if not rule_records:
             return
 
@@ -166,7 +166,7 @@ class PostTradeMonitor:
         state = await self._build_actual_state(portfolio_id, positions)
 
         # Load existing active violations
-        existing = await self._violation_repo.get_active_by_portfolio(portfolio_id)
+        existing = await self._violation_repo.list_active_by_portfolio(portfolio_id)
         existing_by_rule_id: dict[str, ComplianceViolationRecord] = {v.rule_id: v for v in existing}
 
         for rule in rules:

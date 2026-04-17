@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class FeatureSetRepository(BaseRepository):
     """CRUD for FeatureSetRecord."""
 
-    async def create(
+    async def insert(
         self, record: FeatureSetRecord, *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as s:

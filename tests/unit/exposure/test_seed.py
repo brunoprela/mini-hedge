@@ -47,13 +47,13 @@ class TestSeedDevData:
 
         exposure_repo = AsyncMock()
         exposure_repo.get_latest = AsyncMock(return_value=None)
-        exposure_repo.save_snapshot = AsyncMock()
+        exposure_repo.insert_snapshot = AsyncMock()
 
         exposure_service = MagicMock()
         exposure_service._exposure_repo = exposure_repo
 
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[mock_fund])
+        fund_repo.list_active = AsyncMock(return_value=[mock_fund])
 
         portfolio_repo = AsyncMock()
         portfolio_repo.get_by_fund = AsyncMock(return_value=[mock_portfolio])
@@ -68,7 +68,7 @@ class TestSeedDevData:
         await seed_dev_data(app, sf)
 
         # 3 days of snapshots for 1 portfolio
-        assert exposure_repo.save_snapshot.call_count == 3
+        assert exposure_repo.insert_snapshot.call_count == 3
 
     @pytest.mark.asyncio
     async def test_skips_portfolio_with_existing_snapshot(self) -> None:
@@ -83,13 +83,13 @@ class TestSeedDevData:
 
         exposure_repo = AsyncMock()
         exposure_repo.get_latest = AsyncMock(return_value=MagicMock())  # existing
-        exposure_repo.save_snapshot = AsyncMock()
+        exposure_repo.insert_snapshot = AsyncMock()
 
         exposure_service = MagicMock()
         exposure_service._exposure_repo = exposure_repo
 
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[mock_fund])
+        fund_repo.list_active = AsyncMock(return_value=[mock_fund])
 
         portfolio_repo = AsyncMock()
         portfolio_repo.get_by_fund = AsyncMock(return_value=[mock_portfolio])
@@ -103,4 +103,4 @@ class TestSeedDevData:
 
         await seed_dev_data(app, sf)
 
-        exposure_repo.save_snapshot.assert_not_called()
+        exposure_repo.insert_snapshot.assert_not_called()

@@ -26,7 +26,7 @@ async def setup(
 ) -> None:
     """Wire capital accounts module: repos, service."""
     from app.modules.capital_accounts.repositories.account import CapitalAccountRepository
-    from app.modules.capital_accounts.repositories.investor import InvestorRepository
+    from app.modules.platform.repositories.investor import InvestorRepository
     from app.modules.capital_accounts.repositories.transaction import (
         CapitalTransactionRepository,
     )

@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 
 class StressPositionImpactRepository(BaseRepository):
-    async def save_impacts(
+    async def insert_impacts(
         self,
         impacts: list[StressPositionImpactRecord],
         *,

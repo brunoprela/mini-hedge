@@ -34,7 +34,7 @@ class CustomerRepository(BaseRepository):
             )
             return result.scalar_one_or_none()
 
-    async def get_all_active(
+    async def list_active(
         self, *, session: AsyncSession | None = None
     ) -> list[CustomerRecord]:
         async with self._session(session) as session:
@@ -43,7 +43,7 @@ class CustomerRepository(BaseRepository):
             )
             return list(result.scalars().all())
 
-    async def get_all_paginated(
+    async def list_paginated(
         self, *, limit: int = 100, offset: int = 0, session: AsyncSession | None = None
     ) -> tuple[list[CustomerRecord], int]:
         async with self._session(session) as session:

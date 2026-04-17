@@ -5,10 +5,9 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { FundPortfolioPicker } from "@/shared/components/fund-portfolio-picker";
-import { ErrorState } from "@/shared/components/error-state";
-import { StatusBadge } from "@/shared/components/status-badge";
-import { apiFetch } from "@/shared/lib/api";
-import type { InvestorInfo } from "@/shared/types";
+import { ErrorState, LoadingSkeleton } from "@mini-hedge/ui";
+import { StatusBadge } from "@mini-hedge/ui";
+import { api, fundHeaders } from "@/shared/lib/api-client";
 
 interface FilingRecord {
   id: string;
@@ -55,13 +54,23 @@ export default function CustomReportsPage() {
     isError: filingsError,
   } = useQuery({
     queryKey: ["regulatory", "filings"],
-    queryFn: () => apiFetch<FilingRecord[]>("regulatory/filings?limit=50"),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/regulatory/filings");
+      if (error) throw error;
+      return data as unknown as FilingRecord[];
+    },
   });
 
   // Fetch investors for the selected fund
   const { data: investors } = useQuery({
     queryKey: ["investors", fundSlug],
-    queryFn: () => apiFetch<InvestorInfo[]>(`capital/investors?fund_slug=${fundSlug}`),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/capital/investors", {
+        headers: fundHeaders(fundSlug),
+      });
+      if (error) throw error;
+      return data;
+    },
     enabled: !!fundSlug && reportType === "investor-statement",
   });
 
@@ -69,39 +78,63 @@ export default function CustomReportsPage() {
     queryClient.invalidateQueries({ queryKey: ["regulatory", "filings"] });
 
   const generateFormPF = useMutation({
-    mutationFn: () =>
-      apiFetch(`regulatory/form-pf?fund_slug=${fundSlug}&reporting_date=${asOfDate}`, {
-        method: "POST",
-      }),
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/api/v1/regulatory/form-pf", {
+        params: { query: { fund_slug: fundSlug, reporting_date: asOfDate } },
+      });
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => { invalidate(); toast.success("Form PF report generated"); },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const generate13F = useMutation({
-    mutationFn: () =>
-      apiFetch(`regulatory/13f?fund_slug=${fundSlug}&reporting_date=${asOfDate}`, {
-        method: "POST",
-      }),
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/api/v1/regulatory/13f", {
+        params: { query: { fund_slug: fundSlug, reporting_date: asOfDate } },
+      });
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => { invalidate(); toast.success("13F Filing report generated"); },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const generateStatement = useMutation({
-    mutationFn: () =>
-      apiFetch(`regulatory/investor-statement?investor_id=${investorId}&period_start=${periodStart}&period_end=${periodEnd}`, {
-        method: "POST",
-      }),
+    mutationFn: async () => {
+      const { data, error } = await api.POST(
+        "/api/v1/regulatory/investor-statement",
+        {
+          params: {
+            query: {
+              investor_id: investorId,
+              period_start: periodStart,
+              period_end: periodEnd,
+            },
+          },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => { invalidate(); toast.success("Investor Statement generated"); },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const generateLetter = useMutation({
-    mutationFn: () =>
-      apiFetch(`regulatory/performance-letter?fund_slug=${fundSlug}&period_end=${periodEnd}`, {
-        method: "POST",
-      }),
+    mutationFn: async () => {
+      const { data, error } = await api.POST(
+        "/api/v1/regulatory/performance-letter",
+        {
+          params: { query: { fund_slug: fundSlug, period_end: periodEnd } },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => { invalidate(); toast.success("Performance Letter generated"); },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const anyPending =
@@ -286,7 +319,9 @@ export default function CustomReportsPage() {
             <tbody className="divide-y divide-[var(--table-border)]">
               {filingsLoading && (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-sm text-[var(--muted-foreground)]">Loading...</td>
+                  <td colSpan={5} className="px-3 py-4">
+                    <LoadingSkeleton variant="table-row" rows={4} columns={5} />
+                  </td>
                 </tr>
               )}
               {!filingsLoading && filings.length === 0 && (

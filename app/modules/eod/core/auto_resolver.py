@@ -23,6 +23,13 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger()
 
+# ---------------------------------------------------------------------------
+# Thresholds & limits — extracted from inline magic values
+# ---------------------------------------------------------------------------
+_ROUNDING_THRESHOLD = Decimal("0.005")  # half-penny rounding tolerance
+_CASH_TIMING_THRESHOLD = Decimal("100")  # max cash mismatch for timing auto-resolve
+_BREAK_MAX_AGE_DAYS = 5  # SLA window before auto-escalation
+
 
 class AutoResolutionRule(abc.ABC):
     """A rule that can auto-resolve a break."""
@@ -62,7 +69,7 @@ class RoundingDifferenceRule(AutoResolutionRule):
     name = "rounding_difference"
     description = "Auto-resolve half-penny rounding differences"
 
-    _threshold = Decimal("0.005")
+    _threshold = _ROUNDING_THRESHOLD
 
     def matches(self, break_record: ReconciliationBreakRecord) -> bool:
         return (
@@ -80,7 +87,7 @@ class StaleBreakRule(AutoResolutionRule):
     name = "stale_break"
     description = "Auto-escalate breaks that remain open beyond the SLA window"
 
-    def __init__(self, *, max_age_days: int = 5) -> None:
+    def __init__(self, *, max_age_days: int = _BREAK_MAX_AGE_DAYS) -> None:
         self._max_age_days = max_age_days
 
     def matches(self, break_record: ReconciliationBreakRecord) -> bool:
@@ -125,7 +132,7 @@ class CashTimingRule(AutoResolutionRule):
     name = "cash_timing"
     description = "Auto-resolve small cash mismatches likely caused by settlement timing"
 
-    _threshold = Decimal("100")
+    _threshold = _CASH_TIMING_THRESHOLD
 
     def matches(self, break_record: ReconciliationBreakRecord) -> bool:
         return (

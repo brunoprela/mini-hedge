@@ -31,7 +31,7 @@ class FeeScheduleRepository(BaseRepository):
             result = await session.execute(stmt)
             return result.scalar_one_or_none()
 
-    async def get_all_by_fund(
+    async def list_by_fund(
         self, fund_slug: str, *, session: AsyncSession | None = None
     ) -> list[FeeScheduleRecord]:
         """Get fee schedules for all share classes in a fund."""

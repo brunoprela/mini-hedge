@@ -41,24 +41,24 @@ def _make_session_factory():
 
 class TestFactorDefinitionRepository:
     @pytest.mark.asyncio
-    async def test_create(self):
+    async def test_insert(self):
         sf, mock_session = _make_session_factory()
         repo = FactorDefinitionRepository(sf)
         record = MagicMock(spec=FactorDefinitionRecord)
 
-        await repo.create(record)
+        await repo.insert(record)
 
         mock_session.add.assert_called_once_with(record)
         mock_session.commit.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_create_with_provided_session(self):
+    async def test_insert_with_provided_session(self):
         sf, _ = _make_session_factory()
         repo = FactorDefinitionRepository(sf)
         provided_session = AsyncMock()
         record = MagicMock(spec=FactorDefinitionRecord)
 
-        await repo.create(record, session=provided_session)
+        await repo.insert(record, session=provided_session)
 
         provided_session.add.assert_called_once_with(record)
         provided_session.commit.assert_awaited_once()
@@ -143,23 +143,23 @@ class TestFactorDefinitionRepository:
 
 class TestFactorExposureRepository:
     @pytest.mark.asyncio
-    async def test_save_many(self):
+    async def test_insert_batch(self):
         sf, mock_session = _make_session_factory()
         repo = FactorExposureRepository(sf)
         r1 = MagicMock(spec=FactorExposureRecord)
         r2 = MagicMock(spec=FactorExposureRecord)
 
-        await repo.save_many([r1, r2])
+        await repo.insert_batch([r1, r2])
 
         assert mock_session.add.call_count == 2
         mock_session.commit.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_save_many_empty(self):
+    async def test_insert_batch_empty(self):
         sf, mock_session = _make_session_factory()
         repo = FactorExposureRepository(sf)
 
-        await repo.save_many([])
+        await repo.insert_batch([])
 
         mock_session.add.assert_not_called()
         mock_session.commit.assert_awaited_once()
@@ -187,12 +187,12 @@ class TestFactorExposureRepository:
 
 class TestFactorReturnRepository:
     @pytest.mark.asyncio
-    async def test_save_many(self):
+    async def test_insert_batch(self):
         sf, mock_session = _make_session_factory()
         repo = FactorReturnRepository(sf)
         r1 = MagicMock(spec=FactorReturnRecord)
 
-        await repo.save_many([r1])
+        await repo.insert_batch([r1])
 
         mock_session.add.assert_called_once_with(r1)
         mock_session.commit.assert_awaited_once()
@@ -262,12 +262,12 @@ class TestFactorReturnRepository:
 
 class TestRegimeRepository:
     @pytest.mark.asyncio
-    async def test_save_snapshot(self):
+    async def test_insert_snapshot(self):
         sf, mock_session = _make_session_factory()
         repo = RegimeRepository(sf)
         record = MagicMock(spec=RegimeSnapshotRecord)
 
-        await repo.save_snapshot(record)
+        await repo.insert_snapshot(record)
 
         mock_session.add.assert_called_once_with(record)
         mock_session.commit.assert_awaited_once()

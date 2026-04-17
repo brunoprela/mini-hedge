@@ -46,13 +46,13 @@ def _make_repo(repo_cls):
 # ---------------------------------------------------------------------------
 
 
-class TestAltDataFeedRepoCreateFeed:
+class TestAltDataFeedRepoInsertFeed:
     @pytest.mark.asyncio
     async def test_adds_and_commits(self) -> None:
         repo, session = _make_repo(AltDataFeedRepository)
         record = MagicMock()
 
-        await repo.create_feed(record)
+        await repo.insert_feed(record)
 
         session.add.assert_called_once_with(record)
         session.commit.assert_awaited_once()
@@ -63,7 +63,7 @@ class TestAltDataFeedRepoCreateFeed:
         explicit = _mock_session()
         record = MagicMock()
 
-        await repo.create_feed(record, session=explicit)
+        await repo.insert_feed(record, session=explicit)
 
         explicit.add.assert_called_once_with(record)
         explicit.commit.assert_awaited_once()

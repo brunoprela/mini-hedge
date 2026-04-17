@@ -15,17 +15,11 @@ import { SectionPanel } from "@/shared/components/section-panel";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { usePermission } from "@/shared/hooks/use-permission";
 import { CrossFundSummary } from "@/features/platform/components/cross-fund-summary";
-import { clientFetch } from "@/shared/lib/api";
+import { api, fundHeaders } from "@/shared/lib/api-client";
 import { formatPnL, pnlColorClass } from "@/shared/lib/formatters";
 import { Permission } from "@/shared/lib/permissions";
 
 // ─── Types ──────────────────────────────────────────────────
-
-interface EodRun {
-  id: string;
-  status: string;
-  run_date: string;
-}
 
 interface PositionItem {
   instrument_id: string;
@@ -72,23 +66,26 @@ export function DashboardHome() {
 
   const { data: aggregate } = useQuery({
     queryKey: ["fund-aggregate", fundSlug],
-    queryFn: () =>
-      clientFetch<{
-        total_aum: string;
-        total_realized_pnl: string;
-        total_unrealized_pnl: string;
-        portfolio_count: number;
-        total_positions: number;
-      }>("/portfolios/aggregate", { fundSlug }),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/portfolios/aggregate", {
+        headers: fundHeaders(fundSlug),
+      });
+      if (error) throw error;
+      return data;
+    },
     staleTime: 30_000,
   });
 
   const { data: violations } = useQuery({
     queryKey: ["violations-all", fundSlug],
-    queryFn: () =>
-      clientFetch<
-        { id: string; severity: string; rule_name: string; message: string; portfolio_id: string }[]
-      >("/compliance/violations", { fundSlug }),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/compliance/violations", {
+        params: { query: {} },
+        headers: fundHeaders(fundSlug),
+      });
+      if (error) throw error;
+      return data ?? [];
+    },
     staleTime: 60_000,
     enabled: can(Permission.COMPLIANCE_READ),
   });
@@ -101,15 +98,30 @@ export function DashboardHome() {
 
   const { data: eodRuns } = useQuery({
     queryKey: ["eod-runs", fundSlug],
-    queryFn: () => clientFetch<EodRun[]>("/eod/runs", { fundSlug }),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/eod/history", {
+        headers: fundHeaders(fundSlug),
+      });
+      if (error) throw error;
+      return data ?? [];
+    },
     staleTime: 120_000,
     enabled: can(Permission.RISK_READ),
   });
 
   const { data: positions } = useQuery({
     queryKey: ["positions", fundSlug, firstPortfolioId],
-    queryFn: () =>
-      clientFetch<PositionItem[]>(`/portfolios/${firstPortfolioId}/positions`, { fundSlug }),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/portfolios/{portfolio_id}/positions",
+        {
+          params: { path: { portfolio_id: firstPortfolioId } },
+          headers: fundHeaders(fundSlug),
+        },
+      );
+      if (error) throw error;
+      return (data ?? []) as unknown as PositionItem[];
+    },
     staleTime: 30_000,
     enabled: !!firstPortfolioId,
   });
@@ -177,7 +189,7 @@ export function DashboardHome() {
   }, [aggregate]);
 
   const today = new Date().toISOString().slice(0, 10);
-  const todayEod = eodRuns?.find((r) => r.run_date === today);
+  const todayEod = eodRuns?.find((r) => r.business_date === today);
 
   // Sector donut segments
   const sectorSegments = useMemo(() => {
@@ -694,13 +706,13 @@ export function DashboardHome() {
               <TaskRow
                 label="EOD Process"
                 status={
-                  todayEod?.status === "completed"
-                    ? "complete"
-                    : todayEod?.status === "running"
-                      ? "running"
-                      : todayEod?.status === "failed"
+                  !todayEod
+                    ? "idle"
+                    : todayEod.is_successful
+                      ? "complete"
+                      : todayEod.completed_at
                         ? "failed"
-                        : "idle"
+                        : "running"
                 }
                 href={`/${fundSlug}/eod`}
               />

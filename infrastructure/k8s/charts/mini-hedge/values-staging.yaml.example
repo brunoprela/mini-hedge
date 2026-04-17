@@ -1,0 +1,106 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGING overrides (example). Intentionally smaller than production — one
+# node pool, HPA floor of 1, no strict PDB.
+# ─────────────────────────────────────────────────────────────────────────────
+
+global:
+  environment: staging
+  imageRegistry: ghcr.io/YOUR-ORG/mini-hedge  # <— set me
+  imagePullSecrets:
+    - name: ghcr-credentials
+  domain: staging.minihedge.example.com
+
+backend:
+  autoscaling:
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 75
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 768Mi
+  podDisruptionBudget:
+    minAvailable: 1
+
+  config:
+    LOG_LEVEL: DEBUG
+    LOG_FORMAT: json
+    CORS_ORIGINS: "https://desk.staging.minihedge.example.com,https://ops.staging.minihedge.example.com,https://client.staging.minihedge.example.com"
+    KAFKA_BOOTSTRAP_SERVERS: "mini-hedge-kafka-bootstrap.data.svc.cluster.local:9093"
+    OPENFGA_URL: "http://openfga.auth.svc.cluster.local:8080"
+    KEYCLOAK_URL: "https://auth.staging.minihedge.example.com"
+    KEYCLOAK_REALM: minihedge
+    REDIS_URL: "redis://mini-hedge-redis-master.data.svc.cluster.local:6379/0"
+
+  secrets:
+    appSecretName: mini-hedge-app
+    externalSecret:
+      enabled: true
+      secretStoreRef:
+        kind: ClusterSecretStore
+        name: vault-backend
+      refreshInterval: 1h
+      dataFrom:
+        - extract:
+            key: secret/data/mini-hedge/staging/app
+
+  ingress:
+    host: api.staging.minihedge.example.com
+    tls:
+      enabled: true
+      secretName: mini-hedge-api-tls
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-staging
+
+  serviceMonitor:
+    enabled: true
+
+uis:
+  defaults:
+    replicaCount: 1
+    autoscaling:
+      minReplicas: 1
+      maxReplicas: 3
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+    podDisruptionBudget:
+      enabled: false  # staging can tolerate full restarts
+
+  desk:
+    host: desk.staging.minihedge.example.com
+    tlsSecretName: mini-hedge-desk-tls
+    env:
+      NEXT_PUBLIC_API_BASE_URL: "https://api.staging.minihedge.example.com"
+      NEXT_PUBLIC_KEYCLOAK_URL: "https://auth.staging.minihedge.example.com"
+      NEXT_PUBLIC_KEYCLOAK_REALM: minihedge
+      NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: desk-ui
+
+  ops:
+    host: ops.staging.minihedge.example.com
+    tlsSecretName: mini-hedge-ops-tls
+    env:
+      NEXT_PUBLIC_API_BASE_URL: "https://api.staging.minihedge.example.com"
+      NEXT_PUBLIC_KEYCLOAK_URL: "https://auth.staging.minihedge.example.com"
+      NEXT_PUBLIC_KEYCLOAK_REALM: minihedge
+      NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: ops-ui
+      PORT: "3100"
+
+  client:
+    host: client.staging.minihedge.example.com
+    tlsSecretName: mini-hedge-client-tls
+    env:
+      NEXT_PUBLIC_API_BASE_URL: "https://api.staging.minihedge.example.com"
+      NEXT_PUBLIC_KEYCLOAK_URL: "https://auth.staging.minihedge.example.com"
+      NEXT_PUBLIC_KEYCLOAK_REALM: minihedge
+      NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: client-ui
+
+networkPolicy:
+  enabled: false

@@ -43,7 +43,7 @@ class AnthropicLLMAdapter:
             "messages": [{"role": "user", "content": prompt}],
         }
 
-        async with httpx.AsyncClient(timeout=120) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=2.0)) as client:
             resp = await client.post(url, json=payload, headers=headers)
             resp.raise_for_status()
             data = resp.json()

@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 class AltDataFeedRepository(BaseRepository):
     """CRUD operations for alternative data feeds."""
 
-    async def create_feed(
+    async def insert_feed(
         self, record: AltDataFeedRecord, *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as s:

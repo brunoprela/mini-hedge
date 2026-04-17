@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class LiquidityRepository(BaseRepository):
-    async def save_liquidity_profile(
+    async def insert_liquidity_profile(
         self, record: LiquidityProfileRecord, *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as session:

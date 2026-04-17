@@ -4,11 +4,10 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Play } from "lucide-react";
-import { ErrorState } from "@/shared/components/error-state";
+import { ErrorState, TableSkeleton } from "@mini-hedge/ui";
 import { FundPortfolioPicker } from "@/shared/components/fund-portfolio-picker";
-import { StatusBadge } from "@/shared/components/status-badge";
-import { apiFetch } from "@/shared/lib/api";
-import type { EODRunSummary } from "@/shared/types";
+import { StatusBadge } from "@mini-hedge/ui";
+import { api, fundHeaders } from "@/shared/lib/api-client";
 
 function formatDuration(
   startedAt: string,
@@ -43,16 +42,26 @@ export default function EODControlCenterPage() {
 
   const history = useQuery({
     queryKey: ["eod", "history", fundSlug],
-    queryFn: () =>
-      apiFetch<EODRunSummary[]>(
-        `eod/history?fund_slug=${encodeURIComponent(fundSlug)}&limit=20`,
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/eod/history", {
+        params: { query: { limit: 20 } },
+        headers: fundHeaders(fundSlug),
+      });
+      if (error) throw error;
+      return data;
+    },
     enabled: !!fundSlug,
   });
 
   const runEod = useMutation({
-    mutationFn: (data: { fund_slug: string; business_date: string }) =>
-      apiFetch("eod/run", { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: async (data: { fund_slug: string; business_date: string }) => {
+      const { data: result, error } = await api.POST("/api/v1/eod/run", {
+        body: { business_date: data.business_date },
+        headers: fundHeaders(data.fund_slug),
+      });
+      if (error) throw error;
+      return result;
+    },
     onSuccess: () => {
       toast.success("EOD run triggered");
       queryClient.invalidateQueries({ queryKey: ["eod"] });
@@ -153,9 +162,7 @@ export default function EODControlCenterPage() {
 
           {/* History table */}
           {history.isLoading ? (
-            <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
-              Loading...
-            </p>
+            <TableSkeleton rows={5} columns={5} />
           ) : history.isError ? (
             <ErrorState
               message="Failed to load EOD history"

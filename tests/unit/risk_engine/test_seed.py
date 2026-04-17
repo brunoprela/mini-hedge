@@ -66,7 +66,7 @@ class TestSeedDevData:
         # Setup mock counterparty repo
         cpty_repo = AsyncMock()
         cpty_repo.list_counterparties.return_value = []  # no existing
-        cpty_repo.save_counterparty = AsyncMock()
+        cpty_repo.insert_counterparty = AsyncMock()
 
         counterparty_service = MagicMock()
         counterparty_service._counterparty_repo = cpty_repo
@@ -74,7 +74,7 @@ class TestSeedDevData:
         # Setup mock snapshot repo
         snapshot_repo = AsyncMock()
         snapshot_repo.get_latest_snapshot.return_value = None
-        snapshot_repo.save_snapshot = AsyncMock()
+        snapshot_repo.insert_snapshot = AsyncMock()
 
         risk_service = MagicMock()
         risk_service._snapshot_repo = snapshot_repo
@@ -89,7 +89,7 @@ class TestSeedDevData:
         portfolio.name = "Equity L/S Portfolio"
 
         fund_repo = AsyncMock()
-        fund_repo.get_all_active.return_value = [fund]
+        fund_repo.list_active.return_value = [fund]
 
         portfolio_repo = AsyncMock()
         portfolio_repo.get_by_fund.return_value = [portfolio]
@@ -105,9 +105,9 @@ class TestSeedDevData:
         await seed_dev_data(app, sf)
 
         # Should have saved 4 counterparties
-        assert cpty_repo.save_counterparty.call_count == 4
+        assert cpty_repo.insert_counterparty.call_count == 4
         # Should have saved 5 snapshots (5 days of history for 1 portfolio)
-        assert snapshot_repo.save_snapshot.call_count == 5
+        assert snapshot_repo.insert_snapshot.call_count == 5
 
     async def test_skips_existing_counterparties(self) -> None:
         from app.modules.risk_engine.seed import _COUNTERPARTIES
@@ -116,7 +116,7 @@ class TestSeedDevData:
         existing = [MagicMock(id=c.id) for c in _COUNTERPARTIES]
         cpty_repo = AsyncMock()
         cpty_repo.list_counterparties.return_value = existing
-        cpty_repo.save_counterparty = AsyncMock()
+        cpty_repo.insert_counterparty = AsyncMock()
 
         counterparty_service = MagicMock()
         counterparty_service._counterparty_repo = cpty_repo
@@ -136,7 +136,7 @@ class TestSeedDevData:
         portfolio.name = "Global Macro"
 
         fund_repo = AsyncMock()
-        fund_repo.get_all_active.return_value = [fund]
+        fund_repo.list_active.return_value = [fund]
 
         portfolio_repo = AsyncMock()
         portfolio_repo.get_by_fund.return_value = [portfolio]
@@ -152,6 +152,6 @@ class TestSeedDevData:
         await seed_dev_data(app, sf)
 
         # No new counterparties saved
-        cpty_repo.save_counterparty.assert_not_called()
+        cpty_repo.insert_counterparty.assert_not_called()
         # No new snapshots saved (existing snapshot found)
-        snapshot_repo.save_snapshot.assert_not_called()
+        snapshot_repo.insert_snapshot.assert_not_called()

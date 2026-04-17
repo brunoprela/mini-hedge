@@ -3,31 +3,37 @@
 import { useQuery } from "@tanstack/react-query";
 import { FileText } from "lucide-react";
 import { useState } from "react";
-import { EmptyState } from "@/shared/components/empty-state";
-import { ErrorState } from "@/shared/components/error-state";
-import { TableSkeleton } from "@/shared/components/loading-skeleton";
-import { Pagination } from "@/shared/components/pagination";
+import { EmptyState } from "@mini-hedge/ui";
+import { ErrorState } from "@mini-hedge/ui";
+import { TableSkeleton } from "@mini-hedge/ui";
+import { Pagination } from "@mini-hedge/ui";
 import { PayloadCell } from "@/shared/components/payload-cell";
-import { StatusBadge } from "@/shared/components/status-badge";
-import { apiFetch } from "@/shared/lib/api";
+import { StatusBadge } from "@mini-hedge/ui";
+import { api } from "@/shared/lib/api-client";
 import { eventCategory } from "@/shared/lib/audit-utils";
 import { PAGE_SIZE } from "@/shared/lib/constants";
-import type { AuditEntry, Page } from "@/shared/types";
 
 export default function AuditPage() {
   const [fundSlug, setFundSlug] = useState("");
   const [eventType, setEventType] = useState("");
   const [page, setPage] = useState(0);
 
-  const params = new URLSearchParams();
-  if (fundSlug) params.set("fund_slug", fundSlug);
-  if (eventType) params.set("event_type", eventType);
-  params.set("limit", String(PAGE_SIZE));
-  params.set("offset", String(page * PAGE_SIZE));
-
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["admin", "audit", fundSlug, eventType, page],
-    queryFn: () => apiFetch<Page<AuditEntry>>(`admin/audit?${params.toString()}`),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/admin/audit", {
+        params: {
+          query: {
+            fund_slug: fundSlug || undefined,
+            event_type: eventType || undefined,
+            limit: PAGE_SIZE,
+            offset: page * PAGE_SIZE,
+          },
+        },
+      });
+      if (error) throw error;
+      return data;
+    },
   });
 
   return (

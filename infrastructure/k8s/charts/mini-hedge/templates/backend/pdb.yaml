@@ -1,0 +1,13 @@
+{{- if and .Values.backend.enabled .Values.backend.podDisruptionBudget.enabled -}}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "mini-hedge.backend.fullname" . }}
+  labels:
+    {{- include "mini-hedge.backend.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.backend.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "mini-hedge.backend.selectorLabels" . | nindent 6 }}
+{{- end }}

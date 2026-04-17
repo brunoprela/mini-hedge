@@ -78,16 +78,16 @@ class TestGetByActionId:
         explicit_session.execute.assert_called_once()
 
 
-class TestSave:
+class TestInsert:
     @pytest.mark.asyncio
-    async def test_saves_and_returns_record(self):
+    async def test_inserts_and_returns_record(self):
         sf, mock_session = _make_session_factory()
         repo = CorporateActionsRepository(sf)
 
         record = MagicMock(spec=ProcessedCorporateActionRecord)
         mock_session.refresh = AsyncMock()
 
-        result = await repo.save(record)
+        result = await repo.insert(record)
 
         assert result is record
         mock_session.add.assert_called_once_with(record)

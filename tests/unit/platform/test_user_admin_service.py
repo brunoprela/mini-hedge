@@ -33,7 +33,7 @@ def _make_service(
     existing_user: MagicMock | None = None,
 ) -> tuple[UserAdminService, AsyncMock, AsyncMock]:
     user_repo = AsyncMock()
-    user_repo.get_all_paginated = AsyncMock(return_value=([], 0))
+    user_repo.list_paginated = AsyncMock(return_value=([], 0))
     user_repo.get_by_email = AsyncMock(return_value=existing_user)
     user_repo.get_by_id = AsyncMock(return_value=None)
     async def _insert_with_id(record, **kw):
@@ -55,7 +55,7 @@ class TestListUsers:
     async def test_returns_paginated(self) -> None:
         svc, user_repo, _ = _make_service()
         records = [_make_user_record("u1", "a@x.com", "A"), _make_user_record("u2", "b@x.com", "B")]
-        user_repo.get_all_paginated = AsyncMock(return_value=(records, 2))
+        user_repo.list_paginated = AsyncMock(return_value=(records, 2))
 
         result = await svc.list_users(limit=50, offset=0)
 

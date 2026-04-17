@@ -1,19 +1,21 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ErrorState } from "@/shared/components/error-state";
+import { ErrorState, TableSkeleton } from "@mini-hedge/ui";
 import { PayloadCell } from "@/shared/components/payload-cell";
-import { StatusBadge } from "@/shared/components/status-badge";
-import { apiFetch } from "@/shared/lib/api";
-import type { AuditEntry, Page } from "@/shared/types";
+import { StatusBadge } from "@mini-hedge/ui";
+import { api } from "@/shared/lib/api-client";
 
 export default function SignOffPage() {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["sign-off"],
-    queryFn: () =>
-      apiFetch<Page<AuditEntry>>(
-        "admin/audit?event_type=SIGN_OFF&limit=50",
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/admin/audit", {
+        params: { query: { event_type: "SIGN_OFF", limit: 50 } },
+      });
+      if (error) throw error;
+      return data;
+    },
   });
 
   const rows = data?.items ?? [];
@@ -22,11 +24,7 @@ export default function SignOffPage() {
     <div>
       <h2 className="mb-6 text-xl font-semibold">Sign-Off Records</h2>
 
-      {isLoading && (
-        <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
-          Loading...
-        </p>
-      )}
+      {isLoading && <TableSkeleton rows={6} columns={5} />}
 
       {isError && <ErrorState message={error.message} onRetry={refetch} />}
 

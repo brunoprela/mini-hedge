@@ -48,11 +48,11 @@ class SecurityMasterService:
     def __init__(
         self,
         *,
-        repository: InstrumentRepository,
+        instrument_repo: InstrumentRepository,
         identifier_repo: IdentifierRepository | None = None,
         event_bus: EventBus | None = None,
     ) -> None:
-        self._instrument_repo = repository
+        self._instrument_repo = instrument_repo
         self._identifier_repo = identifier_repo
         self._event_bus = event_bus
 
@@ -72,13 +72,13 @@ class SecurityMasterService:
             raise NotFoundError("Instrument", ticker)
         return _to_instrument(record)
 
-    async def get_all_active(
+    async def list_active(
         self,
         asset_class: AssetClass | None = None,
         *,
         session: AsyncSession | None = None,
     ) -> list[Instrument]:
-        records = await self._instrument_repo.get_all_active(asset_class, session=session)
+        records = await self._instrument_repo.list_active(asset_class, session=session)
         return [_to_instrument(r) for r in records]
 
     async def search(

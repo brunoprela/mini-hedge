@@ -42,7 +42,7 @@ class MarkToMarketHandler:
         self,
         *,
         session_factory: TenantSessionFactory,
-        event_bus: EventBus,
+        event_bus: EventBus | None = None,
         get_fund_slugs: Callable[[], Awaitable[list[str]]],
         get_asset_class: Callable[[str], Awaitable[AssetClass | None]],
     ) -> None:
@@ -138,13 +138,14 @@ class MarkToMarketHandler:
                 topic = fund_topic(fund_slug, "pnl.updated")
                 data = asdict(mtm_event.data)
                 serialized_data = {k: str(v) for k, v in data.items()}
-                await self._event_bus.publish(
-                    topic,
-                    BaseEvent(
-                        event_type=mtm_event.event_type,
-                        data=serialized_data,
-                        actor_id="system",
-                        actor_type="system",
-                        fund_slug=fund_slug,
-                    ),
-                )
+                if self._event_bus:
+                    await self._event_bus.publish(
+                        topic,
+                        BaseEvent(
+                            event_type=mtm_event.event_type,
+                            data=serialized_data,
+                            actor_id="system",
+                            actor_type="system",
+                            fund_slug=fund_slug,
+                        ),
+                    )

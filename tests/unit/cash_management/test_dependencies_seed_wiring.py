@@ -131,7 +131,7 @@ class TestSeedDevData:
         fund.id = str(uuid4())
         fund.slug = "alpha"
         fund_repo = AsyncMock()
-        fund_repo.get_all_active.return_value = [fund]
+        fund_repo.list_active.return_value = [fund]
 
         portfolio = MagicMock()
         portfolio.id = str(uuid4())
@@ -146,8 +146,8 @@ class TestSeedDevData:
         sf = MagicMock()
         await seed_dev_data(app, sf)
 
-        # Should have credited 3 currencies (USD, EUR, GBP)
-        assert cash_service.credit.call_count == 3
+        # Should have credited 2 currencies (EUR, GBP — USD is seeded elsewhere)
+        assert cash_service.credit.call_count == 2
 
     async def test_skips_portfolios_with_existing_balances(self):
         """seed_dev_data skips portfolios that already have balances."""
@@ -159,7 +159,7 @@ class TestSeedDevData:
         fund = MagicMock()
         fund.id = str(uuid4())
         fund_repo = AsyncMock()
-        fund_repo.get_all_active.return_value = [fund]
+        fund_repo.list_active.return_value = [fund]
 
         portfolio = MagicMock()
         portfolio.id = str(uuid4())
@@ -202,7 +202,7 @@ class TestWiringSetup:
         fund = MagicMock()
         fund.slug = "alpha"
         fund_repo = AsyncMock()
-        fund_repo.get_all_active.return_value = [fund]
+        fund_repo.list_active.return_value = [fund]
 
         with patch.dict("os.environ", {"APP_ENV": "test"}):
             await setup(app, sf, event_bus=event_bus, fund_repo=fund_repo)
@@ -226,7 +226,7 @@ class TestWiringSetup:
         event_bus = MagicMock()
 
         fund_repo = AsyncMock()
-        fund_repo.get_all_active.return_value = []
+        fund_repo.list_active.return_value = []
 
         with (
             patch.dict("os.environ", {"APP_ENV": "local"}),

@@ -43,34 +43,34 @@ def _make_repo(repo_cls):
 
 class TestOptimizationRunRepository:
     @pytest.mark.asyncio
-    async def test_save_adds_and_commits(self) -> None:
+    async def test_insert_adds_and_commits(self) -> None:
         repo, session = _make_repo(OptimizationRunRepository)
         record = MagicMock()
 
-        await repo.save(record)
+        await repo.insert(record)
 
         session.add.assert_called_once_with(record)
         session.commit.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_save_with_explicit_session(self) -> None:
+    async def test_insert_with_explicit_session(self) -> None:
         repo, _ = _make_repo(OptimizationRunRepository)
         explicit = _mock_session()
         record = MagicMock()
 
-        await repo.save(record, session=explicit)
+        await repo.insert(record, session=explicit)
 
         explicit.add.assert_called_once_with(record)
         explicit.commit.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_get_many(self) -> None:
+    async def test_list_by_portfolio(self) -> None:
         repo, session = _make_repo(OptimizationRunRepository)
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = ["run1", "run2"]
         session.execute = AsyncMock(return_value=mock_result)
 
-        rows = await repo.get_many(uuid4(), limit=10)
+        rows = await repo.list_by_portfolio(uuid4(), limit=10)
 
         assert rows == ["run1", "run2"]
         session.execute.assert_awaited_once()
@@ -106,20 +106,20 @@ class TestOptimizationRunRepository:
 
 class TestOptimizationWeightRepository:
     @pytest.mark.asyncio
-    async def test_save_many(self) -> None:
+    async def test_insert_batch(self) -> None:
         repo, session = _make_repo(OptimizationWeightRepository)
         records = [MagicMock(), MagicMock(), MagicMock()]
 
-        await repo.save_many(records)
+        await repo.insert_batch(records)
 
         assert session.add.call_count == 3
         session.commit.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_save_many_empty(self) -> None:
+    async def test_insert_batch_empty(self) -> None:
         repo, session = _make_repo(OptimizationWeightRepository)
 
-        await repo.save_many([])
+        await repo.insert_batch([])
 
         session.add.assert_not_called()
         session.commit.assert_awaited_once()
@@ -144,11 +144,11 @@ class TestOptimizationWeightRepository:
 
 class TestOrderIntentRepository:
     @pytest.mark.asyncio
-    async def test_save_many(self) -> None:
+    async def test_insert_batch(self) -> None:
         repo, session = _make_repo(OrderIntentRepository)
         records = [MagicMock(), MagicMock()]
 
-        await repo.save_many(records)
+        await repo.insert_batch(records)
 
         assert session.add.call_count == 2
         session.commit.assert_awaited_once()
@@ -195,23 +195,23 @@ class TestOrderIntentRepository:
 
 class TestScenarioRunRepository:
     @pytest.mark.asyncio
-    async def test_save_adds_and_commits(self) -> None:
+    async def test_insert_adds_and_commits(self) -> None:
         repo, session = _make_repo(ScenarioRunRepository)
         record = MagicMock()
 
-        await repo.save(record)
+        await repo.insert(record)
 
         session.add.assert_called_once_with(record)
         session.commit.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_get_many(self) -> None:
+    async def test_list_by_portfolio(self) -> None:
         repo, session = _make_repo(ScenarioRunRepository)
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = ["s1", "s2"]
         session.execute = AsyncMock(return_value=mock_result)
 
-        rows = await repo.get_many(uuid4(), limit=5)
+        rows = await repo.list_by_portfolio(uuid4(), limit=5)
 
         assert rows == ["s1", "s2"]
         session.execute.assert_awaited_once()

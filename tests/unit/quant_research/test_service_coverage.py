@@ -106,13 +106,13 @@ def _make_service(
 
 
 def _patch_record_id(repo_mock: AsyncMock) -> None:
-    """Make the repo.create call set a valid id on the record."""
+    """Make the repo.insert call set a valid id on the record."""
 
-    async def _create_side_effect(record, **kwargs):
+    async def _insert_side_effect(record, **kwargs):
         if record.id is None:
             record.id = str(uuid4())
 
-    repo_mock.create.side_effect = _create_side_effect
+    repo_mock.insert.side_effect = _insert_side_effect
 
 
 class TestCreateFactor:
@@ -135,7 +135,7 @@ class TestCreateFactor:
         assert result.formula == "ret(252) - ret(21)"
         assert result.parameters == {"lookback": 252}
         assert result.is_active is True
-        factor_def_repo.create.assert_called_once()
+        factor_def_repo.insert.assert_called_once()
 
     async def test_create_factor_defaults_optional_fields(self):
         factor_def_repo = AsyncMock()

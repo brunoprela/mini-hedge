@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class ResearchNoteRepository(BaseRepository):
     """Repository for research notes."""
 
-    async def save_note(
+    async def insert_note(
         self, record: ResearchNoteRecord, *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as s:

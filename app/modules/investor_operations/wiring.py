@@ -10,6 +10,7 @@ import structlog
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
+    from app.shared.adapters.kyc import KYCScreeningAdapter
     from app.shared.database import TenantSessionFactory
     from app.shared.events import EventBus
 
@@ -22,10 +23,16 @@ async def setup(
     *,
     event_bus: EventBus | None = None,
     settings=None,
+    kyc_adapter: KYCScreeningAdapter | None = None,
     **ctx,
 ) -> None:
-    """Wire investor operations module: repos, KYC adapter, services."""
-    from app.adapters.factory import build_kyc_screening_adapter
+    """Wire investor operations module: repos, KYC adapter, services.
+
+    The KYC screening adapter is injected by the application composition
+    root (``app.main``) via ``setup_all`` — the module depends on the
+    ``KYCScreeningAdapter`` Protocol in ``app.shared.adapters.kyc`` and
+    has no knowledge of concrete implementations in ``app.adapters``.
+    """
     from app.modules.investor_operations.repositories.fund_terms import FundTermsRepository
     from app.modules.investor_operations.repositories.kyc import InvestorKYCRepository
     from app.modules.investor_operations.repositories.redemption import (
@@ -40,12 +47,15 @@ async def setup(
         SubscriptionService,
     )
 
+    if kyc_adapter is None:
+        msg = "investor_operations requires a KYCScreeningAdapter (inject via setup_all)"
+        raise RuntimeError(msg)
+
     sub_repo = SubscriptionRequestRepository(sf)
     red_repo = RedemptionRequestRepository(sf)
     terms_repo = FundTermsRepository(sf)
     kyc_repo = InvestorKYCRepository(sf)
 
-    kyc_adapter = build_kyc_screening_adapter(settings)
     capital_service = app.state.capital_transaction_service
 
     subscription_service = SubscriptionService(

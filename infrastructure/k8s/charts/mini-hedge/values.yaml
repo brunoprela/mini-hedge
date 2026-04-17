@@ -1,0 +1,359 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# mini-hedge umbrella chart — default values.
+#
+# Override per environment via:
+#   helm upgrade mini-hedge . -f values-staging.yaml
+#   helm upgrade mini-hedge . -f values-production.yaml
+#
+# The chart assumes external Postgres, Kafka, Keycloak, OpenFGA, Redis, and
+# Prometheus/Grafana — only their hostnames/secrets are referenced here.
+# ─────────────────────────────────────────────────────────────────────────────
+
+global:
+  # Default image registry (override in prod to a private registry).
+  imageRegistry: ghcr.io/mini-hedge
+  imagePullSecrets: []
+  # e.g. [{name: ghcr-credentials}]
+
+  # Cluster-wide environment tag surfaced via ENV vars + labels.
+  environment: development
+
+  # Namespace is set via --namespace on the helm install command,
+  # so we don't hard-code it.
+
+  # DNS suffix for external hostnames — overridden per env.
+  domain: minihedge.local
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Backend — FastAPI app
+# ─────────────────────────────────────────────────────────────────────────────
+backend:
+  enabled: true
+
+  image:
+    repository: mini-hedge-app
+    tag: ""  # defaults to Chart.appVersion when empty
+    pullPolicy: IfNotPresent
+
+  replicaCount: 2
+
+  # Gunicorn + uvicorn workers: `(2 * CPU) + 1` rule of thumb.
+  # Keep workers modest so HPA can scale out horizontally.
+  command:
+    - uv
+    - run
+    - gunicorn
+    - app.main:app
+    - -k
+    - uvicorn.workers.UvicornWorker
+    - -w
+    - "4"
+    - -b
+    - 0.0.0.0:8000
+    - --access-logfile
+    - "-"
+    - --error-logfile
+    - "-"
+    - --timeout
+    - "60"
+    - --graceful-timeout
+    - "30"
+    - --keep-alive
+    - "5"
+
+  service:
+    type: ClusterIP
+    port: 8000
+
+  # Conservative startup defaults for a small-to-mid fund admin platform.
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 1Gi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  probes:
+    liveness:
+      path: /health
+      initialDelaySeconds: 30
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readiness:
+      path: /health/ready
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    startup:
+      path: /health
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      failureThreshold: 30  # allows up to 150s to start
+
+  # Non-secret configuration — goes into a ConfigMap.
+  config:
+    LOG_LEVEL: INFO
+    LOG_FORMAT: json
+    # CORS is origin-list at the app layer.
+    CORS_ORIGINS: "https://desk.minihedge.local,https://ops.minihedge.local,https://client.minihedge.local"
+    # External dependency hostnames — the values below are sensible in-cluster
+    # defaults assuming operator-managed services in the `data` namespace.
+    KAFKA_BOOTSTRAP_SERVERS: "kafka-bootstrap.data.svc.cluster.local:9092"
+    OPENFGA_URL: "http://openfga.auth.svc.cluster.local:8080"
+    KEYCLOAK_URL: "http://keycloak.auth.svc.cluster.local:8080"
+    KEYCLOAK_REALM: minihedge
+    REDIS_URL: "redis://redis-master.data.svc.cluster.local:6379/0"
+
+  # Secret names referenced by the Deployment — must exist in the namespace
+  # before `helm upgrade`. Create via SealedSecrets, ExternalSecrets, or
+  # `kubectl create secret`.
+  #
+  # Keys expected in the `app` secret:
+  #   DATABASE_URL, DATABASE_READ_URL, KEYCLOAK_CLIENT_SECRET,
+  #   OPENFGA_STORE_ID, OPENFGA_AUTH_MODEL_ID, JWT_SECRET,
+  #   SENTRY_DSN (optional)
+  secrets:
+    appSecretName: mini-hedge-app
+    # Optional: use external-secrets.io instead of a raw Secret.
+    externalSecret:
+      enabled: false
+      secretStoreRef:
+        kind: ClusterSecretStore
+        name: vault-backend
+      refreshInterval: 1h
+      dataFrom: []
+      # e.g.
+      # dataFrom:
+      #   - extract:
+      #       key: secret/data/mini-hedge/app
+
+  # Pod-level security. Defaults to non-root, read-only root FS.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
+
+  # tmp volumes (because readOnlyRootFilesystem=true)
+  extraVolumes:
+    - name: tmp
+      emptyDir: {}
+  extraVolumeMounts:
+    - name: tmp
+      mountPath: /tmp
+
+  nodeSelector: {}
+  tolerations: []
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: mini-hedge
+                app.kubernetes.io/component: backend
+            topologyKey: kubernetes.io/hostname
+
+  ingress:
+    enabled: true
+    className: traefik
+    host: api.minihedge.local
+    tls:
+      enabled: true
+      secretName: mini-hedge-api-tls
+    # Use Traefik IngressRoute when true; otherwise standard Ingress.
+    useIngressRoute: true
+    annotations: {}
+
+  serviceMonitor:
+    # For kube-prometheus-stack scraping. Harmless if Prometheus Operator
+    # CRDs are absent (template gated on .Values.backend.serviceMonitor.enabled).
+    enabled: false
+    interval: 30s
+    path: /metrics
+
+# ─────────────────────────────────────────────────────────────────────────────
+# UIs — Next.js standalone output
+# ─────────────────────────────────────────────────────────────────────────────
+uis:
+  # Shared defaults — each ui below can override.
+  defaults:
+    replicaCount: 2
+    image:
+      pullPolicy: IfNotPresent
+    service:
+      type: ClusterIP
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 6
+      targetCPUUtilizationPercentage: 70
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 1
+    probes:
+      liveness:
+        path: /
+        initialDelaySeconds: 15
+        periodSeconds: 15
+      readiness:
+        path: /
+        initialDelaySeconds: 5
+        periodSeconds: 10
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 1001
+      runAsGroup: 1001
+      fsGroup: 1001
+      seccompProfile:
+        type: RuntimeDefault
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop: ["ALL"]
+    extraVolumes:
+      - name: tmp
+        emptyDir: {}
+      - name: nextjs-cache
+        emptyDir: {}
+    extraVolumeMounts:
+      - name: tmp
+        mountPath: /tmp
+      - name: nextjs-cache
+        mountPath: /app/.next/cache
+    ingress:
+      enabled: true
+      className: traefik
+      useIngressRoute: true
+      tls:
+        enabled: true
+
+  desk:
+    enabled: true
+    name: desk-ui
+    image:
+      repository: mini-hedge-desk-ui
+      tag: ""
+    containerPort: 3000
+    servicePort: 80
+    host: desk.minihedge.local
+    tlsSecretName: mini-hedge-desk-tls
+    env:
+      NEXT_PUBLIC_API_BASE_URL: "https://api.minihedge.local"
+      NEXT_PUBLIC_KEYCLOAK_URL: "https://auth.minihedge.local"
+      NEXT_PUBLIC_KEYCLOAK_REALM: minihedge
+      NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: desk-ui
+
+  ops:
+    enabled: true
+    name: ops-ui
+    image:
+      repository: mini-hedge-ops-ui
+      tag: ""
+    containerPort: 3100
+    servicePort: 80
+    host: ops.minihedge.local
+    tlsSecretName: mini-hedge-ops-tls
+    env:
+      NEXT_PUBLIC_API_BASE_URL: "https://api.minihedge.local"
+      NEXT_PUBLIC_KEYCLOAK_URL: "https://auth.minihedge.local"
+      NEXT_PUBLIC_KEYCLOAK_REALM: minihedge
+      NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: ops-ui
+      PORT: "3100"
+
+  client:
+    enabled: true
+    name: client-ui
+    image:
+      repository: mini-hedge-client-ui
+      tag: ""
+    containerPort: 3000
+    servicePort: 80
+    host: client.minihedge.local
+    tlsSecretName: mini-hedge-client-tls
+    env:
+      NEXT_PUBLIC_API_BASE_URL: "https://api.minihedge.local"
+      NEXT_PUBLIC_KEYCLOAK_URL: "https://auth.minihedge.local"
+      NEXT_PUBLIC_KEYCLOAK_REALM: minihedge
+      NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: client-ui
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Migrations — pre-install/pre-upgrade Helm hook Job
+# ─────────────────────────────────────────────────────────────────────────────
+migrations:
+  enabled: true
+  # Reuses the backend image — it already has alembic + the migrations.
+  image:
+    repository: mini-hedge-app
+    tag: ""
+    pullPolicy: IfNotPresent
+  command:
+    - uv
+    - run
+    - alembic
+    - upgrade
+    - head
+  # Migrations must not be disruptive — keep them resource-bounded.
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  # Hard limits: migrations should be fast. If they exceed this, something
+  # is wrong — fail loud rather than retry.
+  activeDeadlineSeconds: 600
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 3600
+  # `helm.sh/hook-weight` — lower runs first. Keep at 0 so migrations run
+  # before any other hooks.
+  hookWeight: 0
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ServiceAccount
+# ─────────────────────────────────────────────────────────────────────────────
+serviceAccount:
+  create: true
+  name: ""  # defaults to chart fullname
+  annotations: {}
+  # For cloud-native workload identity (e.g. IRSA on EKS) override here:
+  # annotations:
+  #   eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/mini-hedge
+
+# ─────────────────────────────────────────────────────────────────────────────
+# NetworkPolicy — deny-by-default, allow specific ingress/egress
+# ─────────────────────────────────────────────────────────────────────────────
+networkPolicy:
+  enabled: false  # opt-in; many clusters aren't yet NP-capable

@@ -48,11 +48,11 @@ def _make_service(
     snapshot_repo = AsyncMock()
     snapshot_repo.get_latest_snapshot.return_value = None
 
-    async def _save_snapshot(record, *, session=None):
+    async def _insert_snapshot(record, *, session=None):
         if record.id is None:
             record.id = uuid4()
 
-    snapshot_repo.save_snapshot.side_effect = _save_snapshot
+    snapshot_repo.insert_snapshot.side_effect = _insert_snapshot
 
     var_result_repo = AsyncMock()
     var_contribution_repo = AsyncMock()
@@ -66,7 +66,7 @@ def _make_service(
     market_data_service = AsyncMock()
 
     security_master_service = AsyncMock()
-    security_master_service.get_all_active.return_value = instruments or [
+    security_master_service.list_active.return_value = instruments or [
         _mock_instrument("AAPL", "Technology"),
         _mock_instrument("JNJ", "Healthcare"),
     ]

@@ -155,25 +155,24 @@ class TestConvertToBase:
 
 
 class TestCreateSettlementEdgeCases:
-    async def test_security_lookup_failure_defaults_to_us(self):
-        """When security_master raises, country defaults to US."""
+    async def test_security_lookup_failure_raises_value_error(self):
+        """When security_master raises, a ValueError is raised (no silent default)."""
         sm = AsyncMock()
         sm.get_by_ticker.side_effect = RuntimeError("not found")
         settlement_repo = AsyncMock()
         svc = _make_service(security_master_service=sm, settlement_repo=settlement_repo)
 
-        await svc.create_settlement(
-            portfolio_id=uuid4(),
-            order_id=uuid4(),
-            instrument_id="UNKNOWN",
-            currency="USD",
-            amount=Decimal("-1000"),
-            trade_date=date(2024, 1, 8),  # Monday
-        )
+        with pytest.raises(RuntimeError, match="not found"):
+            await svc.create_settlement(
+                portfolio_id=uuid4(),
+                order_id=uuid4(),
+                instrument_id="UNKNOWN",
+                currency="USD",
+                amount=Decimal("-1000"),
+                trade_date=date(2024, 1, 8),  # Monday
+            )
 
-        record = settlement_repo.insert.call_args[0][0]
-        # US T+1: Monday -> Tuesday
-        assert record.settlement_date == date(2024, 1, 9)
+        settlement_repo.insert.assert_not_called()
 
     async def test_settlement_due_event_published_when_near(self):
         """Settlement due event published when settlement is within 2 days."""

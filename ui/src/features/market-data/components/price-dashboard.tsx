@@ -1,5 +1,6 @@
 "use client";
 
+import { TableSkeleton } from "@mini-hedge/ui";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import {
   ChevronDown,
@@ -626,7 +627,7 @@ export function PriceDashboard() {
   }, []);
 
   if (isLoading) {
-    return <p className="text-xs text-[var(--muted-foreground)]">Loading...</p>;
+    return <TableSkeleton rows={6} columns={5} />;
   }
 
   return (

@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { CardSkeleton } from "@mini-hedge/ui";
 import { AttributionDashboard } from "@/features/attribution/components/attribution-dashboard";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
 import { PortfolioSelector } from "@/shared/components/portfolio-selector";
@@ -28,7 +29,7 @@ export function AttributionPageClient() {
         )}
       </div>
 
-      {isLoading && <p className="text-xs text-[var(--muted-foreground)]">Loading...</p>}
+      {isLoading && <CardSkeleton count={3} />}
 
       {activePortfolioId && (
         <SectionPanel title="Performance Attribution">

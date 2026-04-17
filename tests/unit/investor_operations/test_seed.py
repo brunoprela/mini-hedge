@@ -53,18 +53,18 @@ class TestSeedDevData:
         app.state.kyc_service = kyc_service
 
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[_make_fund("fund-a")])
+        fund_repo.list_active = AsyncMock(return_value=[_make_fund("fund-a")])
         app.state.fund_repo = fund_repo
 
         session = AsyncMock()
 
         terms_repo_mock = AsyncMock()
-        terms_repo_mock.get_all_active = AsyncMock(return_value=[])
+        terms_repo_mock.list_active = AsyncMock(return_value=[])
 
         sf = _make_sf(session)
 
         with patch.object(FundTermsRepository, "__init__", lambda self, sf: None), \
-             patch.object(FundTermsRepository, "get_all_active", terms_repo_mock.get_all_active):
+             patch.object(FundTermsRepository, "list_active", terms_repo_mock.list_active):
             await seed_dev_data(app, sf)
 
         kyc_service.upsert_fund_terms.assert_called_once()
@@ -79,18 +79,18 @@ class TestSeedDevData:
         app.state.kyc_service = kyc_service
 
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[_make_fund("fund-a")])
+        fund_repo.list_active = AsyncMock(return_value=[_make_fund("fund-a")])
         app.state.fund_repo = fund_repo
 
         session = AsyncMock()
 
         terms_repo_mock = AsyncMock()
-        terms_repo_mock.get_all_active = AsyncMock(return_value=[MagicMock()])
+        terms_repo_mock.list_active = AsyncMock(return_value=[MagicMock()])
 
         sf = _make_sf(session)
 
         with patch.object(FundTermsRepository, "__init__", lambda self, sf: None), \
-             patch.object(FundTermsRepository, "get_all_active", terms_repo_mock.get_all_active):
+             patch.object(FundTermsRepository, "list_active", terms_repo_mock.list_active):
             await seed_dev_data(app, sf)
 
         kyc_service.upsert_fund_terms.assert_not_called()

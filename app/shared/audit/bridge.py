@@ -14,7 +14,7 @@ import structlog
 from app.shared.schema_registry import fund_audit_topics_for_slug
 
 if TYPE_CHECKING:
-    from app.modules.platform.repositories import AuditLogRepository
+    from app.shared.audit.repository import AuditLogRepositoryProtocol
     from app.shared.events import BaseEvent, EventBus, EventHandler
 
 logger = structlog.get_logger()
@@ -23,7 +23,7 @@ logger = structlog.get_logger()
 class AuditBridge:
     """Forwards all fund-scoped events to the audit log."""
 
-    def __init__(self, audit_repo: AuditLogRepository) -> None:
+    def __init__(self, audit_repo: AuditLogRepositoryProtocol) -> None:
         self._audit_repo = audit_repo
 
     def wire(self, event_bus: EventBus, fund_slugs: list[str]) -> None:

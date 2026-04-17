@@ -33,7 +33,7 @@ class TestExposurePriceSubscription:
         mock_fund.id = "fund-id-1"
 
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[mock_fund])
+        fund_repo.list_active = AsyncMock(return_value=[mock_fund])
 
         with patch(
             "app.modules.exposure.wiring.ExposureRepository"
@@ -75,7 +75,7 @@ class TestExposurePriceSubscription:
         mock_fund.slug = "test-fund"
         mock_fund.id = "fund-id-1"
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[mock_fund])
+        fund_repo.list_active = AsyncMock(return_value=[mock_fund])
 
         mock_exposure_service = MagicMock()
         mock_exposure_service.take_snapshot = AsyncMock()

@@ -51,7 +51,7 @@ def _make_service(
 
     break_repo = AsyncMock() if with_break_repo else None
     if break_repo:
-        break_repo.create_many = AsyncMock()
+        break_repo.insert_batch = AsyncMock()
 
     fund_admin_adapter = None
     if admin_map is not None:
@@ -271,7 +271,7 @@ class TestPersistAndAutoResolve:
 
         await svc.reconcile(_PID, _DATE)
 
-        svc._break_repo.create_many.assert_called_once()
+        svc._break_repo.insert_batch.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_auto_resolver_called(self) -> None:
@@ -298,4 +298,4 @@ class TestPersistAndAutoResolve:
 
         await svc.reconcile(_PID, _DATE)
 
-        svc._break_repo.create_many.assert_not_called()
+        svc._break_repo.insert_batch.assert_not_called()

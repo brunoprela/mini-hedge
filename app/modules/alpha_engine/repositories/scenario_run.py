@@ -17,12 +17,12 @@ if TYPE_CHECKING:
 class ScenarioRunRepository(BaseRepository):
     """CRUD for ScenarioRunRecord."""
 
-    async def save(self, record: ScenarioRunRecord, *, session: AsyncSession | None = None) -> None:
+    async def insert(self, record: ScenarioRunRecord, *, session: AsyncSession | None = None) -> None:
         async with self._session(session) as session:
             session.add(record)
             await session.commit()
 
-    async def get_many(
+    async def list_by_portfolio(
         self, portfolio_id: UUID, limit: int = 20, *, session: AsyncSession | None = None
     ) -> list[ScenarioRunRecord]:
         async with self._session(session) as session:

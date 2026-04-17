@@ -33,7 +33,7 @@ def _make_service(
     existing_operator: MagicMock | None = None,
 ) -> tuple[OperatorAdminService, AsyncMock, AsyncMock, AsyncMock]:
     operator_repo = AsyncMock()
-    operator_repo.get_all_paginated = AsyncMock(return_value=([], 0))
+    operator_repo.list_paginated = AsyncMock(return_value=([], 0))
     operator_repo.get_by_email = AsyncMock(return_value=existing_operator)
     operator_repo.get_by_id = AsyncMock(return_value=None)
     async def _insert_with_id(record, **kw):
@@ -64,7 +64,7 @@ class TestListOperators:
     async def test_returns_operators_with_roles(self) -> None:
         svc, op_repo, fga, _ = _make_service()
         records = [_make_operator_record("op-1")]
-        op_repo.get_all_paginated = AsyncMock(return_value=(records, 1))
+        op_repo.list_paginated = AsyncMock(return_value=(records, 1))
         fga.list_relations = AsyncMock(return_value=["ops_admin"])
 
         result = await svc.list_operators()
@@ -76,7 +76,7 @@ class TestListOperators:
     async def test_viewer_role_when_no_admin(self) -> None:
         svc, op_repo, fga, _ = _make_service()
         records = [_make_operator_record("op-1")]
-        op_repo.get_all_paginated = AsyncMock(return_value=(records, 1))
+        op_repo.list_paginated = AsyncMock(return_value=(records, 1))
         fga.list_relations = AsyncMock(return_value=["ops_viewer"])
 
         result = await svc.list_operators()
@@ -87,7 +87,7 @@ class TestListOperators:
     async def test_no_role_when_empty_relations(self) -> None:
         svc, op_repo, fga, _ = _make_service()
         records = [_make_operator_record("op-1")]
-        op_repo.get_all_paginated = AsyncMock(return_value=(records, 1))
+        op_repo.list_paginated = AsyncMock(return_value=(records, 1))
         fga.list_relations = AsyncMock(return_value=[])
 
         result = await svc.list_operators()

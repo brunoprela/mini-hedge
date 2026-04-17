@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class VaRResultRepository(BaseRepository):
-    async def save_var_result(
+    async def insert_var_result(
         self,
         result_record: VaRResultRecord,
         *,

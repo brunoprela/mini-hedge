@@ -3,10 +3,9 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FileText } from "lucide-react";
-import { apiFetch } from "@/shared/lib/api";
-import { ErrorState } from "@/shared/components/error-state";
+import { api, fundHeaders } from "@/shared/lib/api-client";
+import { ErrorState, LoadingSkeleton } from "@mini-hedge/ui";
 import { useFunds, FundSelector } from "@/shared/components/fund-selector";
-import type { InvestorStatement, MonthlyPerformanceLetter } from "@/shared/types";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
@@ -27,8 +26,13 @@ export default function DocumentsPage() {
     error: stmtsError,
   } = useQuery({
     queryKey: ["documents-statements", slug],
-    queryFn: () =>
-      apiFetch<InvestorStatement[]>(`regulatory/investor-statements?fund_slug=${slug}`),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/regulatory/investor-statements", {
+        headers: fundHeaders(slug),
+      });
+      if (error) throw error;
+      return data;
+    },
     enabled: !!slug,
   });
 
@@ -38,8 +42,13 @@ export default function DocumentsPage() {
     error: lettersError,
   } = useQuery({
     queryKey: ["documents-letters", slug],
-    queryFn: () =>
-      apiFetch<MonthlyPerformanceLetter[]>(`regulatory/performance-letters?fund_slug=${slug}`),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/regulatory/performance-letters", {
+        headers: fundHeaders(slug),
+      });
+      if (error) throw error;
+      return data;
+    },
     enabled: !!slug,
   });
 
@@ -53,7 +62,7 @@ export default function DocumentsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-[var(--foreground-bright)]">Documents</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold text-[var(--foreground-bright)]">Documents</h1>
         <p className="text-sm text-[var(--muted-foreground)]">
           Statements, letters, and regulatory documents.
         </p>
@@ -61,18 +70,18 @@ export default function DocumentsPage() {
 
       {/* Fund Selector */}
       {funds.length > 1 && (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
           <label className="text-sm text-[var(--muted-foreground)]">Fund:</label>
           <FundSelector funds={funds} value={slug} onChange={setSelectedSlug} />
         </div>
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 rounded-lg bg-[var(--muted)] p-1 w-fit">
+      <div className="flex gap-1 rounded-lg bg-[var(--muted)] p-1 w-full sm:w-fit">
         <button
           type="button"
           onClick={() => setTab("statements")}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+          className={`flex-1 sm:flex-none rounded-md px-4 py-2 min-h-11 text-sm font-medium transition-colors ${
             tab === "statements"
               ? "bg-[var(--card)] text-[var(--foreground)] shadow-sm"
               : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
@@ -83,7 +92,7 @@ export default function DocumentsPage() {
         <button
           type="button"
           onClick={() => setTab("letters")}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+          className={`flex-1 sm:flex-none rounded-md px-4 py-2 min-h-11 text-sm font-medium transition-colors ${
             tab === "letters"
               ? "bg-[var(--card)] text-[var(--foreground)] shadow-sm"
               : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
@@ -100,8 +109,8 @@ export default function DocumentsPage() {
           <p className="text-sm text-[var(--muted-foreground)]">No funds available.</p>
         </div>
       ) : tab === "statements" ? (
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--card)]">
-          <table className="w-full text-sm">
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] overflow-x-auto">
+          <table className="w-full text-sm min-w-[720px]">
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--table-header)]">
                 <th className="px-4 py-3 text-left text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">
@@ -127,11 +136,8 @@ export default function DocumentsPage() {
             <tbody className="divide-y divide-[var(--table-border)]">
               {isLoading ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-8 text-center text-[var(--muted-foreground)]"
-                  >
-                    Loading...
+                  <td colSpan={6} className="px-4 py-4">
+                    <LoadingSkeleton variant="table-row" rows={4} columns={6} />
                   </td>
                 </tr>
               ) : !statements || statements.length === 0 ? (
@@ -178,8 +184,8 @@ export default function DocumentsPage() {
           </table>
         </div>
       ) : (
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--card)]">
-          <table className="w-full text-sm">
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] overflow-x-auto">
+          <table className="w-full text-sm min-w-[720px]">
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--table-header)]">
                 <th className="px-4 py-3 text-left text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">
@@ -205,11 +211,8 @@ export default function DocumentsPage() {
             <tbody className="divide-y divide-[var(--table-border)]">
               {isLoading ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-8 text-center text-[var(--muted-foreground)]"
-                  >
-                    Loading...
+                  <td colSpan={6} className="px-4 py-4">
+                    <LoadingSkeleton variant="table-row" rows={4} columns={6} />
                   </td>
                 </tr>
               ) : !letters || letters.length === 0 ? (

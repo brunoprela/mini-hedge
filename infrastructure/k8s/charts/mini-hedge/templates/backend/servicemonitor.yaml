@@ -1,0 +1,16 @@
+{{- if and .Values.backend.enabled .Values.backend.serviceMonitor.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "mini-hedge.backend.fullname" . }}
+  labels:
+    {{- include "mini-hedge.backend.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "mini-hedge.backend.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: {{ .Values.backend.serviceMonitor.path }}
+      interval: {{ .Values.backend.serviceMonitor.interval }}
+{{- end }}

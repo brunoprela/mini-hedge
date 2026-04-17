@@ -226,7 +226,7 @@ class TestRegisterFeature:
         definition_repo: AsyncMock,
         value_repo: AsyncMock,
     ):
-        definition_repo.create.side_effect = lambda r, **kw: _seed_def_record(r)
+        definition_repo.insert.side_effect = lambda r, **kw: _seed_def_record(r)
 
         defn = await service.register_feature(
             name="sma_20",
@@ -250,7 +250,7 @@ class TestRegisterFeature:
         value_repo: AsyncMock,
         capture: EventCapture,
     ):
-        definition_repo.create.side_effect = lambda r, **kw: _seed_def_record(r)
+        definition_repo.insert.side_effect = lambda r, **kw: _seed_def_record(r)
 
         await service.register_feature(
             name="rsi_14",
@@ -324,7 +324,7 @@ class TestComputeFeature:
         assert result.feature_name == "sma_5"
         assert result.entity_id == "AAPL"
         assert result.value == Decimal("102.0")
-        value_repo.save_many.assert_called_once()
+        value_repo.insert_batch.assert_called_once()
 
     async def test_unknown_feature_raises(
         self,

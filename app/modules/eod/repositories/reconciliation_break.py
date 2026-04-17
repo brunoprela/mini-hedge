@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class ReconciliationBreakRepository(BaseRepository):
     """Data access for tracked reconciliation breaks."""
 
-    async def create(
+    async def insert(
         self,
         record: ReconciliationBreakRecord,
         *,
@@ -29,7 +29,7 @@ class ReconciliationBreakRepository(BaseRepository):
             await s.refresh(record)
             return record
 
-    async def create_many(
+    async def insert_batch(
         self,
         records: list[ReconciliationBreakRecord],
         *,

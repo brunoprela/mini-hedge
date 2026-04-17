@@ -166,14 +166,47 @@ class CircuitBreaker:
             from_state=old.value,
             to_state=new_state.value,
         )
+        _record_state_metrics(self.name, old, new_state)
 
     def _reset(self) -> None:
+        old = self._state
         self._state = _State.CLOSED
         self._failures.clear()
         logger.info(
             "circuit_breaker_reset",
             circuit=self.name,
         )
+        _record_state_metrics(self.name, old, _State.CLOSED)
+
+
+# ---------------------------------------------------------------------------
+# Prometheus metrics integration (best-effort — silent if unavailable)
+# ---------------------------------------------------------------------------
+
+_STATE_GAUGE_VALUE: dict[_State, int] = {
+    _State.CLOSED: 0,
+    _State.HALF_OPEN: 1,
+    _State.OPEN: 2,
+}
+
+
+def _record_state_metrics(name: str, old: _State, new: _State) -> None:
+    """Emit Prometheus metrics for a state transition. Silent on import error."""
+    try:
+        # Local import to avoid circular import during metrics module bootstrap
+        # and to keep this module importable in environments without the
+        # observability stack (tests, scripts).
+        from app.shared.observability.metrics import (
+            circuit_breaker_state,
+            circuit_breaker_state_transitions_total,
+        )
+
+        circuit_breaker_state_transitions_total.labels(
+            circuit=name, from_state=old.value, to_state=new.value
+        ).inc()
+        circuit_breaker_state.labels(circuit=name).set(_STATE_GAUGE_VALUE[new])
+    except Exception:  # noqa: BLE001 — metrics must never break request path
+        pass
 
 
 class _CircuitBreakerContext:

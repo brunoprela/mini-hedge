@@ -3,9 +3,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { StatusBadge } from "@/shared/components/status-badge";
-import { apiFetch } from "@/shared/lib/api";
-import type { SubscriptionRequestSummary, SubscriptionState } from "@/shared/types";
+import { StatusBadge, TableSkeleton } from "@mini-hedge/ui";
+import { api } from "@/shared/lib/api-client";
+import type { SubscriptionState } from "@/shared/types";
 
 const STATES: { label: string; value: string }[] = [
   { label: "All", value: "" },
@@ -33,65 +33,102 @@ export default function SubscriptionsPage() {
   const queryClient = useQueryClient();
   const [stateFilter, setStateFilter] = useState("");
 
-  const path = stateFilter
-    ? `investor-operations/subscriptions?state=${stateFilter}`
-    : "investor-operations/subscriptions";
-
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["subscriptions", stateFilter],
-    queryFn: () => apiFetch<SubscriptionRequestSummary[]>(path),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/investor-operations/subscriptions",
+        {
+          params: {
+            query: stateFilter ? { state: stateFilter } : {},
+          },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
   });
 
   const opsReview = useMutation({
-    mutationFn: ({ id, approved }: { id: string; approved: boolean }) =>
-      apiFetch(`investor-operations/subscriptions/${id}/ops-review`, {
-        method: "POST",
-        body: JSON.stringify({ approved, decision_by: "ops-console" }),
-      }),
+    mutationFn: async ({ id, approved }: { id: string; approved: boolean }) => {
+      const { data, error } = await api.POST(
+        "/api/v1/investor-operations/subscriptions/{request_id}/ops-review",
+        {
+          params: { path: { request_id: id } },
+          body: { approved, decision_by: "ops-console", notes: "" },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
       toast.success("Ops review submitted");
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const gpDecision = useMutation({
-    mutationFn: ({ id, approved }: { id: string; approved: boolean }) =>
-      apiFetch(`investor-operations/subscriptions/${id}/gp-decision`, {
-        method: "POST",
-        body: JSON.stringify({ approved, decision_by: "ops-console" }),
-      }),
+    mutationFn: async ({ id, approved }: { id: string; approved: boolean }) => {
+      const { data, error } = await api.POST(
+        "/api/v1/investor-operations/subscriptions/{request_id}/gp-decision",
+        {
+          params: { path: { request_id: id } },
+          body: { approved, decision_by: "ops-console" },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
       toast.success("GP decision submitted");
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const confirmWire = useMutation({
-    mutationFn: ({ id, wire_reference }: { id: string; wire_reference: string }) =>
-      apiFetch(`investor-operations/subscriptions/${id}/confirm-wire`, {
-        method: "POST",
-        body: JSON.stringify({ wire_reference, confirmed_by: "ops-console" }),
-      }),
+    mutationFn: async ({
+      id,
+      wire_reference,
+    }: {
+      id: string;
+      wire_reference: string;
+    }) => {
+      const { data, error } = await api.POST(
+        "/api/v1/investor-operations/subscriptions/{request_id}/confirm-wire",
+        {
+          params: { path: { request_id: id } },
+          body: { wire_reference },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
       toast.success("Wire confirmed");
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const cancelSub = useMutation({
-    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
-      apiFetch(`investor-operations/subscriptions/${id}/cancel`, {
-        method: "POST",
-        body: JSON.stringify({ reason, cancelled_by: "ops-console" }),
-      }),
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      const { data, error } = await api.POST(
+        "/api/v1/investor-operations/subscriptions/{request_id}/cancel",
+        {
+          params: { path: { request_id: id } },
+          body: { reason, cancelled_by: "ops-console" },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
       toast.success("Subscription cancelled");
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const items = data ?? [];
@@ -138,7 +175,7 @@ export default function SubscriptionsPage() {
       </dl>
 
       {isLoading ? (
-        <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>
+        <TableSkeleton rows={6} columns={5} />
       ) : isError ? (
         <p className="text-sm text-red-600">{(error as Error).message}</p>
       ) : items.length === 0 ? (

@@ -233,7 +233,7 @@ class RiskSnapshotService:
             portfolio_id, session=session
         )
 
-        instruments = await self._security_master_service.get_all_active(session=session)
+        instruments = await self._security_master_service.list_active(session=session)
         sector_lookup = {i.ticker: i.sector or "Unknown" for i in instruments}
         sector_map = {iid: sector_lookup.get(iid, "Unknown") for iid in instrument_ids}
 
@@ -296,7 +296,7 @@ class RiskSnapshotService:
             max_drawdown=ZERO,  # would need historical NAV series
             snapshot_at=datetime.now(UTC),
         )
-        await self._snapshot_repo.save_snapshot(record, session=session)
+        await self._snapshot_repo.insert_snapshot(record, session=session)
         await self._publish_risk_event(record, fund_slug)
 
         # Check VaR limit breach: if 95% 1-day VaR exceeds threshold % of NAV
@@ -384,7 +384,7 @@ class RiskSnapshotService:
             return np.empty((0, 0))
 
         # Look up drift/volatility from instrument reference data
-        instruments = await self._security_master_service.get_all_active(session=session)
+        instruments = await self._security_master_service.list_active(session=session)
         vol_map = {
             i.ticker: i.annual_volatility for i in instruments if i.annual_volatility is not None
         }
@@ -425,7 +425,7 @@ class RiskSnapshotService:
         nav = float(sum((p.market_value for p in positions if p.market_value), ZERO))
 
         # Batch-fetch instruments instead of N+1
-        instruments = await self._security_master_service.get_all_active(session=session)
+        instruments = await self._security_master_service.list_active(session=session)
         sector_map = {i.ticker: getattr(i, "sector", None) for i in instruments}
 
         positions_data: dict[str, tuple[Decimal, str | None]] = {}
@@ -510,7 +510,7 @@ class RiskSnapshotService:
             calculated_at=result.calculated_at,
         )
 
-        await self._var_result_repo.save_var_result(result_record, session=session)
+        await self._var_result_repo.insert_var_result(result_record, session=session)
 
         contributions = [
             VaRContributionRecord(
@@ -524,7 +524,7 @@ class RiskSnapshotService:
             for c in result.contributions
         ]
 
-        await self._var_contribution_repo.save_contributions(contributions, session=session)
+        await self._var_contribution_repo.insert_contributions(contributions, session=session)
 
     async def _persist_stress_result(
         self,
@@ -544,7 +544,7 @@ class RiskSnapshotService:
             calculated_at=result.calculated_at,
         )
 
-        await self._stress_result_repo.save_stress_result(result_record, session=session)
+        await self._stress_result_repo.insert_stress_result(result_record, session=session)
 
         impacts = [
             StressPositionImpactRecord(
@@ -558,4 +558,4 @@ class RiskSnapshotService:
             for imp in result.position_impacts
         ]
 
-        await self._stress_impact_repo.save_impacts(impacts, session=session)
+        await self._stress_impact_repo.insert_impacts(impacts, session=session)

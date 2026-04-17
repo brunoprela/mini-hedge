@@ -38,7 +38,7 @@ class CounterpartyRepository(BaseRepository):
         records = await self.list_counterparties(session=session)
         return {r.id: r.name for r in records}
 
-    async def save_counterparty(
+    async def insert_counterparty(
         self, record: CounterpartyRecord, *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as session:

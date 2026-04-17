@@ -151,7 +151,7 @@ class TestSubmitSubscription:
         )
 
         assert result.state == SubscriptionState.PENDING_KYC
-        sub_repo.save.assert_called_once()
+        sub_repo.insert.assert_called_once()
         event_bus.publish.assert_called_once()
 
     @pytest.mark.asyncio
@@ -298,7 +298,7 @@ class TestSubmitRedemption:
         )
 
         assert result.state == RedemptionState.PENDING_VALIDATION
-        red_repo.save.assert_called_once()
+        red_repo.insert.assert_called_once()
         event_bus.publish.assert_called_once()
 
 

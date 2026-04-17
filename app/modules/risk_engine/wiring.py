@@ -91,7 +91,7 @@ async def setup(
     # Subscribe: recalculate risk when positions change
     if event_bus is not None:
         fund_repo: FundRepository = app.state.fund_repo
-        active_funds = await fund_repo.get_all_active()
+        active_funds = await fund_repo.list_active()
         for fund in active_funds:
 
             def _make_handler(slug: str) -> EventHandler:

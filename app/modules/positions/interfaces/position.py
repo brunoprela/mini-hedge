@@ -66,6 +66,18 @@ class PortfolioSummary(BaseModel):
     position_count: int
 
 
+class FundAggregate(BaseModel):
+    """Cross-portfolio KPI summary for a fund."""
+
+    model_config = ConfigDict(frozen=True)
+
+    total_aum: Decimal
+    total_realized_pnl: Decimal
+    total_unrealized_pnl: Decimal
+    portfolio_count: int
+    total_positions: int
+
+
 class TradeRequest(BaseModel):
     """Inbound trade for position entry."""
 

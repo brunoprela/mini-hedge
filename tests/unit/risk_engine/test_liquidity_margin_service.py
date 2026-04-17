@@ -44,21 +44,21 @@ def _make_service(
     instruments: dict[str, MagicMock] | None = None,
 ) -> tuple[LiquidityMarginService, AsyncMock, AsyncMock]:
     liquidity_repo = AsyncMock()
-    liquidity_repo.save_liquidity_profile = AsyncMock()
+    liquidity_repo.insert_liquidity_profile = AsyncMock()
     margin_repo = AsyncMock()
-    margin_repo.save_margin_requirement = AsyncMock()
+    margin_repo.insert_margin_requirement = AsyncMock()
 
     position_service = AsyncMock()
-    position_service.get_positions = AsyncMock(return_value=positions or [])
+    position_service.get_by_portfolio = AsyncMock(return_value=positions or [])
 
     sm_service = AsyncMock()
 
-    async def _get_instrument(instrument_id: str, **kw) -> MagicMock | None:
+    async def _get_by_ticker(instrument_id: str, **kw) -> MagicMock | None:
         if instruments and instrument_id in instruments:
             return instruments[instrument_id]
         return _make_instrument(instrument_id)
 
-    sm_service.get_instrument = AsyncMock(side_effect=_get_instrument)
+    sm_service.get_by_ticker = AsyncMock(side_effect=_get_by_ticker)
 
     svc = LiquidityMarginService(
         liquidity_repo=liquidity_repo,
@@ -79,7 +79,11 @@ class TestCalculateLiquidity:
         assert result.total_nav == Decimal(0)
         assert result.pct_illiquid == Decimal(0)
         assert result.redemption_coverage_pct == Decimal(1)
-        liquidity_repo.save_liquidity_profile.assert_not_called()
+        liquidity_repo.insert_liquidity_profile.assert_called_once()
+        record = liquidity_repo.insert_liquidity_profile.call_args[0][0]
+        assert record.total_nav == Decimal(0)
+        assert record.pct_illiquid == Decimal(0)
+        assert record.weighted_days_to_liquidate == Decimal(0)
 
     @pytest.mark.asyncio
     async def test_calculates_and_persists(self) -> None:
@@ -93,7 +97,7 @@ class TestCalculateLiquidity:
 
         assert result.total_nav > Decimal(0)
         assert result.portfolio_id == _PORT_ID
-        liquidity_repo.save_liquidity_profile.assert_called_once()
+        liquidity_repo.insert_liquidity_profile.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_illiquid_position_detected(self) -> None:
@@ -109,7 +113,7 @@ class TestCalculateLiquidity:
         result = await svc.calculate_liquidity(_PORT_ID)
 
         assert result.portfolio_id == _PORT_ID
-        liquidity_repo.save_liquidity_profile.assert_called_once()
+        liquidity_repo.insert_liquidity_profile.assert_called_once()
 
 
 class TestCalculateMargin:
@@ -124,7 +128,7 @@ class TestCalculateMargin:
 
         assert result.portfolio_id == _PORT_ID
         assert result.initial_margin > Decimal(0)
-        margin_repo.save_margin_requirement.assert_called_once()
+        margin_repo.insert_margin_requirement.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_empty_portfolio(self) -> None:
@@ -133,7 +137,7 @@ class TestCalculateMargin:
         result = await svc.calculate_margin(_PORT_ID)
 
         assert result.portfolio_id == _PORT_ID
-        margin_repo.save_margin_requirement.assert_called_once()
+        margin_repo.insert_margin_requirement.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_margin_call_triggered_when_insufficient(self) -> None:
@@ -149,4 +153,4 @@ class TestCalculateMargin:
         # and standard margin rates, this should NOT trigger a call
         # because 60M cash vs ~50M margin is fine
         assert result.portfolio_id == _PORT_ID
-        margin_repo.save_margin_requirement.assert_called_once()
+        margin_repo.insert_margin_requirement.assert_called_once()

@@ -18,6 +18,11 @@ from aiokafka.admin import AIOKafkaAdminClient, NewTopic  # type: ignore[import-
 from aiokafka.errors import KafkaError, TopicAlreadyExistsError  # type: ignore[import-untyped]
 
 from app.shared.events import BaseEvent, EventHandler
+from app.shared.observability.metrics import (
+    kafka_dlq_events_total,
+    kafka_events_consumed_total,
+    kafka_events_published_total,
+)
 from app.shared.schema_registry import deserialize_event, serialize_event
 
 logger = structlog.get_logger()
@@ -103,6 +108,7 @@ class KafkaEventBus:
                 value=value,
                 key=key.encode(),
             )
+            kafka_events_published_total.labels(topic=topic).inc()
         except KafkaError:
             logger.exception("kafka_produce_failed", topic=topic, event_id=event.event_id)
 
@@ -174,6 +180,7 @@ class KafkaEventBus:
                     if msg.value is None:
                         continue
 
+                    kafka_events_consumed_total.labels(topic=topic).inc()
                     try:
                         envelope, payload = deserialize_event(topic, msg.value)
                         event = BaseEvent(
@@ -247,6 +254,7 @@ class KafkaEventBus:
                 key=event.event_id.encode(),
             )
             self._dlq_count += 1
+            kafka_dlq_events_total.labels(topic=topic).inc()
             logger.error(
                 "event_sent_to_dlq",
                 topic=topic,

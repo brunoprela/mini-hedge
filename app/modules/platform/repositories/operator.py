@@ -98,19 +98,19 @@ class OperatorRepository(BaseRepository):
             await session.refresh(op)
             return op
 
-    async def get_all_active(self, *, session: AsyncSession | None = None) -> list[OperatorRecord]:
+    async def list_active(self, *, session: AsyncSession | None = None) -> list[OperatorRecord]:
         async with self._session(session) as session:
             result = await session.execute(
                 select(OperatorRecord).where(OperatorRecord.is_active.is_(True))
             )
             return list(result.scalars().all())
 
-    async def get_all(self, *, session: AsyncSession | None = None) -> list[OperatorRecord]:
+    async def list_all(self, *, session: AsyncSession | None = None) -> list[OperatorRecord]:
         async with self._session(session) as session:
             result = await session.execute(select(OperatorRecord))
             return list(result.scalars().all())
 
-    async def get_all_paginated(
+    async def list_paginated(
         self, *, limit: int = 100, offset: int = 0, session: AsyncSession | None = None
     ) -> tuple[list[OperatorRecord], int]:
         async with self._session(session) as session:

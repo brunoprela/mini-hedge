@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class MasterFeederRepository(BaseRepository):
-    async def create_link(
+    async def insert_link(
         self,
         record: MasterFeederLinkRecord,
         *,

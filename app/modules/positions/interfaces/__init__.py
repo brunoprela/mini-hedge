@@ -14,6 +14,7 @@ from app.modules.positions.interfaces.events import (
     TradeEventData,
 )
 from app.modules.positions.interfaces.position import (
+    FundAggregate,
     PnLSummary,
     PortfolioSummary,
     Position,
@@ -26,6 +27,7 @@ from app.modules.positions.interfaces.position import (
 __all__ = [
     "CorporateActionEventData",
     "DownstreamEvent",
+    "FundAggregate",
     "PnLMarkToMarket",
     "PnLMarkToMarketData",
     "PnLRealized",

@@ -92,17 +92,17 @@ class UserRepository(BaseRepository):
             await session.refresh(user)
             return user
 
-    async def get_all_active(self, *, session: AsyncSession | None = None) -> list[UserRecord]:
+    async def list_active(self, *, session: AsyncSession | None = None) -> list[UserRecord]:
         async with self._session(session) as session:
             result = await session.execute(select(UserRecord).where(UserRecord.is_active.is_(True)))
             return list(result.scalars().all())
 
-    async def get_all(self, *, session: AsyncSession | None = None) -> list[UserRecord]:
+    async def list_all(self, *, session: AsyncSession | None = None) -> list[UserRecord]:
         async with self._session(session) as session:
             result = await session.execute(select(UserRecord))
             return list(result.scalars().all())
 
-    async def get_all_paginated(
+    async def list_paginated(
         self, *, limit: int = 100, offset: int = 0, session: AsyncSession | None = None
     ) -> tuple[list[UserRecord], int]:
         async with self._session(session) as session:

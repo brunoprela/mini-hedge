@@ -27,9 +27,17 @@ from openfga_sdk.client.models import (
     ClientWriteRequestOnDuplicateWrites,
     ConflictOptions,
 )
+from openfga_sdk.exceptions import ApiException, ServiceException
+from tenacity import (
+    AsyncRetrying,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential_jitter,
+)
 
 from app.shared.auth import get_actor_context
 from app.shared.auth.request_context import ActorType
+from app.shared.circuit_breaker import CircuitBreaker, CircuitOpenError
 
 if TYPE_CHECKING:
     from openfga_sdk import OpenFgaClient
@@ -176,6 +184,40 @@ class FGAClient:
         self._check_cache: TTLCache[tuple[str, str, str], bool] = TTLCache(
             maxsize=self._CHECK_CACHE_MAX, ttl=self._CHECK_CACHE_TTL
         )
+        # Circuit breaker around the OpenFGA HTTP API. Tracks SDK network /
+        # server exceptions — validation errors (ApiValueError, etc.) are
+        # not tracked because they indicate programmer error, not an
+        # unhealthy upstream.
+        self._circuit = CircuitBreaker(
+            "openfga",
+            failure_threshold=5,
+            recovery_timeout=30.0,
+            tracked_exceptions=(
+                ApiException,
+                ServiceException,
+                ConnectionError,
+                TimeoutError,
+            ),
+        )
+
+    async def _retrying_call(self, func: Any, *args: Any, **kwargs: Any) -> Any:
+        """Invoke an SDK method with tenacity retries.
+
+        Retries on transient network / server errors: 3 attempts with
+        exponential backoff (0.5s → 1s → 2s, with jitter).  Runs INSIDE
+        the circuit breaker so the circuit only trips once all retries
+        are exhausted.
+        """
+        async for attempt in AsyncRetrying(
+            stop=stop_after_attempt(3),
+            wait=wait_exponential_jitter(initial=0.5, max=2.0, jitter=0.25),
+            retry=retry_if_exception_type(
+                (ServiceException, ConnectionError, TimeoutError)
+            ),
+            reraise=True,
+        ):
+            with attempt:
+                return await func(*args, **kwargs)
 
     async def check(self, *, user: str, relation: str, object: str) -> bool:
         """Check if *user* has *relation* on *object*.
@@ -198,7 +240,9 @@ class FGAClient:
                 req_cache[cache_key] = cached
             return cached
 
-        response = await self._client.check(
+        response = await self._circuit.call(
+            self._retrying_call,
+            self._client.check,
             body=ClientCheckRequest(user=user, relation=relation, object=object),
         )
         result: bool = bool(response.allowed)
@@ -213,7 +257,9 @@ class FGAClient:
 
     async def write_tuples(self, tuples: list[ClientTuple]) -> None:
         """Write relationship tuples (ignores duplicates)."""
-        await self._client.write(
+        await self._circuit.call(
+            self._retrying_call,
+            self._client.write,
             body=ClientWriteRequest(writes=tuples),
             options={
                 "conflict": ConflictOptions(  # type: ignore[dict-item]
@@ -225,14 +271,18 @@ class FGAClient:
 
     async def delete_tuples(self, tuples: list[ClientTuple]) -> None:
         """Delete relationship tuples."""
-        await self._client.write(
+        await self._circuit.call(
+            self._retrying_call,
+            self._client.write,
             body=ClientWriteRequest(deletes=tuples),
         )
         self._check_cache.clear()
 
     async def list_objects(self, *, user: str, relation: str, type: str) -> list[str]:
         """List object IDs where *user* has *relation* on objects of *type*."""
-        response = await self._client.list_objects(
+        response = await self._circuit.call(
+            self._retrying_call,
+            self._client.list_objects,
             body=ClientListObjectsRequest(user=user, relation=relation, type=type),
         )
         # Response objects are formatted as "type:id" — strip the prefix.
@@ -244,7 +294,9 @@ class FGAClient:
 
     async def list_relations(self, *, user: str, object: str, relations: list[str]) -> list[str]:
         """Return which of *relations* the *user* has on *object*."""
-        response = await self._client.list_relations(
+        response = await self._circuit.call(
+            self._retrying_call,
+            self._client.list_relations,
             body=ClientListRelationsRequest(user=user, object=object, relations=relations),
         )
         return list(response.relations or [])
@@ -254,7 +306,9 @@ class FGAClient:
 
         Returns a list of ``(user, relation, object)`` triples.
         """
-        response = await self._client.read(
+        response = await self._circuit.call(
+            self._retrying_call,
+            self._client.read,
             body=ReadRequestTupleKey(object=object),  # type: ignore[no-untyped-call]
         )
         return [(t.key.user, t.key.relation, t.key.object) for t in (response.tuples or [])]
@@ -358,11 +412,19 @@ def require_access(
         # Customer-qualified object IDs: {type}:{customer}/{id}
         # Falls back to {type}:{id} when no customer context is available
         object_id = qualify_object_id(rt.name, resource_id, request_context.customer_id)
-        allowed = await fga.check(
-            user=f"{fga_prefix}:{request_context.actor_id}",
-            relation=resource_relation.relation,
-            object=object_id,
-        )
+        try:
+            allowed = await fga.check(
+                user=f"{fga_prefix}:{request_context.actor_id}",
+                relation=resource_relation.relation,
+                object=object_id,
+            )
+        except CircuitOpenError as e:
+            logger.warning("fga_circuit_open", retry_after=e.retry_after)
+            raise HTTPException(
+                status_code=503,
+                detail="Authorization service temporarily unavailable",
+                headers={"Retry-After": str(int(e.retry_after) + 1)},
+            ) from e
         if not allowed:
             raise HTTPException(
                 status_code=403,

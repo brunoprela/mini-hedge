@@ -212,15 +212,16 @@ class CashManagementService:
         session: AsyncSession | None = None,
     ) -> None:
         """Create a settlement entry for a trade."""
-        # Look up country for settlement convention
-        country = "US"
-        try:
-            instrument = await self._security_master_service.get_by_ticker(
-                instrument_id, session=session
+        # Look up country for settlement convention — required for correct T+N calculation
+        instrument = await self._security_master_service.get_by_ticker(
+            instrument_id, session=session
+        )
+        country = getattr(instrument, "country", None)
+        if not country:
+            raise ValueError(
+                f"Instrument {instrument_id} has no country set — "
+                "cannot determine settlement convention"
             )
-            country = getattr(instrument, "country", "US") or "US"
-        except Exception:
-            pass
 
         settlement_date = calculate_settlement_date(trade_date, country)
 
@@ -297,6 +298,18 @@ class CashManagementService:
     ) -> list[SettlementRecord]:
         records = await self._settlement_repo.get_pending(portfolio_id, session=session)
         return [self._to_settlement_record(r) for r in records]
+
+    async def retry_settlement(
+        self,
+        settlement_id: str,
+        *,
+        session: AsyncSession | None = None,
+    ) -> SettlementRecord | None:
+        """Reset a failed settlement back to pending so it can be retried."""
+        record = await self._settlement_repo.mark_pending(settlement_id, session=session)
+        if record is None:
+            return None
+        return self._to_settlement_record(record)
 
     async def process_due_settlements(
         self,

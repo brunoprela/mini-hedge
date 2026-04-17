@@ -3,12 +3,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { FundPortfolioPicker } from "@/shared/components/fund-portfolio-picker";
-import { ErrorState } from "@/shared/components/error-state";
-import { StatusBadge } from "@/shared/components/status-badge";
-import { TableSkeleton } from "@/shared/components/loading-skeleton";
-import { apiFetch } from "@/shared/lib/api";
+import { ErrorState } from "@mini-hedge/ui";
+import { StatusBadge } from "@mini-hedge/ui";
+import { TableSkeleton } from "@mini-hedge/ui";
+import { api } from "@/shared/lib/api-client";
 import { eventCategory } from "@/shared/lib/audit-utils";
-import type { AuditEntry, Page } from "@/shared/types";
 
 function ExpandablePayload({ payload }: { payload: unknown }) {
   const [open, setOpen] = useState(false);
@@ -42,10 +41,13 @@ export default function ChangeHistoryPage() {
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["change-history", fundSlug],
-    queryFn: () =>
-      apiFetch<Page<AuditEntry>>(
-        `admin/audit?limit=50&fund_slug=${fundSlug}`,
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/admin/audit", {
+        params: { query: { limit: 50, fund_slug: fundSlug } },
+      });
+      if (error) throw error;
+      return data;
+    },
     enabled,
   });
 

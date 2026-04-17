@@ -32,7 +32,7 @@ def _make_customer_info(cid: str = "cust-1", slug: str = "acme", name: str = "Ac
 
 def _make_service_with_customers() -> AdminService:
     user_repo = AsyncMock()
-    user_repo.get_all_paginated = AsyncMock(return_value=([], 0))
+    user_repo.list_paginated = AsyncMock(return_value=([], 0))
     user_repo.get_by_email = AsyncMock(return_value=None)
     user_repo.get_by_id = AsyncMock(return_value=None)
 
@@ -44,7 +44,7 @@ def _make_service_with_customers() -> AdminService:
     user_repo.update = AsyncMock(return_value=None)
 
     operator_repo = AsyncMock()
-    operator_repo.get_all_paginated = AsyncMock(return_value=([], 0))
+    operator_repo.list_paginated = AsyncMock(return_value=([], 0))
     operator_repo.get_by_email = AsyncMock(return_value=None)
     operator_repo.get_by_id = AsyncMock(return_value=None)
 
@@ -55,7 +55,7 @@ def _make_service_with_customers() -> AdminService:
     operator_repo.insert = AsyncMock(side_effect=_op_insert_with_id)
     operator_repo.update = AsyncMock(return_value=None)
     fund_repo = AsyncMock()
-    fund_repo.get_all_paginated = AsyncMock(return_value=([], 0))
+    fund_repo.list_paginated = AsyncMock(return_value=([], 0))
     fund_repo.get_by_slug = AsyncMock(return_value=None)
     fund_repo.update = AsyncMock(return_value=None)
 
@@ -81,7 +81,7 @@ def _make_service_with_customers() -> AdminService:
             record.status = "active"
 
     customer_repo = AsyncMock()
-    customer_repo.get_all_paginated = AsyncMock(return_value=([], 0))
+    customer_repo.list_paginated = AsyncMock(return_value=([], 0))
     customer_repo.get_by_slug = AsyncMock(return_value=None)
     customer_repo.get_by_id = AsyncMock(return_value=None)
     customer_repo.insert = AsyncMock(side_effect=_customer_insert_with_defaults)

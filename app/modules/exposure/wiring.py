@@ -47,7 +47,7 @@ async def setup(
 
     # Subscribe: recalculate exposure when positions change
     if event_bus is not None and fund_repo is not None:
-        active_funds = await fund_repo.get_all_active()
+        active_funds = await fund_repo.list_active()
         for fund in active_funds:
 
             def _make_handler(slug: str) -> EventHandler:

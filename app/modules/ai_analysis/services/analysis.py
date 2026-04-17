@@ -95,7 +95,7 @@ class AIAnalysisService:
             model_used=llm_response.model,
             tokens_used=llm_response.tokens_used,
         )
-        await self._result_repo.save_result(record, session=session)
+        await self._result_repo.insert_result(record, session=session)
 
         if self._event_bus:
             await self._event_bus.publish(
@@ -210,7 +210,7 @@ class AIAnalysisService:
             instruments=instruments or [],
             tags=tags or [],
         )
-        await self._note_repo.save_note(record, session=session)
+        await self._note_repo.insert_note(record, session=session)
 
         if self._event_bus:
             await self._event_bus.publish(

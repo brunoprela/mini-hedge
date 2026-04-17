@@ -96,6 +96,7 @@ async def setup(
     app.state.nav_snapshot_repo = nav_repo
     app.state.recon_repo = recon_repo
     app.state.break_repo = break_repo
+    app.state.finalized_price_repo = price_repo
 
     orchestrator = EODOrchestrator(
         run_repo=run_repo,
@@ -125,4 +126,4 @@ async def setup(
 
             await seed_dev_data(app, sf)
         except Exception:
-            pass
+            logger.warning("seed_dev_data_failed", exc_info=True)

@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { HBarChart } from "@/shared/components/charts";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
-import { clientFetch } from "@/shared/lib/api";
+import { api, fundHeaders } from "@/shared/lib/api-client";
 import type { VaRResult } from "../types";
 
 export function VaRContributions({ portfolioId }: { portfolioId: string }) {
@@ -12,12 +12,15 @@ export function VaRContributions({ portfolioId }: { portfolioId: string }) {
   const [result, setResult] = useState<VaRResult | null>(null);
 
   const mutation = useMutation({
-    mutationFn: () =>
-      clientFetch<VaRResult>(`/risk/${portfolioId}/var`, {
-        fundSlug,
-        method: "POST",
-        body: { method: "historical", confidence: 0.95, horizon_days: 1 },
-      }),
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/api/v1/risk/{portfolio_id}/var", {
+        params: { path: { portfolio_id: portfolioId } },
+        body: { method: "historical", confidence: 0.95, horizon_days: 1 } as never,
+        headers: fundHeaders(fundSlug),
+      });
+      if (error) throw error;
+      return data as VaRResult;
+    },
     onSuccess: (data) => setResult(data),
   });
 

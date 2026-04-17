@@ -17,14 +17,14 @@ if TYPE_CHECKING:
 class OptimizationRunRepository(BaseRepository):
     """CRUD for OptimizationRunRecord."""
 
-    async def save(
+    async def insert(
         self, record: OptimizationRunRecord, *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as session:
             session.add(record)
             await session.commit()
 
-    async def get_many(
+    async def list_by_portfolio(
         self,
         portfolio_id: UUID,
         limit: int = 20,

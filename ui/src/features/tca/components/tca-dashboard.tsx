@@ -39,15 +39,15 @@ export function TCADashboard({ portfolioId }: { portfolioId: string }) {
     return <div className="text-sm text-[var(--muted-foreground)]">Loading TCA data...</div>;
   }
 
-  if (!report?.reports || report.reports.length === 0) return null;
+  if (!report?.orders || report.orders.length === 0) return null;
 
   return (
     <div className="space-y-2">
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <SummaryCard label="Avg Total Cost" value={`${fmtBps(report.avg_total_cost_bps)} bps`} />
-        <SummaryCard label="Avg Spread Cost" value={`${fmtBps(report.avg_spread_cost_bps)} bps`} />
-        <SummaryCard label="Avg Impact Cost" value={`${fmtBps(report.avg_impact_cost_bps)} bps`} />
+        <SummaryCard label="Avg Spread Cost" value={`${fmtBps(report.avg_spread_bps)} bps`} />
+        <SummaryCard label="Avg Impact Cost" value={`${fmtBps(report.avg_impact_bps)} bps`} />
         <SummaryCard label="Total Cost" value={fmtCurrency(report.total_cost_usd)} />
       </div>
 
@@ -69,7 +69,7 @@ export function TCADashboard({ portfolioId }: { portfolioId: string }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--table-border)]">
-            {report.reports.map((r: TCAReport) => (
+            {report.orders.map((r: TCAReport) => (
               <tr
                 key={r.order_id}
                 className="hover:bg-[var(--table-row-hover)]"
@@ -86,9 +86,13 @@ export function TCADashboard({ portfolioId }: { portfolioId: string }) {
                   </span>
                 </td>
                 <td className="px-3 py-2 text-right font-mono">{fmtPrice(r.quantity)}</td>
-                <td className="px-3 py-2 text-right font-mono">{fmtPrice(r.arrival_price)}</td>
-                <td className="px-3 py-2 text-right font-mono">{fmtPrice(r.avg_fill_price)}</td>
-                <td className="px-3 py-2 text-right font-mono">{fmtPrice(r.vwap)}</td>
+                <td className="px-3 py-2 text-right font-mono">{fmtPrice(r.arrival_mid_price)}</td>
+                <td className="px-3 py-2 text-right font-mono">
+                  {r.avg_fill_price ? fmtPrice(r.avg_fill_price) : "-"}
+                </td>
+                <td className="px-3 py-2 text-right font-mono">
+                  {r.vwap_benchmark ? fmtPrice(r.vwap_benchmark) : "-"}
+                </td>
                 <td
                   className="px-3 py-2 text-right font-mono"
                   style={{ color: costColor(r.spread_cost_bps) }}
@@ -97,9 +101,9 @@ export function TCADashboard({ portfolioId }: { portfolioId: string }) {
                 </td>
                 <td
                   className="px-3 py-2 text-right font-mono"
-                  style={{ color: costColor(r.impact_cost_bps) }}
+                  style={{ color: costColor(r.market_impact_cost_bps) }}
                 >
-                  {fmtBps(r.impact_cost_bps)}
+                  {fmtBps(r.market_impact_cost_bps)}
                 </td>
                 <td
                   className="px-3 py-2 text-right font-mono font-semibold"

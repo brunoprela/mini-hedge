@@ -38,6 +38,8 @@ if TYPE_CHECKING:
     )
     from app.shared.events import EventBus
 
+_DEFAULT_SHARE_CLASS = "default"
+
 
 def _now() -> datetime:
     return datetime.now(UTC)
@@ -66,7 +68,7 @@ class SubscriptionService:
         *,
         investor_id: str,
         amount: Decimal,
-        share_class: str = "default",
+        share_class: str = _DEFAULT_SHARE_CLASS,
         session: AsyncSession | None = None,
     ) -> SubscriptionRequestSummary:
         """Create a new subscription request and move it to PENDING_KYC."""
@@ -93,7 +95,7 @@ class SubscriptionService:
         apply_subscription_transition(SubscriptionState.DRAFT, SubscriptionState.PENDING_KYC)
         record.state = SubscriptionState.PENDING_KYC
 
-        await self._subscription_repo.save(record, session=session)
+        await self._subscription_repo.insert(record, session=session)
 
         if self._event_bus:
             await self._event_bus.publish(

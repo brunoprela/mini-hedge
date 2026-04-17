@@ -35,7 +35,7 @@ class UserAdminService:
     async def list_users(
         self, *, limit: int = 100, offset: int = 0, session: AsyncSession | None = None
     ) -> UserPage:
-        records, total = await self._user_repo.get_all_paginated(
+        records, total = await self._user_repo.list_paginated(
             limit=limit, offset=offset, session=session
         )
         return UserPage(

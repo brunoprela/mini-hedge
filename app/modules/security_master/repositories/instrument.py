@@ -31,7 +31,7 @@ class InstrumentRepository(BaseRepository):
             result = await session.execute(stmt)
             return result.scalar_one_or_none()
 
-    async def get_all_active(
+    async def list_active(
         self,
         asset_class: AssetClass | None = None,
         *,

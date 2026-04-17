@@ -71,7 +71,7 @@ class AltDataService:
             is_active=True,
             record_count=0,
         )
-        await self._feed_repo.create_feed(record, session=session)
+        await self._feed_repo.insert_feed(record, session=session)
 
         logger.info("alt_data_feed_created", name=name, source=source)
 
@@ -91,6 +91,15 @@ class AltDataService:
             )
 
         return self._feed_to_dto(record)
+
+    async def get_feed(
+        self,
+        feed_id: str,
+        *,
+        session: AsyncSession | None = None,
+    ) -> AltDataFeed | None:
+        record = await self._feed_repo.get_feed(feed_id, session=session)
+        return self._feed_to_dto(record) if record else None
 
     async def list_feeds(
         self,

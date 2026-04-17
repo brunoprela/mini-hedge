@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 import structlog
 
 if TYPE_CHECKING:
-    from app.modules.platform.repositories import AuditLogRepository
+    from app.shared.audit.repository import AuditLogRepositoryProtocol
     from app.shared.stores.immudb_client import ImmudbClient
 
 logger = structlog.get_logger()
@@ -38,7 +38,7 @@ class VerificationResult:
 
 async def verify_audit_batch(
     *,
-    audit_repo: AuditLogRepository,
+    audit_repo: AuditLogRepositoryProtocol,
     immudb_client: ImmudbClient,
     fund_slug: str | None = None,
     limit: int = 100,

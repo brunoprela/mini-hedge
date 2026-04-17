@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class RiskFactorContributionRepository(BaseRepository):
     """CRUD for RiskFactorContributionRecord."""
 
-    async def save_many(
+    async def insert_batch(
         self,
         records: list[RiskFactorContributionRecord],
         *,

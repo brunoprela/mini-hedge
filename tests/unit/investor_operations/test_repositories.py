@@ -65,7 +65,7 @@ class TestFundTermsRepository:
         session.execute.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_all_active(self) -> None:
+    async def test_list_active(self) -> None:
         session = _mock_session()
         scalars_mock = MagicMock()
         scalars_mock.all.return_value = [MagicMock(spec=FundTermsRecord)]
@@ -74,7 +74,7 @@ class TestFundTermsRepository:
         session.execute = AsyncMock(return_value=result_mock)
 
         repo = FundTermsRepository(MagicMock())
-        result = await repo.get_all_active(session=session)
+        result = await repo.list_active(session=session)
 
         assert len(result) == 1
         session.execute.assert_called_once()
@@ -169,12 +169,12 @@ class TestInvestorKYCRepository:
 
 class TestRedemptionRequestRepository:
     @pytest.mark.asyncio
-    async def test_save(self) -> None:
+    async def test_insert(self) -> None:
         session = _mock_session()
         record = MagicMock(spec=RedemptionRequestRecord)
 
         repo = RedemptionRequestRepository(MagicMock())
-        await repo.save(record, session=session)
+        await repo.insert(record, session=session)
 
         session.add.assert_called_once_with(record)
         session.flush.assert_called_once()
@@ -283,12 +283,12 @@ class TestRedemptionRequestRepository:
 
 class TestSubscriptionRequestRepository:
     @pytest.mark.asyncio
-    async def test_save(self) -> None:
+    async def test_insert(self) -> None:
         session = _mock_session()
         record = MagicMock(spec=SubscriptionRequestRecord)
 
         repo = SubscriptionRequestRepository(MagicMock())
-        await repo.save(record, session=session)
+        await repo.insert(record, session=session)
 
         session.add.assert_called_once_with(record)
         session.flush.assert_called_once()

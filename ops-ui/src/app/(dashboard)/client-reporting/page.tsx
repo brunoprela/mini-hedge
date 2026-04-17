@@ -4,10 +4,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ErrorState } from "@/shared/components/error-state";
+import { ErrorState, TableSkeleton } from "@mini-hedge/ui";
 import { FundPortfolioPicker } from "@/shared/components/fund-portfolio-picker";
-import { StatusBadge } from "@/shared/components/status-badge";
-import { apiFetch } from "@/shared/lib/api";
+import { StatusBadge } from "@mini-hedge/ui";
+import { api } from "@/shared/lib/api-client";
 
 interface FilingRecord {
   id: string;
@@ -27,27 +27,46 @@ export default function ClientReportingPage() {
 
   const statementsQuery = useQuery({
     queryKey: ["client-reporting", "statements", fundSlug],
-    queryFn: () =>
-      apiFetch<FilingRecord[]>(
-        `regulatory/filings?filing_type=investor_statement`,
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/regulatory/filings", {
+        params: { query: { filing_type: "investor_statement" } },
+      });
+      if (error) throw error;
+      return data as unknown as FilingRecord[];
+    },
     enabled: !!fundSlug && activeTab === "statements",
   });
 
   const lettersQuery = useQuery({
     queryKey: ["client-reporting", "letters", fundSlug],
-    queryFn: () =>
-      apiFetch<FilingRecord[]>(
-        `regulatory/filings?filing_type=performance_letter`,
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/regulatory/filings", {
+        params: { query: { filing_type: "performance_letter" } },
+      });
+      if (error) throw error;
+      return data as unknown as FilingRecord[];
+    },
     enabled: !!fundSlug && activeTab === "letters",
   });
 
   const generateStatement = useMutation({
-    mutationFn: () =>
-      apiFetch(`regulatory/investor-statement?investor_id=all&period_start=${new Date().toISOString().slice(0, 10)}&period_end=${new Date().toISOString().slice(0, 10)}`, {
-        method: "POST",
-      }),
+    mutationFn: async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const { data, error } = await api.POST(
+        "/api/v1/regulatory/investor-statement",
+        {
+          params: {
+            query: {
+              investor_id: "all",
+              period_start: today,
+              period_end: today,
+            },
+          },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["client-reporting", "statements"],
@@ -58,10 +77,17 @@ export default function ClientReportingPage() {
   });
 
   const generateLetter = useMutation({
-    mutationFn: () =>
-      apiFetch(`regulatory/performance-letter?fund_slug=${fundSlug}&period_end=${new Date().toISOString().slice(0, 10)}`, {
-        method: "POST",
-      }),
+    mutationFn: async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const { data, error } = await api.POST(
+        "/api/v1/regulatory/performance-letter",
+        {
+          params: { query: { fund_slug: fundSlug, period_end: today } },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["client-reporting", "letters"],
@@ -130,9 +156,7 @@ export default function ClientReportingPage() {
               </div>
 
               {statementsQuery.isLoading ? (
-                <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
-                  Loading...
-                </p>
+                <TableSkeleton rows={5} columns={4} />
               ) : statementsQuery.isError ? (
                 <ErrorState
                   message={statementsQuery.error.message}
@@ -213,9 +237,7 @@ export default function ClientReportingPage() {
               </div>
 
               {lettersQuery.isLoading ? (
-                <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
-                  Loading...
-                </p>
+                <TableSkeleton rows={5} columns={4} />
               ) : lettersQuery.isError ? (
                 <ErrorState
                   message={lettersQuery.error.message}

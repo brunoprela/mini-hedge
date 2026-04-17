@@ -59,7 +59,7 @@ class TestOrderIntentsConsumer:
         mock_fund = MagicMock()
         mock_fund.slug = "test-fund"
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[mock_fund])
+        fund_repo.list_active = AsyncMock(return_value=[mock_fund])
 
         patchers = _apply_patches()
         try:
@@ -90,7 +90,7 @@ class TestOrderIntentsConsumer:
         mock_fund = MagicMock()
         mock_fund.slug = "test-fund"
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[mock_fund])
+        fund_repo.list_active = AsyncMock(return_value=[mock_fund])
 
         mock_order_service = MagicMock()
         mock_order_service.create_order = AsyncMock()
@@ -150,7 +150,7 @@ class TestOrderIntentsConsumer:
         mock_fund = MagicMock()
         mock_fund.slug = "test-fund"
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[mock_fund])
+        fund_repo.list_active = AsyncMock(return_value=[mock_fund])
 
         mock_order_service = MagicMock()
         mock_order_service.create_order = AsyncMock()
@@ -198,7 +198,7 @@ class TestOrderIntentsConsumer:
         mock_fund = MagicMock()
         mock_fund.slug = "test-fund"
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[mock_fund])
+        fund_repo.list_active = AsyncMock(return_value=[mock_fund])
 
         mock_order_service = MagicMock()
         mock_order_service.create_order = AsyncMock(

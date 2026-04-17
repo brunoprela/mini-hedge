@@ -45,7 +45,7 @@ class OperatorAdminService:
     async def list_operators(
         self, *, limit: int = 100, offset: int = 0, session: AsyncSession | None = None
     ) -> OperatorPage:
-        records, total = await self._operator_repo.get_all_paginated(
+        records, total = await self._operator_repo.list_paginated(
             limit=limit, offset=offset, session=session
         )
         items: list[OperatorInfo] = []

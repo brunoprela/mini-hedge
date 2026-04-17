@@ -2,6 +2,7 @@
 
 from fastapi import HTTPException, Request
 
+from app.modules.fee_accounting.repositories.fee_accrual import FeeAccrualRepository
 from app.modules.fee_accounting.repositories.fee_schedule import FeeScheduleRepository
 from app.modules.fee_accounting.services import FeeAccountingService
 
@@ -24,5 +25,15 @@ def get_fee_schedule_repo(request: Request) -> FeeScheduleRepository:
         raise HTTPException(
             status_code=503,
             detail="FeeScheduleRepository not initialized",
+        )
+    return repo
+
+
+def get_fee_accrual_repo(request: Request) -> FeeAccrualRepository:
+    repo: FeeAccrualRepository | None = getattr(request.app.state, "fee_accrual_repo", None)
+    if repo is None:
+        raise HTTPException(
+            status_code=503,
+            detail="FeeAccrualRepository not initialized",
         )
     return repo

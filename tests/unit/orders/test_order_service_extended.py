@@ -285,7 +285,7 @@ class TestCreateAlgoOrderApproved:
                 algo_type="twap",
             )
 
-        order_repo.save.side_effect = save_side_effect
+        order_repo.insert.side_effect = save_side_effect
         order_repo.update_state.side_effect = update_state_side_effect
 
         request = _make_algo_request(portfolio_id=UUID(portfolio_id))
@@ -317,7 +317,7 @@ class TestCreateAlgoOrderApproved:
         )
         compliance_gw.check.return_value = _approved_decision()
         order_id = str(uuid4())
-        order_repo.save.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
+        order_repo.insert.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
         order_repo.update_state.side_effect = lambda oid, state, **kw: _make_order_record(
             id=order_id, state=state, is_parent=True, algo_type="twap"
         )
@@ -358,7 +358,7 @@ class TestCreateAlgoOrderRejected:
         )
         compliance_gw.check.return_value = _rejected_decision()
         order_id = str(uuid4())
-        order_repo.save.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
+        order_repo.insert.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
         order_repo.update_state.side_effect = lambda oid, state, **kw: _make_order_record(
             id=order_id,
             state=state,
@@ -450,7 +450,7 @@ class TestCreateChildOrder:
                 quantity=Decimal("100"),
             )
 
-        order_repo.save.side_effect = save_side_effect
+        order_repo.insert.side_effect = save_side_effect
         order_repo.update_state.side_effect = update_state_side_effect
         # get_children for parent update
         order_repo.get_children.return_value = []
@@ -463,7 +463,7 @@ class TestCreateChildOrder:
 
         assert result is not None
         # Should have called submit_order on the broker
-        assert order_repo.save.await_count == 1
+        assert order_repo.insert.await_count == 1
 
     async def test_child_order_parent_not_found(
         self,
@@ -548,7 +548,7 @@ class TestProcessExecutionReport:
             fill_quantity=Decimal("100"),
         )
 
-        order_fill_repo.save_fill.assert_awaited_once()
+        order_fill_repo.insert_fill.assert_awaited_once()
         order_repo.update_state.assert_awaited()
         audit_repo.insert_admin_event.assert_awaited()
 
@@ -581,7 +581,7 @@ class TestProcessExecutionReport:
             fill_quantity=Decimal("100"),
         )
 
-        order_fill_repo.save_fill.assert_not_awaited()
+        order_fill_repo.insert_fill.assert_not_awaited()
 
     @patch("app.modules.orders.services.order.asyncio.sleep", new_callable=AsyncMock)
     async def test_execution_report_invalid_state(
@@ -615,7 +615,7 @@ class TestProcessExecutionReport:
             fill_quantity=Decimal("100"),
         )
 
-        order_fill_repo.save_fill.assert_not_awaited()
+        order_fill_repo.insert_fill.assert_not_awaited()
 
     async def test_execution_report_partially_filled_state(
         self,
@@ -664,7 +664,7 @@ class TestProcessExecutionReport:
             broker_id="broker-1",
         )
 
-        order_fill_repo.save_fill.assert_awaited_once()
+        order_fill_repo.insert_fill.assert_awaited_once()
 
 
 # ---------------------------------------------------------------------------
@@ -1314,7 +1314,7 @@ class TestCreateOrderWithRouting:
         compliance_gw.check.return_value = _approved_decision()
 
         order_id = str(uuid4())
-        order_repo.save.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
+        order_repo.insert.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
 
         def update_state_side_effect(oid, new_state, *, session=None, **kwargs):
             return _make_order_record(
@@ -1367,7 +1367,7 @@ class TestCreateOrderWithRouting:
 
         compliance_gw.check.return_value = _approved_decision()
         order_id = str(uuid4())
-        order_repo.save.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
+        order_repo.insert.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
         order_repo.update_state.side_effect = lambda oid, state, **kw: _make_order_record(
             id=order_id,
             state=state,
@@ -1422,7 +1422,7 @@ class TestCreateOrderWithMarketData:
         market_data_service.get_latest_price.return_value = snap
 
         order_id = str(uuid4())
-        order_repo.save.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
+        order_repo.insert.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
         order_repo.update_state.side_effect = lambda oid, state, **kw: _make_order_record(
             id=order_id,
             state=state,
@@ -1459,7 +1459,7 @@ class TestCreateOrderWithMarketData:
         market_data_service.get_latest_price.return_value = None
 
         order_id = str(uuid4())
-        order_repo.save.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
+        order_repo.insert.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
         order_repo.update_state.side_effect = lambda oid, state, **kw: _make_order_record(
             id=order_id,
             state=state,
@@ -1510,7 +1510,7 @@ class TestCreateOrderBrokerRejection:
 
         compliance_gw.check.return_value = _approved_decision()
         order_id = str(uuid4())
-        order_repo.save.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
+        order_repo.insert.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
         order_repo.update_state.side_effect = lambda oid, state, **kw: _make_order_record(
             id=order_id,
             state=state,
@@ -1552,7 +1552,7 @@ class TestCreateOrderBrokerRejection:
 
         compliance_gw.check.return_value = _approved_decision()
         order_id = str(uuid4())
-        order_repo.save.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
+        order_repo.insert.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
         order_repo.update_state.side_effect = lambda oid, state, **kw: _make_order_record(
             id=order_id, state=state
         )
@@ -1673,7 +1673,7 @@ class TestCreateAlgoOrderWithMarketData:
         market_data_service.get_latest_price.return_value = snap
 
         order_id = str(uuid4())
-        order_repo.save.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
+        order_repo.insert.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
         order_repo.update_state.side_effect = lambda oid, state, **kw: _make_order_record(
             id=order_id,
             state=state,

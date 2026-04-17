@@ -357,7 +357,7 @@ class TestQuantResearchService:
         prices = _make_price_series(300)
         await service.detect_regime(prices)
 
-        regime_repo.save_snapshot.assert_called_once()
+        regime_repo.insert_snapshot.assert_called_once()
 
     async def test_detect_regime_returns_regime_analysis(
         self, service: QuantResearchService, regime_repo: AsyncMock
@@ -403,7 +403,7 @@ class TestQuantResearchService:
         factor_def_repo.get_by_name.return_value = _make_factor_record(
             factor_type="value"
         )  # no fn registered
-        factor_exp_repo.save_many.return_value = None
+        factor_exp_repo.insert_batch.return_value = None
 
         with pytest.raises(ValueError, match="No compute function"):
             await service.compute_factor_exposures("value", {})
@@ -418,7 +418,7 @@ class TestQuantResearchService:
         factor_def_repo.get_by_name.return_value = _make_factor_record(
             name="momentum", factor_type=FactorType.MOMENTUM.value
         )
-        factor_exp_repo.save_many.return_value = None
+        factor_exp_repo.insert_batch.return_value = None
 
         price_data = {
             "AAPL": _make_price_series(260, Decimal("150"), Decimal("0.002")),
@@ -427,7 +427,7 @@ class TestQuantResearchService:
         }
         result = await service.compute_factor_exposures("momentum", price_data)
 
-        factor_exp_repo.save_many.assert_called_once()
+        factor_exp_repo.insert_batch.assert_called_once()
         assert all(isinstance(e, FactorExposure) for e in result)
         audit_events = capture.get_by_topic("audit")
         assert len(audit_events) == 1

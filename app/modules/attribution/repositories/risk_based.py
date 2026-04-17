@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 class RiskBasedRepository(BaseRepository):
     """CRUD for RiskBasedRecord."""
 
-    async def save(
+    async def insert(
         self,
         record: RiskBasedRecord,
         *,

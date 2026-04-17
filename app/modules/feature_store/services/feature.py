@@ -91,7 +91,7 @@ class FeatureStoreService:
             created_at=now,
             updated_at=now,
         )
-        await self._definition_repo.create(record, session=session)
+        await self._definition_repo.insert(record, session=session)
         logger.info("feature_registered", name=name, entity_type=entity_type)
 
         if self._event_bus:
@@ -189,7 +189,7 @@ class FeatureStoreService:
             computed_at=now,
             version=record.version,
         )
-        await self._value_repo.save_many([val_record], session=session)
+        await self._value_repo.insert_batch([val_record], session=session)
 
         return FeatureValue(
             feature_name=feature_name,
@@ -246,7 +246,7 @@ class FeatureStoreService:
             )
 
         if val_records:
-            await self._value_repo.save_many(val_records, session=session)
+            await self._value_repo.insert_batch(val_records, session=session)
 
         logger.info(
             "features_batch_computed",
@@ -350,7 +350,7 @@ class FeatureStoreService:
             feature_names=feature_names,
             entity_type=entity_type,
         )
-        await self._set_repo.create(record, session=session)
+        await self._set_repo.insert(record, session=session)
         logger.info("feature_set_created", name=name)
         return self._set_to_dto(record)
 

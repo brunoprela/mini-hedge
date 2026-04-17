@@ -73,7 +73,7 @@ class FundStructuresService:
             feeder_fund_slug=feeder_slug,
             allocation_pct=allocation_pct,
         )
-        await self._mf_repo.create_link(record, session=session)
+        await self._mf_repo.insert_link(record, session=session)
         logger.info(
             "master_feeder_link_created",
             master=master_slug,
@@ -107,6 +107,15 @@ class FundStructuresService:
             session=session,
         )
         return [self._to_mf_link(r) for r in records]
+
+    async def get_master_for_feeder(
+        self,
+        feeder_slug: str,
+        *,
+        session: AsyncSession | None = None,
+    ) -> MasterFeederLink | None:
+        record = await self._mf_repo.get_master_for_feeder(feeder_slug, session=session)
+        return self._to_mf_link(record) if record else None
 
     async def allocate_feeder_subscription(
         self,
@@ -172,7 +181,7 @@ class FundStructuresService:
             portfolio_id=portfolio_id,
             target_allocation_pct=target_pct,
         )
-        await self._sb_repo.create(record, session=session)
+        await self._sb_repo.insert(record, session=session)
         logger.info("strategy_book_created", fund=fund_slug, name=name, level=level)
         if self._event_bus:
             await self._event_bus.publish(
@@ -200,6 +209,27 @@ class FundStructuresService:
     ) -> list[StrategyBook]:
         records = await self._sb_repo.get_tree(fund_slug, session=session)
         return [self._to_strategy_book(r) for r in records]
+
+    async def update_book(
+        self,
+        book_id: str,
+        *,
+        name: str | None = None,
+        target_pct: Decimal | None = None,
+        session: AsyncSession | None = None,
+    ) -> StrategyBook | None:
+        record = await self._sb_repo.update(
+            book_id, name=name, target_pct=target_pct, session=session
+        )
+        return self._to_strategy_book(record) if record else None
+
+    async def delete_book(
+        self,
+        book_id: str,
+        *,
+        session: AsyncSession | None = None,
+    ) -> None:
+        await self._sb_repo.delete(book_id, session=session)
 
     async def check_rebalance(
         self,
@@ -255,7 +285,7 @@ class FundStructuresService:
             allocation_pct=allocation_pct,
             is_internal=is_internal,
         )
-        await self._fof_repo.add_holding(record, session=session)
+        await self._fof_repo.insert_holding(record, session=session)
         logger.info(
             "fof_holding_added",
             fof=fof_slug,

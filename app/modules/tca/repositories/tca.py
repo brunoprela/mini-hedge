@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class TCARepository(BaseRepository):
     """CRUD for TCAResultRecord."""
 
-    async def save(
+    async def insert(
         self, record: TCAResultRecord, *, session: AsyncSession | None = None
     ) -> TCAResultRecord:
         async with self._session(session) as session:
@@ -35,7 +35,7 @@ class TCARepository(BaseRepository):
             result = await session.execute(stmt)
             return result.scalar_one_or_none()
 
-    async def get_by_order_ids(
+    async def list_by_order_ids(
         self, order_ids: list[str], *, session: AsyncSession | None = None
     ) -> list[TCAResultRecord]:
         if not order_ids:

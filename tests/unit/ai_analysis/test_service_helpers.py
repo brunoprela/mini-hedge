@@ -233,13 +233,13 @@ class TestGetAnalysisHistory:
 
         svc = _make_service(result_repo=repo)
         results = await svc.get_analysis_history(
-            analysis_type=AnalysisType.RISK_ASSESSMENT, limit=10
+            "alpha", analysis_type=AnalysisType.RISK_ASSESSMENT, limit=10
         )
 
         assert len(results) == 1
         assert results[0].analysis_type == AnalysisType.RISK_ASSESSMENT
         repo.list_results.assert_awaited_once_with(
-            analysis_type="risk_assessment", limit=10, session=None
+            "alpha", analysis_type="risk_assessment", limit=10, session=None
         )
 
     @pytest.mark.asyncio
@@ -248,11 +248,11 @@ class TestGetAnalysisHistory:
         repo.list_results.return_value = []
 
         svc = _make_service(result_repo=repo)
-        results = await svc.get_analysis_history()
+        results = await svc.get_analysis_history("alpha")
 
         assert results == []
         repo.list_results.assert_awaited_once_with(
-            analysis_type=None, limit=50, session=None
+            "alpha", analysis_type=None, limit=50, session=None
         )
 
 
@@ -271,12 +271,12 @@ class TestListResearchNotes:
         repo.list_notes.return_value = [record]
 
         svc = _make_service(note_repo=repo)
-        notes = await svc.list_research_notes(tags=["macro"], limit=20)
+        notes = await svc.list_research_notes("alpha", tags=["macro"], limit=20)
 
         assert len(notes) == 1
         assert notes[0].title == "A title"
         repo.list_notes.assert_awaited_once_with(
-            tags=["macro"], limit=20, session=None
+            "alpha", tags=["macro"], limit=20, session=None
         )
 
     @pytest.mark.asyncio
@@ -285,6 +285,6 @@ class TestListResearchNotes:
         repo.list_notes.return_value = []
 
         svc = _make_service(note_repo=repo)
-        notes = await svc.list_research_notes()
+        notes = await svc.list_research_notes("alpha")
 
         assert notes == []

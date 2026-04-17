@@ -67,7 +67,7 @@ def _make_service(
     sf = MagicMock()
     repo = AsyncMock()
     repo.get_by_action_id = AsyncMock(return_value=existing_record)
-    repo.save = AsyncMock(side_effect=_stamp)
+    repo.insert = AsyncMock(side_effect=_stamp)
     repo.list_all = AsyncMock(return_value=[])
 
     adapter = AsyncMock()
@@ -126,8 +126,8 @@ class TestFetchAndProcess:
         results = await svc.fetch_and_process(_FUND, _PORTFOLIO, date(2026, 4, 1), date(2026, 4, 1))
 
         assert len(results) == 1
-        # Should not save again
-        svc._repo.save.assert_not_called()
+        # Should not insert again
+        svc._repo.insert.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_handles_unknown_action_type(self) -> None:
@@ -141,8 +141,8 @@ class TestFetchAndProcess:
             await svc.fetch_and_process(_FUND, _PORTFOLIO, date(2026, 4, 1), date(2026, 4, 1))
 
         # Verify the failed record was still persisted
-        svc._repo.save.assert_called_once()
-        saved = svc._repo.save.call_args.args[0]
+        svc._repo.insert.assert_called_once()
+        saved = svc._repo.insert.call_args.args[0]
         assert saved.status == ProcessingStatus.FAILED.value
 
     @pytest.mark.asyncio

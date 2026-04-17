@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { LoadingSkeleton } from "@mini-hedge/ui";
 import { capitalAccountsQueryOptions } from "@/features/investors/api";
 import { DonutChart } from "@/shared/components/charts";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
@@ -14,7 +15,7 @@ export function NavAllocationChart() {
   if (isLoading) {
     return (
       <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-4">
-        <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>
+        <LoadingSkeleton height="11rem" />
       </div>
     );
   }

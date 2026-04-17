@@ -3,3 +3,4 @@ packages:
   - "ops-ui"
   - "client-ui"
   - "packages/*"
+  - "tests-e2e"

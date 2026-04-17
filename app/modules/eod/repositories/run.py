@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 class EODRunRepository(BaseRepository):
     """Data access for EOD runs and steps."""
 
-    async def create_run(
+    async def insert_run(
         self,
         *,
         run_id: str,
@@ -95,7 +95,7 @@ class EODRunRepository(BaseRepository):
             result = await s.execute(stmt)
             return list(result.scalars().all())
 
-    async def save_step(
+    async def upsert_step(
         self,
         *,
         run_id: str,

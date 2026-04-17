@@ -25,10 +25,10 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
     terms_repo = FundTermsRepository(sf)
 
     fund_repo: FundRepository = app.state.fund_repo
-    active_funds = await fund_repo.get_all_active()
+    active_funds = await fund_repo.list_active()
     for fund in active_funds:
         async with sf.fund_scope(fund.slug), sf() as session:
-            existing = await terms_repo.get_all_active(session=session)
+            existing = await terms_repo.list_active(session=session)
             if not existing:
                 await service.upsert_fund_terms(
                     share_class="default",

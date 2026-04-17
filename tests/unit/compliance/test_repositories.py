@@ -81,25 +81,25 @@ class TestRuleRepository:
         return RuleRepository(session_factory=sf), session or sf.return_value.__aenter__.return_value
 
     @pytest.mark.asyncio
-    async def test_get_all(self) -> None:
+    async def test_list_all(self) -> None:
         session = _mock_session()
         records = [MagicMock(spec=ComplianceRuleRecord), MagicMock(spec=ComplianceRuleRecord)]
         session.execute.return_value = _make_scalars_result(records)
         repo, _ = self._make_repo(session)
 
-        result = await repo.get_all()
+        result = await repo.list_all()
 
         assert result == records
         session.execute.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_active(self) -> None:
+    async def test_list_active(self) -> None:
         session = _mock_session()
         records = [MagicMock(spec=ComplianceRuleRecord)]
         session.execute.return_value = _make_scalars_result(records)
         repo, _ = self._make_repo(session)
 
-        result = await repo.get_active()
+        result = await repo.list_active()
 
         assert len(result) == 1
 
@@ -200,13 +200,13 @@ class TestViolationRepository:
         return ViolationRepository(session_factory=sf), session or sf.return_value.__aenter__.return_value
 
     @pytest.mark.asyncio
-    async def test_get_active_by_portfolio(self) -> None:
+    async def test_list_active_by_portfolio(self) -> None:
         session = _mock_session()
         records = [MagicMock(spec=ComplianceViolationRecord)]
         session.execute.return_value = _make_scalars_result(records)
         repo, _ = self._make_repo(session)
 
-        result = await repo.get_active_by_portfolio(uuid4())
+        result = await repo.list_active_by_portfolio(uuid4())
 
         assert len(result) == 1
 
@@ -289,11 +289,11 @@ class TestRestrictedInstrumentRepository:
         assert result == {"AAPL", "TSLA"}
 
     @pytest.mark.asyncio
-    async def test_add(self) -> None:
+    async def test_insert(self) -> None:
         session = _mock_session()
         repo, _ = self._make_repo(session)
 
-        result = await repo.add(
+        result = await repo.insert(
             fund_slug="alpha",
             instrument_id="AAPL",
             reason="restricted",
@@ -310,7 +310,7 @@ class TestRestrictedInstrumentRepository:
         session.execute.return_value = _make_rowcount_result(1)
         repo, _ = self._make_repo(session)
 
-        result = await repo.remove(fund_slug="alpha", instrument_id="AAPL")
+        result = await repo.delete(fund_slug="alpha", instrument_id="AAPL")
 
         assert result is True
 
@@ -320,7 +320,7 @@ class TestRestrictedInstrumentRepository:
         session.execute.return_value = _make_rowcount_result(0)
         repo, _ = self._make_repo(session)
 
-        result = await repo.remove(fund_slug="alpha", instrument_id="AAPL")
+        result = await repo.delete(fund_slug="alpha", instrument_id="AAPL")
 
         assert result is False
 

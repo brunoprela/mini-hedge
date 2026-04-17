@@ -44,7 +44,7 @@ class CorporateActionsService:
         session_factory: TenantSessionFactory,
         repo: CorporateActionsRepository,
         corporate_actions_adapter: CorporateActionsAdapter,
-        event_bus: EventBus,
+        event_bus: EventBus | None = None,
         position_service: PositionService,
     ) -> None:
         self._session_factory = session_factory
@@ -135,7 +135,7 @@ class CorporateActionsService:
                 error_message=f"Unknown action type: {action.action_type}",
                 processed_at=datetime.now(UTC),
             )
-            record = await self._repo.save(record, session=session)
+            record = await self._repo.insert(record, session=session)
             return self._to_processed_action(record)
 
         try:
@@ -156,7 +156,7 @@ class CorporateActionsService:
                 error_message=str(exc),
                 processed_at=datetime.now(UTC),
             )
-            record = await self._repo.save(record, session=session)
+            record = await self._repo.insert(record, session=session)
             return self._to_processed_action(record)
 
         # 3. Determine status
@@ -181,7 +181,8 @@ class CorporateActionsService:
                     },
                     fund_slug=fund_slug,
                 )
-                await self._event_bus.publish(fund_topic(fund_slug, "trades.executed"), event)
+                if self._event_bus:
+                    await self._event_bus.publish(fund_topic(fund_slug, "trades.executed"), event)
 
             if adj.cash_amount != Decimal(0):
                 event = BaseEvent(
@@ -196,9 +197,10 @@ class CorporateActionsService:
                     },
                     fund_slug=fund_slug,
                 )
-                await self._event_bus.publish(
-                    fund_topic(fund_slug, "cash.settlement.created"), event
-                )
+                if self._event_bus:
+                    await self._event_bus.publish(
+                        fund_topic(fund_slug, "cash.settlement.created"), event
+                    )
 
         # 5. Persist record
         adjustments_json = [asdict(a) for a in adjustments] if adjustments else None
@@ -219,7 +221,7 @@ class CorporateActionsService:
             adjustments=adjustments_json,
             processed_at=datetime.now(UTC),
         )
-        record = await self._repo.save(record, session=session)
+        record = await self._repo.insert(record, session=session)
 
         # 6. Publish processed event
         event = BaseEvent(
@@ -232,7 +234,8 @@ class CorporateActionsService:
             },
             fund_slug=fund_slug,
         )
-        await self._event_bus.publish(fund_topic(fund_slug, "corporate_actions.processed"), event)
+        if self._event_bus:
+            await self._event_bus.publish(fund_topic(fund_slug, "corporate_actions.processed"), event)
 
         logger.info(
             "corporate_action_processed",

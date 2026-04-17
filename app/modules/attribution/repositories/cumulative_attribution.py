@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class CumulativeAttributionRepository(BaseRepository):
     """CRUD for CumulativeAttributionRecord."""
 
-    async def save(
+    async def insert(
         self, record: CumulativeAttributionRecord, *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as session:

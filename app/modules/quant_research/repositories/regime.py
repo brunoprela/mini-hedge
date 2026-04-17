@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class RegimeRepository(BaseRepository):
     """Persistence for regime detection snapshots."""
 
-    async def save_snapshot(
+    async def insert_snapshot(
         self, record: RegimeSnapshotRecord, *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as s:

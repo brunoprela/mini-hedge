@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 class BrinsonFachlerRepository(BaseRepository):
     """CRUD for BrinsonFachlerRecord."""
 
-    async def save(
+    async def insert(
         self,
         record: BrinsonFachlerRecord,
         *,

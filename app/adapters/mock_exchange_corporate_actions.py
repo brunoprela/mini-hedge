@@ -39,7 +39,10 @@ class MockExchangeCorporateActionsAdapter:
             params["end"] = end.isoformat()
 
         async with (
-            httpx.AsyncClient(base_url=self._base_url, timeout=10.0) as client,
+            httpx.AsyncClient(
+                base_url=self._base_url,
+                timeout=httpx.Timeout(10.0, connect=2.0),
+            ) as client,
             self._circuit(),
         ):
             resp = await client.get("/api/v1/corporate-actions", params=params)

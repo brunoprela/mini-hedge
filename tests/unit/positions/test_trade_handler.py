@@ -143,14 +143,15 @@ class TestHandleTradeEvent:
         handler: TradeHandler,
         capture: EventCapture,
     ) -> None:
-        """Missing portfolio_id in event data triggers KeyError, caught by except block."""
+        """Missing portfolio_id in event data triggers KeyError, logged and re-raised."""
         event = make_trades_executed_event()
         # Remove portfolio_id from the event data
         bad_data = {k: v for k, v in event.data.items() if k != "portfolio_id"}
         bad_event = event.model_copy(update={"data": bad_data})
 
-        # Should not raise — the handler catches all exceptions
-        await handler.handle_trade_event(bad_event)
+        # The handler logs the exception but re-raises it
+        with pytest.raises(KeyError):
+            await handler.handle_trade_event(bad_event)
 
         # No downstream events should be published
         assert len(capture.events) == 0

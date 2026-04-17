@@ -21,8 +21,11 @@ from sqlalchemy.dialects.postgresql import insert
 from app.shared.models import ArchivalRecord
 
 if TYPE_CHECKING:
-    from app.modules.platform.repositories import AuditLogRepository, FundRepository
     from app.shared.audit.archival import ArchivalResult, MinioArchiver
+    from app.shared.audit.repository import (
+        AuditLogRepositoryProtocol,
+        FundListerProtocol,
+    )
     from app.shared.database import TenantSessionFactory
 
 logger = structlog.get_logger()
@@ -48,8 +51,8 @@ class ArchivalService:
         self,
         *,
         archiver: MinioArchiver,
-        audit_repo: AuditLogRepository,
-        fund_repo: FundRepository,
+        audit_repo: AuditLogRepositoryProtocol,
+        fund_repo: FundListerProtocol,
         session_factory: TenantSessionFactory,
     ) -> None:
         self._archiver = archiver
@@ -64,7 +67,7 @@ class ArchivalService:
         past the end of that month) and no archival record exists for it.
         """
         results: list[ArchivalResult] = []
-        active_funds = await self._fund_repo.get_all_active()
+        active_funds = await self._fund_repo.list_active()
 
         for fund in active_funds:
             fund_results = await self._archive_fund(fund.slug)

@@ -109,7 +109,7 @@ async def get_backtest(
     session: AsyncSession = Depends(get_read_db),
 ) -> BacktestResult:
     """Get full backtest result."""
-    result = await service.get_backtest(backtest_id, session=session)
+    result = await service.get_backtest(backtest_id, fund_slug=request_context.fund_slug, session=session)
     if result is None:
         raise HTTPException(status_code=404, detail="Backtest not found")
     return result
@@ -126,7 +126,7 @@ async def get_equity_curve(
     session: AsyncSession = Depends(get_read_db),
 ) -> list[EquityCurvePoint]:
     """Get just the equity curve for a backtest."""
-    result = await service.get_backtest(backtest_id, session=session)
+    result = await service.get_backtest(backtest_id, fund_slug=request_context.fund_slug, session=session)
     if result is None:
         raise HTTPException(status_code=404, detail="Backtest not found")
     return result.equity_curve
@@ -143,7 +143,7 @@ async def get_tear_sheet(
     session: AsyncSession = Depends(get_read_db),
 ) -> TearSheet:
     """Generate a comprehensive quantitative tear sheet for a backtest."""
-    tear_sheet = await service.get_tear_sheet(backtest_id, session=session)
+    tear_sheet = await service.get_tear_sheet(backtest_id, fund_slug=request_context.fund_slug, session=session)
     if tear_sheet is None:
         raise HTTPException(status_code=404, detail="Backtest not found")
     return tear_sheet
@@ -160,7 +160,7 @@ async def get_trades(
     session: AsyncSession = Depends(get_read_db),
 ) -> list[BacktestTrade]:
     """Get just the trades for a backtest."""
-    result = await service.get_backtest(backtest_id, session=session)
+    result = await service.get_backtest(backtest_id, fund_slug=request_context.fund_slug, session=session)
     if result is None:
         raise HTTPException(status_code=404, detail="Backtest not found")
     return result.trades
@@ -174,7 +174,7 @@ async def delete_backtest(
     session: AsyncSession = Depends(get_db),
 ) -> None:
     """Delete a backtest."""
-    await service.delete_backtest(backtest_id, session=session)
+    await service.delete_backtest(backtest_id, fund_slug=request_context.fund_slug, session=session)
 
 
 @router.post("/compare", response_model=list[BacktestSummary])
@@ -187,5 +187,6 @@ async def compare_backtests(
     """Compare multiple backtests side by side."""
     return await service.compare_backtests(
         body.backtest_ids,
+        fund_slug=request_context.fund_slug,
         session=session,
     )

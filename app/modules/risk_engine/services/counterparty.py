@@ -123,7 +123,7 @@ class CounterpartyRiskService:
             utilization_pct=util,
             breach=breach,
         )
-        await self._counterparty_exposure_repo.save_counterparty_exposure(record, session=session)
+        await self._counterparty_exposure_repo.insert_counterparty_exposure(record, session=session)
 
         if breach:
             logger.warning(

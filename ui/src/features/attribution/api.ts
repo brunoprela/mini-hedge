@@ -1,5 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
-import { clientFetch } from "@/shared/lib/api";
+import { api, fundHeaders } from "@/shared/lib/api-client";
 import type {
   BrinsonFachlerResult,
   CumulativeAttribution,
@@ -15,11 +15,17 @@ export function brinsonFachlerQueryOptions(
 ) {
   return queryOptions({
     queryKey: ["attribution", "brinson-fachler", fundSlug, portfolioId, start, end],
-    queryFn: () =>
-      clientFetch<BrinsonFachlerResult>(
-        `/attribution/${portfolioId}/brinson-fachler?start=${start}&end=${end}`,
-        { fundSlug },
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/attribution/{portfolio_id}/brinson-fachler",
+        {
+          params: { path: { portfolio_id: portfolioId }, query: { start, end } },
+          headers: fundHeaders(fundSlug),
+        },
+      );
+      if (error) throw error;
+      return data as BrinsonFachlerResult;
+    },
     enabled: Boolean(portfolioId && start && end),
   });
 }
@@ -32,11 +38,17 @@ export function riskBasedQueryOptions(
 ) {
   return queryOptions({
     queryKey: ["attribution", "risk-based", fundSlug, portfolioId, start, end],
-    queryFn: () =>
-      clientFetch<RiskBasedResult>(
-        `/attribution/${portfolioId}/risk-based?start=${start}&end=${end}`,
-        { fundSlug },
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/attribution/{portfolio_id}/risk-based",
+        {
+          params: { path: { portfolio_id: portfolioId }, query: { start, end } },
+          headers: fundHeaders(fundSlug),
+        },
+      );
+      if (error) throw error;
+      return data as RiskBasedResult;
+    },
     enabled: Boolean(portfolioId && start && end),
   });
 }
@@ -49,11 +61,17 @@ export function cumulativeQueryOptions(
 ) {
   return queryOptions({
     queryKey: ["attribution", "cumulative", fundSlug, portfolioId, start, end],
-    queryFn: () =>
-      clientFetch<CumulativeAttribution>(
-        `/attribution/${portfolioId}/cumulative?start=${start}&end=${end}`,
-        { fundSlug },
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/attribution/{portfolio_id}/cumulative",
+        {
+          params: { path: { portfolio_id: portfolioId }, query: { start, end } },
+          headers: fundHeaders(fundSlug),
+        },
+      );
+      if (error) throw error;
+      return data as CumulativeAttribution;
+    },
     enabled: Boolean(portfolioId && start && end),
   });
 }
@@ -66,10 +84,14 @@ export function fxAttributionQueryOptions(
 ) {
   return queryOptions({
     queryKey: ["attribution", "fx", fundSlug, portfolioId, start, end],
-    queryFn: () =>
-      clientFetch<FXAttributionResult>(`/attribution/${portfolioId}/fx?start=${start}&end=${end}`, {
-        fundSlug,
-      }),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/attribution/{portfolio_id}/fx", {
+        params: { path: { portfolio_id: portfolioId }, query: { start, end } },
+        headers: fundHeaders(fundSlug),
+      });
+      if (error) throw error;
+      return data as unknown as FXAttributionResult;
+    },
     enabled: Boolean(portfolioId && start && end),
   });
 }

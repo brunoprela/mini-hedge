@@ -229,7 +229,7 @@ class TestRedemptionEdgeCases:
 
     @pytest.mark.asyncio
     async def test_redemption_zero_nav_per_share(self) -> None:
-        """When nav_per_share is 0, shares_to_redeem should be ZERO."""
+        """When nav_per_share is 0, service raises ValueError."""
         service, account_repo, _, _, _ = _make_service()
         existing = _make_account(
             ending_capital=Decimal("100000"),
@@ -238,15 +238,13 @@ class TestRedemptionEdgeCases:
         account_repo.get_latest_for_investor = AsyncMock(return_value=existing)
         account_repo.get_latest_by_fund = AsyncMock(return_value=[])
 
-        result = await service.process_redemption(
-            investor_id="inv-1",
-            amount=Decimal("50000"),
-            nav_per_share=ZERO,
-            business_date=BIZ_DATE,
-        )
-
-        # shares_held should remain unchanged (1000 - 0)
-        assert result.shares_held == Decimal("1000")
+        with pytest.raises(ValueError, match="Cannot redeem with non-positive NAV per share"):
+            await service.process_redemption(
+                investor_id="inv-1",
+                amount=Decimal("50000"),
+                nav_per_share=ZERO,
+                business_date=BIZ_DATE,
+            )
 
     @pytest.mark.asyncio
     async def test_redemption_debits_cash_service(self) -> None:
@@ -274,7 +272,7 @@ class TestRedemptionEdgeCases:
 
     @pytest.mark.asyncio
     async def test_redemption_clamps_negative_shares_to_zero(self) -> None:
-        """When shares_to_redeem exceeds shares_held, new_shares is clamped to ZERO."""
+        """When shares_to_redeem exceeds shares_held, service raises ValueError."""
         service, account_repo, _, _, _ = _make_service()
         existing = _make_account(
             ending_capital=Decimal("100000"),
@@ -283,14 +281,13 @@ class TestRedemptionEdgeCases:
         account_repo.get_latest_for_investor = AsyncMock(return_value=existing)
         account_repo.get_latest_by_fund = AsyncMock(return_value=[])
 
-        result = await service.process_redemption(
-            investor_id="inv-1",
-            amount=Decimal("50000"),
-            nav_per_share=Decimal("1"),  # 50000 shares to redeem > 100 held
-            business_date=BIZ_DATE,
-        )
-
-        assert result.shares_held == ZERO
+        with pytest.raises(ValueError, match="Shares to redeem.*exceed shares held"):
+            await service.process_redemption(
+                investor_id="inv-1",
+                amount=Decimal("50000"),
+                nav_per_share=Decimal("1"),  # 50000 shares to redeem > 100 held
+                business_date=BIZ_DATE,
+            )
 
     @pytest.mark.asyncio
     async def test_redemption_publishes_event_without_bus(self) -> None:

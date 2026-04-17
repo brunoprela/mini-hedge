@@ -1,86 +1,131 @@
 "use client";
 
+import { FormField } from "@mini-hedge/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus, Shield } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { EditModal } from "@/shared/components/edit-modal";
-import { EmptyState } from "@/shared/components/empty-state";
-import { ErrorState } from "@/shared/components/error-state";
-import { TableSkeleton } from "@/shared/components/loading-skeleton";
-import { Pagination } from "@/shared/components/pagination";
-import { StatusBadge } from "@/shared/components/status-badge";
-import { apiFetch } from "@/shared/lib/api";
+import { EmptyState } from "@mini-hedge/ui";
+import { ErrorState } from "@mini-hedge/ui";
+import { TableSkeleton } from "@mini-hedge/ui";
+import { Pagination } from "@mini-hedge/ui";
+import { StatusBadge } from "@mini-hedge/ui";
+import { api } from "@/shared/lib/api-client";
 import { PAGE_SIZE } from "@/shared/lib/constants";
+import { useForm, z, zodResolver } from "@/shared/lib/forms";
 import { useRole } from "@/shared/lib/use-role";
-import type { OperatorInfo, Page } from "@/shared/types";
+import type { OperatorInfo } from "@/shared/types";
+
+/* ------------------------------------------------------------------ */
+/*  Schemas                                                            */
+/* ------------------------------------------------------------------ */
+
+const PLATFORM_ROLES = ["ops_admin", "ops_viewer"] as const;
+
+const createOperatorSchema = z.object({
+  email: z.string().trim().email("Enter a valid email"),
+  name: z.string().trim().min(1, "Name is required"),
+  platform_role: z.enum(PLATFORM_ROLES),
+});
+
+type CreateOperatorValues = z.infer<typeof createOperatorSchema>;
+
+const editOperatorSchema = z.object({
+  name: z.string().trim().min(1, "Name is required"),
+  platform_role: z.enum(PLATFORM_ROLES),
+  is_active: z.boolean(),
+});
+
+type EditOperatorValues = z.infer<typeof editOperatorSchema>;
+
+/* ------------------------------------------------------------------ */
+/*  Page                                                               */
+/* ------------------------------------------------------------------ */
 
 export default function OperatorsPage() {
   const { isAdmin } = useRole();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(0);
   const [showCreate, setShowCreate] = useState(false);
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
-  const [role, setRole] = useState("ops_viewer");
-
-  // Edit state
   const [editOp, setEditOp] = useState<OperatorInfo | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editActive, setEditActive] = useState(true);
-  const [editRole, setEditRole] = useState("ops_viewer");
+
+  const createForm = useForm<CreateOperatorValues>({
+    resolver: zodResolver(createOperatorSchema),
+    defaultValues: { email: "", name: "", platform_role: "ops_viewer" },
+  });
+
+  const editForm = useForm<EditOperatorValues>({
+    resolver: zodResolver(editOperatorSchema),
+    defaultValues: { name: "", platform_role: "ops_viewer", is_active: true },
+  });
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["admin", "operators", page],
-    queryFn: () =>
-      apiFetch<Page<OperatorInfo>>(`admin/operators?limit=${PAGE_SIZE}&offset=${page * PAGE_SIZE}`),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/admin/operators", {
+        params: { query: { limit: PAGE_SIZE, offset: page * PAGE_SIZE } },
+      });
+      if (error) throw error;
+      return data;
+    },
   });
 
   const createOperator = useMutation({
-    mutationFn: (body: { email: string; name: string; platform_role: string }) =>
-      apiFetch<OperatorInfo>("admin/operators", {
-        method: "POST",
-        body: JSON.stringify(body),
-      }),
+    mutationFn: async (body: CreateOperatorValues) => {
+      const { data, error } = await api.POST("/api/v1/admin/operators", {
+        body,
+      });
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "operators"] });
       setShowCreate(false);
-      setEmail("");
-      setName("");
-      setRole("ops_viewer");
+      createForm.reset();
       toast.success("Operator created");
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const updateOperator = useMutation({
-    mutationFn: ({
-      id,
-      ...body
-    }: {
-      id: string;
-      name?: string;
-      is_active?: boolean;
-      platform_role?: string;
-    }) =>
-      apiFetch<OperatorInfo>(`admin/operators/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(body),
-      }),
+    mutationFn: async ({ id, ...body }: { id: string } & EditOperatorValues) => {
+      const { data, error } = await api.PATCH(
+        "/api/v1/admin/operators/{operator_id}",
+        {
+          params: { path: { operator_id: id } },
+          body,
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "operators"] });
       setEditOp(null);
       toast.success("Operator updated");
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const openEdit = (op: OperatorInfo) => {
     setEditOp(op);
-    setEditName(op.name);
-    setEditActive(op.is_active);
-    setEditRole(op.platform_role ?? "ops_viewer");
+    editForm.reset({
+      name: op.name,
+      platform_role: (op.platform_role as EditOperatorValues["platform_role"]) ?? "ops_viewer",
+      is_active: op.is_active,
+    });
   };
+
+  useEffect(() => {
+    if (!showCreate) createForm.reset();
+  }, [showCreate, createForm]);
+
+  const onCreate = createForm.handleSubmit((values) => createOperator.mutate(values));
+  const onEdit = editForm.handleSubmit((values) => {
+    if (!editOp) return;
+    updateOperator.mutate({ id: editOp.id, ...values });
+  });
 
   return (
     <div>
@@ -98,36 +143,48 @@ export default function OperatorsPage() {
       </div>
 
       {isAdmin && showCreate && (
-        <div className="mb-4 rounded-lg border border-[var(--border)] p-4 bg-[var(--muted)]">
-          <div className="flex gap-3">
-            <input
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="flex-1 rounded border border-[var(--border)] px-3 py-1.5 text-sm"
-            />
-            <input
-              placeholder="Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="flex-1 rounded border border-[var(--border)] px-3 py-1.5 text-sm"
-            />
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="rounded border border-[var(--border)] px-3 py-1.5 text-sm"
+        <form
+          onSubmit={onCreate}
+          className="mb-4 rounded-lg border border-[var(--border)] p-4 bg-[var(--muted)] space-y-3"
+        >
+          <div className="grid gap-3 sm:grid-cols-3">
+            <FormField
+              label="Email"
+              required
+              error={createForm.formState.errors.email?.message}
             >
-              <option value="ops_admin">Ops Admin</option>
-              <option value="ops_viewer">Ops Viewer</option>
-            </select>
-            <button
-              type="button"
-              onClick={() => createOperator.mutate({ email, name, platform_role: role })}
-              disabled={createOperator.isPending}
-              className="rounded bg-[var(--primary)] px-4 py-1.5 text-sm text-white hover:opacity-90 disabled:opacity-50"
+              <input
+                placeholder="user@example.com"
+                className="w-full rounded border border-[var(--border)] px-3 py-1.5 text-sm"
+                {...createForm.register("email")}
+              />
+            </FormField>
+            <FormField
+              label="Name"
+              required
+              error={createForm.formState.errors.name?.message}
             >
-              Save
-            </button>
+              <input
+                placeholder="Name"
+                className="w-full rounded border border-[var(--border)] px-3 py-1.5 text-sm"
+                {...createForm.register("name")}
+              />
+            </FormField>
+            <FormField
+              label="Role"
+              required
+              error={createForm.formState.errors.platform_role?.message}
+            >
+              <select
+                className="w-full rounded border border-[var(--border)] px-3 py-1.5 text-sm"
+                {...createForm.register("platform_role")}
+              >
+                <option value="ops_admin">Ops Admin</option>
+                <option value="ops_viewer">Ops Viewer</option>
+              </select>
+            </FormField>
+          </div>
+          <div className="flex gap-2 justify-end">
             <button
               type="button"
               onClick={() => setShowCreate(false)}
@@ -135,8 +192,15 @@ export default function OperatorsPage() {
             >
               Cancel
             </button>
+            <button
+              type="submit"
+              disabled={createOperator.isPending}
+              className="rounded bg-[var(--primary)] px-4 py-1.5 text-sm text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {createOperator.isPending ? "Saving..." : "Save"}
+            </button>
           </div>
-        </div>
+        </form>
       )}
 
       {isLoading ? (
@@ -199,32 +263,28 @@ export default function OperatorsPage() {
 
       {/* Edit modal */}
       <EditModal title="Edit Operator" isOpen={editOp !== null} onClose={() => setEditOp(null)}>
-        <div className="space-y-3">
-          <label className="block">
-            <span className="block text-xs text-[var(--muted-foreground)] mb-1">Name</span>
+        <form onSubmit={onEdit} className="space-y-3">
+          <FormField label="Name" required error={editForm.formState.errors.name?.message}>
             <input
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
               className="w-full rounded border border-[var(--border)] px-3 py-1.5 text-sm"
+              {...editForm.register("name")}
             />
-          </label>
-          <label className="block">
-            <span className="block text-xs text-[var(--muted-foreground)] mb-1">Platform Role</span>
+          </FormField>
+          <FormField
+            label="Platform Role"
+            required
+            error={editForm.formState.errors.platform_role?.message}
+          >
             <select
-              value={editRole}
-              onChange={(e) => setEditRole(e.target.value)}
               className="w-full rounded border border-[var(--border)] px-3 py-1.5 text-sm"
+              {...editForm.register("platform_role")}
             >
               <option value="ops_admin">Ops Admin</option>
               <option value="ops_viewer">Ops Viewer</option>
             </select>
-          </label>
+          </FormField>
           <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={editActive}
-              onChange={(e) => setEditActive(e.target.checked)}
-            />
+            <input type="checkbox" {...editForm.register("is_active")} />
             <span className="text-sm">Active</span>
           </label>
           <div className="flex justify-end gap-2 pt-2">
@@ -236,23 +296,14 @@ export default function OperatorsPage() {
               Cancel
             </button>
             <button
-              type="button"
+              type="submit"
               disabled={updateOperator.isPending}
-              onClick={() => {
-                if (!editOp) return;
-                updateOperator.mutate({
-                  id: editOp.id,
-                  name: editName,
-                  is_active: editActive,
-                  platform_role: editRole,
-                });
-              }}
               className="rounded bg-[var(--primary)] px-4 py-1.5 text-sm text-white hover:opacity-90 disabled:opacity-50"
             >
-              Save
+              {updateOperator.isPending ? "Saving..." : "Save"}
             </button>
           </div>
-        </div>
+        </form>
       </EditModal>
     </div>
   );

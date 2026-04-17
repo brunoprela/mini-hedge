@@ -149,7 +149,7 @@ class ScorecardService:
         fund_slug: str,
     ) -> list[BrokerScorecard]:
         async with self._session_factory.fund_scope(fund_slug) as session:
-            records = await self._scorecard_repo.get_all(session=session)
+            records = await self._scorecard_repo.list_all(session=session)
             return [_to_scorecard(r) for r in records]
 
 

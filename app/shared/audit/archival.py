@@ -117,7 +117,8 @@ class MinioArchiver:
 
         Object key format: ``fund-alpha/2026/04.parquet``
         """
-        assert self._client is not None, "Call connect() first"
+        if self._client is None:
+            raise RuntimeError("Call connect() before using the archival store")
 
         if not records:
             return ArchivalResult(object_key="", records_archived=0, size_bytes=0)
@@ -152,7 +153,8 @@ class MinioArchiver:
 
     def list_archives(self, fund_slug: str) -> list[str]:
         """List all archived Parquet files for a fund."""
-        assert self._client is not None, "Call connect() first"
+        if self._client is None:
+            raise RuntimeError("Call connect() before using the archival store")
 
         objects = self._client.list_objects(_BUCKET, prefix=f"{fund_slug}/", recursive=True)
         return [obj.object_name for obj in objects]

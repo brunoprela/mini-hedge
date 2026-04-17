@@ -3,11 +3,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ErrorState } from "@/shared/components/error-state";
+import { ErrorState, TableSkeleton } from "@mini-hedge/ui";
 import { FundPortfolioPicker } from "@/shared/components/fund-portfolio-picker";
-import { StatusBadge } from "@/shared/components/status-badge";
-import { apiFetch } from "@/shared/lib/api";
-import type { TrackedBreak, AgingSummary } from "@/shared/types";
+import { StatusBadge } from "@mini-hedge/ui";
+import { api } from "@/shared/lib/api-client";
+import type { TrackedBreak } from "@/shared/types";
 
 const STATUS_VARIANT: Record<string, "warning" | "neutral" | "success" | "danger"> = {
   open: "warning",
@@ -31,10 +31,19 @@ export default function ReconciliationPage() {
     refetch: refetchBreaks,
   } = useQuery({
     queryKey: ["reconciliation", "breaks", portfolioId],
-    queryFn: () =>
-      apiFetch<TrackedBreak[]>(
-        `reconciliation/portfolios/${portfolioId}/breaks?status=open`,
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/reconciliation/portfolios/{portfolio_id}/breaks",
+        {
+          params: {
+            path: { portfolio_id: portfolioId },
+            query: { status: "open" },
+          },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     enabled,
   });
 
@@ -46,15 +55,23 @@ export default function ReconciliationPage() {
     refetch: refetchAging,
   } = useQuery({
     queryKey: ["reconciliation", "aging", portfolioId],
-    queryFn: () =>
-      apiFetch<AgingSummary>(
-        `reconciliation/portfolios/${portfolioId}/aging`,
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/reconciliation/portfolios/{portfolio_id}/aging",
+        { params: { path: { portfolio_id: portfolioId } } },
+      );
+      if (error) throw error;
+      return data;
+    },
     enabled,
   });
 
+  // Optimistic break status update: immediately reflect the new status in the
+  // cached breaks list (or remove it from an "open" filter), rolling back on
+  // failure. The breaks query uses ?status=open, so resolved/escalated breaks
+  // drop out of the list.
   const patchBreak = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       breakId,
       status,
       resolution_note,
@@ -62,21 +79,48 @@ export default function ReconciliationPage() {
       breakId: string;
       status: "investigating" | "resolved" | "escalated";
       resolution_note?: string;
-    }) =>
-      apiFetch(`reconciliation/breaks/${breakId}`, {
-        method: "PATCH",
-        body: JSON.stringify({ status, resolution_note }),
-      }),
+    }) => {
+      const { data, error } = await api.PATCH(
+        "/api/v1/reconciliation/breaks/{break_id}",
+        {
+          params: { path: { break_id: breakId } },
+          body: { status, resolution_note },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
+    onMutate: async ({ breakId, status }) => {
+      const queryKey = ["reconciliation", "breaks", portfolioId];
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<TrackedBreak[]>(queryKey);
+      queryClient.setQueryData<TrackedBreak[] | undefined>(queryKey, (old) => {
+        if (!old) return old;
+        // For open-only view, drop resolved/escalated; otherwise update inline.
+        if (status === "resolved" || status === "escalated") {
+          return old.filter((b) => b.id !== breakId);
+        }
+        return old.map((b) => (b.id === breakId ? { ...b, status } : b));
+      });
+      return { previous, queryKey };
+    },
     onSuccess: () => {
+      toast.success("Break status updated");
+    },
+    onError: (err: Error, _vars, context) => {
+      if (context?.previous && context.queryKey) {
+        queryClient.setQueryData(context.queryKey, context.previous);
+      }
+      toast.error(err.message);
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({
         queryKey: ["reconciliation", "breaks", portfolioId],
       });
       queryClient.invalidateQueries({
         queryKey: ["reconciliation", "aging", portfolioId],
       });
-      toast.success("Break status updated");
     },
-    onError: (err) => toast.error(err.message),
   });
 
   const isLoading = breaksLoading || agingLoading;
@@ -103,9 +147,7 @@ export default function ReconciliationPage() {
         </p>
       )}
 
-      {portfolioId && isLoading && (
-        <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>
-      )}
+      {portfolioId && isLoading && <TableSkeleton rows={6} columns={8} />}
 
       {portfolioId && isError && (
         <ErrorState

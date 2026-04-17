@@ -1,0 +1,27 @@
+apiVersion: v2
+name: mini-hedge
+description: |
+  Umbrella Helm chart for the mini-hedge hedge-fund-desk platform.
+  Deploys the FastAPI backend plus the three Next.js UIs (desk-ui, ops-ui,
+  client-ui). External dependencies (Postgres, Kafka, Keycloak, OpenFGA,
+  Redis, Prometheus/Grafana) are deployed via their own charts — see README.
+type: application
+
+# Chart version — bump on any chart change.
+version: 0.1.0
+
+# App version — bump on any application release.
+appVersion: "0.1.0"
+
+keywords:
+  - hedge-fund
+  - fintech
+  - fastapi
+  - nextjs
+
+maintainers:
+  - name: mini-hedge platform team
+
+# NOTE: no `dependencies` block — we treat Postgres/Kafka/Keycloak/OpenFGA/
+# Redis/observability as externally-managed (operator-driven or managed
+# services). See infrastructure/k8s/README.md for recommended charts.

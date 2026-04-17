@@ -31,6 +31,8 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger()
 
+_DEFAULT_SHARE_CLASS = "default"
+
 
 class FeeAccountingService:
     """Manages fee accrual, crystallization, and reporting."""
@@ -57,7 +59,7 @@ class FeeAccountingService:
         nav: Decimal,
         business_date: date,
         *,
-        share_class: str = "default",
+        share_class: str = _DEFAULT_SHARE_CLASS,
         session: AsyncSession | None = None,
     ) -> list[FeeAccrualRecord]:
         """Calculate and persist daily management + performance fee accruals."""
@@ -70,7 +72,7 @@ class FeeAccountingService:
             # Fall back to default class schedule
             schedule = await self._schedule_repo.get_by_fund_slug(
                 fund_slug,
-                share_class="default",
+                share_class=_DEFAULT_SHARE_CLASS,
                 session=session,
             )
         if schedule is None:
@@ -177,7 +179,7 @@ class FeeAccountingService:
         fund_slug: str,
         business_date: date,
         *,
-        share_class: str = "default",
+        share_class: str = _DEFAULT_SHARE_CLASS,
         session: AsyncSession | None = None,
     ) -> None:
         """Mark accrued fees as crystallized and update the high water mark."""
@@ -189,7 +191,7 @@ class FeeAccountingService:
         if schedule is None:
             schedule = await self._schedule_repo.get_by_fund_slug(
                 fund_slug,
-                share_class="default",
+                share_class=_DEFAULT_SHARE_CLASS,
                 session=session,
             )
         if schedule is None:
@@ -264,6 +266,25 @@ class FeeAccountingService:
             portfolio_id, start=start, end=end, session=session
         )
 
+    async def get_accruals_for_fund(
+        self,
+        portfolio_ids: list[UUID],
+        start: date | None = None,
+        end: date | None = None,
+        *,
+        session: AsyncSession | None = None,
+    ) -> list[FeeAccrualRecord]:
+        """Query accrual history aggregated across a fund's portfolios."""
+        all_records: list[FeeAccrualRecord] = []
+        for pid in portfolio_ids:
+            records = await self._accrual_repo.get_by_portfolio(
+                pid, start=start, end=end, session=session
+            )
+            all_records.extend(records)
+        # Sort by accrual_date descending to match single-portfolio behavior
+        all_records.sort(key=lambda r: r.accrual_date, reverse=True)
+        return all_records
+
     async def get_fee_summary(
         self,
         portfolio_id: UUID,
@@ -277,3 +298,127 @@ class FeeAccountingService:
             fee_type = accrual.fee_type
             summary[fee_type] = summary.get(fee_type, Decimal(0)) + accrual.accrued_amount
         return summary
+
+    async def get_fund_summary(
+        self,
+        portfolio_ids: list[UUID],
+        *,
+        session: AsyncSession | None = None,
+    ) -> dict[str, Decimal]:
+        """Return total accrued amount by fee type across all fund portfolios."""
+        summary: dict[str, Decimal] = {}
+        for pid in portfolio_ids:
+            portfolio_summary = await self.get_fee_summary(pid, session=session)
+            for fee_type, amount in portfolio_summary.items():
+                summary[fee_type] = summary.get(fee_type, Decimal(0)) + amount
+        return summary
+
+    async def accrue_daily_for_fund(
+        self,
+        portfolio_ids: list[UUID],
+        fund_slug: str,
+        nav_per_portfolio: dict[UUID, Decimal] | None,
+        business_date: date,
+        *,
+        share_class: str = _DEFAULT_SHARE_CLASS,
+        session: AsyncSession | None = None,
+    ) -> list[FeeAccrualRecord]:
+        """Run daily accrual across every portfolio in a fund.
+
+        If `nav_per_portfolio` is None, uses Decimal(0) — callers should
+        supply per-portfolio NAVs when available; otherwise accrual will
+        still insert zero-amount records for audit/trace.
+        """
+        all_accruals: list[FeeAccrualRecord] = []
+        for pid in portfolio_ids:
+            nav = (nav_per_portfolio or {}).get(pid, Decimal(0))
+            accruals = await self.accrue_daily_fees(
+                pid,
+                fund_slug,
+                nav,
+                business_date,
+                share_class=share_class,
+                session=session,
+            )
+            all_accruals.extend(accruals)
+        return all_accruals
+
+    async def crystallize_for_fund(
+        self,
+        portfolio_ids: list[UUID],
+        fund_slug: str,
+        business_date: date,
+        *,
+        share_class: str = _DEFAULT_SHARE_CLASS,
+        session: AsyncSession | None = None,
+    ) -> None:
+        """Crystallize fees across every portfolio in a fund."""
+        for pid in portfolio_ids:
+            await self.crystallize_fees(
+                pid,
+                fund_slug,
+                business_date,
+                share_class=share_class,
+                session=session,
+            )
+
+    async def approve_accruals(
+        self,
+        accrual_ids: list[UUID],
+        *,
+        actor_id: str = "system",
+        fund_slug: str | None = None,
+        session: AsyncSession | None = None,
+    ) -> int:
+        """Approve a batch of accrued fees — transition ACCRUED → CRYSTALLIZED.
+
+        Validates each id exists and is in the ACCRUED state. Skips and
+        logs accruals that are missing or already crystallized/paid so a
+        replay or partially-applied batch does not raise.
+
+        Publishes a single ``fee.approved`` event with the approved ids.
+        Returns the count of accruals actually transitioned.
+        """
+        approved_ids: list[str] = []
+        skipped: list[dict[str, str]] = []
+
+        for accrual_id in accrual_ids:
+            accrual = await self._accrual_repo.get_by_id(accrual_id, session=session)
+            if accrual is None:
+                skipped.append({"id": str(accrual_id), "reason": "not_found"})
+                continue
+            if accrual.status != AccrualStatus.ACCRUED:
+                skipped.append(
+                    {"id": str(accrual_id), "reason": f"invalid_state:{accrual.status}"}
+                )
+                continue
+            await self._accrual_repo.update_status(
+                accrual_id, AccrualStatus.CRYSTALLIZED, session=session
+            )
+            approved_ids.append(str(accrual_id))
+
+        logger.info(
+            "fee_accruals_approved",
+            approved=len(approved_ids),
+            skipped=len(skipped),
+            skipped_details=skipped,
+            actor_id=actor_id,
+        )
+
+        if approved_ids and self._event_bus is not None and fund_slug is not None:
+            from app.shared.schema_registry import fund_topic
+
+            await self._event_bus.publish(
+                fund_topic(fund_slug, "fees.approved"),
+                BaseEvent(
+                    event_type=AuditEventType.FEES_APPROVED,
+                    data={
+                        "accrual_ids": approved_ids,
+                        "count": len(approved_ids),
+                    },
+                    fund_slug=fund_slug,
+                    actor_id=actor_id,
+                ),
+            )
+
+        return len(approved_ids)

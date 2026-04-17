@@ -1,5 +1,6 @@
 "use client";
 
+import { TableSkeleton } from "@mini-hedge/ui";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import { InstrumentLink } from "@/shared/components/instrument-link";
@@ -69,7 +70,7 @@ export function InstrumentList() {
   }, [table.rows, groupBy]);
 
   if (isLoading) {
-    return <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>;
+    return <TableSkeleton rows={8} columns={6} />;
   }
 
   const renderRow = (inst: Record<string, unknown>) => {

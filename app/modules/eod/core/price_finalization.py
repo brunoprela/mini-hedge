@@ -48,7 +48,7 @@ class PriceFinalizationService:
         Reads the latest price from market data for each instrument in the
         security master and writes it to ``eod.finalized_prices``.
         """
-        instruments = await self._sm.get_all_active(session=session)
+        instruments = await self._sm.list_active(session=session)
         finalized: list[FinalizedPrice] = []
         missing: list[str] = []
 

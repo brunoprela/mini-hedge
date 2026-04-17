@@ -15,6 +15,7 @@
  * - Responsive md:absolute header positioning dropped (desk UI is fixed-wide).
  */
 
+import { TableSkeleton } from "@mini-hedge/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import Link from "next/link";
@@ -124,17 +125,33 @@ export function OrderBlotter({
 
   const canCancel = can(Permission.ORDERS_CANCEL);
 
+  // Optimistic cancel: immediately mark the order as "cancelled" in the cache,
+  // then roll back if the server rejects.
   const cancelMutation = useMutation({
     mutationFn: (orderId: string) => cancelOrder(fundSlug, orderId),
-    onMutate: (orderId) => setCancellingId(orderId),
+    onMutate: async (orderId) => {
+      setCancellingId(orderId);
+      const queryKey = ["orders", fundSlug, portfolioId ?? ""];
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<OrderSummary[]>(queryKey);
+      queryClient.setQueryData<OrderSummary[] | undefined>(queryKey, (old) =>
+        old?.map((o) => (o.id === orderId ? { ...o, state: "cancelled" } : o)),
+      );
+      return { previous, queryKey };
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["orders", fundSlug] });
       toast.success("Order cancelled");
     },
-    onError: (err: Error) => {
+    onError: (err: Error, _orderId, context) => {
+      if (context?.previous && context.queryKey) {
+        queryClient.setQueryData(context.queryKey, context.previous);
+      }
       toast.error(`Cancel failed: ${err.message}`);
     },
-    onSettled: () => setCancellingId(null),
+    onSettled: () => {
+      setCancellingId(null);
+      queryClient.invalidateQueries({ queryKey: ["orders", fundSlug] });
+    },
   });
 
   const tabCounts = useMemo<Record<StatusFilter, number>>(() => {
@@ -204,7 +221,7 @@ export function OrderBlotter({
   };
 
   if (isLoading) {
-    return <div className="text-sm text-[var(--muted-foreground)]">Loading orders...</div>;
+    return <TableSkeleton rows={6} columns={isCrossPortfolio ? 8 : 7} />;
   }
 
   if (!orders || orders.length === 0) {

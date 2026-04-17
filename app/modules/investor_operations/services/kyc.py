@@ -27,6 +27,11 @@ if TYPE_CHECKING:
     from app.shared.adapters.kyc import KYCScreeningAdapter
     from app.shared.events import EventBus
 
+_DEFAULT_SHARE_CLASS = "default"
+_DEFAULT_REDEMPTION_FREQUENCY = "quarterly"
+_DEFAULT_GATE_PCT = Decimal("0.25")
+_DEFAULT_MIN_SUBSCRIPTION = Decimal("1000000")
+
 
 def _now() -> datetime:
     return datetime.now(UTC)
@@ -148,7 +153,7 @@ class InvestorKYCService:
 
     async def get_fund_terms(
         self,
-        share_class: str = "default",
+        share_class: str = _DEFAULT_SHARE_CLASS,
         *,
         session: AsyncSession | None = None,
     ) -> FundTermsSummary | None:
@@ -160,7 +165,7 @@ class InvestorKYCService:
     async def list_fund_terms(
         self, *, session: AsyncSession | None = None
     ) -> list[FundTermsSummary]:
-        records = await self._terms_repo.get_all_active(session=session)
+        records = await self._terms_repo.list_active(session=session)
         return [_terms_to_summary(r) for r in records]
 
     async def upsert_fund_terms(
@@ -169,9 +174,9 @@ class InvestorKYCService:
         share_class: str,
         lock_up_months: int = 12,
         notice_period_days: int = 45,
-        redemption_frequency: str = "quarterly",
-        gate_pct: Decimal = Decimal("0.25"),
-        minimum_subscription: Decimal = Decimal("1000000"),
+        redemption_frequency: str = _DEFAULT_REDEMPTION_FREQUENCY,
+        gate_pct: Decimal = _DEFAULT_GATE_PCT,
+        minimum_subscription: Decimal = _DEFAULT_MIN_SUBSCRIPTION,
         minimum_redemption: Decimal = Decimal("100000"),
         dealing_day: int = -1,
         payment_days: int = 30,

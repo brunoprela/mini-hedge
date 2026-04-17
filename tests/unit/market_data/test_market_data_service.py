@@ -80,7 +80,7 @@ def _make_service() -> MarketDataService:
     fx_repo.get_latest_all = AsyncMock(return_value=[])
     fx_repo.insert = AsyncMock()
 
-    return MarketDataService(repository=price_repo, fx_repository=fx_repo)
+    return MarketDataService(price_repo=price_repo, fx_repo=fx_repo)
 
 
 class TestGetLatestPrice:
@@ -161,6 +161,7 @@ class TestOHLCVBars:
                 "close": Decimal("150"),
                 "volume": Decimal("5000"),
                 "period_start": _NOW,
+                "period_end": _NOW,
             },
         ])
 

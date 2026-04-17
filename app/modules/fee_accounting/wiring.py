@@ -43,6 +43,7 @@ async def setup(
     )
     app.state.fee_accounting_service = fee_service
     app.state.fee_schedule_repo = schedule_repo
+    app.state.fee_accrual_repo = accrual_repo
 
     # Seed fee schedules in local environment
     if os.environ.get("APP_ENV", "local") == "local":

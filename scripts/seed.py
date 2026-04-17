@@ -44,14 +44,14 @@ async def seed_platform(session_factory: TenantSessionFactory) -> None:
     operator_repo = OperatorRepository(session_factory)
     api_key_repo = APIKeyRepository(session_factory)
 
-    existing_funds = await fund_repo.get_all_active()
+    existing_funds = await fund_repo.list_active()
     if not existing_funds:
         funds = build_seed_funds()
         for fund in funds:
             await fund_repo.insert(fund)
         logger.info("funds_seeded", count=len(funds))
 
-    existing_users = await user_repo.get_all_active()
+    existing_users = await user_repo.list_active()
     if not existing_users:
         users = build_seed_users()
         for user in users:
@@ -61,7 +61,7 @@ async def seed_platform(session_factory: TenantSessionFactory) -> None:
             await api_key_repo.insert(api_key)
         logger.info("auth_seeded", users=len(users), api_key=DEV_API_KEY)
 
-    existing_operators = await operator_repo.get_all_active()
+    existing_operators = await operator_repo.list_active()
     if not existing_operators:
         operators = build_seed_operators()
         for op in operators:
@@ -72,7 +72,7 @@ async def seed_platform(session_factory: TenantSessionFactory) -> None:
 async def seed_instruments(session_factory: TenantSessionFactory) -> None:
     """Seed instrument reference data."""
     instrument_repo = InstrumentRepository(session_factory)
-    existing = await instrument_repo.get_all_active()
+    existing = await instrument_repo.list_active()
     if existing:
         logger.info("instruments_already_seeded", count=len(existing))
         return

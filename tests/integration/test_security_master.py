@@ -17,16 +17,16 @@ class TestSecurityMaster:
         session_factory: async_sessionmaker[AsyncSession],
     ) -> None:
         repo = InstrumentRepository(session_factory)
-        service = SecurityMasterService(repository=repo)
+        service = SecurityMasterService(instrument_repo=repo)
 
         # Seed only if not already present (other fixtures may have seeded)
-        existing = await service.get_all_active()
+        existing = await service.list_active()
         if not existing:
             instruments, extensions = build_seed_records()
             await repo.insert_batch(instruments, extensions)
 
         # Query all — seed has 42 instruments
-        instruments = await service.get_all_active()
+        instruments = await service.list_active()
         assert len(instruments) >= 10  # at least the original set
 
         # Query by ticker
@@ -45,7 +45,7 @@ class TestSecurityMaster:
         session_factory: async_sessionmaker[AsyncSession],
     ) -> None:
         repo = InstrumentRepository(session_factory)
-        service = SecurityMasterService(repository=repo)
+        service = SecurityMasterService(instrument_repo=repo)
 
         with pytest.raises(NotFoundError):
             await service.get_by_ticker("DOESNOTEXIST")

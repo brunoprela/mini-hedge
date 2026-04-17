@@ -38,6 +38,19 @@ class FeeAccrualRepository(BaseRepository):
             result = await session.execute(stmt)
             return list(result.scalars().all())
 
+    async def get_by_id(
+        self,
+        accrual_id: UUID,
+        *,
+        session: AsyncSession | None = None,
+    ) -> FeeAccrualRecord | None:
+        async with self._session(session) as session:
+            stmt = select(FeeAccrualRecord).where(
+                FeeAccrualRecord.id == str(accrual_id)
+            )
+            result = await session.execute(stmt)
+            return result.scalar_one_or_none()
+
     async def get_latest_by_type(
         self,
         portfolio_id: UUID,

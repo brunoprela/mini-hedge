@@ -25,10 +25,11 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
     """Idempotent dev-only seeding for fund structures."""
     from app.modules.fund_structures.models.master_feeder_link import MasterFeederLinkRecord
     from app.modules.fund_structures.models.strategy_book import StrategyBookRecord
-    from app.modules.platform.repositories import FundRepository
 
-    fund_repo: FundRepository = app.state.fund_repo
-    active_funds = await fund_repo.get_all_active()
+    # Resolve the fund lister from app.state without depending on the platform
+    # module — we only need the duck-typed `list_active()` method here.
+    fund_repo = app.state.fund_repo
+    active_funds = await fund_repo.list_active()
     fund_slugs = {f.slug for f in active_funds}
 
     # --- Master-feeder: alpha is master, beta and gamma are feeders ---

@@ -97,6 +97,46 @@
             }
           }
         }
+      },
+      "post": {
+        "tags": [
+          "platform"
+        ],
+        "summary": "Create Portfolio",
+        "description": "Create a new portfolio within the authenticated user's fund.",
+        "operationId": "create_portfolio_api_v1_portfolios_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePortfolioRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioInfo"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/audit/verify": {
@@ -129,6 +169,108 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/api-keys": {
+      "get": {
+        "tags": [
+          "platform"
+        ],
+        "summary": "List Api Keys",
+        "description": "List API keys for the current fund.",
+        "operationId": "list_api_keys_api_v1_api_keys_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ApiKeyInfo"
+                  },
+                  "type": "array",
+                  "title": "Response List Api Keys Api V1 Api Keys Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "platform"
+        ],
+        "summary": "Create Api Key",
+        "description": "Create a new API key for the current fund.",
+        "operationId": "create_api_key_api_v1_api_keys_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiKeyCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiKeyCreateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/api-keys/{key_id}": {
+      "delete": {
+        "tags": [
+          "platform"
+        ],
+        "summary": "Revoke Api Key",
+        "description": "Revoke (soft-delete) an API key.",
+        "operationId": "revoke_api_key_api_v1_api_keys__key_id__delete",
+        "parameters": [
+          {
+            "name": "key_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -2208,6 +2350,28 @@
         }
       }
     },
+    "/api/v1/portfolios/aggregate": {
+      "get": {
+        "tags": [
+          "positions"
+        ],
+        "summary": "Get Fund Aggregate",
+        "description": "Aggregate cross-portfolio KPIs for the current fund.",
+        "operationId": "get_fund_aggregate_api_v1_portfolios_aggregate_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FundAggregate"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/portfolios/{portfolio_id}/positions": {
       "get": {
         "tags": [
@@ -2842,15 +3006,23 @@
           "compliance"
         ],
         "summary": "List Violations",
+        "description": "List active violations. When portfolio_id is omitted, returns fund-wide\nviolations (scoped by the X-Fund-Slug schema).",
         "operationId": "list_violations_api_v1_compliance_violations_get",
         "parameters": [
           {
             "name": "portfolio_id",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string",
-              "format": "uuid",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "Portfolio Id"
             }
           }
@@ -4226,6 +4398,60 @@
         }
       }
     },
+    "/api/v1/cash/{portfolio_id}/settlements/{settlement_id}/retry": {
+      "post": {
+        "tags": [
+          "cash"
+        ],
+        "summary": "Retry Settlement",
+        "description": "Reset a failed settlement to pending so it will be re-processed on the next sweep.",
+        "operationId": "retry_settlement_api_v1_cash__portfolio_id__settlements__settlement_id__retry_post",
+        "parameters": [
+          {
+            "name": "portfolio_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Portfolio Id"
+            }
+          },
+          {
+            "name": "settlement_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Settlement Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementRecord"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/cash/{portfolio_id}/settlements/{settlement_id}/message": {
       "post": {
         "tags": [
@@ -5163,6 +5389,96 @@
         }
       }
     },
+    "/api/v1/eod/finalized-prices": {
+      "get": {
+        "tags": [
+          "eod"
+        ],
+        "summary": "List Finalized Prices",
+        "description": "List all finalized closing prices for a business date.",
+        "operationId": "list_finalized_prices_api_v1_eod_finalized_prices_get",
+        "parameters": [
+          {
+            "name": "business_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Business Date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FinalizedPrice"
+                  },
+                  "title": "Response List Finalized Prices Api V1 Eod Finalized Prices Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/eod/finalize-price": {
+      "post": {
+        "tags": [
+          "eod"
+        ],
+        "summary": "Finalize Price",
+        "description": "Lock a closing price for an instrument on a business date.",
+        "operationId": "finalize_price_api_v1_eod_finalize_price_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinalizePriceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinalizedPrice"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/reconciliation/portfolios/{portfolio_id}/latest": {
       "get": {
         "tags": [
@@ -5353,7 +5669,7 @@
           "reconciliation"
         ],
         "summary": "List Breaks",
-        "description": "List breaks for a portfolio \u2014 by date or all open breaks.",
+        "description": "List breaks for a portfolio \u2014 by date, status, or all open breaks.",
         "operationId": "list_breaks_api_v1_reconciliation_portfolios__portfolio_id__breaks_get",
         "parameters": [
           {
@@ -5382,6 +5698,24 @@
               ],
               "title": "Business Date"
             }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by status: open, resolved, etc.",
+              "title": "Status"
+            },
+            "description": "Filter by status: open, resolved, etc."
           }
         ],
         "responses": {
@@ -5674,10 +6008,17 @@
           {
             "name": "portfolio_id",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string",
-              "format": "uuid",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "Portfolio Id"
             }
           },
@@ -5912,10 +6253,17 @@
           {
             "name": "portfolio_id",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string",
-              "format": "uuid",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "Portfolio Id"
             }
           }
@@ -6024,6 +6372,52 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CrystallizationTriggerRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/funds/{fund_slug}/fees/approve": {
+      "post": {
+        "tags": [
+          "fees"
+        ],
+        "summary": "Approve Accruals",
+        "description": "Approve (crystallize) a batch of pending fee accruals.",
+        "operationId": "approve_accruals_api_v1_funds__fund_slug__fees_approve_post",
+        "parameters": [
+          {
+            "name": "fund_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Fund Slug"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveAccrualsRequest"
               }
             }
           }
@@ -6546,47 +6940,26 @@
         ],
         "summary": "Process Corporate Actions",
         "operationId": "process_corporate_actions_api_v1_corporate_actions_process_post",
-        "parameters": [
-          {
-            "name": "portfolio_id",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Portfolio Id"
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProcessCorporateActionsRequest"
+              }
             }
           },
-          {
-            "name": "start_date",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "date",
-              "title": "Start Date"
-            }
-          },
-          {
-            "name": "end_date",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "date",
-              "title": "End Date"
-            }
-          }
-        ],
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/ProcessedAction"
                   },
+                  "type": "array",
                   "title": "Response Process Corporate Actions Api V1 Corporate Actions Process Post"
                 }
               }
@@ -7475,13 +7848,13 @@
         }
       }
     },
-    "/api/v1/fx-hedging/mtm/{portfolio_id}": {
+    "/api/v1/fx-hedging/forwards/{portfolio_id}/mtm": {
       "post": {
         "tags": [
           "fx-hedging"
         ],
         "summary": "Mark To Market",
-        "operationId": "mark_to_market_api_v1_fx_hedging_mtm__portfolio_id__post",
+        "operationId": "mark_to_market_api_v1_fx_hedging_forwards__portfolio_id__mtm_post",
         "parameters": [
           {
             "name": "portfolio_id",
@@ -7504,7 +7877,7 @@
                   "items": {
                     "$ref": "#/components/schemas/FXForwardContract"
                   },
-                  "title": "Response Mark To Market Api V1 Fx Hedging Mtm  Portfolio Id  Post"
+                  "title": "Response Mark To Market Api V1 Fx Hedging Forwards  Portfolio Id  Mtm Post"
                 }
               }
             }
@@ -9149,6 +9522,56 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/regulatory/investor-statements": {
+      "get": {
+        "tags": [
+          "regulatory"
+        ],
+        "summary": "List Investor Statements",
+        "operationId": "list_investor_statements_api_v1_regulatory_investor_statements_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/InvestorStatement"
+                  },
+                  "type": "array",
+                  "title": "Response List Investor Statements Api V1 Regulatory Investor Statements Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/regulatory/performance-letters": {
+      "get": {
+        "tags": [
+          "regulatory"
+        ],
+        "summary": "List Performance Letters",
+        "operationId": "list_performance_letters_api_v1_regulatory_performance_letters_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MonthlyPerformanceLetter"
+                  },
+                  "type": "array",
+                  "title": "Response List Performance Letters Api V1 Regulatory Performance Letters Get"
                 }
               }
             }
@@ -11746,8 +12169,15 @@
       "AccrualTriggerRequest": {
         "properties": {
           "portfolio_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Portfolio Id"
           },
           "nav": {
@@ -11758,6 +12188,9 @@
               {
                 "type": "string",
                 "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
               }
             ],
             "title": "Nav"
@@ -11775,8 +12208,6 @@
         },
         "type": "object",
         "required": [
-          "portfolio_id",
-          "nav",
           "business_date"
         ],
         "title": "AccrualTriggerRequest"
@@ -12564,6 +12995,147 @@
           "benchmark_return_pct"
         ],
         "title": "AnnualReturn"
+      },
+      "ApiKeyCreateRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Scopes",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ApiKeyCreateRequest"
+      },
+      "ApiKeyCreateResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "key_hint": {
+            "type": "string",
+            "title": "Key Hint"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Scopes"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "key_hint",
+          "scopes",
+          "created_at",
+          "key"
+        ],
+        "title": "ApiKeyCreateResponse"
+      },
+      "ApiKeyInfo": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "key_hint": {
+            "type": "string",
+            "title": "Key Hint"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Scopes"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "key_hint",
+          "scopes",
+          "created_at"
+        ],
+        "title": "ApiKeyInfo"
+      },
+      "ApproveAccrualsRequest": {
+        "properties": {
+          "accrual_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Accrual Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "accrual_ids"
+        ],
+        "title": "ApproveAccrualsRequest"
       },
       "AssetClass": {
         "type": "string",
@@ -14667,6 +15239,41 @@
         ],
         "title": "CreateOrderRequest"
       },
+      "CreatePortfolioRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "strategy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategy"
+          },
+          "base_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Currency"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "CreatePortfolioRequest"
+      },
       "CreateResearchNoteBody": {
         "properties": {
           "title": {
@@ -14855,8 +15462,15 @@
       "CrystallizationTriggerRequest": {
         "properties": {
           "portfolio_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Portfolio Id"
           },
           "business_date": {
@@ -14872,7 +15486,6 @@
         },
         "type": "object",
         "required": [
-          "portfolio_id",
           "business_date"
         ],
         "title": "CrystallizationTriggerRequest"
@@ -16767,8 +17380,15 @@
       "FeeSummaryResponse": {
         "properties": {
           "portfolio_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Portfolio Id"
           },
           "totals": {
@@ -16782,7 +17402,6 @@
         },
         "type": "object",
         "required": [
-          "portfolio_id",
           "totals"
         ],
         "title": "FeeSummaryResponse"
@@ -17020,6 +17639,79 @@
         ],
         "title": "FillDetail"
       },
+      "FinalizePriceRequest": {
+        "properties": {
+          "instrument_id": {
+            "type": "string",
+            "title": "Instrument Id"
+          },
+          "business_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Business Date"
+          },
+          "close_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Close Price"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "default": "manual"
+          }
+        },
+        "type": "object",
+        "required": [
+          "instrument_id",
+          "business_date",
+          "close_price"
+        ],
+        "title": "FinalizePriceRequest"
+      },
+      "FinalizedPrice": {
+        "properties": {
+          "instrument_id": {
+            "type": "string",
+            "title": "Instrument Id"
+          },
+          "business_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Business Date"
+          },
+          "close_price": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Close Price"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "finalized_by": {
+            "type": "string",
+            "title": "Finalized By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "instrument_id",
+          "business_date",
+          "close_price",
+          "source",
+          "finalized_by"
+        ],
+        "title": "FinalizedPrice",
+        "description": "A locked closing price for a business date."
+      },
       "FormPFData": {
         "properties": {
           "fund_slug": {
@@ -17227,6 +17919,43 @@
           "relation"
         ],
         "title": "FundAccessGrant"
+      },
+      "FundAggregate": {
+        "properties": {
+          "total_aum": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Aum"
+          },
+          "total_realized_pnl": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Realized Pnl"
+          },
+          "total_unrealized_pnl": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Unrealized Pnl"
+          },
+          "portfolio_count": {
+            "type": "integer",
+            "title": "Portfolio Count"
+          },
+          "total_positions": {
+            "type": "integer",
+            "title": "Total Positions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_aum",
+          "total_realized_pnl",
+          "total_unrealized_pnl",
+          "portfolio_count",
+          "total_positions"
+        ],
+        "title": "FundAggregate",
+        "description": "Cross-portfolio KPI summary for a fund."
       },
       "FundCapitalOverview": {
         "properties": {
@@ -19949,6 +20678,37 @@
           "source"
         ],
         "title": "PriceSnapshot"
+      },
+      "ProcessCorporateActionsRequest": {
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "title": "End Date"
+          },
+          "portfolio_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Portfolio Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start_date",
+          "end_date"
+        ],
+        "title": "ProcessCorporateActionsRequest"
       },
       "ProcessedAction": {
         "properties": {

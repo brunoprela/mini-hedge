@@ -96,7 +96,7 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
         return
 
     ca_repo = service._repo
-    active_funds = await fund_repo.get_all_active()
+    active_funds = await fund_repo.list_active()
     seeded = 0
 
     for fund in active_funds:
@@ -116,7 +116,7 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
                     adjustments=action_data["adjustments"],
                     processed_at=datetime.now(UTC),
                 )
-                await ca_repo.save(record)
+                await ca_repo.insert(record)
                 seeded += 1
 
     if seeded:

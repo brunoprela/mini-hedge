@@ -184,7 +184,7 @@ class TestVerifier:
         payload = {"instrument_id": "AAPL", "quantity": 100}
         record = AsyncMock()
         record.event_id = "evt-001"
-        record.payload = payload
+        record.payload = {"data": payload}
 
         audit_repo.query = AsyncMock(return_value=([record], 1))
 

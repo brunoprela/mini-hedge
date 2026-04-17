@@ -126,7 +126,7 @@ async def setup(
         )
         from app.shared.schema_registry import fund_topic
 
-        active_funds = await fund_repo.get_all_active()
+        active_funds = await fund_repo.list_active()
         for fund in active_funds:
 
             def _make_handler(slug: str) -> EventHandler:

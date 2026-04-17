@@ -6,18 +6,8 @@ import { useMemo, useState } from "react";
 import { StatusDot } from "@/shared/components/charts";
 import { SectionPanel } from "@/shared/components/section-panel";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
-import { clientFetch } from "@/shared/lib/api";
+import { api, fundHeaders } from "@/shared/lib/api-client";
 import { formatPnL, pnlColorClass } from "@/shared/lib/formatters";
-
-// ─── Types ──────────────────────────────────────────────────
-
-interface FundAggregate {
-  total_aum: string;
-  total_realized_pnl: string;
-  total_unrealized_pnl: string;
-  portfolio_count: number;
-  total_positions: number;
-}
 
 // ─── Component ──────────────────────────────────────────────
 
@@ -25,14 +15,17 @@ export function CrossFundSummary() {
   const { fundSlug, funds, isLoading } = useFundContext();
   const [collapsed, setCollapsed] = useState(false);
 
-  // Fetch aggregate data for each fund the user has access to
+  // Fetch aggregate data for each fund the user has access to.
   const aggregateResults = useQueries({
     queries: funds.map((f) => ({
       queryKey: ["fund-aggregate", f.fund_slug],
-      queryFn: () =>
-        clientFetch<FundAggregate>("/portfolios/aggregate", {
-          fundSlug: f.fund_slug,
-        }),
+      queryFn: async () => {
+        const { data, error } = await api.GET("/api/v1/portfolios/aggregate", {
+          headers: fundHeaders(f.fund_slug),
+        });
+        if (error) throw error;
+        return data;
+      },
       staleTime: 30_000,
     })),
   });

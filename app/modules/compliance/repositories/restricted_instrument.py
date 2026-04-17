@@ -42,7 +42,7 @@ class RestrictedInstrumentRepository(BaseRepository):
             result = await session.execute(stmt)
             return {row for row in result.scalars().all()}
 
-    async def add(
+    async def insert(
         self,
         *,
         fund_slug: str,
@@ -63,7 +63,7 @@ class RestrictedInstrumentRepository(BaseRepository):
             await session.flush()
             return record
 
-    async def remove(
+    async def delete(
         self,
         *,
         fund_slug: str,

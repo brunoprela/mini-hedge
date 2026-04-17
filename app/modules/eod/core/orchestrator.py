@@ -95,6 +95,19 @@ class EODOrchestrator:
         self._redemption_service = redemption_service
         self._report_generator = report_generator
 
+    # Public accessors for route-level queries
+    @property
+    def run_repo(self) -> EODRunRepository:
+        return self._run_repo
+
+    @property
+    def fund_repo(self) -> FundRepository:
+        return self._fund_repo
+
+    @property
+    def portfolio_repo(self) -> PortfolioRepository:
+        return self._portfolio_repo
+
     async def run_eod(
         self,
         fund_slug: str,
@@ -129,7 +142,7 @@ class EODOrchestrator:
 
         run_id = str(uuid4())
         now = datetime.now(UTC)
-        await self._run_repo.create_run(
+        await self._run_repo.insert_run(
             run_id=run_id,
             business_date=business_date,
             fund_slug=fund_slug,
@@ -162,7 +175,7 @@ class EODOrchestrator:
             )
             step_results.append(result)
 
-            await self._run_repo.save_step(
+            await self._run_repo.upsert_step(
                 run_id=run_id,
                 step=result.step.value,
                 status=result.status.value,

@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class OrderFillRepository(BaseRepository):
     """CRUD for order fills."""
 
-    async def save_fill(
+    async def insert_fill(
         self, fill: OrderFillRecord, *, session: AsyncSession | None = None
     ) -> OrderFillRecord:
         async with self._session(session) as session:

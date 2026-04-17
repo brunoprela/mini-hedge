@@ -107,12 +107,12 @@ def capture(event_bus: InProcessEventBus) -> EventCapture:
 def repo() -> AsyncMock:
     r = AsyncMock()
 
-    # create() sets record.id as a side-effect
+    # insert() sets record.id as a side-effect
     async def _create(record, *, session=None):
         record.id = "bt-1"
         record.created_at = datetime(2024, 1, 2, tzinfo=UTC)
 
-    r.create.side_effect = _create
+    r.insert.side_effect = _create
     return r
 
 
@@ -147,12 +147,12 @@ class TestSubmitBacktest:
         repo.update_status.return_value = None
         config = _make_config()
 
-        summary = await service.submit_backtest(config, SIMPLE_PRICE_DATA)
+        summary = await service.submit_backtest(config, SIMPLE_PRICE_DATA, fund_slug="alpha")
 
         assert isinstance(summary, BacktestSummary)
         assert summary.strategy_name == "test-strategy"
         assert summary.status == BacktestStatus.COMPLETED
-        repo.create.assert_called_once()
+        repo.insert.assert_called_once()
 
     async def test_transitions_status_to_running_then_completed(
         self,
@@ -162,7 +162,7 @@ class TestSubmitBacktest:
         repo.update_status.return_value = None
         config = _make_config()
 
-        await service.submit_backtest(config, SIMPLE_PRICE_DATA)
+        await service.submit_backtest(config, SIMPLE_PRICE_DATA, fund_slug="alpha")
 
         calls = [call.args[1] for call in repo.update_status.call_args_list]
         assert BacktestStatus.RUNNING in calls
@@ -175,7 +175,7 @@ class TestSubmitBacktest:
         capture: EventCapture,
     ):
         repo.update_status.return_value = None
-        await service.submit_backtest(_make_config(), SIMPLE_PRICE_DATA)
+        await service.submit_backtest(_make_config(), SIMPLE_PRICE_DATA, fund_slug="alpha")
 
         submitted = [
             e
@@ -192,7 +192,7 @@ class TestSubmitBacktest:
         capture: EventCapture,
     ):
         repo.update_status.return_value = None
-        await service.submit_backtest(_make_config(), SIMPLE_PRICE_DATA)
+        await service.submit_backtest(_make_config(), SIMPLE_PRICE_DATA, fund_slug="alpha")
 
         completed = [
             e
@@ -209,7 +209,7 @@ class TestSubmitBacktest:
     ):
         with pytest.raises(ValueError, match="Unknown signal function"):
             await service.submit_backtest(
-                _make_config(), SIMPLE_PRICE_DATA, signal_name="nonexistent"
+                _make_config(), SIMPLE_PRICE_DATA, signal_name="nonexistent", fund_slug="alpha"
             )
 
     async def test_engine_failure_marks_failed_and_publishes_event(
@@ -225,7 +225,7 @@ class TestSubmitBacktest:
         )
 
         with pytest.raises(RuntimeError):
-            await svc.submit_backtest(_make_config(), SIMPLE_PRICE_DATA)
+            await svc.submit_backtest(_make_config(), SIMPLE_PRICE_DATA, fund_slug="alpha")
 
         fail_calls = [
             call
@@ -255,12 +255,12 @@ class TestGetBacktestResult:
     ):
         repo.get_by_id.return_value = _make_run_record("bt-42")
 
-        result = await service.get_backtest("bt-42")
+        result = await service.get_backtest("bt-42", fund_slug="alpha")
 
         assert result is not None
         assert result.id == "bt-42"
         assert result.status == BacktestStatus.COMPLETED
-        repo.get_by_id.assert_called_once_with("bt-42", session=None)
+        repo.get_by_id.assert_called_once_with("bt-42", fund_slug="alpha", session=None)
 
     async def test_returns_none_for_missing_id(
         self,
@@ -269,7 +269,7 @@ class TestGetBacktestResult:
     ):
         repo.get_by_id.return_value = None
 
-        result = await service.get_backtest("missing")
+        result = await service.get_backtest("missing", fund_slug="alpha")
 
         assert result is None
 
@@ -287,7 +287,7 @@ class TestListBacktests:
     ):
         repo.list_all.return_value = [_make_run_record("bt-1"), _make_run_record("bt-2")]
 
-        results = await service.list_backtests()
+        results = await service.list_backtests("alpha")
 
         assert len(results) == 2
         assert all(isinstance(r, BacktestSummary) for r in results)
@@ -299,9 +299,9 @@ class TestListBacktests:
     ):
         repo.list_all.return_value = []
 
-        await service.list_backtests(status="completed", limit=10)
+        await service.list_backtests("alpha", status="completed", limit=10)
 
-        repo.list_all.assert_called_once_with(status="completed", limit=10, session=None)
+        repo.list_all.assert_called_once_with("alpha", status="completed", limit=10, session=None)
 
     async def test_returns_empty_list_when_none(
         self,
@@ -310,7 +310,7 @@ class TestListBacktests:
     ):
         repo.list_all.return_value = []
 
-        results = await service.list_backtests()
+        results = await service.list_backtests("alpha")
 
         assert results == []
 

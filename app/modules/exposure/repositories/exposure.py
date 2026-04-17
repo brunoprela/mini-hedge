@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 class ExposureRepository(BaseRepository):
-    async def save_snapshot(
+    async def insert_snapshot(
         self, record: ExposureSnapshotRecord, *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as session:
@@ -35,7 +35,7 @@ class ExposureRepository(BaseRepository):
             )
             return result.scalar_one_or_none()
 
-    async def get_history(
+    async def list_history(
         self,
         portfolio_id: UUID,
         start: datetime,

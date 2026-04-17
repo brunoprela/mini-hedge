@@ -20,7 +20,7 @@ depends_on = ["app.shared"]
 
 [[modules]]
 path = "app.modules.positions"
-depends_on = ["app.shared"]
+depends_on = ["app.shared", "app.modules.platform"]
 
 
 [[modules]]
@@ -69,7 +69,7 @@ depends_on = ["app.shared", "app.modules.positions"]
 
 [[modules]]
 path = "app.modules.fee_accounting"
-depends_on = ["app.shared"]
+depends_on = ["app.shared", "app.modules.platform"]
 
 [[modules]]
 path = "app.modules.capital_accounts"
@@ -81,7 +81,7 @@ depends_on = ["app.shared", "app.modules.exposure", "app.modules.platform"]
 
 [[modules]]
 path = "app.modules.investor_operations"
-depends_on = ["app.shared", "app.adapters"]
+depends_on = ["app.shared"]
 
 [[modules]]
 path = "app.modules.regulatory"
@@ -93,7 +93,7 @@ depends_on = ["app.shared"]
 
 [[modules]]
 path = "app.modules.corporate_actions"
-depends_on = ["app.shared", "app.adapters"]
+depends_on = ["app.shared", "app.adapters", "app.modules.platform"]
 
 [[modules]]
 path = "app.modules.backtesting"

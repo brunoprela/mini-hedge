@@ -153,6 +153,29 @@ async def compute_netting(
 
 
 @router.post(
+    "/{portfolio_id}/settlements/{settlement_id}/retry",
+    response_model=SettlementRecord,
+)
+async def retry_settlement(
+    portfolio_id: UUID,
+    settlement_id: UUID,
+    request_context: RequestContext = require_permission(Permission.CASH_WRITE),
+    _access: None = require_access(Portfolio.relation("can_view")),
+    cash_management_service: CashManagementService = Depends(get_cash_service),
+    session: AsyncSession = Depends(get_db),
+) -> SettlementRecord:
+    """Reset a failed settlement to pending so it will be re-processed on the next sweep."""
+    from fastapi import HTTPException
+
+    record = await cash_management_service.retry_settlement(
+        str(settlement_id), session=session
+    )
+    if record is None:
+        raise HTTPException(status_code=404, detail="Settlement not found")
+    return record
+
+
+@router.post(
     "/{portfolio_id}/settlements/{settlement_id}/message",
     response_model=SettlementMessage,
 )

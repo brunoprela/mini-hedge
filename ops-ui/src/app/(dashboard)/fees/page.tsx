@@ -4,16 +4,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ErrorState } from "@/shared/components/error-state";
+import { ErrorState, TableSkeleton } from "@mini-hedge/ui";
 import { FundPortfolioPicker } from "@/shared/components/fund-portfolio-picker";
-import { StatusBadge } from "@/shared/components/status-badge";
-import { apiFetch } from "@/shared/lib/api";
-import type { FeeAccrualResponse, FeeScheduleResponse } from "@/shared/types";
-
-interface FeeSummary {
-  portfolio_id: string;
-  totals: Record<string, string>;
-}
+import { StatusBadge } from "@mini-hedge/ui";
+import { api, fundHeaders } from "@/shared/lib/api-client";
 
 type Tab = "schedules" | "accruals";
 
@@ -32,28 +26,65 @@ export default function FeesPage() {
 
   const summaryQuery = useQuery({
     queryKey: ["fees", "summary", fundSlug],
-    queryFn: () => apiFetch<FeeSummary>(`funds/${fundSlug}/fees/summary`),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/funds/{fund_slug}/fees/summary",
+        {
+          params: { path: { fund_slug: fundSlug }, query: {} },
+          headers: fundHeaders(fundSlug),
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     enabled: !!fundSlug,
   });
 
   const accrualsQuery = useQuery({
     queryKey: ["fees", "accruals", fundSlug],
-    queryFn: () => apiFetch<FeeAccrualResponse[]>(`funds/${fundSlug}/fees/accruals`),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/funds/{fund_slug}/fees/accruals",
+        {
+          params: { path: { fund_slug: fundSlug }, query: {} },
+          headers: fundHeaders(fundSlug),
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     enabled: !!fundSlug && activeTab === "accruals",
   });
 
   const schedulesQuery = useQuery({
     queryKey: ["fees", "schedules", fundSlug],
-    queryFn: () => apiFetch<FeeScheduleResponse[]>(`funds/${fundSlug}/fees/schedules`),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/funds/{fund_slug}/fees/schedules",
+        {
+          params: { path: { fund_slug: fundSlug } },
+          headers: fundHeaders(fundSlug),
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     enabled: !!fundSlug && activeTab === "schedules",
   });
 
   const accrueDaily = useMutation({
-    mutationFn: () =>
-      apiFetch(`funds/${fundSlug}/fees/accrue-daily`, {
-        method: "POST",
-        body: JSON.stringify({ fund_slug: fundSlug, business_date: businessDate }),
-      }),
+    mutationFn: async () => {
+      const { data, error } = await api.POST(
+        "/api/v1/funds/{fund_slug}/fees/accrue-daily",
+        {
+          params: { path: { fund_slug: fundSlug } },
+          body: { business_date: businessDate, share_class: "default" },
+          headers: fundHeaders(fundSlug),
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fees"] });
       toast.success("Daily accrual completed");
@@ -62,11 +93,18 @@ export default function FeesPage() {
   });
 
   const crystallize = useMutation({
-    mutationFn: () =>
-      apiFetch(`funds/${fundSlug}/fees/crystallize`, {
-        method: "POST",
-        body: JSON.stringify({ fund_slug: fundSlug, business_date: businessDate }),
-      }),
+    mutationFn: async () => {
+      const { data, error } = await api.POST(
+        "/api/v1/funds/{fund_slug}/fees/crystallize",
+        {
+          params: { path: { fund_slug: fundSlug } },
+          body: { business_date: businessDate, share_class: "default" },
+          headers: fundHeaders(fundSlug),
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fees"] });
       toast.success("Crystallization completed");
@@ -181,7 +219,7 @@ export default function FeesPage() {
           {activeTab === "schedules" && (
             <>
               {schedulesQuery.isLoading ? (
-                <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">Loading...</p>
+                <TableSkeleton rows={5} columns={7} />
               ) : schedulesQuery.isError ? (
                 <ErrorState message={schedulesQuery.error.message} onRetry={() => schedulesQuery.refetch()} />
               ) : (
@@ -232,7 +270,7 @@ export default function FeesPage() {
           {activeTab === "accruals" && (
             <>
               {accrualsQuery.isLoading ? (
-                <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">Loading...</p>
+                <TableSkeleton rows={5} columns={6} />
               ) : accrualsQuery.isError ? (
                 <ErrorState message={accrualsQuery.error.message} onRetry={() => accrualsQuery.refetch()} />
               ) : (

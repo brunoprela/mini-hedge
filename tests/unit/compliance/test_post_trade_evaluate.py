@@ -108,10 +108,10 @@ def _make_monitor(
     sf.fund_scope.return_value = scope_cm
 
     rule_repo = AsyncMock()
-    rule_repo.get_active = AsyncMock(return_value=rules if rules is not None else [])
+    rule_repo.list_active = AsyncMock(return_value=rules if rules is not None else [])
 
     violation_repo = AsyncMock()
-    violation_repo.get_active_by_portfolio = AsyncMock(
+    violation_repo.list_active_by_portfolio = AsyncMock(
         return_value=violations if violations is not None else []
     )
     violation_repo.insert = AsyncMock()
@@ -538,7 +538,7 @@ class TestHandleMtmUpdateMissingFundSlug:
 
         await monitor.handle_mtm_update(event)
 
-        monitor._rule_repo.get_active.assert_not_called()
+        monitor._rule_repo.list_active.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_mtm_error_is_caught(self) -> None:

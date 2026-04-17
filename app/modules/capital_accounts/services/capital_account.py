@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.modules.capital_accounts.repositories.account import CapitalAccountRepository
-    from app.modules.capital_accounts.repositories.investor import InvestorRepository
+    from app.modules.platform.repositories.investor import InvestorRepository
     from app.modules.capital_accounts.repositories.transaction import (
         CapitalTransactionRepository,
     )
@@ -51,7 +51,7 @@ class CapitalAccountService:
     # ------------------------------------------------------------------
 
     async def list_investors(self, *, session: AsyncSession | None = None) -> list[InvestorInfo]:
-        records = await self._investor_repo.get_all_active(session=session)
+        records = await self._investor_repo.list_active(session=session)
         return [
             InvestorInfo(
                 id=UUID(r.id),
@@ -69,7 +69,7 @@ class CapitalAccountService:
     ) -> list[CapitalAccountSummary]:
         """Get latest capital account snapshot for all investors in the fund."""
         accounts = await self._account_repo.get_latest_by_fund(session=session)
-        investors = await self._investor_repo.get_all_active(session=session)
+        investors = await self._investor_repo.list_active(session=session)
         investor_map = {r.id: r.name for r in investors}
 
         return [

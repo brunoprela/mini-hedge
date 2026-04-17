@@ -4,9 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { FundPortfolioPicker } from "@/shared/components/fund-portfolio-picker";
-import { ErrorState } from "@/shared/components/error-state";
-import { TableSkeleton } from "@/shared/components/loading-skeleton";
-import { apiFetch } from "@/shared/lib/api";
+import { ErrorState } from "@mini-hedge/ui";
+import { TableSkeleton } from "@mini-hedge/ui";
+import { api } from "@/shared/lib/api-client";
 
 interface SWIFTMessages {
   instrument_id: string;
@@ -44,10 +44,14 @@ export default function SettlementInstructionsPage() {
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["settlement-messages", portfolioId],
-    queryFn: () =>
-      apiFetch<SWIFTMessages[]>(
-        `cash/${portfolioId}/settlement-messages`,
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/cash/{portfolio_id}/settlement-messages",
+        { params: { path: { portfolio_id: portfolioId } } },
+      );
+      if (error) throw error;
+      return data as unknown as SWIFTMessages[];
+    },
     enabled,
   });
 

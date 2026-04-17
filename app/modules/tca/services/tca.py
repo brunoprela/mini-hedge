@@ -136,7 +136,7 @@ class TCAService:
             execution_duration_seconds=result.execution_duration_seconds,
             total_cost_usd=result.total_cost_usd,
         )
-        await self._tca_repo.save(record, session=session)
+        await self._tca_repo.insert(record, session=session)
 
         logger.info(
             "tca_computed",
@@ -193,7 +193,7 @@ class TCAService:
             portfolio_id, state="filled", session=session
         )
         order_ids = [o.id for o in orders]
-        tca_records = await self._tca_repo.get_by_order_ids(order_ids, session=session)
+        tca_records = await self._tca_repo.list_by_order_ids(order_ids, session=session)
         tca_by_order = {r.order_id: r for r in tca_records}
 
         reports: list[TCAReport] = []
@@ -242,7 +242,7 @@ class TCAService:
             orders = list(result.scalars().all())
 
         order_ids = [o.id for o in orders]
-        tca_records = await self._tca_repo.get_by_order_ids(order_ids, session=session)
+        tca_records = await self._tca_repo.list_by_order_ids(order_ids, session=session)
 
         n = len(tca_records) or 1
         return FundTCASummary(

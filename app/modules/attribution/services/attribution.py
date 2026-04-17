@@ -88,7 +88,7 @@ class AttributionService:
     ) -> BrinsonFachlerResult:
         """Calculate Brinson-Fachler attribution for a period."""
         all_positions = await self._position_service.get_by_portfolio(portfolio_id, session=session)
-        instruments = await self._security_master_service.get_all_active(session=session)
+        instruments = await self._security_master_service.list_active(session=session)
         positions = [p for p in all_positions if p.quantity != ZERO]
 
         if not positions:
@@ -171,7 +171,7 @@ class AttributionService:
     ) -> RiskBasedResult:
         """Calculate risk-based P&L attribution."""
         all_positions = await self._position_service.get_by_portfolio(portfolio_id, session=session)
-        instruments = await self._security_master_service.get_all_active(session=session)
+        instruments = await self._security_master_service.list_active(session=session)
         positions = [p for p in all_positions if p.quantity != ZERO]
 
         if not positions:
@@ -389,7 +389,7 @@ class AttributionService:
         session: AsyncSession | None = None,
     ) -> list[float]:
         """Generate synthetic period returns from instrument reference data."""
-        instruments = await self._security_master_service.get_all_active(session=session)
+        instruments = await self._security_master_service.list_active(session=session)
         drift_map = {i.ticker: i.annual_drift for i in instruments if i.annual_drift is not None}
         vol_map = {
             i.ticker: i.annual_volatility for i in instruments if i.annual_volatility is not None
@@ -411,7 +411,7 @@ class AttributionService:
         session: AsyncSession | None = None,
     ) -> np.ndarray:
         """Build synthetic returns matrix from instrument reference data."""
-        instruments = await self._security_master_service.get_all_active(session=session)
+        instruments = await self._security_master_service.list_active(session=session)
         vol_map = {
             i.ticker: i.annual_volatility for i in instruments if i.annual_volatility is not None
         }
@@ -457,8 +457,8 @@ class AttributionService:
             for s in result.sectors
         ]
 
-        await self._bf_repo.save(record, session=session)
-        await self._bf_sector_repo.save_many(sectors, session=session)
+        await self._bf_repo.insert(record, session=session)
+        await self._bf_sector_repo.insert_batch(sectors, session=session)
 
     async def _publish_attribution_event(
         self,
@@ -507,5 +507,5 @@ class AttributionService:
             for f in result.factor_contributions
         ]
 
-        await self._rb_repo.save(record, session=session)
-        await self._rfc_repo.save_many(factors, session=session)
+        await self._rb_repo.insert(record, session=session)
+        await self._rfc_repo.insert_batch(factors, session=session)

@@ -21,7 +21,7 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
     """Idempotent dev-only seeding for regulatory filings."""
     svc: RegulatoryService = app.state.regulatory_service
     fund_repo: FundRepository = app.state.fund_repo
-    active_funds = await fund_repo.get_all_active()
+    active_funds = await fund_repo.list_active()
 
     for fund in active_funds:
         async with sf.fund_scope(fund.slug), sf() as session:

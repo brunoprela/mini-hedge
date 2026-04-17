@@ -45,7 +45,7 @@ async def list_instruments(
     security_master_service: SecurityMasterService = Depends(get_security_master_service),
     session: AsyncSession = Depends(get_db),
 ) -> list[Instrument]:
-    return await security_master_service.get_all_active(asset_class, session=session)
+    return await security_master_service.list_active(asset_class, session=session)
 
 
 @router.get("/search", response_model=list[Instrument])

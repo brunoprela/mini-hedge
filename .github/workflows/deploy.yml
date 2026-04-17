@@ -1,0 +1,231 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "ui/**"
+      - "ops-ui/**"
+      - "client-ui/**"
+      - "packages/**"
+      - "schemas/**"
+      - "infrastructure/k8s/**"
+      - "Dockerfile"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        default: staging
+        type: choice
+        options:
+          - staging
+          - production
+      image_tag:
+        description: Image tag override (default = commit SHA)
+        required: false
+        type: string
+
+# Prevent stampedes: one in-flight deploy per environment.
+concurrency:
+  group: deploy-${{ github.event.inputs.environment || 'staging' }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_OWNER: ${{ github.repository_owner }}
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write  # for cloud auth via OIDC (AWS/GCP)
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # Build & push all images in parallel
+  # ─────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build ${{ matrix.image.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        image:
+          - name: app
+            context: .
+            dockerfile: Dockerfile
+            repo: mini-hedge-app
+          - name: desk-ui
+            context: ui
+            dockerfile: ui/Dockerfile
+            repo: mini-hedge-desk-ui
+          - name: ops-ui
+            context: ops-ui
+            dockerfile: ops-ui/Dockerfile
+            repo: mini-hedge-ops-ui
+          - name: client-ui
+            context: client-ui
+            dockerfile: client-ui/Dockerfile
+            repo: mini-hedge-client-ui
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute image tag
+        id: meta
+        run: |
+          TAG="${{ github.event.inputs.image_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="${GITHUB_SHA::12}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.image.context }}
+          file: ${{ matrix.image.dockerfile }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ matrix.image.repo }}:${{ steps.meta.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ matrix.image.repo }}:latest
+          cache-from: type=gha,scope=${{ matrix.image.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}
+          provenance: true
+          sbom: true
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Lint chart before every deploy
+  # ─────────────────────────────────────────────────────────────────────────
+  helm-lint:
+    name: helm lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+      - run: helm lint infrastructure/k8s/charts/mini-hedge
+      - run: |
+          helm template mini-hedge infrastructure/k8s/charts/mini-hedge \
+            -f infrastructure/k8s/charts/mini-hedge/values-staging.yaml.example \
+            > /tmp/staging.yaml
+          helm template mini-hedge infrastructure/k8s/charts/mini-hedge \
+            -f infrastructure/k8s/charts/mini-hedge/values-production.yaml.example \
+            > /tmp/production.yaml
+      # Optional: fail on kube-score / kubeconform issues.
+      - uses: yannh/kubeconform-action@v1
+        with:
+          files: /tmp/staging.yaml
+        continue-on-error: true
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Deploy via `helm upgrade` — the pre-upgrade hook runs alembic migrations
+  # ─────────────────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to ${{ github.event.inputs.environment || 'staging' }}
+    needs: [build, helm-lint]
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event.inputs.environment || 'staging' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: v1.29.0
+
+      # Cloud auth — pick ONE path and delete the others.
+      #
+      # --- AWS via OIDC ---
+      # - uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     role-to-assume: arn:aws:iam::123456789012:role/gh-actions-deploy
+      #     aws-region: us-east-1
+      # - run: aws eks update-kubeconfig --name mini-hedge-${{ github.event.inputs.environment || 'staging' }}
+      #
+      # --- GCP via workload identity federation ---
+      # - uses: google-github-actions/auth@v2
+      #   with:
+      #     workload_identity_provider: projects/.../locations/global/workloadIdentityPools/.../providers/...
+      #     service_account: gh-actions@project.iam.gserviceaccount.com
+      # - uses: google-github-actions/get-gke-credentials@v2
+      #   with:
+      #     cluster_name: mini-hedge
+      #     location: us-central1
+      #
+      # --- Raw kubeconfig (least secure; fine for self-hosted) ---
+      - name: Write kubeconfig
+        run: |
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+
+      - name: Deploy
+        env:
+          ENVIRONMENT: ${{ github.event.inputs.environment || 'staging' }}
+          IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+          VALUES_FILE="infrastructure/k8s/charts/mini-hedge/values-${ENVIRONMENT}.yaml"
+          if [ ! -f "$VALUES_FILE" ]; then
+            # Fall back to the .example (CI will fail if prod doesn't have the real file).
+            VALUES_FILE="${VALUES_FILE}.example"
+          fi
+
+          helm upgrade --install mini-hedge infrastructure/k8s/charts/mini-hedge \
+            -n mini-hedge --create-namespace \
+            -f "$VALUES_FILE" \
+            --set backend.image.tag="$IMAGE_TAG" \
+            --set migrations.image.tag="$IMAGE_TAG" \
+            --set uis.desk.image.tag="$IMAGE_TAG" \
+            --set uis.ops.image.tag="$IMAGE_TAG" \
+            --set uis.client.image.tag="$IMAGE_TAG" \
+            --atomic \
+            --wait \
+            --timeout 10m
+
+      - name: Post-deploy rollout status
+        run: |
+          kubectl -n mini-hedge rollout status deploy/mini-hedge-backend --timeout=5m
+          kubectl -n mini-hedge rollout status deploy/mini-hedge-desk-ui --timeout=5m
+          kubectl -n mini-hedge rollout status deploy/mini-hedge-ops-ui --timeout=5m
+          kubectl -n mini-hedge rollout status deploy/mini-hedge-client-ui --timeout=5m
+
+      - name: Smoke-test backend health
+        run: |
+          # Port-forward the Service (Ingress DNS may lag cert issuance).
+          kubectl -n mini-hedge port-forward svc/mini-hedge-backend 18000:8000 &
+          PF_PID=$!
+          trap 'kill $PF_PID 2>/dev/null || true' EXIT
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -fsS http://localhost:18000/health; then
+              echo "backend healthy"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "backend failed health check" >&2
+          exit 1
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Deploy failed — Helm has already rolled back via --atomic."
+          echo "Recent history:"
+          helm -n mini-hedge history mini-hedge || true

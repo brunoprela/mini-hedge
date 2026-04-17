@@ -38,7 +38,7 @@ class TestInstrumentEventPublishing:
 
         mock_bus = AsyncMock()
         service = SecurityMasterService(
-            repository=MagicMock(),
+            instrument_repo=MagicMock(),
             event_bus=mock_bus,
         )
         instrument = self._make_instrument()
@@ -59,7 +59,7 @@ class TestInstrumentEventPublishing:
 
         mock_bus = AsyncMock()
         service = SecurityMasterService(
-            repository=MagicMock(),
+            instrument_repo=MagicMock(),
             event_bus=mock_bus,
         )
         instrument = self._make_instrument()
@@ -79,7 +79,7 @@ class TestInstrumentEventPublishing:
         from app.modules.security_master.services.security_master import SecurityMasterService
 
         service = SecurityMasterService(
-            repository=MagicMock(),
+            instrument_repo=MagicMock(),
             event_bus=None,
         )
         instrument = self._make_instrument()
@@ -96,7 +96,7 @@ class TestInstrumentEventPublishing:
 
         mock_bus = AsyncMock()
         service = SecurityMasterService(
-            repository=MagicMock(),
+            instrument_repo=MagicMock(),
             event_bus=mock_bus,
         )
         instrument = self._make_instrument()

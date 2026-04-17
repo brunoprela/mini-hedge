@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class OptimizationWeightRepository(BaseRepository):
     """CRUD for OptimizationWeightRecord."""
 
-    async def save_many(
+    async def insert_batch(
         self, records: list[OptimizationWeightRecord], *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as session:

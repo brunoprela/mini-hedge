@@ -52,7 +52,7 @@ class FMPAltDataProvider:
         params: dict[str, str] = {"apikey": self._api_key}
 
         try:
-            async with httpx.AsyncClient(timeout=30) as client:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=2.0)) as client:
                 resp = await client.get(url, params=params)
                 if resp.status_code != 200:
                     logger.warning(
@@ -109,7 +109,7 @@ class FMPAltDataProvider:
         }
 
         try:
-            async with httpx.AsyncClient(timeout=30) as client:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=2.0)) as client:
                 resp = await client.get(url, params=params)
                 if resp.status_code != 200:
                     logger.warning(

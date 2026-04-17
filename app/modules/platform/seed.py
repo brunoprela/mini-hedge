@@ -49,10 +49,12 @@ USER_BETA_PM_ID = "30000000-0000-0000-0000-000000000003"
 USER_GAMMA_PM_ID = "30000000-0000-0000-0000-000000000004"
 USER_RISK_MANAGER_ID = "30000000-0000-0000-0000-000000000005"
 USER_COMPLIANCE_ID = "30000000-0000-0000-0000-000000000006"
+USER_E2E_BOT_ID = "30000000-0000-0000-0000-0000000000e2"  # E2E Playwright smoke-test bot
 
 # Operators (platform team)
 OPERATOR_ADMIN_ID = "50000000-0000-0000-0000-000000000001"
 OPERATOR_VIEWER_ID = "50000000-0000-0000-0000-000000000002"
+OPERATOR_E2E_BOT_ID = "50000000-0000-0000-0000-0000000000e2"  # E2E ops-ui smoke-test bot
 
 # API Keys
 API_KEY_ALPHA_ID = "40000000-0000-0000-0000-000000000001"
@@ -76,6 +78,21 @@ INVESTOR_PENSION_FUND_ID = "60000000-0000-0000-0000-000000000002"
 INVESTOR_FAMILY_OFFICE_ID = "60000000-0000-0000-0000-000000000003"
 INVESTOR_ENDOWMENT_ID = "60000000-0000-0000-0000-000000000004"
 INVESTOR_FOUNDER_ID = "60000000-0000-0000-0000-000000000005"
+INVESTOR_E2E_BOT_ID = "60000000-0000-0000-0000-0000000000e2"  # E2E client-ui smoke-test bot
+
+# ---------------------------------------------------------------------------
+# E2E test bot
+# ---------------------------------------------------------------------------
+#
+# ``e2e-bot`` is auto-provisioned across all three Keycloak realms by the realm
+# imports in ``keycloak/*.json``.  The matching API-side identity records
+# below let JIT user-sync link the Keycloak subject to a persistent UUID, and
+# the FGA tuples in ``build_seed_fga_tuples`` grant the bot the access it
+# needs to drive the Playwright smoke specs.
+#
+# All three realm users share the same email so a single E2E_TEST_USER /
+# E2E_TEST_PASSWORD pair works for every UI.
+E2E_BOT_EMAIL = "e2e-bot@test.local"
 
 # Backwards-compatible aliases
 DEFAULT_FUND_ID = FUND_ALPHA_ID
@@ -272,6 +289,14 @@ def build_seed_users() -> list[UserRecord]:
             name="Compliance Officer",
             is_active=True,
         ),
+        # Playwright smoke-test bot for desk-ui (minihedge realm).
+        UserRecord(
+            id=USER_E2E_BOT_ID,
+            customer_id=CUSTOMER_ALPHA_ID,
+            email=E2E_BOT_EMAIL,
+            name="E2E Bot",
+            is_active=True,
+        ),
     ]
 
 
@@ -293,6 +318,13 @@ def build_seed_operators() -> list[OperatorRecord]:
             id=OPERATOR_VIEWER_ID,
             email="ops-viewer@minihedge.dev",
             name="Ops Viewer",
+            is_active=True,
+        ),
+        # Playwright smoke-test bot for ops-ui (minihedge-ops realm).
+        OperatorRecord(
+            id=OPERATOR_E2E_BOT_ID,
+            email=E2E_BOT_EMAIL,
+            name="E2E Bot",
             is_active=True,
         ),
     ]
@@ -381,6 +413,18 @@ def build_seed_investors() -> list[InvestorRecord]:
             contact_email="investor@minihedge.dev",
             is_active=True,
         ),
+        # Playwright smoke-test bot for client-ui (investors realm).
+        # The matching Keycloak user lives in keycloak/investors-realm-export.json.
+        # Ensures the client-ui subscribe-wizard smoke has a capital account to
+        # render — see SEED_SUBSCRIPTIONS below.
+        InvestorRecord(
+            id=INVESTOR_E2E_BOT_ID,
+            name="E2E Bot",
+            entity_type="individual",
+            tax_jurisdiction="US",
+            contact_email=E2E_BOT_EMAIL,
+            is_active=True,
+        ),
     ]
 
 
@@ -392,6 +436,9 @@ SEED_SUBSCRIPTIONS: list[tuple[str, str, str]] = [
     (INVESTOR_FAMILY_OFFICE_ID, "100000000", "1000"),  # $100M — 20%
     (INVESTOR_ENDOWMENT_ID, "75000000", "1000"),  # $75M — 15%
     (INVESTOR_FOUNDER_ID, "50000000", "1000"),  # $50M — 10% (GP co-invest)
+    # Nominal $1M subscription so the client-ui subscribe-wizard smoke has a
+    # capital account to render for the e2e-bot investor.
+    (INVESTOR_E2E_BOT_ID, "1000000", "1000"),
 ]
 
 
@@ -450,6 +497,7 @@ def build_seed_fga_tuples() -> list[ClientTuple]:
         (USER_GAMMA_PM_ID, CUSTOMER_GAMMA_ID),
         (USER_RISK_MANAGER_ID, CUSTOMER_ALPHA_ID),
         (USER_COMPLIANCE_ID, CUSTOMER_ALPHA_ID),
+        (USER_E2E_BOT_ID, CUSTOMER_ALPHA_ID),
     ]:
         tuples.append(
             ClientTuple(
@@ -493,6 +541,14 @@ def build_seed_fga_tuples() -> list[ClientTuple]:
             object="platform:global",
         )
     )
+    # E2E Playwright smoke-test bot — drives the ops-ui customers view.
+    tuples.append(
+        ClientTuple(
+            user=f"operator:{OPERATOR_E2E_BOT_ID}",
+            relation="ops_admin",
+            object="platform:global",
+        )
+    )
 
     # --- Operator fund access ---
     # ops_admin gets ops_full on all funds
@@ -500,6 +556,13 @@ def build_seed_fga_tuples() -> list[ClientTuple]:
         tuples.append(
             ClientTuple(
                 user=f"operator:{OPERATOR_ADMIN_ID}",
+                relation="ops_full",
+                object=fund_obj(fund_id),
+            )
+        )
+        tuples.append(
+            ClientTuple(
+                user=f"operator:{OPERATOR_E2E_BOT_ID}",
                 relation="ops_full",
                 object=fund_obj(fund_id),
             )
@@ -531,6 +594,8 @@ def build_seed_fga_tuples() -> list[ClientTuple]:
         (USER_ALPHA_PM_ID, FUND_ALPHA_ID),
         (USER_BETA_PM_ID, FUND_BETA_ID),
         (USER_GAMMA_PM_ID, FUND_GAMMA_ID),
+        # E2E Playwright smoke-test bot — drives the desk-ui portfolio view.
+        (USER_E2E_BOT_ID, FUND_ALPHA_ID),
     ]:
         tuples.append(
             ClientTuple(
@@ -597,6 +662,14 @@ def build_seed_fga_tuples() -> list[ClientTuple]:
     tuples.append(
         ClientTuple(
             user=f"investor:{INVESTOR_ENDOWMENT_ID}",
+            relation="investor",
+            object=fund_obj(FUND_ALPHA_ID),
+        )
+    )
+    # E2E Playwright smoke-test bot — drives the client-ui subscribe wizard.
+    tuples.append(
+        ClientTuple(
+            user=f"investor:{INVESTOR_E2E_BOT_ID}",
             relation="investor",
             object=fund_obj(FUND_ALPHA_ID),
         )

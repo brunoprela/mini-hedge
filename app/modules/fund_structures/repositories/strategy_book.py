@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class StrategyBookRepository(BaseRepository):
-    async def create(
+    async def insert(
         self,
         record: StrategyBookRecord,
         *,

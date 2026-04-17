@@ -75,7 +75,7 @@ class BacktestingService:
             config=config.model_dump(mode="json"),
             status=BacktestStatus.PENDING,
         )
-        await self._repo.create(record, session=session)
+        await self._repo.insert(record, session=session)
         backtest_id = record.id
 
         if self._event_bus:
@@ -189,10 +189,11 @@ class BacktestingService:
         self,
         backtest_id: str,
         *,
+        fund_slug: str | None = None,
         session: AsyncSession | None = None,
     ) -> BacktestResult | None:
         """Retrieve full backtest result by ID."""
-        record = await self._repo.get_by_id(backtest_id, session=session)
+        record = await self._repo.get_by_id(backtest_id, fund_slug=fund_slug, session=session)
         if record is None:
             return None
         return self._record_to_result(record)
@@ -218,19 +219,21 @@ class BacktestingService:
         self,
         backtest_id: str,
         *,
+        fund_slug: str | None = None,
         session: AsyncSession | None = None,
     ) -> None:
         """Delete a backtest run."""
-        await self._repo.delete(backtest_id, session=session)
+        await self._repo.delete(backtest_id, fund_slug=fund_slug, session=session)
 
     async def get_tear_sheet(
         self,
         backtest_id: str,
         *,
+        fund_slug: str | None = None,
         session: AsyncSession | None = None,
     ) -> TearSheet | None:
         """Generate a full tear sheet for a completed backtest."""
-        result = await self.get_backtest(backtest_id, session=session)
+        result = await self.get_backtest(backtest_id, fund_slug=fund_slug, session=session)
         if result is None:
             return None
         return generate_tear_sheet(result)
@@ -239,12 +242,13 @@ class BacktestingService:
         self,
         backtest_ids: list[str],
         *,
+        fund_slug: str | None = None,
         session: AsyncSession | None = None,
     ) -> list[BacktestSummary]:
         """Compare multiple backtests side by side."""
         summaries: list[BacktestSummary] = []
         for bid in backtest_ids:
-            record = await self._repo.get_by_id(bid, session=session)
+            record = await self._repo.get_by_id(bid, fund_slug=fund_slug, session=session)
             if record is not None:
                 summaries.append(self._record_to_summary(record))
         return summaries

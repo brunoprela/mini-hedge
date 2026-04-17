@@ -1,77 +1,147 @@
 "use client";
 
+import { FormField } from "@mini-hedge/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { EditModal } from "@/shared/components/edit-modal";
-import { EmptyState } from "@/shared/components/empty-state";
-import { ErrorState } from "@/shared/components/error-state";
-import { TableSkeleton } from "@/shared/components/loading-skeleton";
-import { Pagination } from "@/shared/components/pagination";
-import { StatusBadge } from "@/shared/components/status-badge";
-import { apiFetch } from "@/shared/lib/api";
+import { EmptyState } from "@mini-hedge/ui";
+import { ErrorState } from "@mini-hedge/ui";
+import { TableSkeleton } from "@mini-hedge/ui";
+import { Pagination } from "@mini-hedge/ui";
+import { StatusBadge } from "@mini-hedge/ui";
+import { api } from "@/shared/lib/api-client";
 import { PAGE_SIZE } from "@/shared/lib/constants";
+import { useForm, z, zodResolver } from "@/shared/lib/forms";
 import { useRole } from "@/shared/lib/use-role";
-import type { FundDetail, Page } from "@/shared/types";
+import type { FundDetail } from "@/shared/types";
+import type { components } from "@mini-hedge/api-types";
+
+type BaseCurrency = components["schemas"]["CreateFundRequest"]["base_currency"];
+
+/* ------------------------------------------------------------------ */
+/*  Schemas                                                            */
+/* ------------------------------------------------------------------ */
+
+// BaseCurrency may be a union of strings; use string + regex + cast on submit.
+const createFundSchema = z.object({
+  slug: z
+    .string()
+    .trim()
+    .min(1, "Slug is required")
+    .regex(/^[a-z0-9-]+$/, "Slug must be lowercase letters, numbers, and hyphens"),
+  name: z.string().trim().min(1, "Name is required"),
+  base_currency: z
+    .string()
+    .trim()
+    .min(3, "Currency is required")
+    .regex(/^[A-Z]{3}$/, "Use a 3-letter currency code (e.g. USD)"),
+});
+
+type CreateFundValues = z.infer<typeof createFundSchema>;
+
+const editFundSchema = z.object({
+  name: z.string().trim().min(1, "Name is required"),
+  status: z.enum(["active", "suspended", "closed"]),
+});
+
+type EditFundValues = z.infer<typeof editFundSchema>;
+
+/* ------------------------------------------------------------------ */
+/*  Page                                                               */
+/* ------------------------------------------------------------------ */
 
 export default function FundsPage() {
   const { isAdmin } = useRole();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(0);
   const [showCreate, setShowCreate] = useState(false);
-  const [slug, setSlug] = useState("");
-  const [name, setName] = useState("");
-  const [currency, setCurrency] = useState("USD");
-
-  // Edit state
   const [editFund, setEditFund] = useState<FundDetail | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editStatus, setEditStatus] = useState("active");
+
+  const createForm = useForm<CreateFundValues>({
+    resolver: zodResolver(createFundSchema),
+    defaultValues: { slug: "", name: "", base_currency: "USD" },
+  });
+
+  const editForm = useForm<EditFundValues>({
+    resolver: zodResolver(editFundSchema),
+    defaultValues: { name: "", status: "active" },
+  });
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["admin", "funds", page],
-    queryFn: () =>
-      apiFetch<Page<FundDetail>>(`admin/funds?limit=${PAGE_SIZE}&offset=${page * PAGE_SIZE}`),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/admin/funds", {
+        params: { query: { limit: PAGE_SIZE, offset: page * PAGE_SIZE } },
+      });
+      if (error) throw error;
+      return data;
+    },
   });
 
   const createFund = useMutation({
-    mutationFn: (body: { slug: string; name: string; base_currency: string }) =>
-      apiFetch<FundDetail>("admin/funds", {
-        method: "POST",
-        body: JSON.stringify(body),
-      }),
+    mutationFn: async (values: CreateFundValues) => {
+      const { data, error } = await api.POST("/api/v1/admin/funds", {
+        body: {
+          slug: values.slug,
+          name: values.name,
+          base_currency: values.base_currency as BaseCurrency,
+        },
+      });
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "funds"] });
       setShowCreate(false);
-      setSlug("");
-      setName("");
-      setCurrency("USD");
+      createForm.reset();
       toast.success("Fund created");
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const updateFund = useMutation({
-    mutationFn: ({ id, ...body }: { id: string; name?: string; status?: string }) =>
-      apiFetch<FundDetail>(`admin/funds/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(body),
-      }),
+    mutationFn: async ({
+      id,
+      ...body
+    }: { id: string } & EditFundValues) => {
+      const { data, error } = await api.PATCH(
+        "/api/v1/admin/funds/{fund_id}",
+        {
+          params: { path: { fund_id: id } },
+          body,
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "funds"] });
       setEditFund(null);
       toast.success("Fund updated");
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const openEdit = (fund: FundDetail) => {
     setEditFund(fund);
-    setEditName(fund.name);
-    setEditStatus(fund.status);
+    editForm.reset({
+      name: fund.name,
+      status: (fund.status as EditFundValues["status"]) ?? "active",
+    });
   };
+
+  useEffect(() => {
+    if (!showCreate) createForm.reset();
+  }, [showCreate, createForm]);
+
+  const onCreate = createForm.handleSubmit((values) => createFund.mutate(values));
+  const onEdit = editForm.handleSubmit((values) => {
+    if (!editFund) return;
+    updateFund.mutate({ id: editFund.id, ...values });
+  });
 
   return (
     <div>
@@ -89,34 +159,47 @@ export default function FundsPage() {
       </div>
 
       {isAdmin && showCreate && (
-        <div className="mb-4 rounded-lg border border-[var(--border)] p-4 bg-[var(--muted)]">
-          <div className="flex gap-3">
-            <input
-              placeholder="Slug"
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              className="flex-1 rounded border border-[var(--border)] px-3 py-1.5 text-sm"
-            />
-            <input
-              placeholder="Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="flex-1 rounded border border-[var(--border)] px-3 py-1.5 text-sm"
-            />
-            <input
-              placeholder="Currency"
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              className="w-20 rounded border border-[var(--border)] px-3 py-1.5 text-sm"
-            />
-            <button
-              type="button"
-              onClick={() => createFund.mutate({ slug, name, base_currency: currency })}
-              disabled={createFund.isPending}
-              className="rounded bg-[var(--primary)] px-4 py-1.5 text-sm text-white hover:opacity-90 disabled:opacity-50"
+        <form
+          onSubmit={onCreate}
+          className="mb-4 rounded-lg border border-[var(--border)] p-4 bg-[var(--muted)] space-y-3"
+        >
+          <div className="grid gap-3 sm:grid-cols-3">
+            <FormField
+              label="Slug"
+              required
+              error={createForm.formState.errors.slug?.message}
             >
-              Save
-            </button>
+              <input
+                placeholder="Slug"
+                className="w-full rounded border border-[var(--border)] px-3 py-1.5 text-sm"
+                {...createForm.register("slug")}
+              />
+            </FormField>
+            <FormField
+              label="Name"
+              required
+              error={createForm.formState.errors.name?.message}
+            >
+              <input
+                placeholder="Name"
+                className="w-full rounded border border-[var(--border)] px-3 py-1.5 text-sm"
+                {...createForm.register("name")}
+              />
+            </FormField>
+            <FormField
+              label="Currency"
+              required
+              error={createForm.formState.errors.base_currency?.message}
+            >
+              <input
+                placeholder="USD"
+                maxLength={3}
+                className="w-full rounded border border-[var(--border)] px-3 py-1.5 text-sm uppercase"
+                {...createForm.register("base_currency")}
+              />
+            </FormField>
+          </div>
+          <div className="flex gap-2 justify-end">
             <button
               type="button"
               onClick={() => setShowCreate(false)}
@@ -124,8 +207,15 @@ export default function FundsPage() {
             >
               Cancel
             </button>
+            <button
+              type="submit"
+              disabled={createFund.isPending}
+              className="rounded bg-[var(--primary)] px-4 py-1.5 text-sm text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {createFund.isPending ? "Saving..." : "Save"}
+            </button>
           </div>
-        </div>
+        </form>
       )}
 
       {isLoading ? (
@@ -192,27 +282,23 @@ export default function FundsPage() {
 
       {/* Edit modal */}
       <EditModal title="Edit Fund" isOpen={editFund !== null} onClose={() => setEditFund(null)}>
-        <div className="space-y-3">
-          <label className="block">
-            <span className="block text-xs text-[var(--muted-foreground)] mb-1">Name</span>
+        <form onSubmit={onEdit} className="space-y-3">
+          <FormField label="Name" required error={editForm.formState.errors.name?.message}>
             <input
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
               className="w-full rounded border border-[var(--border)] px-3 py-1.5 text-sm"
+              {...editForm.register("name")}
             />
-          </label>
-          <label className="block">
-            <span className="block text-xs text-[var(--muted-foreground)] mb-1">Status</span>
+          </FormField>
+          <FormField label="Status" required error={editForm.formState.errors.status?.message}>
             <select
-              value={editStatus}
-              onChange={(e) => setEditStatus(e.target.value)}
               className="w-full rounded border border-[var(--border)] px-3 py-1.5 text-sm"
+              {...editForm.register("status")}
             >
               <option value="active">Active</option>
               <option value="suspended">Suspended</option>
               <option value="closed">Closed</option>
             </select>
-          </label>
+          </FormField>
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
@@ -222,22 +308,14 @@ export default function FundsPage() {
               Cancel
             </button>
             <button
-              type="button"
+              type="submit"
               disabled={updateFund.isPending}
-              onClick={() => {
-                if (!editFund) return;
-                updateFund.mutate({
-                  id: editFund.id,
-                  name: editName,
-                  status: editStatus,
-                });
-              }}
               className="rounded bg-[var(--primary)] px-4 py-1.5 text-sm text-white hover:opacity-90 disabled:opacity-50"
             >
-              Save
+              {updateFund.isPending ? "Saving..." : "Save"}
             </button>
           </div>
-        </div>
+        </form>
       </EditModal>
     </div>
   );

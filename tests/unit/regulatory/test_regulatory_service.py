@@ -30,14 +30,14 @@ def _make_service(
     event_bus: AsyncMock | None = None,
 ) -> RegulatoryService:
     filing_repo = AsyncMock()
-    filing_repo.save = AsyncMock(side_effect=_stamp)
+    filing_repo.insert = AsyncMock(side_effect=_stamp)
     filing_repo.list_all = AsyncMock(return_value=[])
 
     statement_repo = AsyncMock()
-    statement_repo.save = AsyncMock(side_effect=_stamp)
+    statement_repo.insert = AsyncMock(side_effect=_stamp)
 
     letter_repo = AsyncMock()
-    letter_repo.save = AsyncMock(side_effect=_stamp)
+    letter_repo.insert = AsyncMock(side_effect=_stamp)
 
     position_service = AsyncMock()
     position_service.get_positions = AsyncMock(return_value=positions or [])
@@ -171,8 +171,8 @@ class TestGenerateFormPF:
         svc = _make_service()
         await svc.generate_form_pf(_FUND, _DATE)
 
-        svc._filing_repo.save.assert_called_once()
-        saved = svc._filing_repo.save.call_args.args[0]
+        svc._filing_repo.insert.assert_called_once()
+        saved = svc._filing_repo.insert.call_args.args[0]
         assert saved.filing_type == "form_pf"
         assert saved.status == "draft"
 
@@ -219,15 +219,15 @@ class TestGenerate13F:
     @pytest.mark.asyncio
     async def test_generates_13f_with_positions(self) -> None:
         positions = [
-            _make_position("AAPL", Decimal("1000"), Decimal("150000")),
-            _make_position("MSFT", Decimal("500"), Decimal("200000")),
+            _make_position("00000000-0000-0000-0000-000000000aaa", Decimal("1000"), Decimal("150000")),
+            _make_position("00000000-0000-0000-0000-000000000bbb", Decimal("500"), Decimal("200000")),
         ]
         sec_master = AsyncMock()
         instrument = MagicMock()
         instrument.asset_class = "equity"
         instrument.cusip = "037833100"
         instrument.name = "Apple Inc."
-        sec_master.get_instrument = AsyncMock(return_value=instrument)
+        sec_master.get_by_id = AsyncMock(return_value=instrument)
 
         svc = _make_service(positions=positions)
         svc._sec_master = sec_master
@@ -242,13 +242,13 @@ class TestGenerate13F:
 
     @pytest.mark.asyncio
     async def test_13f_skips_non_equity(self) -> None:
-        positions = [_make_position("UST-10Y", Decimal("100"), Decimal("100000"))]
+        positions = [_make_position("00000000-0000-0000-0000-000000000ccc", Decimal("100"), Decimal("100000"))]
         sec_master = AsyncMock()
         instrument = MagicMock()
         instrument.asset_class = "fixed_income"
         instrument.cusip = None
         instrument.name = "US Treasury"
-        sec_master.get_instrument = AsyncMock(return_value=instrument)
+        sec_master.get_by_id = AsyncMock(return_value=instrument)
 
         svc = _make_service(positions=positions)
         svc._sec_master = sec_master
@@ -273,8 +273,8 @@ class TestGenerate13F:
         svc = _make_service()
         await svc.generate_13f(_FUND, _DATE)
 
-        svc._filing_repo.save.assert_called_once()
-        saved = svc._filing_repo.save.call_args.args[0]
+        svc._filing_repo.insert.assert_called_once()
+        saved = svc._filing_repo.insert.call_args.args[0]
         assert saved.filing_type == "13f"
 
     @pytest.mark.asyncio
@@ -372,7 +372,7 @@ class TestGenerateInvestorStatement:
             date(2026, 3, 31),
         )
 
-        svc._statement_repo.save.assert_called_once()
+        svc._statement_repo.insert.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_statement_publishes_event(self) -> None:
@@ -425,7 +425,7 @@ class TestGeneratePerformanceLetter:
         svc = _make_service()
         await svc.generate_performance_letter(_FUND, _DATE)
 
-        svc._letter_repo.save.assert_called_once()
+        svc._letter_repo.insert.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_letter_publishes_event(self) -> None:

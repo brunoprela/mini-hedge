@@ -98,7 +98,7 @@ class QuantResearchService:
             parameters=parameters,
             is_active=True,
         )
-        await self._factor_def_repo.create(record, session=session)
+        await self._factor_def_repo.insert(record, session=session)
         return FactorDefinition(
             id=UUID(record.id),
             name=record.name,
@@ -179,7 +179,7 @@ class QuantResearchService:
             )
             for inst_id, exp in raw_exposures.items()
         ]
-        await self._factor_exp_repo.save_many(exposure_records, session=session)
+        await self._factor_exp_repo.insert_batch(exposure_records, session=session)
 
         if self._event_bus:
             await self._event_bus.publish(
@@ -376,7 +376,7 @@ class QuantResearchService:
             start_date=date.today(),
             end_date=None,
         )
-        await self._regime_repo.save_snapshot(record, session=session)
+        await self._regime_repo.insert_snapshot(record, session=session)
 
         if self._event_bus:
             await self._event_bus.publish(

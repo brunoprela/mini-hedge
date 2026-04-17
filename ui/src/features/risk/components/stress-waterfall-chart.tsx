@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { LoadingSkeleton } from "@mini-hedge/ui";
 import { WaterfallChart } from "@/shared/components/charts";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { stressTestsQueryOptions } from "../api";
@@ -20,7 +21,7 @@ export function StressWaterfallChart({ portfolioId }: { portfolioId: string }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   if (isLoading) {
-    return <div className="text-xs text-[var(--muted-foreground)]">Loading...</div>;
+    return <LoadingSkeleton height="16rem" />;
   }
 
   if (!results || results.length === 0) return null;

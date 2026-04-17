@@ -25,7 +25,7 @@ class FundTermsRepository(BaseRepository):
             result = await s.execute(stmt)
             return result.scalar_one_or_none()
 
-    async def get_all_active(self, *, session: AsyncSession | None = None) -> list[FundTermsRecord]:
+    async def list_active(self, *, session: AsyncSession | None = None) -> list[FundTermsRecord]:
         async with self._session(session) as s:
             stmt = (
                 select(FundTermsRecord)

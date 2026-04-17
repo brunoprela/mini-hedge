@@ -18,14 +18,14 @@ interface ImplementationShortfallChartProps {
  * the avg fill price.
  */
 export function ImplementationShortfallChart({ report }: ImplementationShortfallChartProps) {
-  const arrivalPrice = parseFloat(report.arrival_price);
-  const avgFillPrice = parseFloat(report.avg_fill_price);
+  const arrivalPrice = parseFloat(report.arrival_mid_price);
+  const avgFillPrice = report.avg_fill_price ? parseFloat(report.avg_fill_price) : arrivalPrice;
   const side = report.side.toLowerCase();
 
   // Cost components in bps from the TCA report.
   // opportunity_cost_bps acts as the delay cost (cost of waiting to start execution).
   const delayCostBps = parseFloat(report.opportunity_cost_bps);
-  const impactCostBps = parseFloat(report.impact_cost_bps);
+  const impactCostBps = parseFloat(report.market_impact_cost_bps);
   const timingCostBps = parseFloat(report.timing_cost_bps);
   const spreadCostBps = parseFloat(report.spread_cost_bps);
 

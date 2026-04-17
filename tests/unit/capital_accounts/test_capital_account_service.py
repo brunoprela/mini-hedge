@@ -81,7 +81,7 @@ def _make_service(
     total_shares: Decimal = Decimal("10000"),
 ) -> CapitalAccountService:
     investor_repo = AsyncMock()
-    investor_repo.get_all_active = AsyncMock(return_value=investors or [])
+    investor_repo.list_active = AsyncMock(return_value=investors or [])
     investor_repo.get_by_id = AsyncMock(return_value=investor_lookup)
 
     account_repo = AsyncMock()

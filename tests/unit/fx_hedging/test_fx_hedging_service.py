@@ -62,7 +62,7 @@ def _make_service(
             r.id = str(uuid4())
         return r
 
-    forward_repo.create = AsyncMock(side_effect=_assign_id)
+    forward_repo.insert = AsyncMock(side_effect=_assign_id)
     forward_repo.get_by_id = AsyncMock(return_value=None)
     forward_repo.get_open_by_portfolio = AsyncMock(return_value=forwards or [])
     forward_repo.get_by_portfolio = AsyncMock(return_value=forwards or [])
@@ -71,7 +71,7 @@ def _make_service(
 
     rate_repo = AsyncMock()
     rate_repo.get_by_currency = AsyncMock(return_value=_make_rate_record())
-    rate_repo.get_all = AsyncMock(return_value=[])
+    rate_repo.list_all = AsyncMock(return_value=[])
     rate_repo.upsert = AsyncMock()
 
     event_bus = AsyncMock()
@@ -105,7 +105,7 @@ class TestOpenForward:
 
         result = await svc.open_forward(create, fund_slug=_FUND)
 
-        forward_repo.create.assert_called_once()
+        forward_repo.insert.assert_called_once()
         assert result.notional == Decimal("1000000")
         assert result.status == FXForwardStatus.OPEN
 
@@ -277,7 +277,7 @@ class TestInterestRates:
     @pytest.mark.asyncio
     async def test_get_rates(self) -> None:
         svc, _, rate_repo, _ = _make_service()
-        rate_repo.get_all = AsyncMock(return_value=[_make_rate_record()])
+        rate_repo.list_all = AsyncMock(return_value=[_make_rate_record()])
 
         result = await svc.get_interest_rates()
 

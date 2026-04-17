@@ -78,7 +78,7 @@ async def setup(
     )
     if event_bus is None or fund_repo is None:
         return
-    active_funds = await fund_repo.get_all_active()
+    active_funds = await fund_repo.list_active()
     for fund in active_funds:
         topic = fund_topic(fund.slug, "positions.changed")
         event_bus.subscribe(topic, post_trade_monitor.handle_position_changed)

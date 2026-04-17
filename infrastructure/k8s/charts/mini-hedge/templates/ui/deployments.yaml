@@ -1,0 +1,10 @@
+{{- $defaults := .Values.uis.defaults -}}
+{{- if .Values.uis.desk.enabled }}
+{{ include "mini-hedge.ui.render" (dict "root" . "ui" .Values.uis.desk "defaults" $defaults) }}
+{{- end }}
+{{- if .Values.uis.ops.enabled }}
+{{ include "mini-hedge.ui.render" (dict "root" . "ui" .Values.uis.ops "defaults" $defaults) }}
+{{- end }}
+{{- if .Values.uis.client.enabled }}
+{{ include "mini-hedge.ui.render" (dict "root" . "ui" .Values.uis.client "defaults" $defaults) }}
+{{- end }}

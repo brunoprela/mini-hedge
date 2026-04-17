@@ -16,6 +16,7 @@ export type {
   FundPage,
   InvestorStatement,
   MonthlyPerformanceLetter,
+  FundTermsSummary,
 } from "@mini-hedge/api-types";
 
 export interface Page<T> {

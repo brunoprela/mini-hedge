@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 
 class VaRContributionRepository(BaseRepository):
-    async def save_contributions(
+    async def insert_contributions(
         self,
         contributions: list[VaRContributionRecord],
         *,

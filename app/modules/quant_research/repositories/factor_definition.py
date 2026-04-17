@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class FactorDefinitionRepository(BaseRepository):
     """CRUD for FactorDefinitionRecord."""
 
-    async def create(
+    async def insert(
         self, record: FactorDefinitionRecord, *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as s:

@@ -1,16 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { apiFetch } from "@/shared/lib/api";
-import { StatusBadge } from "@/shared/components/status-badge";
-import type {
-  FundDetail,
-  UserInfo,
-  AuditEntry,
-  SubscriptionRequestSummary,
-  RedemptionRequestSummary,
-  Page,
-} from "@/shared/types";
+import { api } from "@/shared/lib/api-client";
+import { LoadingSkeleton, StatusBadge } from "@mini-hedge/ui";
 
 function formatRelativeTime(dateStr: string): string {
   const now = Date.now();
@@ -29,33 +21,59 @@ function formatRelativeTime(dateStr: string): string {
 export default function DashboardPage() {
   const funds = useQuery({
     queryKey: ["admin", "funds", { limit: 1 }],
-    queryFn: () => apiFetch<Page<FundDetail>>("admin/funds?limit=1"),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/admin/funds", {
+        params: { query: { limit: 1 } },
+      });
+      if (error) throw error;
+      return data;
+    },
   });
 
   const users = useQuery({
     queryKey: ["admin", "users", { limit: 1 }],
-    queryFn: () => apiFetch<Page<UserInfo>>("admin/users?limit=1"),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/admin/users", {
+        params: { query: { limit: 1 } },
+      });
+      if (error) throw error;
+      return data;
+    },
   });
 
   const audit = useQuery({
     queryKey: ["admin", "audit", { limit: 5 }],
-    queryFn: () => apiFetch<Page<AuditEntry>>("admin/audit?limit=5"),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/admin/audit", {
+        params: { query: { limit: 5 } },
+      });
+      if (error) throw error;
+      return data;
+    },
   });
 
   const pendingSubs = useQuery({
     queryKey: ["investor-ops", "subscriptions", "pending"],
-    queryFn: () =>
-      apiFetch<SubscriptionRequestSummary[]>(
-        "investor-operations/subscriptions?state=pending_ops_review",
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/investor-operations/subscriptions",
+        { params: { query: { state: "pending_ops_review" } } },
+      );
+      if (error) throw error;
+      return data;
+    },
   });
 
   const pendingReds = useQuery({
     queryKey: ["investor-ops", "redemptions", "pending"],
-    queryFn: () =>
-      apiFetch<RedemptionRequestSummary[]>(
-        "investor-operations/redemptions?state=pending_validation",
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/investor-operations/redemptions",
+        { params: { query: { state: "pending_validation" } } },
+      );
+      if (error) throw error;
+      return data;
+    },
   });
 
   const isLoading =
@@ -148,7 +166,9 @@ export default function DashboardPage() {
               <tbody className="divide-y divide-[var(--table-border)]">
                 {isLoading && (
                   <tr>
-                    <td colSpan={5} className="px-3 py-6 text-center text-sm text-[var(--muted-foreground)]">Loading...</td>
+                    <td colSpan={5} className="px-3 py-4">
+                      <LoadingSkeleton variant="table-row" rows={3} columns={5} />
+                    </td>
                   </tr>
                 )}
                 {!isLoading && workflowItems.length === 0 && (
@@ -202,7 +222,9 @@ export default function DashboardPage() {
               <tbody className="divide-y divide-[var(--table-border)]">
                 {isLoading && (
                   <tr>
-                    <td colSpan={3} className="px-3 py-6 text-center text-sm text-[var(--muted-foreground)]">Loading...</td>
+                    <td colSpan={3} className="px-3 py-4">
+                      <LoadingSkeleton variant="table-row" rows={3} columns={3} />
+                    </td>
                   </tr>
                 )}
                 {!isLoading && auditItems.length === 0 && (

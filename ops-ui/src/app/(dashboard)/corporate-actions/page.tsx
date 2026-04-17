@@ -4,9 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ErrorState } from "@/shared/components/error-state";
-import { StatusBadge } from "@/shared/components/status-badge";
-import { apiFetch } from "@/shared/lib/api";
+import { ErrorState, TableSkeleton } from "@mini-hedge/ui";
+import { StatusBadge } from "@mini-hedge/ui";
+import { api } from "@/shared/lib/api-client";
 
 interface ProcessedCorporateAction {
   id: string;
@@ -44,20 +44,29 @@ export default function CorporateActionsPage() {
 
   const actionsQuery = useQuery({
     queryKey: ["corporate-actions"],
-    queryFn: () => apiFetch<ProcessedCorporateAction[]>("corporate-actions"),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/corporate-actions");
+      if (error) throw error;
+      return data as unknown as ProcessedCorporateAction[];
+    },
   });
 
   const processActions = useMutation({
-    mutationFn: () =>
-      apiFetch("corporate-actions/process", {
-        method: "POST",
-        body: JSON.stringify({ start_date: startDate, end_date: endDate }),
-      }),
+    mutationFn: async () => {
+      const { data, error } = await api.POST(
+        "/api/v1/corporate-actions/process",
+        {
+          body: { start_date: startDate, end_date: endDate },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["corporate-actions"] });
       toast.success("Corporate actions processed");
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   return (
@@ -97,7 +106,7 @@ export default function CorporateActionsPage() {
 
       {/* Table */}
       {actionsQuery.isLoading ? (
-        <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">Loading...</p>
+        <TableSkeleton rows={6} columns={7} />
       ) : actionsQuery.isError ? (
         <ErrorState
           message={actionsQuery.error.message}

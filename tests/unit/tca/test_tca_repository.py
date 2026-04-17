@@ -29,18 +29,18 @@ def _make_session_factory():
 
 
 # ---------------------------------------------------------------------------
-# TCARepository.save
+# TCARepository.insert
 # ---------------------------------------------------------------------------
 
 
-class TestTCARepositorySave:
+class TestTCARepositoryInsert:
     @pytest.mark.asyncio
-    async def test_save_adds_and_flushes(self) -> None:
+    async def test_insert_adds_and_flushes(self) -> None:
         sf, mock_session = _make_session_factory()
         repo = TCARepository(sf)
 
         record = MagicMock(spec=TCAResultRecord)
-        result = await repo.save(record)
+        result = await repo.insert(record)
 
         mock_session.add.assert_called_once_with(record)
         mock_session.flush.assert_awaited_once()
@@ -49,13 +49,13 @@ class TestTCARepositorySave:
         assert result is record
 
     @pytest.mark.asyncio
-    async def test_save_uses_provided_session(self) -> None:
+    async def test_insert_uses_provided_session(self) -> None:
         sf, _ = _make_session_factory()
         repo = TCARepository(sf)
 
         provided_session = AsyncMock()
         record = MagicMock(spec=TCAResultRecord)
-        result = await repo.save(record, session=provided_session)
+        result = await repo.insert(record, session=provided_session)
 
         provided_session.add.assert_called_once_with(record)
         provided_session.flush.assert_awaited_once()
@@ -98,7 +98,7 @@ class TestTCARepositoryGetByOrderId:
 
 
 # ---------------------------------------------------------------------------
-# TCARepository.get_by_order_ids
+# TCARepository.list_by_order_ids
 # ---------------------------------------------------------------------------
 
 
@@ -108,7 +108,7 @@ class TestTCARepositoryGetByOrderIds:
         sf, mock_session = _make_session_factory()
         repo = TCARepository(sf)
 
-        result = await repo.get_by_order_ids([])
+        result = await repo.list_by_order_ids([])
 
         assert result == []
         mock_session.execute.assert_not_called()
@@ -125,7 +125,7 @@ class TestTCARepositoryGetByOrderIds:
         mock_session.execute = AsyncMock(return_value=result_mock)
 
         ids = [str(uuid4()), str(uuid4())]
-        result = await repo.get_by_order_ids(ids)
+        result = await repo.list_by_order_ids(ids)
 
         assert result == [r1, r2]
         mock_session.execute.assert_awaited_once()

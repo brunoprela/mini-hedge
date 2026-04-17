@@ -32,6 +32,8 @@ logger = structlog.get_logger()
 
 ZERO = Decimal(0)
 
+_ASSUMED_EQUITY_RATIO = Decimal("0.6")
+
 
 class LiquidityMarginService:
     """Computes and persists liquidity and margin risk metrics."""
@@ -64,19 +66,7 @@ class LiquidityMarginService:
         """Compute and persist liquidity risk profile."""
         positions = await self._position_service.get_by_portfolio(portfolio_id, session=session)
         if not positions:
-            now = datetime.now(UTC)
-            return LiquidityProfile(
-                portfolio_id=portfolio_id,
-                business_date=now,
-                total_nav=ZERO,
-                pct_1_day=ZERO,
-                pct_1_week=ZERO,
-                pct_1_month=ZERO,
-                pct_3_months=ZERO,
-                pct_illiquid=ZERO,
-                weighted_days_to_liquidate=ZERO,
-                redemption_coverage_pct=Decimal(1),
-            )
+            positions = []
 
         # Build position data with ADV estimates
         pos_data: list[tuple[str, Decimal, Decimal]] = []
@@ -132,7 +122,7 @@ class LiquidityMarginService:
                 for d in details
             ],
         )
-        await self._liquidity_repo.save_liquidity_profile(record, session=session)
+        await self._liquidity_repo.insert_liquidity_profile(record, session=session)
 
         logger.info(
             "liquidity_profile_calculated",
@@ -175,9 +165,10 @@ class LiquidityMarginService:
                 bal = await cash_svc.get_total_balance(portfolio_id, session=session)
                 cash_balance = bal
         except Exception:
+            logger.warning("cash_balance_lookup_failed", portfolio_id=str(portfolio_id), exc_info=True)
             # Estimate from position_service if cash not available
             nav = sum(abs(mv) for _, mv, _ in pos_data)
-            cash_balance = nav * Decimal("0.6")  # Assume 60% equity/40% leverage
+            cash_balance = nav * _ASSUMED_EQUITY_RATIO  # Assume 60% equity/40% leverage
 
         now = datetime.now(UTC)
         summary, pos_margins = calculate_margin_requirements(
@@ -208,7 +199,7 @@ class LiquidityMarginService:
                 for m in pos_margins
             ],
         )
-        await self._margin_repo.save_margin_requirement(record, session=session)
+        await self._margin_repo.insert_margin_requirement(record, session=session)
 
         if summary.margin_call_triggered:
             logger.warning(

@@ -49,9 +49,9 @@ export function ExecutionTimelineChart({ orderId, report }: ExecutionTimelineCha
   }
 
   const isBuy = report.side === "buy";
-  const arrivalPrice = parseFloat(report.arrival_price);
-  const vwap = parseFloat(report.vwap);
-  const avgFillPrice = parseFloat(report.avg_fill_price);
+  const arrivalPrice = parseFloat(report.arrival_mid_price);
+  const vwap = report.vwap_benchmark ? parseFloat(report.vwap_benchmark) : NaN;
+  const avgFillPrice = report.avg_fill_price ? parseFloat(report.avg_fill_price) : arrivalPrice;
 
   // Sort fills chronologically
   const sorted = [...fills].sort(

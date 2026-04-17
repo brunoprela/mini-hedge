@@ -30,13 +30,17 @@
   "roles": {
     "realm": [
       { "name": "ops_admin", "description": "Full platform administration" },
-      { "name": "ops_viewer", "description": "Read-only platform access" }
+      { "name": "ops_viewer", "description": "Read-only platform access" },
+      {
+        "name": "platform_admin",
+        "description": "Human platform administrators — gated by mandatory OTP. Service / test accounts (e.g. e2e-bot) should NOT have this role."
+      }
     ]
   },
   "authenticationFlows": [
     {
       "alias": "browser",
-      "description": "Browser-based authentication with mandatory OTP for all ops users",
+      "description": "Browser-based authentication; OTP is enforced conditionally on the platform_admin role (see ops-conditional-otp subflow).",
       "providerId": "basic-flow",
       "topLevel": true,
       "builtIn": false,
@@ -63,7 +67,7 @@
     },
     {
       "alias": "ops-browser-forms",
-      "description": "Username/password followed by mandatory OTP",
+      "description": "Username/password followed by conditional OTP (only enforced for users with the platform_admin role)",
       "providerId": "basic-flow",
       "topLevel": false,
       "builtIn": false,
@@ -75,12 +79,42 @@
           "priority": 10
         },
         {
+          "authenticatorFlow": true,
+          "requirement": "CONDITIONAL",
+          "priority": 20,
+          "flowAlias": "ops-conditional-otp"
+        }
+      ]
+    },
+    {
+      "alias": "ops-conditional-otp",
+      "description": "OTP is only required when the authenticated user has the platform_admin role. Service accounts (e2e-bot) hold ops_admin but not platform_admin, so they skip OTP.",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "conditional-user-role",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "authenticatorConfig": "ops-otp-role-condition"
+        },
+        {
           "authenticator": "auth-otp-form",
           "authenticatorFlow": false,
           "requirement": "REQUIRED",
           "priority": 20
         }
       ]
+    }
+  ],
+  "authenticatorConfig": [
+    {
+      "alias": "ops-otp-role-condition",
+      "config": {
+        "condUserRole": "platform_admin"
+      }
     }
   ],
   "clients": [
@@ -143,7 +177,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["ops_admin"],
+      "realmRoles": ["ops_admin", "platform_admin"],
       "requiredActions": ["CONFIGURE_TOTP"]
     },
     {
@@ -162,6 +196,23 @@
       ],
       "realmRoles": ["ops_viewer"],
       "requiredActions": ["CONFIGURE_TOTP"]
+    },
+    {
+      "username": "e2e-bot",
+      "email": "e2e-bot@test.local",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "E2E",
+      "lastName": "Bot",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "e2e-bot-password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["ops_admin"],
+      "requiredActions": []
     }
   ]
 }

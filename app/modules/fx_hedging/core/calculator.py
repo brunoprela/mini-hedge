@@ -189,7 +189,7 @@ def recommend_hedges(
         if ccy == base_currency or exposure == ZERO:
             continue
         spot = spots.get(ccy)
-        if spot is None:
+        if spot is None or spot <= ZERO:
             continue
         foreign_rate = foreign_rates.get(ccy, ZERO)
         fwd = calculate_forward_rate(spot, domestic_rate, foreign_rate, tenor_days)
@@ -272,7 +272,10 @@ def calculate_roll_cost(
     )
 
     # Cost in bps: the forward points difference relative to spot
-    cost_bps = abs(new_fwd.forward_points / current_spot) / BPS
+    if current_spot <= ZERO:
+        cost_bps = ZERO
+    else:
+        cost_bps = abs(new_fwd.forward_points / current_spot) / BPS
 
     return RollCost(
         old_forward=close_fwd.forward,

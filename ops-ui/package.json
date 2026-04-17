@@ -8,27 +8,39 @@
     "start": "next start",
     "lint": "biome check src/",
     "lint:fix": "biome check --fix src/",
-    "format": "biome format --write src/"
+    "format": "biome format --write src/",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
     "@mini-hedge/api-types": "workspace:*",
     "@mini-hedge/ui": "workspace:*",
     "@tanstack/react-query": "^5.96.1",
     "lucide-react": "^1.7.0",
     "next": "16.2.2",
     "next-auth": "5.0.0-beta.30",
+    "openapi-fetch": "0.17.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "sonner": "^2.0.7"
+    "react-hook-form": "^7.72.1",
+    "sonner": "^2.0.7",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.10",
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.0.1",
+    "jsdom": "^29.0.2",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.4"
   },
   "packageManager": "pnpm@9.15.4+sha512.b2dc20e2fc72b3e18848459b37359a32064663e5627a51e4c74b2c29dd8e8e0491483c3abb40789cfd578bf362fb6ba8261b05f0387d76792ed6e23ea3b1b6a0"
 }

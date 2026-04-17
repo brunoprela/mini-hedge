@@ -49,7 +49,7 @@ def _make_red_record(**overrides) -> MagicMock:
 def _make_service() -> tuple[RedemptionService, AsyncMock, AsyncMock]:
     event_bus = AsyncMock()
     red_repo = AsyncMock()
-    red_repo.save = AsyncMock()
+    red_repo.insert = AsyncMock()
     red_repo.update_state = AsyncMock()
     red_repo.list_by_state = AsyncMock(return_value=[])
     red_repo.list_by_dealing_date = AsyncMock(return_value=[])
@@ -77,7 +77,7 @@ class TestSubmitRedemption:
 
         assert result.state == RedemptionState.PENDING_VALIDATION
         assert result.requested_amount == Decimal("200000")
-        svc._redemption_repo.save.assert_called_once()
+        svc._redemption_repo.insert.assert_called_once()
 
 
 class TestValidateRedemption:

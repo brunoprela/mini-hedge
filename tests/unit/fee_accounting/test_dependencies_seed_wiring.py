@@ -77,7 +77,7 @@ class TestSeedDevData:
         app = MagicMock()
         schedule_repo = AsyncMock()
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[fund_alpha, fund_beta])
+        fund_repo.list_active = AsyncMock(return_value=[fund_alpha, fund_beta])
         # Simulate: no existing schedules
         schedule_repo.get_by_fund_slug = AsyncMock(return_value=None)
         schedule_repo.upsert = AsyncMock(side_effect=lambda rec, **kw: rec)
@@ -113,7 +113,7 @@ class TestSeedDevData:
         app = MagicMock()
         schedule_repo = AsyncMock()
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[fund])
+        fund_repo.list_active = AsyncMock(return_value=[fund])
         # Already has a schedule
         schedule_repo.get_by_fund_slug = AsyncMock(return_value=MagicMock())
 
@@ -146,7 +146,7 @@ class TestSeedDevData:
         app = MagicMock()
         schedule_repo = AsyncMock()
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[fund])
+        fund_repo.list_active = AsyncMock(return_value=[fund])
         schedule_repo.get_by_fund_slug = AsyncMock(return_value=None)
         schedule_repo.upsert = AsyncMock(side_effect=lambda rec, **kw: rec)
 

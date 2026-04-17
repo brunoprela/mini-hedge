@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { CardSkeleton } from "@mini-hedge/ui";
 import { AccrualsTable, FeeScheduleCard } from "@/features/fees";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
 import { PortfolioSelector } from "@/shared/components/portfolio-selector";
@@ -36,7 +37,7 @@ export function FeesPageClient() {
         )}
       </div>
 
-      {isLoading && <p className="text-xs text-[var(--muted-foreground)]">Loading...</p>}
+      {isLoading && <CardSkeleton count={3} />}
 
       <SectionPanel
         title="Fee Management"

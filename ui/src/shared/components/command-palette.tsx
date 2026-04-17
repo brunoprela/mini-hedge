@@ -9,7 +9,7 @@ import type { PortfolioInfo } from "@/features/portfolio/types";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { usePermission } from "@/shared/hooks/use-permission";
 import { useTheme } from "@/shared/hooks/use-theme";
-import { clientFetch } from "@/shared/lib/api";
+import { api, fundHeaders } from "@/shared/lib/api-client";
 import { NAV_ITEMS } from "@/shared/lib/navigation";
 
 interface CommandPaletteProps {
@@ -27,7 +27,13 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
   const { data: portfolios = [] } = useQuery<PortfolioInfo[]>({
     queryKey: ["portfolios", fundSlug],
-    queryFn: () => clientFetch<PortfolioInfo[]>("/portfolios", { fundSlug }),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/portfolios", {
+        headers: fundHeaders(fundSlug),
+      });
+      if (error) throw error;
+      return (data ?? []) as unknown as PortfolioInfo[];
+    },
     staleTime: 60_000,
     enabled: open,
   });

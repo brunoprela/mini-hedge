@@ -19,13 +19,13 @@ if TYPE_CHECKING:
 class RuleRepository(BaseRepository):
     """CRUD for compliance rules."""
 
-    async def get_all(self, *, session: AsyncSession | None = None) -> list[ComplianceRuleRecord]:
+    async def list_all(self, *, session: AsyncSession | None = None) -> list[ComplianceRuleRecord]:
         async with self._session(session) as session:
             stmt = select(ComplianceRuleRecord).order_by(ComplianceRuleRecord.created_at)
             result = await session.execute(stmt)
             return list(result.scalars().all())
 
-    async def get_active(
+    async def list_active(
         self, *, session: AsyncSession | None = None
     ) -> list[ComplianceRuleRecord]:
         async with self._session(session) as session:

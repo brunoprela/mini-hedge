@@ -65,7 +65,11 @@ export interface paths {
          */
         get: operations["list_portfolios_api_v1_portfolios_get"];
         put?: never;
-        post?: never;
+        /**
+         * Create Portfolio
+         * @description Create a new portfolio within the authenticated user's fund.
+         */
+        post: operations["create_portfolio_api_v1_portfolios_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -87,6 +91,50 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Api Keys
+         * @description List API keys for the current fund.
+         */
+        get: operations["list_api_keys_api_v1_api_keys_get"];
+        put?: never;
+        /**
+         * Create Api Key
+         * @description Create a new API key for the current fund.
+         */
+        post: operations["create_api_key_api_v1_api_keys_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/api-keys/{key_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke Api Key
+         * @description Revoke (soft-delete) an API key.
+         */
+        delete: operations["revoke_api_key_api_v1_api_keys__key_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -637,6 +685,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/portfolios/aggregate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Fund Aggregate
+         * @description Aggregate cross-portfolio KPIs for the current fund.
+         */
+        get: operations["get_fund_aggregate_api_v1_portfolios_aggregate_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/portfolios/{portfolio_id}/positions": {
         parameters: {
             query?: never;
@@ -855,7 +923,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Violations */
+        /**
+         * List Violations
+         * @description List active violations. When portfolio_id is omitted, returns fund-wide
+         *     violations (scoped by the X-Fund-Slug schema).
+         */
         get: operations["list_violations_api_v1_compliance_violations_get"];
         put?: never;
         post?: never;
@@ -1305,6 +1377,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/cash/{portfolio_id}/settlements/{settlement_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Settlement
+         * @description Reset a failed settlement to pending so it will be re-processed on the next sweep.
+         */
+        post: operations["retry_settlement_api_v1_cash__portfolio_id__settlements__settlement_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/cash/{portfolio_id}/settlements/{settlement_id}/message": {
         parameters: {
             query?: never;
@@ -1616,6 +1708,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/eod/finalized-prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Finalized Prices
+         * @description List all finalized closing prices for a business date.
+         */
+        get: operations["list_finalized_prices_api_v1_eod_finalized_prices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eod/finalize-price": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finalize Price
+         * @description Lock a closing price for an instrument on a business date.
+         */
+        post: operations["finalize_price_api_v1_eod_finalize_price_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reconciliation/portfolios/{portfolio_id}/latest": {
         parameters: {
             query?: never;
@@ -1685,7 +1817,7 @@ export interface paths {
         };
         /**
          * List Breaks
-         * @description List breaks for a portfolio — by date or all open breaks.
+         * @description List breaks for a portfolio — by date, status, or all open breaks.
          */
         get: operations["list_breaks_api_v1_reconciliation_portfolios__portfolio_id__breaks_get"];
         put?: never;
@@ -1877,6 +2009,26 @@ export interface paths {
         put?: never;
         /** Trigger Crystallization */
         post: operations["trigger_crystallization_api_v1_funds__fund_slug__fees_crystallize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/funds/{fund_slug}/fees/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Accruals
+         * @description Approve (crystallize) a batch of pending fee accruals.
+         */
+        post: operations["approve_accruals_api_v1_funds__fund_slug__fees_approve_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2432,7 +2584,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/fx-hedging/mtm/{portfolio_id}": {
+    "/api/v1/fx-hedging/forwards/{portfolio_id}/mtm": {
         parameters: {
             query?: never;
             header?: never;
@@ -2442,7 +2594,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Mark To Market */
-        post: operations["mark_to_market_api_v1_fx_hedging_mtm__portfolio_id__post"];
+        post: operations["mark_to_market_api_v1_fx_hedging_forwards__portfolio_id__mtm_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2939,6 +3091,40 @@ export interface paths {
         put?: never;
         /** Generate Performance Letter */
         post: operations["generate_performance_letter_api_v1_regulatory_performance_letter_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/regulatory/investor-statements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Investor Statements */
+        get: operations["list_investor_statements_api_v1_regulatory_investor_statements_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/regulatory/performance-letters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Performance Letters */
+        get: operations["list_performance_letters_api_v1_regulatory_performance_letters_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3849,13 +4035,10 @@ export interface components {
         AccrualStatus: "accrued" | "crystallized" | "paid";
         /** AccrualTriggerRequest */
         AccrualTriggerRequest: {
-            /**
-             * Portfolio Id
-             * Format: uuid
-             */
-            portfolio_id: string;
+            /** Portfolio Id */
+            portfolio_id?: string | null;
             /** Nav */
-            nav: number | string;
+            nav?: number | string | null;
             /**
              * Business Date
              * Format: date
@@ -4170,6 +4353,59 @@ export interface components {
             return_pct: string;
             /** Benchmark Return Pct */
             benchmark_return_pct: string | null;
+        };
+        /** ApiKeyCreateRequest */
+        ApiKeyCreateRequest: {
+            /** Name */
+            name: string;
+            /**
+             * Scopes
+             * @default []
+             */
+            scopes: string[];
+        };
+        /** ApiKeyCreateResponse */
+        ApiKeyCreateResponse: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Key Hint */
+            key_hint: string;
+            /** Scopes */
+            scopes: string[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Last Used At */
+            last_used_at?: string | null;
+            /** Key */
+            key: string;
+        };
+        /** ApiKeyInfo */
+        ApiKeyInfo: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Key Hint */
+            key_hint: string;
+            /** Scopes */
+            scopes: string[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Last Used At */
+            last_used_at?: string | null;
+        };
+        /** ApproveAccrualsRequest */
+        ApproveAccrualsRequest: {
+            /** Accrual Ids */
+            accrual_ids: string[];
         };
         /**
          * AssetClass
@@ -5059,6 +5295,15 @@ export interface components {
             /** @default day */
             time_in_force: components["schemas"]["TimeInForce"];
         };
+        /** CreatePortfolioRequest */
+        CreatePortfolioRequest: {
+            /** Name */
+            name: string;
+            /** Strategy */
+            strategy?: string | null;
+            /** Base Currency */
+            base_currency?: string | null;
+        };
         /** CreateResearchNoteBody */
         CreateResearchNoteBody: {
             /** Title */
@@ -5132,11 +5377,8 @@ export interface components {
         };
         /** CrystallizationTriggerRequest */
         CrystallizationTriggerRequest: {
-            /**
-             * Portfolio Id
-             * Format: uuid
-             */
-            portfolio_id: string;
+            /** Portfolio Id */
+            portfolio_id?: string | null;
             /**
              * Business Date
              * Format: date
@@ -5966,11 +6208,8 @@ export interface components {
         };
         /** FeeSummaryResponse */
         FeeSummaryResponse: {
-            /**
-             * Portfolio Id
-             * Format: uuid
-             */
-            portfolio_id: string;
+            /** Portfolio Id */
+            portfolio_id?: string | null;
             /** Totals */
             totals: {
                 [key: string]: string;
@@ -6067,6 +6306,42 @@ export interface components {
              */
             filled_at: string;
         };
+        /** FinalizePriceRequest */
+        FinalizePriceRequest: {
+            /** Instrument Id */
+            instrument_id: string;
+            /**
+             * Business Date
+             * Format: date
+             */
+            business_date: string;
+            /** Close Price */
+            close_price: number | string;
+            /**
+             * Source
+             * @default manual
+             */
+            source: string;
+        };
+        /**
+         * FinalizedPrice
+         * @description A locked closing price for a business date.
+         */
+        FinalizedPrice: {
+            /** Instrument Id */
+            instrument_id: string;
+            /**
+             * Business Date
+             * Format: date
+             */
+            business_date: string;
+            /** Close Price */
+            close_price: string;
+            /** Source */
+            source: string;
+            /** Finalized By */
+            finalized_by: string;
+        };
         /**
          * FormPFData
          * @description Aggregated data for a Form PF filing.
@@ -6156,6 +6431,22 @@ export interface components {
             relation_type: string;
             /** Display Name */
             display_name?: string | null;
+        };
+        /**
+         * FundAggregate
+         * @description Cross-portfolio KPI summary for a fund.
+         */
+        FundAggregate: {
+            /** Total Aum */
+            total_aum: string;
+            /** Total Realized Pnl */
+            total_realized_pnl: string;
+            /** Total Unrealized Pnl */
+            total_unrealized_pnl: string;
+            /** Portfolio Count */
+            portfolio_count: number;
+            /** Total Positions */
+            total_positions: number;
         };
         /**
          * FundCapitalOverview
@@ -7265,6 +7556,21 @@ export interface components {
             timestamp: string;
             /** Source */
             source: string;
+        };
+        /** ProcessCorporateActionsRequest */
+        ProcessCorporateActionsRequest: {
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * End Date
+             * Format: date
+             */
+            end_date: string;
+            /** Portfolio Id */
+            portfolio_id?: string | null;
         };
         /** ProcessedAction */
         ProcessedAction: {
@@ -8940,6 +9246,39 @@ export interface operations {
             };
         };
     };
+    create_portfolio_api_v1_portfolios_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePortfolioRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortfolioInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     verify_audit_integrity_api_v1_audit_verify_get: {
         parameters: {
             query?: {
@@ -8959,6 +9298,88 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AuditVerifyResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_api_keys_api_v1_api_keys_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyInfo"][];
+                };
+            };
+        };
+    };
+    create_api_key_api_v1_api_keys_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiKeyCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyCreateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_api_key_api_v1_api_keys__key_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -10292,6 +10713,26 @@ export interface operations {
             };
         };
     };
+    get_fund_aggregate_api_v1_portfolios_aggregate_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FundAggregate"];
+                };
+            };
+        };
+    };
     list_positions_api_v1_portfolios__portfolio_id__positions_get: {
         parameters: {
             query?: never;
@@ -10707,8 +11148,8 @@ export interface operations {
     };
     list_violations_api_v1_compliance_violations_get: {
         parameters: {
-            query: {
-                portfolio_id: string;
+            query?: {
+                portfolio_id?: string | null;
             };
             header?: never;
             path?: never;
@@ -11621,6 +12062,38 @@ export interface operations {
             };
         };
     };
+    retry_settlement_api_v1_cash__portfolio_id__settlements__settlement_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                portfolio_id: string;
+                settlement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettlementRecord"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     generate_settlement_message_api_v1_cash__portfolio_id__settlements__settlement_id__message_post: {
         parameters: {
             query?: never;
@@ -12185,6 +12658,70 @@ export interface operations {
             };
         };
     };
+    list_finalized_prices_api_v1_eod_finalized_prices_get: {
+        parameters: {
+            query: {
+                business_date: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinalizedPrice"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    finalize_price_api_v1_eod_finalize_price_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinalizePriceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinalizedPrice"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_latest_recon_api_v1_reconciliation_portfolios__portfolio_id__latest_get: {
         parameters: {
             query?: never;
@@ -12286,6 +12823,8 @@ export interface operations {
         parameters: {
             query?: {
                 business_date?: string | null;
+                /** @description Filter by status: open, resolved, etc. */
+                status?: string | null;
             };
             header?: never;
             path: {
@@ -12478,8 +13017,8 @@ export interface operations {
     };
     list_accruals_api_v1_funds__fund_slug__fees_accruals_get: {
         parameters: {
-            query: {
-                portfolio_id: string;
+            query?: {
+                portfolio_id?: string | null;
                 start?: string | null;
                 end?: string | null;
             };
@@ -12612,8 +13151,8 @@ export interface operations {
     };
     get_fee_summary_api_v1_funds__fund_slug__fees_summary_get: {
         parameters: {
-            query: {
-                portfolio_id: string;
+            query?: {
+                portfolio_id?: string | null;
             };
             header?: never;
             path: {
@@ -12690,6 +13229,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CrystallizationTriggerRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_accruals_api_v1_funds__fund_slug__fees_approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fund_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveAccrualsRequest"];
             };
         };
         responses: {
@@ -13046,16 +13618,16 @@ export interface operations {
     };
     process_corporate_actions_api_v1_corporate_actions_process_post: {
         parameters: {
-            query: {
-                portfolio_id: string;
-                start_date: string;
-                end_date: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProcessCorporateActionsRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -13689,7 +14261,7 @@ export interface operations {
             };
         };
     };
-    mark_to_market_api_v1_fx_hedging_mtm__portfolio_id__post: {
+    mark_to_market_api_v1_fx_hedging_forwards__portfolio_id__mtm_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -14746,6 +15318,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_investor_statements_api_v1_regulatory_investor_statements_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestorStatement"][];
+                };
+            };
+        };
+    };
+    list_performance_letters_api_v1_regulatory_performance_letters_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonthlyPerformanceLetter"][];
                 };
             };
         };

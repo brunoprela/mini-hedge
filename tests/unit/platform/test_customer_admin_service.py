@@ -36,7 +36,7 @@ def _make_service(
     existing_by_id: MagicMock | None = None,
 ) -> tuple[CustomerAdminService, AsyncMock, AsyncMock]:
     customer_repo = AsyncMock()
-    customer_repo.get_all_paginated = AsyncMock(return_value=([], 0))
+    customer_repo.list_paginated = AsyncMock(return_value=([], 0))
     customer_repo.get_by_slug = AsyncMock(return_value=existing_by_slug)
     customer_repo.get_by_id = AsyncMock(return_value=existing_by_id)
     async def _insert_with_defaults(record, **kw):
@@ -63,7 +63,7 @@ class TestListCustomers:
             _make_customer_record("c1", "alpha", "Alpha"),
             _make_customer_record("c2", "beta", "Beta"),
         ]
-        repo.get_all_paginated = AsyncMock(return_value=(records, 2))
+        repo.list_paginated = AsyncMock(return_value=(records, 2))
 
         result = await svc.list_customers(limit=50, offset=0)
 

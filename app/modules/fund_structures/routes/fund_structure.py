@@ -120,20 +120,7 @@ async def get_feeder_master(
     service: FundStructuresService = Depends(get_fund_structures_service),
     session: AsyncSession = Depends(get_read_db),
 ) -> MasterFeederLink | None:
-    record = await service._mf_repo.get_master_for_feeder(
-        feeder_slug,
-        session=session,
-    )
-    if record is None:
-        return None
-    return MasterFeederLink(
-        id=UUID(record.id),
-        master_fund_slug=record.master_fund_slug,
-        feeder_fund_slug=record.feeder_fund_slug,
-        allocation_pct=record.allocation_pct,
-        is_active=record.is_active,
-        created_at=record.created_at,
-    )
+    return await service.get_master_for_feeder(feeder_slug, session=session)
 
 
 # ---------------------------------------------------------------------------
@@ -179,15 +166,12 @@ async def update_book(
     service: FundStructuresService = Depends(get_fund_structures_service),
     session: AsyncSession = Depends(get_db),
 ) -> StrategyBook | None:
-    record = await service._sb_repo.update(
+    return await service.update_book(
         str(book_id),
         name=body.name,
         target_pct=body.target_allocation_pct,
         session=session,
     )
-    if record is None:
-        return None
-    return service._to_strategy_book(record)
 
 
 @router.delete("/books/{book_id}", status_code=204)
@@ -197,7 +181,7 @@ async def delete_book(
     service: FundStructuresService = Depends(get_fund_structures_service),
     session: AsyncSession = Depends(get_db),
 ) -> None:
-    await service._sb_repo.delete(str(book_id), session=session)
+    await service.delete_book(str(book_id), session=session)
 
 
 @router.post(

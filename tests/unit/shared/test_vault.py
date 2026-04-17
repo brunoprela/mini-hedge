@@ -52,6 +52,7 @@ class TestLoadVaultSecrets:
     def test_returns_empty_on_connection_error(self) -> None:
         mock_hvac = MagicMock()
         mock_hvac.Client.side_effect = ConnectionError("unreachable")
+        mock_hvac.exceptions.InvalidPath = type("InvalidPath", (Exception,), {})
 
         with patch.dict("sys.modules", {"hvac": mock_hvac}):
             secrets = load_vault_secrets(

@@ -104,6 +104,7 @@ class AuditEventType(StrEnum):
     # -- Fee Accounting ----------------------------------------------------
     FEES_ACCRUED = "fee.accrued"
     FEES_CRYSTALLIZED = "fee.crystallized"
+    FEES_APPROVED = "fee.approved"
 
     # -- Capital Accounts --------------------------------------------------
     CAPITAL_SUBSCRIPTION = "capital.subscription"

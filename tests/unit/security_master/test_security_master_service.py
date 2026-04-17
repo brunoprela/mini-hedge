@@ -46,7 +46,7 @@ def _make_service(
     repo = AsyncMock()
     repo.get_by_id = AsyncMock(return_value=instrument)
     repo.get_by_ticker = AsyncMock(return_value=instrument)
-    repo.get_all_active = AsyncMock(return_value=instruments or [])
+    repo.list_active = AsyncMock(return_value=instruments or [])
     repo.search = AsyncMock(return_value=instruments or [])
     repo.insert = AsyncMock(side_effect=lambda r, **kw: _assign_id(r))
     repo.update = AsyncMock(return_value=instrument)
@@ -58,7 +58,7 @@ def _make_service(
     event_bus = AsyncMock() if with_event_bus else None
 
     return SecurityMasterService(
-        repository=repo,
+        instrument_repo=repo,
         identifier_repo=identifier_repo,
         event_bus=event_bus,
     )
@@ -115,7 +115,7 @@ class TestGetAllActive:
         records = [_make_instrument_record("AAPL"), _make_instrument_record("MSFT")]
         svc = _make_service(instruments=records)
 
-        result = await svc.get_all_active()
+        result = await svc.list_active()
 
         assert len(result) == 2
 
@@ -123,9 +123,9 @@ class TestGetAllActive:
     async def test_filter_by_asset_class(self) -> None:
         svc = _make_service(instruments=[])
 
-        result = await svc.get_all_active(AssetClass.EQUITY)
+        result = await svc.list_active(AssetClass.EQUITY)
 
-        svc._instrument_repo.get_all_active.assert_called_once()
+        svc._instrument_repo.list_active.assert_called_once()
 
 
 class TestSearch:

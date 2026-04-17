@@ -199,8 +199,8 @@ def _mock_repos_and_services():
     """Create minimal mocked dependencies for the orchestrator."""
     run_repo = AsyncMock()
     run_repo.get_latest_run.return_value = None
-    run_repo.create_run = AsyncMock()
-    run_repo.save_step = AsyncMock()
+    run_repo.insert_run = AsyncMock()
+    run_repo.upsert_step = AsyncMock()
     run_repo.complete_run = AsyncMock()
 
     fund_repo = AsyncMock()

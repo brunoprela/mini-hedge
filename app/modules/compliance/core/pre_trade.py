@@ -77,7 +77,7 @@ class PreTradeGate:
         request: TradeCheckRequest,
     ) -> ComplianceDecision:
         # 1. Load active rules (session is already fund-scoped)
-        rule_records = await self._rule_repo.get_active()
+        rule_records = await self._rule_repo.list_active()
         if not rule_records:
             return ComplianceDecision(approved=True, results=[], blocked_by=[])
 

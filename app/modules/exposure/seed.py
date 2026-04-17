@@ -54,7 +54,7 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
     exposure_repo = exposure_service._exposure_repo
     fund_repo: FundRepository = app.state.fund_repo
     portfolio_repo: PortfolioRepository = app.state.portfolio_repo
-    active_funds = await fund_repo.get_all_active()
+    active_funds = await fund_repo.list_active()
 
     seeded = 0
     now = datetime.now(UTC)
@@ -131,7 +131,7 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
                         snapshot_at=snap_time,
                         breakdown_rows=breakdown_rows,
                     )
-                    await exposure_repo.save_snapshot(record)
+                    await exposure_repo.insert_snapshot(record)
                     seeded += 1
 
     if seeded:

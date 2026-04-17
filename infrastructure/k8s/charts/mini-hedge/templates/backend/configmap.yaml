@@ -1,0 +1,14 @@
+{{- if .Values.backend.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mini-hedge.backend.fullname" . }}-config
+  labels:
+    {{- include "mini-hedge.backend.labels" . | nindent 4 }}
+data:
+  {{- range $key, $val := .Values.backend.config }}
+  {{ $key }}: {{ $val | quote }}
+  {{- end }}
+  # Always expose the environment tag — handy for log tagging.
+  ENVIRONMENT: {{ .Values.global.environment | quote }}
+{{- end }}

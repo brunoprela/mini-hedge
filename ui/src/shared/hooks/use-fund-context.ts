@@ -3,14 +3,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import type { FundInfo } from "@/features/platform/types";
-import { clientFetch } from "@/shared/lib/api";
+import { api } from "@/shared/lib/api-client";
 
 export function useFundContext() {
   const params = useParams<{ fundSlug: string }>();
 
   const { data: funds = [], isLoading } = useQuery<FundInfo[]>({
     queryKey: ["me", "funds"],
-    queryFn: () => clientFetch<FundInfo[]>("/me/funds"),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/me/funds", {});
+      if (error) throw error;
+      return (data ?? []) as unknown as FundInfo[];
+    },
     staleTime: 5 * 60 * 1000,
   });
 

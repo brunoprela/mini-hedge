@@ -1,0 +1,24 @@
+# Standard Helm ignores
+.DS_Store
+.git/
+.gitignore
+.bzr/
+.bzrignore
+.hg/
+.hgignore
+.svn/
+*.swp
+*.bak
+*.tmp
+*.orig
+*~
+.project
+.idea/
+*.tmproj
+.vscode/
+
+# Keep example files out of the packaged chart.
+values-production.yaml.example
+values-staging.yaml.example
+values-*.yaml
+!values.yaml

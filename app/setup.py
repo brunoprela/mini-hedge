@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from app.shared.adapters.alt_data import AltDataProvider
     from app.shared.adapters.broker import BrokerAdapter
     from app.shared.adapters.fund_admin import FundAdminAdapter
+    from app.shared.adapters.kyc import KYCScreeningAdapter
     from app.shared.adapters.reference_data import ReferenceDataAdapter
     from app.shared.database import TenantSessionFactory
     from app.shared.events import EventBus
@@ -131,6 +132,7 @@ async def setup_all(
     llm_adapter: object | None = None,
     alt_data_provider: AltDataProvider | None = None,
     fund_admin: FundAdminAdapter | None = None,
+    kyc_adapter: KYCScreeningAdapter | None = None,
 ) -> list[str]:
     """Wire all modules in dependency order.
 
@@ -164,7 +166,7 @@ async def setup_all(
 
     # Create per-fund schemas and run positions migrations for each
     fund_repo = app.state.fund_repo
-    active_funds = await fund_repo.get_all_active()
+    active_funds = await fund_repo.list_active()
     fund_slugs = [f.slug for f in active_funds]
     await ensure_all_fund_schemas(engine, fund_slugs)
     # Re-apply structlog config — Alembic's fileConfig() in per-fund
@@ -234,7 +236,7 @@ async def setup_all(
         ("capital_accounts", {}),
         ("corporate_actions", {}),
         ("fx_hedging", {}),
-        ("investor_operations", {}),
+        ("investor_operations", {"kyc_adapter": kyc_adapter}),
         ("regulatory", {}),
         ("fund_structures", {}),
         ("backtesting", {}),

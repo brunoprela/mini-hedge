@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class FeatureValueRepository(BaseRepository):
     """CRUD for FeatureValueRecord."""
 
-    async def save_many(
+    async def insert_batch(
         self, records: list[FeatureValueRecord], *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as s:

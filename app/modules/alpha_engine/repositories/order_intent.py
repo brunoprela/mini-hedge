@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class OrderIntentRepository(BaseRepository):
     """CRUD for OrderIntentRecord."""
 
-    async def save_many(
+    async def insert_batch(
         self, records: list[OrderIntentRecord], *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as session:

@@ -6,11 +6,11 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
-from sqlalchemy import text
 from starlette.routing import Route
 
 from app.adapters.factory import (
@@ -18,6 +18,7 @@ from app.adapters.factory import (
     build_broker_adapter,
     build_broker_registry,
     build_fund_admin_adapter,
+    build_kyc_screening_adapter,
     build_llm_adapter,
     build_market_data_adapter,
     build_reference_data_adapter,
@@ -29,6 +30,7 @@ from app.middleware.idempotency import IdempotencyMiddleware
 from app.middleware.rate_limit import build_limiter, rate_limit_exceeded_handler
 from app.middleware.timeout import TimeoutMiddleware
 from app.modules.platform.repositories import AuditLogRepository
+from app.modules.platform.routes import health_router
 from app.routes import register_all
 from app.setup import _run_migrations, setup_all
 from app.shared.audit.archival import MinioArchiver
@@ -37,7 +39,7 @@ from app.shared.audit.bridge import AuditBridge
 from app.shared.audit.cdc_consumer import CdcAuditConsumer
 from app.shared.audit.cdc_transformer import CdcTransformer
 from app.shared.auth.token_revocation import TokenRevocationService
-from app.shared.database import TenantSessionFactory, build_engine
+from app.shared.database import build_engine
 from app.shared.dlq_manager import DlqManager
 from app.shared.kafka import KafkaEventBus
 from app.shared.observability.logging import setup_logging
@@ -50,6 +52,7 @@ from app.shared.stores.opensearch_bridge import OpenSearchBridge
 from app.shared.stores.opensearch_client import OpenSearchClient
 from app.shared.stores.redis import create_redis_client
 from app.shared.stores.redis_bridge import RedisBridge
+from app.shared.temporal import TemporalClientFactory
 
 logger = structlog.get_logger()
 
@@ -95,6 +98,7 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     reference_adapter = build_reference_data_adapter(settings)
     market_data_adapter = build_market_data_adapter(settings, event_bus=kafka_bus)
     fund_admin_adapter = build_fund_admin_adapter(settings)
+    kyc_adapter = build_kyc_screening_adapter(settings)
     llm_adapter = build_llm_adapter(settings)
     alt_data_provider = build_alt_data_provider(settings)
 
@@ -111,6 +115,7 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
         llm_adapter=llm_adapter,
         alt_data_provider=alt_data_provider,
         fund_admin=fund_admin_adapter,
+        kyc_adapter=kyc_adapter,
     )
 
     # Audit bridge — persists ALL fund-scoped events for compliance trail
@@ -202,7 +207,7 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     # the internal event bus.
     logger.info("market_data_adapter_starting")
     sm_service = fastapi_app.state.security_master_service
-    instruments = await sm_service.get_all_active()
+    instruments = await sm_service.list_active()
     tickers = [i.ticker for i in instruments]
     await market_data_adapter.start_streaming(tickers)
     logger.info("market_data_adapter_ready")
@@ -228,6 +233,12 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
         await broker_adapter.start_fill_consumer(order_service.process_execution_report)
         logger.info("broker_fill_consumer_ready")
 
+    # Temporal client factory — lifecycle-managed, injected via app.state.
+    # Connects lazily on first use so local dev without Temporal still boots.
+    fastapi_app.state.temporal_client_factory = TemporalClientFactory(
+        host=settings.temporal_host, port=settings.temporal_port
+    )
+
     # Store references for health check
     fastapi_app.state.engine = engine
     fastapi_app.state.kafka_bus = kafka_bus
@@ -243,6 +254,20 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
         market_data_source=settings.market_data_source,
         broker_adapter=settings.broker_adapter,
         reference_data_source=settings.reference_data_source,
+    )
+    logger.info(
+        "prometheus_metrics_ready",
+        endpoint="/metrics",
+        metrics=[
+            "http_requests_total",
+            "http_request_duration_seconds",
+            "http_requests_in_progress",
+            "kafka_events_published_total",
+            "kafka_events_consumed_total",
+            "kafka_dlq_events_total",
+            "circuit_breaker_state",
+            "orders_total",
+        ],
     )
 
     yield
@@ -275,6 +300,10 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     fga_client = getattr(fastapi_app.state, "fga", None)
     if fga_client is not None:
         await fga_client.close()
+
+    temporal_factory = getattr(fastapi_app.state, "temporal_client_factory", None)
+    if temporal_factory is not None:
+        await temporal_factory.close()
 
     # Dispose read replica engine if configured
     if session_factory.has_read_replica:
@@ -331,58 +360,22 @@ register_all(app)
 app.routes.append(Route("/metrics", metrics_route))
 
 
+# Health endpoints — mounted at root (no /api/v1 prefix) so Kubernetes
+# liveness/readiness probes and load balancers can hit them directly.
+# ``/health`` is liveness; ``/health/ready`` runs dependency checks in
+# parallel.  See ``app.modules.platform.routes.health``.
+app.include_router(health_router)
+
+
 @app.get("/healthz")
-async def liveness() -> dict[str, str]:
-    """Liveness probe — is the process alive? No dependency checks."""
-    return {"status": "alive"}
+async def liveness_legacy() -> dict[str, str]:
+    """Legacy k8s-style liveness alias — returns the same body as /health."""
+    return {"status": "ok"}
 
 
 @app.get("/readyz")
-@app.get("/health")
-async def health_check() -> dict[str, object]:
-    """Readiness probe — checks PostgreSQL, Redis, and Kafka connectivity."""
-    components: dict[str, str] = {}
+async def readiness_legacy(request: Request) -> JSONResponse:
+    """Legacy k8s-style readiness alias — delegates to /health/ready."""
+    from app.modules.platform.routes.health import readiness
 
-    # PostgreSQL (primary via PgBouncer)
-    try:
-        async with app.state.engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
-        components["postgres"] = "healthy"
-    except Exception as e:
-        components["postgres"] = f"unhealthy: {e}"
-
-    # PostgreSQL read replica
-    sf: TenantSessionFactory = app.state.session_factory
-    if sf.has_read_replica:
-        try:
-            async with sf._read_engine.connect() as conn:  # type: ignore[union-attr]
-                await conn.execute(text("SELECT 1"))
-            components["postgres_replica"] = "healthy"
-        except Exception as e:
-            components["postgres_replica"] = f"unhealthy: {e}"
-
-    # Redis (if enabled)
-    redis = getattr(app.state, "redis", None)
-    if redis is not None:
-        try:
-            await redis.ping()
-            components["redis"] = "healthy"
-        except Exception as e:
-            components["redis"] = f"unhealthy: {e}"
-
-    # Kafka
-    if await app.state.kafka_bus.health_check():
-        components["kafka"] = "healthy"
-    else:
-        components["kafka"] = "unhealthy: broker unreachable"
-
-    all_healthy = all(v == "healthy" for v in components.values())
-    return {
-        "status": "healthy" if all_healthy else "degraded",
-        "components": components,
-        "adapters": {
-            "market_data": app.state.market_data_source,
-            "broker": app.state.broker_adapter_type,
-            "reference_data": app.state.reference_data_source,
-        },
-    }
+    return await readiness(request)

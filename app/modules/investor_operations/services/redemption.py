@@ -43,6 +43,9 @@ if TYPE_CHECKING:
     )
     from app.shared.events import EventBus
 
+_DEFAULT_SHARE_CLASS = "default"
+_DEFAULT_GATE_PCT = Decimal("0.25")
+
 
 def _now() -> datetime:
     return datetime.now(UTC)
@@ -91,7 +94,7 @@ class RedemptionService:
         apply_redemption_transition(RedemptionState.DRAFT, RedemptionState.PENDING_VALIDATION)
         record.state = RedemptionState.PENDING_VALIDATION
 
-        await self._redemption_repo.save(record, session=session)
+        await self._redemption_repo.insert(record, session=session)
 
         if self._event_bus:
             await self._event_bus.publish(
@@ -112,7 +115,7 @@ class RedemptionService:
         self,
         request_id: str,
         *,
-        share_class: str = "default",
+        share_class: str = _DEFAULT_SHARE_CLASS,
         subscription_date: date | None = None,
         session: AsyncSession | None = None,
     ) -> RedemptionRequestSummary:
@@ -183,13 +186,13 @@ class RedemptionService:
         dealing_date: date,
         fund_nav: Decimal,
         gate_pct: Decimal | None = None,
-        share_class: str = "default",
+        share_class: str = _DEFAULT_SHARE_CLASS,
         session: AsyncSession | None = None,
     ) -> GateCheckResult:
         """Run the fund-level gate check on all pending redemptions."""
         if gate_pct is None:
             terms = await self._terms_repo.get_by_share_class(share_class, session=session)
-            gate_pct = terms.gate_pct if terms else Decimal("0.25")
+            gate_pct = terms.gate_pct if terms else _DEFAULT_GATE_PCT
 
         pending = await self._redemption_repo.list_pending_for_gate(session=session)
         requests = [(r.id, r.requested_amount) for r in pending]
@@ -272,7 +275,7 @@ class RedemptionService:
                 record.state = RedemptionState.QUEUED_FOR_NAV
 
         # Look up fund terms for payment_days
-        terms = await self._terms_repo.get_by_share_class("default", session=session)
+        terms = await self._terms_repo.get_by_share_class(_DEFAULT_SHARE_CLASS, session=session)
         payment_days = terms.payment_days if terms else 30
 
         results: list[RedemptionRequestSummary] = []
@@ -449,7 +452,7 @@ class RedemptionService:
     async def get_queue_summary(
         self,
         *,
-        share_class: str = "default",
+        share_class: str = _DEFAULT_SHARE_CLASS,
         session: AsyncSession | None = None,
     ) -> QueueSummary:
         """Summary of pending subscription/redemption counts and amounts."""

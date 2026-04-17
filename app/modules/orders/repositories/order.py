@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 class OrderRepository(BaseRepository):
     """CRUD for orders."""
 
-    async def save(
+    async def insert(
         self, record: OrderRecord, *, session: AsyncSession | None = None
     ) -> OrderRecord:
         async with self._session(session) as session:

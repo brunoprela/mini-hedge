@@ -54,7 +54,7 @@ class FundAdminService:
     async def list_funds(
         self, *, limit: int = 100, offset: int = 0, session: AsyncSession | None = None
     ) -> FundPage:
-        records, total = await self._fund_repo.get_all_paginated(
+        records, total = await self._fund_repo.list_paginated(
             limit=limit, offset=offset, session=session
         )
         return FundPage(

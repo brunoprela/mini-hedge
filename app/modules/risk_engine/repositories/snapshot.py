@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 class RiskSnapshotRepository(BaseRepository):
-    async def save_snapshot(
+    async def insert_snapshot(
         self, record: RiskSnapshotRecord, *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as session:

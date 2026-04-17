@@ -1,18 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { apiFetch } from "@/shared/lib/api";
-import { ErrorState } from "@/shared/components/error-state";
-import type {
-  PortfolioInfo,
-  PortfolioSummary,
-  Position,
-  FundCapitalOverview,
-  InvestorStatement,
-  MonthlyPerformanceLetter,
-} from "@/shared/types";
+import { Plus, ArrowDownRight } from "lucide-react";
+import { api, fundHeaders } from "@/shared/lib/api-client";
+import { ErrorState, TableSkeleton } from "@mini-hedge/ui";
 
 /* ── helpers ─────────────────────────────────────────────────────── */
 
@@ -63,21 +57,39 @@ export default function FundDetailPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold text-[var(--foreground-bright)]">
-          Fund Detail
-        </h1>
-        <p className="text-sm text-[var(--muted-foreground)]">{slug}</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-semibold text-[var(--foreground-bright)]">
+            Fund Detail
+          </h1>
+          <p className="text-sm text-[var(--muted-foreground)] break-all">{slug}</p>
+        </div>
+        <div className="flex gap-2">
+          <Link
+            href={`/subscribe?fund=${slug}`}
+            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[var(--primary)] px-3.5 py-2 min-h-9 text-sm font-medium text-white hover:opacity-90"
+          >
+            <Plus size={15} />
+            Subscribe
+          </Link>
+          <Link
+            href={`/redeem?fund=${slug}`}
+            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 min-h-9 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--muted)]"
+          >
+            <ArrowDownRight size={15} />
+            Redeem
+          </Link>
+        </div>
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 rounded-lg border border-[var(--border)] bg-[var(--muted)] p-1 w-fit">
+      <div className="flex gap-1 rounded-lg border border-[var(--border)] bg-[var(--muted)] p-1 w-full sm:w-fit overflow-x-auto">
         {tabs.map((tab) => (
           <button
             key={tab}
             type="button"
             onClick={() => setActiveTab(tab)}
-            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+            className={`rounded-md px-4 py-2 text-sm font-medium transition-colors min-h-11 whitespace-nowrap flex-1 sm:flex-none ${
               activeTab === tab
                 ? "bg-[var(--card)] text-[var(--foreground)] shadow-sm"
                 : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
@@ -107,8 +119,14 @@ function PerformanceTab({ slug }: { slug: string }) {
     error: navError,
   } = useQuery({
     queryKey: ["nav-history", slug],
-    queryFn: () =>
-      apiFetch<NavRow[]>(`eod/nav/history?fund_slug=${slug}&period=90d`),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/eod/nav/history", {
+        params: { query: { period: "90d" } },
+        headers: fundHeaders(slug),
+      });
+      if (error) throw error;
+      return data;
+    },
   });
 
   const {
@@ -117,8 +135,13 @@ function PerformanceTab({ slug }: { slug: string }) {
     error: ovError,
   } = useQuery({
     queryKey: ["capital-overview", slug],
-    queryFn: () =>
-      apiFetch<FundCapitalOverview>(`capital/overview?fund_slug=${slug}`),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/capital/overview", {
+        headers: fundHeaders(slug),
+      });
+      if (error) throw error;
+      return data;
+    },
   });
 
   const isLoading = navLoading || ovLoading;
@@ -134,7 +157,7 @@ function PerformanceTab({ slug }: { slug: string }) {
   return (
     <div className="space-y-6">
       {/* KPI strip */}
-      <dl className="grid grid-cols-4 divide-x divide-[var(--border)] rounded-lg border border-[var(--border)] bg-[var(--card)]">
+      <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 sm:divide-x sm:divide-y-0 divide-y divide-[var(--border)] rounded-lg border border-[var(--border)] bg-[var(--card)]">
         <div className="p-5">
           <dt className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">
             Latest NAV
@@ -170,8 +193,8 @@ function PerformanceTab({ slug }: { slug: string }) {
       </dl>
 
       {/* NAV history table */}
-      <div className="rounded-lg border border-[var(--border)] bg-[var(--card)]">
-        <table className="w-full text-sm">
+      <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] overflow-x-auto">
+        <table className="w-full text-sm min-w-[560px]">
           <thead>
             <tr className="border-b border-[var(--border)] bg-[var(--table-header)]">
               <th className="px-4 py-3 text-left text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">
@@ -191,11 +214,8 @@ function PerformanceTab({ slug }: { slug: string }) {
           <tbody className="divide-y divide-[var(--table-border)]">
             {isLoading ? (
               <tr>
-                <td
-                  colSpan={4}
-                  className="px-4 py-8 text-center text-[var(--muted-foreground)]"
-                >
-                  Loading...
+                <td colSpan={4} className="px-4 py-8">
+                  <TableSkeleton rows={4} columns={4} />
                 </td>
               </tr>
             ) : sorted.length === 0 ? (
@@ -265,8 +285,13 @@ function HoldingsTab({ slug }: { slug: string }) {
     error: portError,
   } = useQuery({
     queryKey: ["portfolios", slug],
-    queryFn: () =>
-      apiFetch<PortfolioInfo[]>(`portfolios?fund_slug=${slug}`),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/portfolios", {
+        headers: fundHeaders(slug),
+      });
+      if (error) throw error;
+      return data;
+    },
   });
 
   // Auto-select first portfolio
@@ -279,8 +304,17 @@ function HoldingsTab({ slug }: { slug: string }) {
     error: sumError,
   } = useQuery({
     queryKey: ["portfolio-summary", portfolioId],
-    queryFn: () =>
-      apiFetch<PortfolioSummary>(`portfolios/${portfolioId}/summary`),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/portfolios/{portfolio_id}/summary",
+        {
+          params: { path: { portfolio_id: portfolioId! } },
+          headers: fundHeaders(slug),
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     enabled: !!portfolioId,
   });
 
@@ -290,8 +324,17 @@ function HoldingsTab({ slug }: { slug: string }) {
     error: posError,
   } = useQuery({
     queryKey: ["portfolio-positions", portfolioId],
-    queryFn: () =>
-      apiFetch<Position[]>(`portfolios/${portfolioId}/positions`),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/portfolios/{portfolio_id}/positions",
+        {
+          params: { path: { portfolio_id: portfolioId! } },
+          headers: fundHeaders(slug),
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     enabled: !!portfolioId,
   });
 
@@ -304,14 +347,14 @@ function HoldingsTab({ slug }: { slug: string }) {
     <div className="space-y-6">
       {/* Portfolio selector */}
       {portfolios && portfolios.length > 1 && (
-        <div>
-          <label className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide mr-2">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+          <label className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">
             Portfolio
           </label>
           <select
             value={portfolioId ?? ""}
             onChange={(e) => setSelectedPortfolio(e.target.value)}
-            className="rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-sm text-[var(--foreground)]"
+            className="w-full sm:w-auto max-w-full rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--foreground)] min-h-11"
           >
             {portfolios.map((p) => (
               <option key={p.id} value={p.id}>
@@ -323,7 +366,7 @@ function HoldingsTab({ slug }: { slug: string }) {
       )}
 
       {/* Summary KPI strip */}
-      <dl className="grid grid-cols-4 divide-x divide-[var(--border)] rounded-lg border border-[var(--border)] bg-[var(--card)]">
+      <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 sm:divide-x sm:divide-y-0 divide-y divide-[var(--border)] rounded-lg border border-[var(--border)] bg-[var(--card)]">
         <div className="p-5">
           <dt className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">
             Market Value
@@ -365,8 +408,8 @@ function HoldingsTab({ slug }: { slug: string }) {
       </dl>
 
       {/* Positions table */}
-      <div className="rounded-lg border border-[var(--border)] bg-[var(--card)]">
-        <table className="w-full text-sm">
+      <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] overflow-x-auto">
+        <table className="w-full text-sm min-w-[780px]">
           <thead>
             <tr className="border-b border-[var(--border)] bg-[var(--table-header)]">
               <th className="px-4 py-3 text-left text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">
@@ -395,11 +438,8 @@ function HoldingsTab({ slug }: { slug: string }) {
           <tbody className="divide-y divide-[var(--table-border)]">
             {isLoading ? (
               <tr>
-                <td
-                  colSpan={7}
-                  className="px-4 py-8 text-center text-[var(--muted-foreground)]"
-                >
-                  Loading...
+                <td colSpan={7} className="px-4 py-8">
+                  <TableSkeleton rows={5} columns={7} />
                 </td>
               </tr>
             ) : !positions || positions.length === 0 ? (
@@ -468,10 +508,13 @@ function DocumentsTab({ slug }: { slug: string }) {
     error: stmtError,
   } = useQuery({
     queryKey: ["investor-statements", slug],
-    queryFn: () =>
-      apiFetch<InvestorStatement[]>(
-        `regulatory/investor-statements?fund_slug=${slug}`,
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/regulatory/investor-statements", {
+        headers: fundHeaders(slug),
+      });
+      if (error) throw error;
+      return data;
+    },
   });
 
   const {
@@ -480,10 +523,13 @@ function DocumentsTab({ slug }: { slug: string }) {
     error: letError,
   } = useQuery({
     queryKey: ["performance-letters", slug],
-    queryFn: () =>
-      apiFetch<MonthlyPerformanceLetter[]>(
-        `regulatory/performance-letters?fund_slug=${slug}`,
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/regulatory/performance-letters", {
+        headers: fundHeaders(slug),
+      });
+      if (error) throw error;
+      return data;
+    },
   });
 
   const error = stmtError || letError;
@@ -498,8 +544,8 @@ function DocumentsTab({ slug }: { slug: string }) {
         <h2 className="text-lg font-semibold text-[var(--foreground-bright)]">
           Investor Statements
         </h2>
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--card)]">
-          <table className="w-full text-sm">
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] overflow-x-auto">
+          <table className="w-full text-sm min-w-[720px]">
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--table-header)]">
                 <th className="px-4 py-3 text-left text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">
@@ -525,11 +571,8 @@ function DocumentsTab({ slug }: { slug: string }) {
             <tbody className="divide-y divide-[var(--table-border)]">
               {isLoading ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-8 text-center text-[var(--muted-foreground)]"
-                  >
-                    Loading...
+                  <td colSpan={6} className="px-4 py-8">
+                    <TableSkeleton rows={4} columns={6} />
                   </td>
                 </tr>
               ) : !statements || statements.length === 0 ? (
@@ -584,8 +627,8 @@ function DocumentsTab({ slug }: { slug: string }) {
         <h2 className="text-lg font-semibold text-[var(--foreground-bright)]">
           Performance Letters
         </h2>
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--card)]">
-          <table className="w-full text-sm">
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] overflow-x-auto">
+          <table className="w-full text-sm min-w-[720px]">
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--table-header)]">
                 <th className="px-4 py-3 text-left text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">
@@ -611,11 +654,8 @@ function DocumentsTab({ slug }: { slug: string }) {
             <tbody className="divide-y divide-[var(--table-border)]">
               {isLoading ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-8 text-center text-[var(--muted-foreground)]"
-                  >
-                    Loading...
+                  <td colSpan={6} className="px-4 py-8">
+                    <TableSkeleton rows={4} columns={6} />
                   </td>
                 </tr>
               ) : !letters || letters.length === 0 ? (

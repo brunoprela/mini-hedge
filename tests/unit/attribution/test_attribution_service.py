@@ -47,22 +47,22 @@ def _make_service(
     instruments: list | None = None,
 ) -> tuple[AttributionService, AsyncMock, AsyncMock]:
     bf_repo = AsyncMock()
-    bf_repo.save = AsyncMock()
+    bf_repo.insert = AsyncMock()
     bf_repo.get_by_portfolio = AsyncMock(return_value=[])
     bf_sector_repo = AsyncMock()
-    bf_sector_repo.save_many = AsyncMock()
+    bf_sector_repo.insert_batch = AsyncMock()
     bf_sector_repo.get_by_bf_result = AsyncMock(return_value=[])
     rb_repo = AsyncMock()
-    rb_repo.save = AsyncMock()
+    rb_repo.insert = AsyncMock()
     rfc_repo = AsyncMock()
-    rfc_repo.save_many = AsyncMock()
+    rfc_repo.insert_batch = AsyncMock()
     cum_repo = AsyncMock()
 
     position_service = AsyncMock()
     position_service.get_by_portfolio = AsyncMock(return_value=positions or [])
 
     sm_service = AsyncMock()
-    sm_service.get_all_active = AsyncMock(return_value=instruments or [])
+    sm_service.list_active = AsyncMock(return_value=instruments or [])
 
     event_bus = AsyncMock()
 
@@ -99,7 +99,7 @@ class TestBrinsonFachler:
         assert result.portfolio_id == _PORT_ID
         assert result.period_start == date(2026, 3, 1)
         assert result.period_end == date(2026, 3, 31)
-        bf_repo.save.assert_called_once()
+        bf_repo.insert.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_empty_portfolio_returns_zeros(self) -> None:
@@ -111,7 +111,7 @@ class TestBrinsonFachler:
 
         assert result.active_return == Decimal(0)
         assert result.sectors == []
-        bf_repo.save.assert_not_called()
+        bf_repo.insert.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_skips_zero_quantity_positions(self) -> None:
@@ -130,7 +130,7 @@ class TestBrinsonFachler:
         )
 
         # Only AAPL is included
-        bf_repo.save.assert_called_once()
+        bf_repo.insert.assert_called_once()
         assert result.portfolio_id == _PORT_ID
 
     @pytest.mark.asyncio
@@ -199,7 +199,7 @@ class TestCumulative:
 
         assert result.portfolio_id == _PORT_ID
         # Should have calculated at least one period
-        bf_repo.save.assert_called()
+        bf_repo.insert.assert_called()
 
     @pytest.mark.asyncio
     async def test_cumulative_with_stored_periods(self) -> None:
@@ -254,7 +254,7 @@ class TestFXAttribution:
             rfc_repo=AsyncMock(),
             cum_repo=AsyncMock(),
             position_service=AsyncMock(get_by_portfolio=AsyncMock(return_value=positions)),
-            security_master_service=AsyncMock(get_all_active=AsyncMock(return_value=instruments)),
+            security_master_service=AsyncMock(list_active=AsyncMock(return_value=instruments)),
             fx_converter=fx,
         )
 

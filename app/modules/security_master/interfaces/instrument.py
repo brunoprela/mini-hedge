@@ -46,7 +46,7 @@ class SecurityMasterReader(Protocol):
 
     async def get_by_ticker(self, ticker: str) -> Instrument: ...
 
-    async def get_all_active(
+    async def list_active(
         self,
         asset_class: AssetClass | None = None,
     ) -> list[Instrument]: ...

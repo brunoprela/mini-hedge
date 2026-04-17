@@ -246,5 +246,8 @@ class RegimeDetector:
         matrix: dict[str, dict[str, float]] = {}
         for from_r, targets in transitions.items():
             total = sum(targets.values())
-            matrix[from_r] = {to_r: round(count / total, 4) for to_r, count in targets.items()}
+            if total > 0:
+                matrix[from_r] = {to_r: round(count / total, 4) for to_r, count in targets.items()}
+            else:
+                matrix[from_r] = {to_r: 0.0 for to_r in targets}
         return matrix

@@ -9,7 +9,11 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.eod.core.orchestrator import EODOrchestrator
-from app.modules.eod.dependencies import get_eod_orchestrator, get_nav_snapshot_repo
+from app.modules.eod.dependencies import (
+    get_eod_orchestrator,
+    get_finalized_price_repo,
+    get_nav_snapshot_repo,
+)
 from app.modules.eod.interfaces.run import (
     EODRunResult,
     EODRunSummary,
@@ -18,7 +22,7 @@ from app.modules.eod.interfaces.run import (
     EODStepStatus,
 )
 from app.modules.eod.interfaces.snapshot import NAVHistoryPoint
-from app.modules.eod.repositories import NAVSnapshotRepository
+from app.modules.eod.repositories import FinalizedPriceRepository, NAVSnapshotRepository
 from app.shared.auth import Permission, require_permission
 from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_db
@@ -69,7 +73,7 @@ async def get_eod_status(
     """Get the status of the latest EOD run for a business date."""
     if not request_context.fund_slug:
         raise HTTPException(status_code=400, detail="Fund context required")
-    run_repo = orchestrator._run_repo
+    run_repo = orchestrator.run_repo
     run = await run_repo.get_latest_run(business_date, request_context.fund_slug)
     if run is None:
         return None
@@ -106,7 +110,7 @@ async def get_eod_history(
     """List past EOD runs for the fund."""
     if not request_context.fund_slug:
         raise HTTPException(status_code=400, detail="Fund context required")
-    run_repo = orchestrator._run_repo
+    run_repo = orchestrator.run_repo
     runs = await run_repo.get_run_history(request_context.fund_slug, limit=limit, offset=offset)
 
     summaries = []
@@ -142,8 +146,8 @@ async def get_nav_history(
     if not request_context.fund_slug:
         raise HTTPException(status_code=400, detail="Fund context required")
 
-    fund_repo = orchestrator._fund_repo
-    portfolio_repo = orchestrator._portfolio_repo
+    fund_repo = orchestrator.fund_repo
+    portfolio_repo = orchestrator.portfolio_repo
 
     fund = await fund_repo.get_by_slug(request_context.fund_slug)
     if fund is None:
@@ -180,3 +184,76 @@ async def get_nav_history(
         )
         for d in sorted(date_totals.keys())
     ]
+
+
+# ---------------------------------------------------------------------------
+# Finalized prices
+# ---------------------------------------------------------------------------
+
+
+class FinalizedPrice(BaseModel):
+    """A locked closing price for a business date."""
+
+    model_config = ConfigDict(frozen=True)
+
+    instrument_id: str
+    business_date: date
+    close_price: Decimal
+    source: str
+    finalized_by: str
+
+
+class FinalizePriceRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    instrument_id: str
+    business_date: date
+    close_price: Decimal
+    source: str = "manual"
+
+
+@router.get("/finalized-prices", response_model=list[FinalizedPrice])
+async def list_finalized_prices(
+    business_date: date = Query(...),
+    request_context: RequestContext = require_permission(Permission.RISK_READ),
+    price_repo: FinalizedPriceRepository = Depends(get_finalized_price_repo),
+    session: AsyncSession = Depends(get_db),
+) -> list[FinalizedPrice]:
+    """List all finalized closing prices for a business date."""
+    records = await price_repo.get_prices(business_date, session=session)
+    return [
+        FinalizedPrice(
+            instrument_id=r.instrument_id,
+            business_date=r.business_date,
+            close_price=r.close_price,
+            source=r.source,
+            finalized_by=r.finalized_by,
+        )
+        for r in records
+    ]
+
+
+@router.post("/finalize-price", response_model=FinalizedPrice, status_code=201)
+async def finalize_price(
+    body: FinalizePriceRequest,
+    request_context: RequestContext = require_permission(Permission.RISK_WRITE),
+    price_repo: FinalizedPriceRepository = Depends(get_finalized_price_repo),
+    session: AsyncSession = Depends(get_db),
+) -> FinalizedPrice:
+    """Lock a closing price for an instrument on a business date."""
+    finalized_by = request_context.actor_id or "system"
+    await price_repo.upsert_price(
+        instrument_id=body.instrument_id,
+        business_date=body.business_date,
+        close_price=body.close_price,
+        source=body.source,
+        finalized_by=finalized_by,
+        session=session,
+    )
+    return FinalizedPrice(
+        instrument_id=body.instrument_id,
+        business_date=body.business_date,
+        close_price=body.close_price,
+        source=body.source,
+        finalized_by=finalized_by,
+    )

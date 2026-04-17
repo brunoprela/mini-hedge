@@ -1,12 +1,18 @@
 import { queryOptions } from "@tanstack/react-query";
-import { clientFetch } from "@/shared/lib/api";
+import { api, fundHeaders } from "@/shared/lib/api-client";
 import type { OrderSummary } from "@mini-hedge/api-types";
-import type { CashBalance, CashProjection, SettlementLadder, SettlementRecord } from "./types";
 
 export function cashBalancesQueryOptions(fundSlug: string, portfolioId: string) {
   return queryOptions({
     queryKey: ["cash-balances", fundSlug, portfolioId],
-    queryFn: () => clientFetch<CashBalance[]>(`/cash/${portfolioId}/balances`, { fundSlug }),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/cash/{portfolio_id}/balances", {
+        params: { path: { portfolio_id: portfolioId } },
+        headers: fundHeaders(fundSlug),
+      });
+      if (error) throw error;
+      return data;
+    },
     staleTime: 60_000,
   });
 }
@@ -14,8 +20,14 @@ export function cashBalancesQueryOptions(fundSlug: string, portfolioId: string) 
 export function settlementsQueryOptions(fundSlug: string, portfolioId: string) {
   return queryOptions({
     queryKey: ["settlements", fundSlug, portfolioId],
-    queryFn: () =>
-      clientFetch<SettlementRecord[]>(`/cash/${portfolioId}/settlements`, { fundSlug }),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/cash/{portfolio_id}/settlements", {
+        params: { path: { portfolio_id: portfolioId } },
+        headers: fundHeaders(fundSlug),
+      });
+      if (error) throw error;
+      return data;
+    },
     staleTime: 60_000,
   });
 }
@@ -27,10 +39,17 @@ export function settlementLadderQueryOptions(
 ) {
   return queryOptions({
     queryKey: ["settlement-ladder", fundSlug, portfolioId, horizonDays],
-    queryFn: () =>
-      clientFetch<SettlementLadder>(`/cash/${portfolioId}/ladder?horizon_days=${horizonDays}`, {
-        fundSlug,
-      }),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/cash/{portfolio_id}/ladder", {
+        params: {
+          path: { portfolio_id: portfolioId },
+          query: { horizon_days: horizonDays },
+        },
+        headers: fundHeaders(fundSlug),
+      });
+      if (error) throw error;
+      return data;
+    },
   });
 }
 
@@ -41,10 +60,17 @@ export function cashProjectionQueryOptions(
 ) {
   return queryOptions({
     queryKey: ["cash-projection", fundSlug, portfolioId, horizonDays],
-    queryFn: () =>
-      clientFetch<CashProjection>(`/cash/${portfolioId}/projection?horizon_days=${horizonDays}`, {
-        fundSlug,
-      }),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/cash/{portfolio_id}/projection", {
+        params: {
+          path: { portfolio_id: portfolioId },
+          query: { horizon_days: horizonDays },
+        },
+        headers: fundHeaders(fundSlug),
+      });
+      if (error) throw error;
+      return data;
+    },
   });
 }
 
@@ -62,11 +88,14 @@ export function pendingOrdersQueryOptions(fundSlug: string, portfolioId: string)
     queryKey: ["pending-orders-for-projection", fundSlug, portfolioId],
     queryFn: async () => {
       const results = await Promise.all(
-        PENDING_ORDER_STATES.map((state) =>
-          clientFetch<OrderSummary[]>(`/orders?portfolio_id=${portfolioId}&state=${state}`, {
-            fundSlug,
-          }),
-        ),
+        PENDING_ORDER_STATES.map(async (state) => {
+          const { data, error } = await api.GET("/api/v1/orders", {
+            params: { query: { portfolio_id: portfolioId, state } },
+            headers: fundHeaders(fundSlug),
+          });
+          if (error) throw error;
+          return (data ?? []) as OrderSummary[];
+        }),
       );
       return results.flat();
     },

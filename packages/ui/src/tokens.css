@@ -1,0 +1,212 @@
+/* ----------------------------------------------------------------
+   @mini-hedge/ui — canonical design tokens
+   ----------------------------------------------------------------
+   Single source of truth for colors, typography, spacing and radius
+   consumed by desk-ui, ops-ui and client-ui.
+
+   Each consumer imports this file at the top of its globals.css
+   and then overrides any tokens it needs to diverge on (branding
+   colors, sidebar width, etc.).
+
+   Two themes are exported:
+     :root                    — dark theme (default, matches desk-ui)
+     [data-theme="light"]     — light theme baseline
+
+   A UI that is light-first (ops-ui, client-ui) simply re-declares
+   the relevant variables inside its own :root — the cascade lets
+   the consumer win.
+   ---------------------------------------------------------------- */
+
+/* ---------- Typography (registered as Tailwind theme) ---------- */
+@theme {
+  --font-sans:
+    "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* ---------- Font sizes (custom scale, not Tailwind utilities) ---------- */
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 13px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 18px;
+  --font-size-2xl: 20px;
+  --font-size-3xl: 24px;
+
+  /* ---------- Radius ---------- */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  /* ---------- Foundation (dark) ---------- */
+  --background: #0b0e14;
+  --background-raised: #111620;
+  --foreground: #e2e8f0;
+  --foreground-bright: #f1f5f9;
+
+  /* Sidebar */
+  --sidebar: #080a10;
+  --sidebar-foreground: #e2e8f0;
+  --sidebar-active: rgba(59, 130, 246, 0.1);
+  --sidebar-width: 260px;
+  --sidebar-gradient: linear-gradient(
+    180deg,
+    rgba(59, 130, 246, 0.03) 0%,
+    rgba(139, 92, 246, 0.06) 100%
+  );
+
+  /* Cards & panels */
+  --card: #111620;
+  --card-foreground: #e2e8f0;
+  --card-hover: #161c2a;
+
+  /* Muted */
+  --muted: #161c2a;
+  --muted-foreground: #64748b;
+
+  /* Secondary */
+  --secondary: #1a2030;
+  --secondary-foreground: #e2e8f0;
+
+  /* Borders */
+  --border: #1e2536;
+  --border-bright: #2a3347;
+
+  /* Primary accent — blue */
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --primary-muted: rgba(59, 130, 246, 0.15);
+
+  /* Status */
+  --success: #22c55e;
+  --success-foreground: #ffffff;
+  --success-muted: rgba(34, 197, 94, 0.15);
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --destructive-muted: rgba(239, 68, 68, 0.15);
+  --warning: #f59e0b;
+  --warning-foreground: #0b0e14;
+  --warning-muted: rgba(245, 158, 11, 0.15);
+  --info: #3b82f6;
+  --info-muted: rgba(59, 130, 246, 0.15);
+
+  /* Accent */
+  --accent: #1a2030;
+  --accent-foreground: #e2e8f0;
+  --accent-purple: #8b5cf6;
+  --accent-purple-muted: rgba(139, 92, 246, 0.15);
+  --accent-cyan: #06b6d4;
+  --accent-cyan-muted: rgba(6, 182, 212, 0.15);
+  --accent-orange: #f97316;
+  --accent-orange-muted: rgba(249, 115, 22, 0.15);
+
+  /* Table */
+  --table-header: #0d1018;
+  --table-row-hover: #161c2a;
+  --table-border: #1a2030;
+
+  /* Input */
+  --input: #161c2a;
+  --input-border: #1e2536;
+
+  /* Ring / focus */
+  --ring: rgba(59, 130, 246, 0.4);
+
+  /* Popover (used by shared primitives) */
+  --popover: #111620;
+  --popover-foreground: #e2e8f0;
+
+  /* Badge */
+  --badge-bg: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* Foundation */
+  --background: #f8fafc;
+  --background-raised: #ffffff;
+  --foreground: #0f172a;
+  --foreground-bright: #020617;
+
+  /* Sidebar */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0f172a;
+  --sidebar-active: rgba(59, 130, 246, 0.08);
+  --sidebar-gradient: linear-gradient(
+    180deg,
+    rgba(59, 130, 246, 0.02) 0%,
+    rgba(139, 92, 246, 0.03) 100%
+  );
+
+  /* Cards & panels */
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --card-hover: #f1f5f9;
+
+  /* Muted */
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+
+  /* Secondary */
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+
+  /* Borders */
+  --border: #e2e8f0;
+  --border-bright: #cbd5e1;
+
+  /* Primary */
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --primary-muted: rgba(37, 99, 235, 0.1);
+
+  /* Status */
+  --success: #16a34a;
+  --success-foreground: #ffffff;
+  --success-muted: rgba(22, 163, 74, 0.1);
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --destructive-muted: rgba(220, 38, 38, 0.1);
+  --warning: #d97706;
+  --warning-foreground: #ffffff;
+  --warning-muted: rgba(217, 119, 6, 0.1);
+  --info: #2563eb;
+  --info-muted: rgba(37, 99, 235, 0.1);
+
+  /* Accent */
+  --accent: #eff6ff;
+  --accent-foreground: #1e40af;
+  --accent-purple: #7c3aed;
+  --accent-purple-muted: rgba(124, 58, 237, 0.1);
+  --accent-cyan: #0891b2;
+  --accent-cyan-muted: rgba(8, 145, 178, 0.1);
+  --accent-orange: #ea580c;
+  --accent-orange-muted: rgba(234, 88, 12, 0.1);
+
+  /* Table */
+  --table-header: #f8fafc;
+  --table-row-hover: #f1f5f9;
+  --table-border: #e2e8f0;
+
+  /* Input */
+  --input: #ffffff;
+  --input-border: #e2e8f0;
+
+  /* Ring */
+  --ring: rgba(37, 99, 235, 0.3);
+
+  /* Popover */
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+
+  /* Badge */
+  --badge-bg: rgba(0, 0, 0, 0.04);
+}

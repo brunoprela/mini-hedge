@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { LoadingSkeleton } from "@mini-hedge/ui";
 import { LineChart } from "@/shared/components/charts";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { navHistoryQueryOptions } from "../api";
@@ -180,9 +181,7 @@ export function NAVHistoryChart() {
       </div>
 
       {isLoading ? (
-        <div className="flex h-[200px] items-center justify-center text-sm text-[var(--muted-foreground)]">
-          Loading...
-        </div>
+        <LoadingSkeleton height="200px" />
       ) : chartData.length < 2 ? (
         <div className="flex h-[200px] items-center justify-center text-sm text-[var(--muted-foreground)]">
           Not enough NAV data for this period. Run more EOD cycles to populate the chart.

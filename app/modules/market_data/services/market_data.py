@@ -42,11 +42,11 @@ class MarketDataService:
     def __init__(
         self,
         *,
-        repository: PriceRepository,
-        fx_repository: FXRateRepository,
+        price_repo: PriceRepository,
+        fx_repo: FXRateRepository,
     ) -> None:
-        self._price_repo = repository
-        self._fx_repo = fx_repository
+        self._price_repo = price_repo
+        self._fx_repo = fx_repo
         self._fx_converter = FXConverter()
         # In-memory latest prices cache (updated by simulator events)
         self._latest: dict[str, PriceSnapshot] = {}

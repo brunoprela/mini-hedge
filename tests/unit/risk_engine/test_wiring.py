@@ -19,7 +19,7 @@ def _make_app_and_sf():
     app.state.market_data_service.fx_converter = MagicMock()
     app.state.security_master_service = MagicMock()
     app.state.fund_repo = AsyncMock()
-    app.state.fund_repo.get_all_active = AsyncMock(return_value=[])
+    app.state.fund_repo.list_active = AsyncMock(return_value=[])
 
     sf = MagicMock()
     return app, sf
@@ -49,7 +49,7 @@ class TestSetupWiring:
         fund = MagicMock()
         fund.slug = "alpha"
         fund.id = str(uuid4())
-        app.state.fund_repo.get_all_active.return_value = [fund]
+        app.state.fund_repo.list_active.return_value = [fund]
 
         event_bus = MagicMock()
         event_bus.subscribe = MagicMock()
@@ -70,7 +70,7 @@ class TestSetupWiring:
         fund2 = MagicMock()
         fund2.slug = "beta"
         fund2.id = str(uuid4())
-        app.state.fund_repo.get_all_active.return_value = [fund1, fund2]
+        app.state.fund_repo.list_active.return_value = [fund1, fund2]
 
         event_bus = MagicMock()
         event_bus.subscribe = MagicMock()
@@ -116,7 +116,7 @@ class TestEventHandler:
         fund = MagicMock()
         fund.slug = "alpha"
         fund.id = str(uuid4())
-        app.state.fund_repo.get_all_active.return_value = [fund]
+        app.state.fund_repo.list_active.return_value = [fund]
 
         event_bus = MagicMock()
         captured_handler = None
@@ -147,7 +147,7 @@ class TestEventHandler:
         fund = MagicMock()
         fund.slug = "alpha"
         fund.id = str(uuid4())
-        app.state.fund_repo.get_all_active.return_value = [fund]
+        app.state.fund_repo.list_active.return_value = [fund]
 
         event_bus = MagicMock()
         captured_handler = None
@@ -176,7 +176,7 @@ class TestEventHandler:
         fund = MagicMock()
         fund.slug = "alpha"
         fund.id = str(uuid4())
-        app.state.fund_repo.get_all_active.return_value = [fund]
+        app.state.fund_repo.list_active.return_value = [fund]
 
         event_bus = MagicMock()
         captured_handler = None

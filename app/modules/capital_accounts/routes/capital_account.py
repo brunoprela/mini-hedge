@@ -21,7 +21,7 @@ from app.modules.capital_accounts.interfaces import (
     ShareClassSummary,
 )
 from app.modules.capital_accounts.models.capital_account import CapitalAccountRecord
-from app.modules.capital_accounts.repositories.investor import InvestorRepository
+from app.modules.platform.repositories.investor import InvestorRepository
 from app.modules.capital_accounts.services import CapitalAccountService
 from app.modules.capital_accounts.services.capital_transaction import CapitalTransactionService
 from app.modules.platform.models.investor import InvestorRecord

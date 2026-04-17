@@ -1,5 +1,6 @@
 "use client";
 
+import { TableSkeleton } from "@mini-hedge/ui";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
@@ -13,7 +14,7 @@ export function PortfolioList() {
   const [showCreate, setShowCreate] = useState(false);
 
   if (isLoading) {
-    return <p className="text-sm text-[var(--muted-foreground)]">Loading portfolios...</p>;
+    return <TableSkeleton rows={5} columns={3} />;
   }
 
   return (

@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class FactorReturnRepository(BaseRepository):
     """CRUD for FactorReturnRecord."""
 
-    async def save_many(
+    async def insert_batch(
         self, records: list[FactorReturnRecord], *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as s:

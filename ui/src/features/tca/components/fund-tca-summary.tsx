@@ -60,12 +60,14 @@ export function FundTCASummaryCard() {
           <div className="col-span-5 grid grid-cols-3 gap-2">
             <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
               <p className="text-xs text-[var(--muted-foreground)]">Total Orders</p>
-              <p className="mt-0.5 font-mono text-sm font-semibold">{summary.total_orders}</p>
+              <p className="mt-0.5 font-mono text-sm font-semibold">
+                {summary.total_orders_analyzed}
+              </p>
             </div>
             <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
-              <p className="text-xs text-[var(--muted-foreground)]">Avg Total Cost</p>
+              <p className="text-xs text-[var(--muted-foreground)]">Avg IS Cost</p>
               <p className="mt-0.5 font-mono text-sm font-semibold">
-                {fmtBps(summary.avg_total_cost_bps)}{" "}
+                {fmtBps(summary.avg_implementation_shortfall_bps)}{" "}
                 <span className="text-xs font-normal text-[var(--muted-foreground)]">bps</span>
               </p>
             </div>
@@ -95,9 +97,8 @@ export function FundTCASummaryCard() {
                 label="Commission"
                 value={fmtBps(summary.avg_commission_bps)}
               />
-              <Legend color="#f59e0b" label="Spread" value={fmtBps(summary.avg_spread_cost_bps)} />
-              <Legend color="#ef4444" label="Timing" value={fmtBps(summary.avg_timing_cost_bps)} />
-              <Legend color="#8b5cf6" label="Impact" value={fmtBps(summary.avg_impact_cost_bps)} />
+              <Legend color="#f59e0b" label="Spread" value={fmtBps(summary.avg_spread_bps)} />
+              <Legend color="#8b5cf6" label="Impact" value={fmtBps(summary.avg_impact_bps)} />
             </div>
           </div>
         </div>
@@ -111,16 +112,14 @@ function CostBar({
 }: {
   summary: {
     avg_commission_bps: string;
-    avg_spread_cost_bps: string;
-    avg_timing_cost_bps: string;
-    avg_impact_cost_bps: string;
+    avg_spread_bps: string;
+    avg_impact_bps: string;
   };
 }) {
   const segments = [
     { value: parseFloat(summary.avg_commission_bps), color: "#6366f1" },
-    { value: parseFloat(summary.avg_spread_cost_bps), color: "#f59e0b" },
-    { value: parseFloat(summary.avg_timing_cost_bps), color: "#ef4444" },
-    { value: parseFloat(summary.avg_impact_cost_bps), color: "#8b5cf6" },
+    { value: parseFloat(summary.avg_spread_bps), color: "#f59e0b" },
+    { value: parseFloat(summary.avg_impact_bps), color: "#8b5cf6" },
   ];
 
   const total = segments.reduce((sum, s) => sum + s.value, 0);

@@ -4,6 +4,7 @@ from app.modules.platform.repositories.api_key import APIKeyRepository
 from app.modules.platform.repositories.audit import AuditLogRepository, _compute_hash
 from app.modules.platform.repositories.customer import CustomerRepository
 from app.modules.platform.repositories.fund import FundRepository
+from app.modules.platform.repositories.investor import InvestorRepository
 from app.modules.platform.repositories.operator import OperatorRepository
 from app.modules.platform.repositories.portfolio import PortfolioRepository
 from app.modules.platform.repositories.servicing_edge import ServicingEdgeRepository
@@ -14,6 +15,7 @@ __all__ = [
     "AuditLogRepository",
     "CustomerRepository",
     "FundRepository",
+    "InvestorRepository",
     "OperatorRepository",
     "PortfolioRepository",
     "ServicingEdgeRepository",

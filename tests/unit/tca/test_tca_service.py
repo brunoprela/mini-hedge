@@ -59,9 +59,9 @@ def _make_tca_service(
     def _save_with_computed_at(rec, **kw):
         rec.computed_at = datetime(2026, 4, 10, 12, 0, 0, tzinfo=timezone.utc)
         return rec
-    tca_repo.save = AsyncMock(side_effect=_save_with_computed_at)
+    tca_repo.insert = AsyncMock(side_effect=_save_with_computed_at)
     tca_repo.get_by_order_id = AsyncMock(return_value=tca_record)
-    tca_repo.get_by_order_ids = AsyncMock(return_value=[])
+    tca_repo.list_by_order_ids = AsyncMock(return_value=[])
     vwap_calc.compute = AsyncMock(return_value=vwap)
 
     return TCAService(

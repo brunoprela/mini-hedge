@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class StressTestResultRepository(BaseRepository):
-    async def save_stress_result(
+    async def insert_stress_result(
         self,
         result_record: StressTestResultRecord,
         *,

@@ -365,4 +365,4 @@ class PositionReconciler:
             )
 
         if records:
-            await self._break_repo.create_many(records, session=session)
+            await self._break_repo.insert_batch(records, session=session)

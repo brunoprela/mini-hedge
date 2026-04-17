@@ -126,18 +126,21 @@ class TestOptionPositionStrategy:
 
     def test_unrealized_pnl_profit(self) -> None:
         # Bought 10 calls at $3, now $5, multiplier=100
-        pnl = self.strat.unrealized_pnl(Decimal("10"), Decimal("3"), Decimal("5"))
-        assert pnl == Decimal("2000")  # 10 * (5 - 3) * 100
+        # cost_basis is total cost: 10 * 3 * 100 = 3000
+        pnl = self.strat.unrealized_pnl(Decimal("10"), Decimal("3000"), Decimal("5"))
+        assert pnl == Decimal("2000")  # 5000 - 3000
 
     def test_unrealized_pnl_loss(self) -> None:
         # Bought 10 calls at $5, now $2, multiplier=100
-        pnl = self.strat.unrealized_pnl(Decimal("10"), Decimal("5"), Decimal("2"))
-        assert pnl == Decimal("-3000")  # 10 * (2 - 5) * 100
+        # cost_basis is total cost: 10 * 5 * 100 = 5000
+        pnl = self.strat.unrealized_pnl(Decimal("10"), Decimal("5000"), Decimal("2"))
+        assert pnl == Decimal("-3000")  # 2000 - 5000
 
     def test_unrealized_pnl_short_option(self) -> None:
         # Sold (short) 5 puts at $4, now $2 — profit
-        pnl = self.strat.unrealized_pnl(Decimal("-5"), Decimal("4"), Decimal("2"))
-        assert pnl == Decimal("1000")  # -5 * (2 - 4) * 100 = 1000
+        # cost_basis is total cost: 5 * 4 * 100 = 2000
+        pnl = self.strat.unrealized_pnl(Decimal("-5"), Decimal("2000"), Decimal("2"))
+        assert pnl == Decimal("1000")  # 2000 - 1000
 
 
 # ------------------------------------------------------------------
@@ -169,24 +172,27 @@ class TestFuturePositionStrategy:
 
     def test_unrealized_pnl_long_profit(self) -> None:
         # Long 2 ES at 4400, now 4500, size=50
+        # cost_basis is total cost: 2 * 4400 * 50 = 440000
         pnl = self.strat.unrealized_pnl(
-            Decimal("2"), Decimal("4400"), Decimal("4500"), contract_size=Decimal("50")
+            Decimal("2"), Decimal("440000"), Decimal("4500"), contract_size=Decimal("50")
         )
-        assert pnl == Decimal("10000")  # 2 * (4500 - 4400) * 50
+        assert pnl == Decimal("10000")  # 450000 - 440000
 
     def test_unrealized_pnl_short_profit(self) -> None:
         # Short 3 CL at 80, dropped to 75, size=1000
+        # cost_basis is total cost: 3 * 80 * 1000 = 240000
         pnl = self.strat.unrealized_pnl(
-            Decimal("-3"), Decimal("80"), Decimal("75"), contract_size=Decimal("1000")
+            Decimal("-3"), Decimal("240000"), Decimal("75"), contract_size=Decimal("1000")
         )
-        assert pnl == Decimal("15000")  # -3 * (75 - 80) * 1000 = 15000
+        assert pnl == Decimal("15000")  # 240000 - 225000
 
     def test_unrealized_pnl_loss(self) -> None:
         # Long 1 at 4500, dropped to 4400, size=50
+        # cost_basis is total cost: 1 * 4500 * 50 = 225000
         pnl = self.strat.unrealized_pnl(
-            Decimal("1"), Decimal("4500"), Decimal("4400"), contract_size=Decimal("50")
+            Decimal("1"), Decimal("225000"), Decimal("4400"), contract_size=Decimal("50")
         )
-        assert pnl == Decimal("-5000")
+        assert pnl == Decimal("-5000")  # 220000 - 225000
 
 
 # ------------------------------------------------------------------

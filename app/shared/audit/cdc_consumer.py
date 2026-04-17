@@ -20,7 +20,7 @@ import structlog
 from aiokafka import AIOKafkaConsumer  # type: ignore[import-untyped]
 
 if TYPE_CHECKING:
-    from app.modules.platform.repositories import AuditLogRepository
+    from app.shared.audit.repository import AuditLogRepositoryProtocol
 
 logger = structlog.get_logger()
 
@@ -44,7 +44,7 @@ class CdcAuditConsumer:
     def __init__(
         self,
         *,
-        audit_repo: AuditLogRepository,
+        audit_repo: AuditLogRepositoryProtocol,
         bootstrap_servers: str,
         consumer_group: str = "minihedge-cdc-audit",
     ) -> None:

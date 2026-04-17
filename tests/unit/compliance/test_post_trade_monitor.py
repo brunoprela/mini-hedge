@@ -44,14 +44,14 @@ def mock_session_factory() -> MagicMock:
 @pytest.fixture
 def mock_rule_repo() -> AsyncMock:
     repo = AsyncMock()
-    repo.get_active.return_value = []  # No rules by default
+    repo.list_active.return_value = []  # No rules by default
     return repo
 
 
 @pytest.fixture
 def mock_violation_repo() -> AsyncMock:
     repo = AsyncMock()
-    repo.get_active_by_portfolio.return_value = []
+    repo.list_active_by_portfolio.return_value = []
     return repo
 
 
@@ -130,7 +130,7 @@ class TestHandlePositionChanged:
         capture: EventCapture,
     ) -> None:
         """When no compliance rules exist, the handler is a pass-through."""
-        mock_rule_repo.get_active.return_value = []
+        mock_rule_repo.list_active.return_value = []
         event = _position_changed_event()
 
         await monitor.handle_position_changed(event)
@@ -154,7 +154,7 @@ class TestHandlePositionChanged:
         await monitor.handle_position_changed(event)
 
         # _evaluate_portfolio should never be called
-        mock_rule_repo.get_active.assert_not_called()
+        mock_rule_repo.list_active.assert_not_called()
 
     async def test_missing_fund_slug_is_silent_return(
         self,
@@ -173,7 +173,7 @@ class TestHandlePositionChanged:
 
         await monitor.handle_position_changed(event)
 
-        mock_rule_repo.get_active.assert_not_called()
+        mock_rule_repo.list_active.assert_not_called()
 
     async def test_calls_evaluate_with_is_passive_false(
         self,
@@ -240,7 +240,7 @@ class TestHandleMtmUpdate:
         )
 
         await monitor.handle_mtm_update(event)
-        mock_rule_repo.get_active.assert_not_called()
+        mock_rule_repo.list_active.assert_not_called()
 
     async def test_handler_error_is_caught(
         self,

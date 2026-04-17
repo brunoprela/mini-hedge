@@ -18,7 +18,7 @@ def _make_app(
     app = MagicMock()
 
     investor_repo = AsyncMock()
-    investor_repo.get_all_active = AsyncMock(return_value=existing_investors or [])
+    investor_repo.list_active = AsyncMock(return_value=existing_investors or [])
     investor_repo.insert_batch = AsyncMock()
 
     capital_transaction_service = AsyncMock()
@@ -28,7 +28,7 @@ def _make_app(
     app.state.capital_transaction_service = capital_transaction_service
 
     fund_repo = AsyncMock()
-    fund_repo.get_all_active = AsyncMock(return_value=active_funds or [])
+    fund_repo.list_active = AsyncMock(return_value=active_funds or [])
     app.state.fund_repo = fund_repo
 
     return app

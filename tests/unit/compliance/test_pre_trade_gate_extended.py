@@ -70,7 +70,7 @@ def _make_gate(
     with_cash: bool = False,
 ) -> PreTradeGate:
     rule_repo = AsyncMock()
-    rule_repo.get_active = AsyncMock(return_value=rules or [])
+    rule_repo.list_active = AsyncMock(return_value=rules or [])
 
     position_service = AsyncMock()
     position_service.get_by_portfolio = AsyncMock(return_value=positions or [])

@@ -1,5 +1,6 @@
 "use client";
 
+import { CardSkeleton } from "@mini-hedge/ui";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -157,7 +158,7 @@ export function OrdersPageClient() {
         </div>
       )}
 
-      {isLoading && <p className="text-xs text-[var(--muted-foreground)]">Loading...</p>}
+      {isLoading && <CardSkeleton count={3} />}
 
       {/* Main area: blotter + optional detail panel */}
       <div className="flex gap-3">

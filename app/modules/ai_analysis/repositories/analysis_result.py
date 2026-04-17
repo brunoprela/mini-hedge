@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class AnalysisResultRepository(BaseRepository):
     """Repository for AI analysis results."""
 
-    async def save_result(
+    async def insert_result(
         self, record: AnalysisResultRecord, *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as s:

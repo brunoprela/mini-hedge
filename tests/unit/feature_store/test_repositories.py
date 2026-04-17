@@ -71,12 +71,12 @@ class TestFeatureDefinitionRepository:
         sf = _mock_session_factory(session)
         return FeatureDefinitionRepository(session_factory=sf), session or sf.return_value.__aenter__.return_value
 
-    async def test_create(self):
+    async def test_insert(self):
         session = _mock_session()
         repo, s = self._make_repo(session)
         record = MagicMock(spec=FeatureDefinitionRecord)
 
-        await repo.create(record, session=s)
+        await repo.insert(record, session=s)
 
         s.add.assert_called_once_with(record)
         s.commit.assert_called_once()
@@ -188,12 +188,12 @@ class TestFeatureValueRepository:
         sf = _mock_session_factory(session)
         return FeatureValueRepository(session_factory=sf), session or sf.return_value.__aenter__.return_value
 
-    async def test_save_many(self):
+    async def test_insert_batch(self):
         session = _mock_session()
         repo, s = self._make_repo(session)
         records = [MagicMock(spec=FeatureValueRecord) for _ in range(3)]
 
-        await repo.save_many(records, session=s)
+        await repo.insert_batch(records, session=s)
 
         s.add_all.assert_called_once_with(records)
         s.commit.assert_called_once()
@@ -285,12 +285,12 @@ class TestFeatureSetRepository:
         sf = _mock_session_factory(session)
         return FeatureSetRepository(session_factory=sf), session or sf.return_value.__aenter__.return_value
 
-    async def test_create(self):
+    async def test_insert(self):
         session = _mock_session()
         repo, s = self._make_repo(session)
         record = MagicMock(spec=FeatureSetRecord)
 
-        await repo.create(record, session=s)
+        await repo.insert(record, session=s)
 
         s.add.assert_called_once_with(record)
         s.commit.assert_called_once()

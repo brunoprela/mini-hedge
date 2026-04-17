@@ -53,7 +53,7 @@ class TestSeedDevData:
         svc.generate_performance_letter = AsyncMock()
 
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[_make_fund()])
+        fund_repo.list_active = AsyncMock(return_value=[_make_fund()])
 
         app = _make_app(svc, fund_repo)
         sf = _make_sf()
@@ -73,7 +73,7 @@ class TestSeedDevData:
         svc.generate_performance_letter = AsyncMock()
 
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[_make_fund()])
+        fund_repo.list_active = AsyncMock(return_value=[_make_fund()])
 
         app = _make_app(svc, fund_repo)
         sf = _make_sf()
@@ -89,7 +89,7 @@ class TestSeedDevData:
 
         svc = AsyncMock()
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[])
+        fund_repo.list_active = AsyncMock(return_value=[])
 
         app = _make_app(svc, fund_repo)
         sf = _make_sf()

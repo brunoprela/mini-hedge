@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 class AllocationRepository(BaseRepository):
     """CRUD for block allocations and allocation legs (platform schema)."""
 
-    async def save_allocation(
+    async def insert_allocation(
         self, record: BlockAllocationRecord, *, session: AsyncSession | None = None
     ) -> BlockAllocationRecord:
         async with self._session(session) as session:
@@ -32,7 +32,7 @@ class AllocationRepository(BaseRepository):
             await session.refresh(record)
             return record
 
-    async def save_leg(
+    async def insert_leg(
         self, leg: AllocationLegRecord, *, session: AsyncSession | None = None
     ) -> AllocationLegRecord:
         async with self._session(session) as session:

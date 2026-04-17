@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { CardSkeleton } from "@mini-hedge/ui";
 import { CashDashboard } from "@/features/cash/components/cash-dashboard";
 import { CashProjection } from "@/features/cash/components/cash-projection";
 import { SettlementLadder } from "@/features/cash/components/settlement-ladder";
@@ -39,7 +40,7 @@ export function CashPageClient() {
         )}
       </div>
 
-      {isLoading && <p className="text-xs text-[var(--muted-foreground)]">Loading...</p>}
+      {isLoading && <CardSkeleton count={3} />}
 
       {activePortfolioId && (
         <SectionPanel

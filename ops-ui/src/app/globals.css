@@ -1,11 +1,13 @@
 @import "tailwindcss";
+@import "@mini-hedge/ui/src/tokens.css";
 @source "../../../packages/ui/src/**/*.{ts,tsx}";
 
 /* ----------------------------------------------------------------
-   Ops UI — light theme design system
-   Matches the token names used by @mini-hedge/ui shared primitives
-   so Dialog, Drawer, Menu, Combobox, CommandPalette, Tooltip all
-   resolve their CSS variables correctly.
+   ops-ui — light theme, bluer primary than the shared default.
+   We inherit everything from @mini-hedge/ui/src/tokens.css and only
+   override the tokens that diverge from the canonical dark baseline
+   so the shared primitives (Dialog, Drawer, Menu, Combobox,
+   CommandPalette, Tooltip, …) resolve correctly.
    ---------------------------------------------------------------- */
 
 :root {
@@ -19,6 +21,7 @@
 
   /* Sidebar */
   --sidebar: #f8fafc;
+  --sidebar-foreground: #0a0a0a;
   --sidebar-active: rgba(30, 64, 175, 0.08);
   --sidebar-width: 220px;
 
@@ -27,28 +30,37 @@
   --card-foreground: #0a0a0a;
   --card-hover: #f1f5f9;
 
-  /* Muted elements */
+  /* Muted */
   --muted: #f5f5f5;
   --muted-foreground: #737373;
+
+  /* Secondary */
+  --secondary: #f5f5f5;
+  --secondary-foreground: #0a0a0a;
 
   /* Borders */
   --border: #e5e5e5;
   --border-bright: #d4d4d4;
 
-  /* Primary accent — blue */
+  /* Primary — deep blue */
   --primary: #1e40af;
   --primary-foreground: #ffffff;
   --primary-muted: rgba(30, 64, 175, 0.1);
 
-  /* Status colors */
+  /* Status */
   --success: #16a34a;
+  --success-foreground: #ffffff;
   --success-muted: rgba(22, 163, 74, 0.1);
   --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
   --destructive-muted: rgba(239, 68, 68, 0.1);
   --warning: #d97706;
+  --warning-foreground: #ffffff;
   --warning-muted: rgba(217, 119, 6, 0.1);
+  --info: #2563eb;
+  --info-muted: rgba(37, 99, 235, 0.1);
 
-  /* Accent palette */
+  /* Accent */
   --accent: #eff6ff;
   --accent-foreground: #1e40af;
 
@@ -57,17 +69,14 @@
   --table-row-hover: #f5f5f5;
   --table-border: #e5e5e5;
 
-  /* Info */
-  --info: #2563eb;
-
   /* Input */
   --input: #ffffff;
   --input-border: #e5e5e5;
 
-  /* Ring / focus */
+  /* Ring */
   --ring: rgba(30, 64, 175, 0.3);
 
-  /* Popover (used by shared primitives) */
+  /* Popover */
   --popover: #ffffff;
   --popover-foreground: #0a0a0a;
 
@@ -76,7 +85,7 @@
 }
 
 body {
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   background: var(--background);
   color: var(--foreground);
 }

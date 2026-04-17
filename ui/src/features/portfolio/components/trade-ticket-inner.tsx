@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, ChevronDown, ChevronRight, ShieldAlert, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { Controller } from "react-hook-form";
 import { toast } from "sonner";
 import { runWhatIf } from "@/features/alpha/api";
 import type { WhatIfResult } from "@/features/alpha/types";
@@ -13,7 +14,8 @@ import { latestPriceQueryOptions } from "@/features/market-data/api";
 import { createAlgoOrder, createOrder } from "@/features/orders/api";
 import type { AlgoType, OrderSummary } from "@/features/orders/types";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
-import { useTradeTicketStore } from "@/shared/stores/trade-ticket-store";
+import { useForm, z, zodResolver } from "@/shared/lib/forms";
+import { type TradeTicketFormState, useTradeTicketStore } from "@/shared/stores/trade-ticket-store";
 
 interface TradeTicketInnerProps {
   portfolioId: string;
@@ -23,6 +25,63 @@ interface TradeTicketInnerProps {
   showPortfolioSelector?: boolean;
   portfolios?: { id: string; name: string }[];
 }
+
+/* ------------------------------------------------------------------ */
+/*  Schema                                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * String field that must parse to a positive number.  We keep these as
+ * strings so the `<input type="number">` stays controlled via RHF's
+ * `register(...)` without reaching into value coercion on every keystroke.
+ * Compliance/impact previews and submit gating re-parse as needed.
+ */
+const positiveNumberString = z
+  .string()
+  .refine((v) => v === "" || (!Number.isNaN(parseFloat(v)) && parseFloat(v) > 0), {
+    message: "Must be a positive number",
+  });
+
+const tradeTicketSchema = z
+  .object({
+    instrument: z.string(),
+    side: z.enum(["buy", "sell"]),
+    quantity: positiveNumberString,
+    price: positiveNumberString,
+    useAlgo: z.boolean(),
+    algoType: z.enum(["twap", "vwap", "iceberg"]),
+    algoDuration: z.string(),
+    algoSlices: z.string(),
+    algoVisibleQty: z.string(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.useAlgo) {
+      if (val.algoType !== "iceberg") {
+        const dur = parseInt(val.algoDuration, 10);
+        if (Number.isNaN(dur) || dur < 60) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["algoDuration"],
+            message: "Duration must be ≥ 60 seconds",
+          });
+        }
+        const slices = parseInt(val.algoSlices, 10);
+        if (Number.isNaN(slices) || slices < 2) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["algoSlices"],
+            message: "Must have at least 2 slices",
+          });
+        }
+      }
+    }
+  });
+
+type TradeTicketFormValues = z.infer<typeof tradeTicketSchema>;
+
+/* ------------------------------------------------------------------ */
+/*  Component                                                          */
+/* ------------------------------------------------------------------ */
 
 export function TradeTicketInner({
   portfolioId: initialPortfolioId,
@@ -35,29 +94,35 @@ export function TradeTicketInner({
   const queryClient = useQueryClient();
 
   /* ---- Zustand-backed persisted form state ---- */
-  const formState = useTradeTicketStore((s) => s.formState);
-  const setFormField = useTradeTicketStore((s) => s.setFormField);
-  const resetForm = useTradeTicketStore((s) => s.resetForm);
+  // Hydrate default values synchronously from the persisted store so a
+  // refresh keeps the ticket open with filled values.
+  const initialFormState = useRef<TradeTicketFormState>(useTradeTicketStore.getState().formState);
+  const resetStoreForm = useTradeTicketStore((s) => s.resetForm);
 
-  const side = formState.side;
-  const instrumentId = formState.instrument;
-  const quantity = formState.quantity;
-  const price = formState.price;
-  const useAlgo = formState.useAlgo;
-  const algoType = formState.algoType;
-  const algoDuration = formState.algoDuration;
-  const algoSlices = formState.algoSlices;
-  const algoVisibleQty = formState.algoVisibleQty;
+  const form = useForm<TradeTicketFormValues>({
+    resolver: zodResolver(tradeTicketSchema),
+    defaultValues: initialFormState.current,
+    mode: "onChange",
+  });
 
-  const setSide = (v: "buy" | "sell") => setFormField("side", v);
-  const setInstrumentId = (v: string) => setFormField("instrument", v);
-  const setQuantity = (v: string) => setFormField("quantity", v);
-  const setPrice = (v: string) => setFormField("price", v);
-  const setUseAlgo = (v: boolean) => setFormField("useAlgo", v);
-  const setAlgoType = (v: AlgoType) => setFormField("algoType", v);
-  const setAlgoDuration = (v: string) => setFormField("algoDuration", v);
-  const setAlgoSlices = (v: string) => setFormField("algoSlices", v);
-  const setAlgoVisibleQty = (v: string) => setFormField("algoVisibleQty", v);
+  // Keep Zustand in sync with RHF so the existing sessionStorage
+  // persistence keeps working transparently.
+  useEffect(() => {
+    const sub = form.watch((values) => {
+      useTradeTicketStore.setState({
+        formState: values as TradeTicketFormState,
+      });
+    });
+    return () => sub.unsubscribe();
+  }, [form]);
+
+  // Watch live for UI reactivity (buttons, notional, submit label, etc.)
+  const side = form.watch("side");
+  const instrumentId = form.watch("instrument");
+  const quantity = form.watch("quantity");
+  const price = form.watch("price");
+  const useAlgo = form.watch("useAlgo");
+  const algoType = form.watch("algoType");
 
   /* ---- Local-only ephemeral state ---- */
   const [portfolioId, setPortfolioId] = useState(initialPortfolioId);
@@ -77,12 +142,22 @@ export function TradeTicketInner({
     quantity: string;
   } | null>(null);
 
-  // Sync defaults when they change (e.g. clicking a different instrument)
+  // Sync defaults when they change (e.g. clicking a different instrument).
+  // Callers still go through the Zustand-driven "open trade ticket with
+  // prefilled values" flow and we mirror those defaults onto the form via
+  // setValue so RHF's internal state stays authoritative.
+  const setValue = form.setValue;
   useEffect(() => {
-    if (defaults?.instrument) setInstrumentId(defaults.instrument);
-    if (defaults?.side) setSide(defaults.side === "sell" ? "sell" : "buy");
-    if (defaults?.quantity) setQuantity(defaults.quantity);
-  }, [defaults?.instrument, defaults?.side, defaults?.quantity]);
+    if (defaults?.instrument) {
+      setValue("instrument", defaults.instrument, { shouldValidate: true });
+    }
+    if (defaults?.side) {
+      setValue("side", defaults.side === "sell" ? "sell" : "buy");
+    }
+    if (defaults?.quantity) {
+      setValue("quantity", defaults.quantity, { shouldValidate: true });
+    }
+  }, [defaults?.instrument, defaults?.side, defaults?.quantity, setValue]);
 
   useEffect(() => {
     setPortfolioId(initialPortfolioId);
@@ -97,7 +172,8 @@ export function TradeTicketInner({
 
   const handleNewOrder = () => {
     setConfirmedOrder(null);
-    resetForm();
+    resetStoreForm();
+    form.reset(useTradeTicketStore.getState().formState);
     setRejectionDetail(null);
     setImpact(null);
     setComplianceCheck(null);
@@ -110,38 +186,70 @@ export function TradeTicketInner({
     enabled: instrumentId.length > 0,
   });
 
+  // Optimistic trade submission: immediately insert a provisional order into
+  // the orders cache (marked as "pending"), then reconcile with the server
+  // response in onSuccess, or roll back in onError.
   const mutation = useMutation({
-    mutationFn: () => {
-      if (useAlgo) {
+    mutationFn: (values: TradeTicketFormValues) => {
+      if (values.useAlgo) {
         return createAlgoOrder(fundSlug, {
           portfolio_id: portfolioId,
-          instrument_id: instrumentId,
-          side,
+          instrument_id: values.instrument,
+          side: values.side,
           order_type: "limit",
-          quantity,
-          limit_price: price,
+          quantity: values.quantity,
+          limit_price: values.price,
           time_in_force: "day",
-          algo_type: algoType,
+          algo_type: values.algoType,
           algo_params: {
-            duration_seconds: parseInt(algoDuration, 10) || 3600,
-            num_slices: parseInt(algoSlices, 10) || 100,
-            ...(algoType === "iceberg" && algoVisibleQty
-              ? { visible_quantity: algoVisibleQty }
+            duration_seconds: parseInt(values.algoDuration, 10) || 3600,
+            num_slices: parseInt(values.algoSlices, 10) || 100,
+            ...(values.algoType === "iceberg" && values.algoVisibleQty
+              ? { visible_quantity: values.algoVisibleQty }
               : {}),
           },
         });
       }
       return createOrder(fundSlug, {
         portfolio_id: portfolioId,
-        instrument_id: instrumentId,
-        side,
+        instrument_id: values.instrument,
+        side: values.side,
         order_type: "market",
-        quantity,
-        limit_price: price,
+        quantity: values.quantity,
+        limit_price: values.price,
         time_in_force: "day",
       });
     },
-    onSuccess: (order) => {
+    onMutate: async (values) => {
+      const queryKey = ["orders", fundSlug, portfolioId];
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<OrderSummary[]>(queryKey);
+      const tempId = `temp-${Date.now()}`;
+      const optimisticOrder = {
+        id: tempId,
+        portfolio_id: portfolioId,
+        instrument_id: values.instrument,
+        side: values.side,
+        order_type: values.useAlgo ? "limit" : "market",
+        quantity: values.quantity,
+        limit_price: values.price,
+        filled_quantity: "0",
+        avg_fill_price: null,
+        time_in_force: "day",
+        broker_id: null,
+        state: "pending",
+        created_at: new Date().toISOString(),
+        ...(values.useAlgo
+          ? { algo_type: values.algoType, is_parent: true, children_count: 0, children_filled: 0 }
+          : {}),
+      } as unknown as OrderSummary;
+      queryClient.setQueryData<OrderSummary[] | undefined>(queryKey, (old) => [
+        optimisticOrder,
+        ...(old ?? []),
+      ]);
+      return { previous, queryKey, tempId };
+    },
+    onSuccess: (order, values) => {
       queryClient.invalidateQueries({ queryKey: ["positions"] });
       queryClient.invalidateQueries({ queryKey: ["portfolio-summary"] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
@@ -157,21 +265,30 @@ export function TradeTicketInner({
           side: order.side,
           quantity: order.quantity,
         });
-        toast.success(`${side.toUpperCase()} ${quantity} ${instrumentId} — ${order.state}`);
-        // Reset form
-        resetForm();
+        toast.success(
+          `${values.side.toUpperCase()} ${values.quantity} ${values.instrument} — ${order.state}`,
+        );
+        // Reset form (both RHF and Zustand)
+        resetStoreForm();
+        form.reset(useTradeTicketStore.getState().formState);
         setRejectionDetail(null);
         setImpact(null);
         setComplianceCheck(null);
       }
     },
-    onError: (err: Error) => {
+    onError: (err: Error, _vars, context) => {
+      if (context?.previous && context.queryKey) {
+        queryClient.setQueryData(context.queryKey, context.previous);
+      }
       toast.error(err.message);
     },
   });
 
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
 
+  // Live impact/compliance preview — debounced off field changes that
+  // materially affect the order shape.  Uses the values watched above so
+  // RHF's internal state is the single source of truth.
   useEffect(() => {
     if (!instrumentId || Number(quantity) <= 0 || Number(price) <= 0) {
       setImpact(null);
@@ -211,13 +328,14 @@ export function TradeTicketInner({
   }, [instrumentId, quantity, price, side, fundSlug, portfolioId]);
 
   function selectInstrument(ticker: string) {
-    setInstrumentId(ticker);
+    form.setValue("instrument", ticker, { shouldValidate: true, shouldDirty: true });
     setSearch("");
     setShowSearch(false);
   }
 
   const handleUseMarketPrice = () => {
-    if (latestPrice) setPrice(latestPrice.mid);
+    if (latestPrice)
+      form.setValue("price", latestPrice.mid, { shouldValidate: true, shouldDirty: true });
   };
 
   const hasComplianceBlock =
@@ -226,8 +344,12 @@ export function TradeTicketInner({
   const canSubmit =
     instrumentId && portfolioId && Number(quantity) > 0 && Number(price) > 0 && !mutation.isPending;
 
+  const onSubmit = form.handleSubmit((values) => {
+    mutation.mutate(values);
+  });
+
   return (
-    <div className="flex h-full flex-col">
+    <form onSubmit={onSubmit} className="flex h-full flex-col">
       <div className="flex-1 overflow-y-auto px-4 py-3">
         {/* Portfolio selector (panel mode) */}
         {showPortfolioSelector && portfolios && portfolios.length > 1 && (
@@ -311,30 +433,36 @@ export function TradeTicketInner({
         {/* Side */}
         <div className="mb-3">
           <span className="mb-1 block text-xs text-[var(--muted-foreground)]">Side</span>
-          <div className="flex gap-1">
-            <button
-              type="button"
-              onClick={() => setSide("buy")}
-              className={`flex-1 rounded-md py-1.5 text-sm font-medium transition-colors ${
-                side === "buy"
-                  ? "bg-[var(--success)] text-white"
-                  : "border border-[var(--border)] text-[var(--muted-foreground)]"
-              }`}
-            >
-              Buy
-            </button>
-            <button
-              type="button"
-              onClick={() => setSide("sell")}
-              className={`flex-1 rounded-md py-1.5 text-sm font-medium transition-colors ${
-                side === "sell"
-                  ? "bg-[var(--destructive)] text-white"
-                  : "border border-[var(--border)] text-[var(--muted-foreground)]"
-              }`}
-            >
-              Sell
-            </button>
-          </div>
+          <Controller
+            control={form.control}
+            name="side"
+            render={({ field }) => (
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => field.onChange("buy")}
+                  className={`flex-1 rounded-md py-1.5 text-sm font-medium transition-colors ${
+                    field.value === "buy"
+                      ? "bg-[var(--success)] text-white"
+                      : "border border-[var(--border)] text-[var(--muted-foreground)]"
+                  }`}
+                >
+                  Buy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => field.onChange("sell")}
+                  className={`flex-1 rounded-md py-1.5 text-sm font-medium transition-colors ${
+                    field.value === "sell"
+                      ? "bg-[var(--destructive)] text-white"
+                      : "border border-[var(--border)] text-[var(--muted-foreground)]"
+                  }`}
+                >
+                  Sell
+                </button>
+              </div>
+            )}
+          />
         </div>
 
         {/* Instrument search */}
@@ -346,7 +474,7 @@ export function TradeTicketInner({
               <button
                 type="button"
                 onClick={() => {
-                  setInstrumentId("");
+                  form.setValue("instrument", "", { shouldValidate: true });
                   setShowSearch(true);
                 }}
                 className="text-[10px] text-[var(--muted-foreground)] underline"
@@ -398,11 +526,16 @@ export function TradeTicketInner({
               type="number"
               min="0"
               step="1"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
               placeholder="0"
               className="w-full rounded-md border border-[var(--border)] bg-transparent px-2 py-1.5 font-mono text-sm"
+              aria-invalid={form.formState.errors.quantity ? true : undefined}
+              {...form.register("quantity")}
             />
+            {form.formState.errors.quantity?.message && (
+              <p className="mt-1 text-[10px] text-[var(--destructive)]">
+                {form.formState.errors.quantity.message}
+              </p>
+            )}
           </div>
           <div>
             <div className="mb-1 flex items-center justify-between text-xs text-[var(--muted-foreground)]">
@@ -422,11 +555,16 @@ export function TradeTicketInner({
               type="number"
               min="0"
               step="0.01"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
               placeholder="0.00"
               className="w-full rounded-md border border-[var(--border)] bg-transparent px-2 py-1.5 font-mono text-sm"
+              aria-invalid={form.formState.errors.price ? true : undefined}
+              {...form.register("price")}
             />
+            {form.formState.errors.price?.message && (
+              <p className="mt-1 text-[10px] text-[var(--destructive)]">
+                {form.formState.errors.price.message}
+              </p>
+            )}
           </div>
         </div>
 
@@ -448,9 +586,8 @@ export function TradeTicketInner({
           <label className="flex cursor-pointer items-center gap-2 text-xs">
             <input
               type="checkbox"
-              checked={useAlgo}
-              onChange={(e) => setUseAlgo(e.target.checked)}
               className="h-3.5 w-3.5 rounded border-[var(--border)]"
+              {...form.register("useAlgo")}
             />
             <span className="text-[var(--muted-foreground)]">Algo execution</span>
           </label>
@@ -458,22 +595,28 @@ export function TradeTicketInner({
 
         {useAlgo && (
           <div className="mb-3 space-y-2 rounded-md border border-[var(--border)] bg-[var(--muted)] p-2">
-            <div className="flex gap-1">
-              {(["twap", "vwap", "iceberg"] as const).map((t) => (
-                <button
-                  type="button"
-                  key={t}
-                  onClick={() => setAlgoType(t)}
-                  className={`rounded px-2 py-1 text-[10px] font-medium transition-colors ${
-                    algoType === t
-                      ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
-                      : "border border-[var(--border)] bg-[var(--background)] text-[var(--muted-foreground)]"
-                  }`}
-                >
-                  {t.toUpperCase()}
-                </button>
-              ))}
-            </div>
+            <Controller
+              control={form.control}
+              name="algoType"
+              render={({ field }) => (
+                <div className="flex gap-1">
+                  {(["twap", "vwap", "iceberg"] as const).map((t) => (
+                    <button
+                      type="button"
+                      key={t}
+                      onClick={() => field.onChange(t as AlgoType)}
+                      className={`rounded px-2 py-1 text-[10px] font-medium transition-colors ${
+                        field.value === t
+                          ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                          : "border border-[var(--border)] bg-[var(--background)] text-[var(--muted-foreground)]"
+                      }`}
+                    >
+                      {t.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              )}
+            />
             {algoType !== "iceberg" && (
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -488,10 +631,15 @@ export function TradeTicketInner({
                     type="number"
                     min="60"
                     step="60"
-                    value={algoDuration}
-                    onChange={(e) => setAlgoDuration(e.target.value)}
                     className="w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 font-mono text-xs"
+                    aria-invalid={form.formState.errors.algoDuration ? true : undefined}
+                    {...form.register("algoDuration")}
                   />
+                  {form.formState.errors.algoDuration?.message && (
+                    <p className="mt-0.5 text-[10px] text-[var(--destructive)]">
+                      {form.formState.errors.algoDuration.message}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label
@@ -505,10 +653,15 @@ export function TradeTicketInner({
                     type="number"
                     min="2"
                     step="1"
-                    value={algoSlices}
-                    onChange={(e) => setAlgoSlices(e.target.value)}
                     className="w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 font-mono text-xs"
+                    aria-invalid={form.formState.errors.algoSlices ? true : undefined}
+                    {...form.register("algoSlices")}
                   />
+                  {form.formState.errors.algoSlices?.message && (
+                    <p className="mt-0.5 text-[10px] text-[var(--destructive)]">
+                      {form.formState.errors.algoSlices.message}
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -525,10 +678,9 @@ export function TradeTicketInner({
                   type="number"
                   min="1"
                   step="1"
-                  value={algoVisibleQty}
-                  onChange={(e) => setAlgoVisibleQty(e.target.value)}
                   placeholder="Auto"
                   className="w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 font-mono text-xs"
+                  {...form.register("algoVisibleQty")}
                 />
               </div>
             )}
@@ -630,8 +782,7 @@ export function TradeTicketInner({
           </p>
         )}
         <button
-          type="button"
-          onClick={() => mutation.mutate()}
+          type="submit"
           disabled={!canSubmit}
           className={`w-full rounded-md py-2 text-sm font-medium text-white transition-colors ${
             side === "buy"
@@ -644,7 +795,7 @@ export function TradeTicketInner({
             : `${side === "buy" ? "Buy" : "Sell"} ${instrumentId || "..."}${useAlgo ? ` (${algoType.toUpperCase()})` : ""}`}
         </button>
       </div>
-    </div>
+    </form>
   );
 }
 

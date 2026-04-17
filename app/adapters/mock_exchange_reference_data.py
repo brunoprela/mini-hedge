@@ -32,7 +32,10 @@ class MockExchangeReferenceDataAdapter:
         )
 
     async def get_instrument(self, ticker: str) -> ExternalInstrument | None:
-        async with httpx.AsyncClient(base_url=self._base_url, timeout=10.0) as client:
+        async with httpx.AsyncClient(
+            base_url=self._base_url,
+            timeout=httpx.Timeout(10.0, connect=2.0),
+        ) as client:
             async with self._circuit():
                 resp = await client.get(f"/api/v1/instruments/{ticker}")
                 if resp.status_code == 404:
@@ -44,7 +47,10 @@ class MockExchangeReferenceDataAdapter:
         params: dict[str, str] = {}
         if asset_class:
             params["asset_class"] = asset_class
-        async with httpx.AsyncClient(base_url=self._base_url, timeout=30.0) as client:
+        async with httpx.AsyncClient(
+            base_url=self._base_url,
+            timeout=httpx.Timeout(30.0, connect=2.0),
+        ) as client:
             async with self._circuit():
                 resp = await client.get("/api/v1/instruments", params=params)
                 resp.raise_for_status()

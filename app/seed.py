@@ -54,7 +54,7 @@ async def main() -> None:
 
     # ── Instruments ──────────────────────────────────────────────────
     instrument_repo = InstrumentRepository(session_factory)
-    existing_instruments = await instrument_repo.get_all_active()
+    existing_instruments = await instrument_repo.list_active()
     if existing_instruments:
         print(f"  Instruments: {len(existing_instruments)} already exist, skipping.")
     else:
@@ -63,7 +63,7 @@ async def main() -> None:
         print(f"  Instruments: seeded {len(instruments)} instruments.")
 
     # ── Portfolios ───────────────────────────────────────────────────
-    funds = await fund_repo.get_all_active()
+    funds = await fund_repo.list_active()
     if not funds:
         print("  No funds found. Start the app first (`make up`) to seed funds.")
         return
@@ -80,7 +80,7 @@ async def main() -> None:
     rule_repo = RuleRepository(session_factory)
     for fund in funds:
         async with session_factory.fund_scope(fund.slug):
-            existing_rules = await rule_repo.get_all()
+            existing_rules = await rule_repo.list_all()
             if existing_rules:
                 print(
                     f"  Compliance rules ({fund.slug}): "

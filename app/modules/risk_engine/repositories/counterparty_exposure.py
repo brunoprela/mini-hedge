@@ -27,7 +27,7 @@ class CounterpartyExposureRepository(BaseRepository):
             )
             return list(result.scalars().all())
 
-    async def save_counterparty_exposure(
+    async def insert_counterparty_exposure(
         self, record: CounterpartyExposureRecord, *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as session:

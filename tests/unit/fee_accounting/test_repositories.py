@@ -177,7 +177,7 @@ class TestFeeScheduleRepository:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_get_all_by_fund(self) -> None:
+    async def test_list_by_fund(self) -> None:
         sf, session = _make_session_factory()
         repo = FeeScheduleRepository(sf)
 
@@ -186,7 +186,7 @@ class TestFeeScheduleRepository:
         result_mock.scalars.return_value.all.return_value = [r1, r2]
         session.execute.return_value = result_mock
 
-        result = await repo.get_all_by_fund("alpha")
+        result = await repo.list_by_fund("alpha")
 
         assert result == [r1, r2]
 

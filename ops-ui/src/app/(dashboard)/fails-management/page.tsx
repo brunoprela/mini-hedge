@@ -4,11 +4,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ErrorState } from "@/shared/components/error-state";
+import { ErrorState, TableSkeleton } from "@mini-hedge/ui";
 import { FundPortfolioPicker } from "@/shared/components/fund-portfolio-picker";
-import { StatusBadge } from "@/shared/components/status-badge";
-import { apiFetch } from "@/shared/lib/api";
-import type { SettlementRecord } from "@/shared/types";
+import { StatusBadge } from "@mini-hedge/ui";
+import { api, fundHeaders } from "@/shared/lib/api-client";
 
 const fmt = (v: string) =>
   Number(v).toLocaleString(undefined, { minimumFractionDigits: 2 });
@@ -22,18 +21,32 @@ export default function FailsManagementPage() {
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["fails", portfolioId],
-    queryFn: () =>
-      apiFetch<SettlementRecord[]>(
-        `cash/${portfolioId}/settlements?status=failed`,
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/cash/{portfolio_id}/settlements",
+        { params: { path: { portfolio_id: portfolioId } } },
+      );
+      if (error) throw error;
+      // Filter client-side — the status=failed query param isn't in the OpenAPI
+      // spec, so we do the filter here. Backend may still accept the filter
+      // but we can't express it through the typed client.
+      return data.filter((r) => r.status === "failed");
+    },
     enabled,
   });
 
   const retrySettlement = useMutation({
-    mutationFn: (id: string) =>
-      apiFetch(`cash/${portfolioId}/settlements/${id}/retry`, {
-        method: "POST",
-      }),
+    mutationFn: async (id: string) => {
+      const { data, error } = await api.POST(
+        "/api/v1/cash/{portfolio_id}/settlements/{settlement_id}/retry",
+        {
+          params: { path: { portfolio_id: portfolioId, settlement_id: id } },
+          headers: fundHeaders(fundSlug),
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fails"] });
       toast.success("Settlement retry initiated");
@@ -72,11 +85,7 @@ export default function FailsManagementPage() {
         </p>
       )}
 
-      {portfolioId && isLoading && (
-        <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
-          Loading...
-        </p>
-      )}
+      {portfolioId && isLoading && <TableSkeleton rows={6} columns={8} />}
 
       {portfolioId && isError && (
         <ErrorState message={error.message} onRetry={refetch} />

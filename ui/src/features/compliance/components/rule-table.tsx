@@ -74,7 +74,7 @@ export function RuleTable() {
     mutationFn: (ruleId: string) => deleteRule(fundSlug, ruleId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["compliance-rules"] });
-      toast.success("Rule deleted");
+      toast.success("Rule deactivated");
     },
     onError: (err: Error) => {
       toast.error(err.message);
@@ -260,15 +260,17 @@ export function RuleTable() {
                         type="button"
                         onClick={() => {
                           if (
-                            window.confirm(`Delete rule "${rule.name}"? This cannot be undone.`)
+                            window.confirm(
+                              `Deactivate rule "${rule.name}"? It can be re-enabled from this table.`,
+                            )
                           ) {
                             deleteMutation.mutate(rule.id);
                           }
                         }}
-                        disabled={deleteMutation.isPending}
-                        className="ml-2 text-sm text-[var(--destructive)] underline hover:text-[var(--destructive)]"
+                        disabled={deleteMutation.isPending || !rule.is_active}
+                        className="ml-2 text-sm text-[var(--destructive)] underline hover:text-[var(--destructive)] disabled:opacity-40"
                       >
-                        Delete
+                        Deactivate
                       </button>
                     </td>
                   )}

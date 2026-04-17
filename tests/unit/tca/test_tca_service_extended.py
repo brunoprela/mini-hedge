@@ -87,9 +87,9 @@ def _make_service(
         rec.computed_at = datetime(2026, 4, 10, 12, 0, 0, tzinfo=timezone.utc)
         return rec
 
-    tca_repo.save = AsyncMock(side_effect=_save_with_computed_at)
+    tca_repo.insert = AsyncMock(side_effect=_save_with_computed_at)
     tca_repo.get_by_order_id = AsyncMock(return_value=tca_record)
-    tca_repo.get_by_order_ids = AsyncMock(return_value=[])
+    tca_repo.list_by_order_ids = AsyncMock(return_value=[])
     vwap_calc.compute = AsyncMock(return_value=vwap)
 
     return TCAService(
@@ -238,7 +238,7 @@ class TestGetPortfolioReport:
         service = _make_service()
         # Override the repo methods for this test
         service._order_repo.get_by_portfolio = AsyncMock(return_value=[o1, o2])
-        service._tca_repo.get_by_order_ids = AsyncMock(return_value=[r1, r2])
+        service._tca_repo.list_by_order_ids = AsyncMock(return_value=[r1, r2])
 
         report = await service.get_portfolio_report(_PORTFOLIO_ID)
 
@@ -253,7 +253,7 @@ class TestGetPortfolioReport:
     async def test_empty_portfolio_returns_zeros(self) -> None:
         service = _make_service()
         service._order_repo.get_by_portfolio = AsyncMock(return_value=[])
-        service._tca_repo.get_by_order_ids = AsyncMock(return_value=[])
+        service._tca_repo.list_by_order_ids = AsyncMock(return_value=[])
 
         report = await service.get_portfolio_report(_PORTFOLIO_ID)
 
@@ -279,7 +279,7 @@ class TestGetPortfolioReport:
 
         service = _make_service()
         service._order_repo.get_by_portfolio = AsyncMock(return_value=[o1, o2])
-        service._tca_repo.get_by_order_ids = AsyncMock(return_value=[r1])
+        service._tca_repo.list_by_order_ids = AsyncMock(return_value=[r1])
 
         report = await service.get_portfolio_report(_PORTFOLIO_ID)
 
@@ -329,7 +329,7 @@ class TestGetFundSummary:
         service = _make_service()
         # Patch the _session on the order_repo to yield our mock_session
         service._order_repo._session = _mock_session_cm(mock_session)
-        service._tca_repo.get_by_order_ids = AsyncMock(return_value=[r1, r2])
+        service._tca_repo.list_by_order_ids = AsyncMock(return_value=[r1, r2])
 
         start = datetime(2026, 4, 1, tzinfo=timezone.utc)
         end = datetime(2026, 4, 10, tzinfo=timezone.utc)
@@ -350,7 +350,7 @@ class TestGetFundSummary:
 
         service = _make_service()
         service._order_repo._session = _mock_session_cm(mock_session)
-        service._tca_repo.get_by_order_ids = AsyncMock(return_value=[])
+        service._tca_repo.list_by_order_ids = AsyncMock(return_value=[])
 
         start = datetime(2026, 4, 1, tzinfo=timezone.utc)
         end = datetime(2026, 4, 10, tzinfo=timezone.utc)

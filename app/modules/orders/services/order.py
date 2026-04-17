@@ -1,4 +1,11 @@
-"""Order lifecycle service — orchestrates compliance, broker, and events."""
+"""Order lifecycle service — orchestrates compliance, broker, and events.
+
+This module is the public face of the order lifecycle. It delegates the
+details of compliance (``ComplianceOrchestrator``), broker I/O
+(``BrokerGateway``), and event publication (``OrderEventPublisher``) to
+focused collaborators so OrderService itself stays focused on state
+transitions and cross-cutting coordination (TCA, scorecard, algo hand-off).
+"""
 
 from __future__ import annotations
 
@@ -10,7 +17,9 @@ from uuid import UUID, uuid4
 
 import structlog
 
-from app.modules.compliance.interfaces import TradeCheckRequest
+from app.modules.orders.core.broker_gateway import BrokerGateway
+from app.modules.orders.core.compliance_orchestrator import ComplianceOrchestrator
+from app.modules.orders.core.event_publisher import OrderEventPublisher
 from app.modules.orders.core.state_machine import apply_transition, derive_parent_state
 from app.modules.orders.interfaces import (
     AlgoType,
@@ -23,16 +32,9 @@ from app.modules.orders.interfaces import (
     OrderType,
     TimeInForce,
 )
-from app.modules.orders.events import (
-    order_created_data,
-    order_filled_data,
-    trade_executed_data,
-)
 from app.modules.orders.models.order import OrderRecord
 from app.modules.orders.models.order_fill import OrderFillRecord
 from app.shared.audit.events import AuditEventType
-from app.shared.events import BaseEvent
-from app.shared.schema_registry import fund_topic
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -52,9 +54,13 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger()
 
+_DEFAULT_COMMISSION_BPS = Decimal("5")
+
 
 class OrderService:
     """Manages the full order lifecycle with compliance integration."""
+
+    _FILL_RETRY_DELAYS = (0.1, 0.3, 1.0)  # seconds — handles race with order commit
 
     def __init__(
         self,
@@ -64,12 +70,15 @@ class OrderService:
         order_fill_repo: OrderFillRepository,
         compliance_gateway: ComplianceGateway,
         broker: BrokerAdapter,
-        event_bus: EventBus,
+        event_bus: EventBus | None = None,
         audit_repo: AuditLogRepository | None = None,
         broker_registry: BrokerRegistry | None = None,
         routing_engine: RoutingEngine | None = None,
         scorecard_service: ScorecardService | None = None,
         market_data_service: MarketDataService | None = None,
+        compliance_orchestrator: ComplianceOrchestrator | None = None,
+        broker_gateway: BrokerGateway | None = None,
+        event_publisher: OrderEventPublisher | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._order_repo = order_repo
@@ -86,6 +95,22 @@ class OrderService:
         self._market_data_service = market_data_service
         self._tca_service: TCAService | None = None  # Set by TCA module wiring
 
+        # Collaborators — constructor-injected for testability, otherwise
+        # composed from the primitives above. Their behaviour with default
+        # construction is identical to pre-refactor OrderService.
+        self._compliance_orchestrator = compliance_orchestrator or ComplianceOrchestrator(
+            compliance_gateway=compliance_gateway,
+        )
+        self._broker_gateway = broker_gateway or BrokerGateway(
+            broker=broker,
+            broker_registry=broker_registry,
+        )
+        self._event_publisher = event_publisher or OrderEventPublisher(event_bus=event_bus)
+
+    # ------------------------------------------------------------------
+    # Public API — create / cancel / query
+    # ------------------------------------------------------------------
+
     async def create_order(
         self,
         request: CreateOrderRequest,
@@ -95,197 +120,29 @@ class OrderService:
         session: AsyncSession | None = None,
     ) -> OrderSummary:
         """Create and process an order through the full lifecycle."""
-        # 1. Create order in DRAFT state
-        order = OrderRecord(
-            id=str(uuid4()),
-            portfolio_id=str(request.portfolio_id),
-            instrument_id=request.instrument_id,
-            side=request.side.value,
-            order_type=request.order_type.value,
-            quantity=request.quantity,
-            filled_quantity=Decimal(0),
-            limit_price=request.limit_price,
-            stop_price=getattr(request, "stop_price", None),
-            state=OrderState.DRAFT.value,
-            time_in_force=request.time_in_force.value,
-            fund_slug=fund_slug,
+        order = await self._persist_new_order(request, fund_slug, session=session)
+
+        order, compliance_data, approved = await self._run_compliance_gate(
+            order, request, fund_slug, actor_id, session=session
         )
-        # Capture arrival price from in-memory market data cache
-        if self._market_data_service is not None:
-            snap = await self._market_data_service.get_latest_price(request.instrument_id)
-            if snap is not None:
-                order.arrival_mid_price = snap.mid
-                order.arrival_spread = snap.ask - snap.bid
-                order.arrival_timestamp = snap.timestamp
-
-        order = await self._order_repo.save(order, session=session)
-
-        # 2. Transition to PENDING_COMPLIANCE
-        apply_transition(OrderState(order.state), OrderState.PENDING_COMPLIANCE)
-        order = await self._order_repo.update_state(
-            UUID(order.id), OrderState.PENDING_COMPLIANCE.value, session=session
-        )
-
-        # 3. Run compliance check
-        check_request = TradeCheckRequest(
-            portfolio_id=request.portfolio_id,
-            instrument_id=request.instrument_id,
-            side=request.side.value,
-            quantity=request.quantity,
-            price=request.limit_price or Decimal("100.00"),
-        )
-        decision = await self._compliance_gateway.check(check_request)
-
-        compliance_data = [
-            {
-                "rule_id": str(r.rule_id),
-                "rule_name": r.rule_name,
-                "passed": r.passed,
-                "severity": r.severity,
-                "message": r.message,
-            }
-            for r in decision.results
-        ]
-
-        if not decision.approved:
-            # 4a. Rejected
-            apply_transition(OrderState(order.state), OrderState.REJECTED)
-            reason = "; ".join(decision.blocked_by)
-            order = await self._order_repo.update_state(
-                UUID(order.id),
-                OrderState.REJECTED.value,
-                rejection_reason=reason,
-                compliance_results=compliance_data,
-                session=session,
-            )
-            logger.info(
-                "order_rejected",
-                order_id=order.id,
-                reason=reason,
-            )
-            await self._publish_order_event(order, AuditEventType.ORDER_CREATED, fund_slug)
-            await self._publish_trade_decision(order, AuditEventType.TRADE_REJECTED, fund_slug)
-            await self._audit_event(
-                AuditEventType.ORDER_REJECTED,
-                actor_id=actor_id,
-                fund_slug=fund_slug,
-                order=order,
-                extra={"rejection_reason": reason, "compliance_results": compliance_data},
-                session=session,
-            )
+        if not approved:
             return self._to_summary(order)
 
-        # 4b. Approved
-        apply_transition(OrderState(order.state), OrderState.APPROVED)
-        order = await self._order_repo.update_state(
-            UUID(order.id),
-            OrderState.APPROVED.value,
-            compliance_results=compliance_data,
-            session=session,
-        )
-        await self._publish_order_event(order, AuditEventType.ORDER_CREATED, fund_slug)
-        await self._publish_trade_decision(order, AuditEventType.TRADE_APPROVED, fund_slug)
-
-        # 5. Route to broker(s) via routing engine
-        broker_id: str | None = None
-        broker_to_use = self._broker
-
-        if self._routing_engine and self._broker_registry:
-            slices = await self._routing_engine.route_order(
-                order_id=order.id,
-                instrument_id=request.instrument_id,
-                instrument_class=None,
-                side=request.side.value,
-                quantity=request.quantity,
-                order_type=request.order_type.value,
-                fund_slug=fund_slug,
-            )
-            if len(slices) == 1:
-                broker_id = slices[0].broker_id
-                try:
-                    broker_to_use = self._broker_registry.get(broker_id)
-                except KeyError:
-                    broker_to_use = self._broker
-            # TODO: multi-broker split creates child orders (future enhancement)
-
-        # 6. Transition to SENT and submit to broker
-        apply_transition(OrderState(order.state), OrderState.SENT)
-        order = await self._order_repo.update_state(
-            UUID(order.id),
-            OrderState.SENT.value,
-            broker_id=broker_id,
-            session=session,
-        )
-
-        ack = await broker_to_use.submit_order(
+        # Route to broker(s), then submit
+        broker_id = await self._resolve_broker_id(request, order.id, fund_slug)
+        order = await self._transition_to_sent(order, broker_id, session=session)
+        ack = await self._broker_gateway.submit(
             client_order_id=order.id,
             instrument_id=request.instrument_id,
             side=request.side.value,
             quantity=request.quantity,
             order_type=request.order_type.value,
             limit_price=request.limit_price,
+            broker_id=broker_id,
         )
-
-        if ack.status == "filled":
-            # Synchronous fill (in-process adapter) — query fill details and process
-            status_report = await broker_to_use.get_order_status(ack.exchange_order_id)
-            fill_price = status_report.avg_fill_price or Decimal("0")
-            fill_qty = status_report.filled_quantity
-            order = await self._process_fill(
-                order,
-                fill_price,
-                fill_qty,
-                fund_slug,
-                broker_id=broker_id,
-                session=session,
-            )
-
-            logger.info(
-                "order_filled",
-                order_id=order.id,
-                fill_price=str(fill_price),
-                fill_qty=str(fill_qty),
-                broker_id=broker_id,
-            )
-            await self._audit_event(
-                AuditEventType.ORDER_FILLED,
-                actor_id=actor_id,
-                fund_slug=fund_slug,
-                order=order,
-                extra={
-                    "fill_price": str(fill_price),
-                    "fill_quantity": str(fill_qty),
-                    "compliance_results": compliance_data,
-                    "broker_id": broker_id,
-                },
-                session=session,
-            )
-        elif ack.status == "rejected":
-            # Broker rejected the order (e.g., market closed, invalid instrument)
-            apply_transition(OrderState(order.state), OrderState.CANCELLED)
-            order = await self._order_repo.update_state(
-                UUID(order.id),
-                OrderState.CANCELLED.value,
-                rejection_reason=f"Broker rejected: {ack.status}",
-                session=session,
-            )
-            logger.warning(
-                "order_rejected_by_broker",
-                order_id=order.id,
-                exchange_order_id=ack.exchange_order_id,
-                broker_id=broker_id,
-            )
-        else:
-            # Async fill (mock-exchange, FIX, etc.) — order stays in SENT state.
-            # Fills arrive later via execution report callback.
-            logger.info(
-                "order_sent_to_broker",
-                order_id=order.id,
-                exchange_order_id=ack.exchange_order_id,
-                status=ack.status,
-                broker_id=broker_id,
-            )
-
+        order = await self._handle_broker_ack(
+            order, ack, fund_slug, actor_id, compliance_data, broker_id, session=session
+        )
         return self._to_summary(order)
 
     async def create_algo_order(
@@ -301,99 +158,26 @@ class OrderService:
             msg = "AlgoEngine not configured"
             raise RuntimeError(msg)
 
-        # 1. Create parent order in DRAFT state
-        parent = OrderRecord(
-            id=str(uuid4()),
-            portfolio_id=str(request.portfolio_id),
-            instrument_id=request.instrument_id,
-            side=request.side.value,
-            order_type=request.order_type.value,
-            quantity=request.quantity,
-            filled_quantity=Decimal(0),
-            limit_price=request.limit_price,
-            stop_price=getattr(request, "stop_price", None),
-            state=OrderState.DRAFT.value,
-            time_in_force=request.time_in_force.value,
-            fund_slug=fund_slug,
+        parent = await self._persist_new_order(
+            request,
+            fund_slug,
+            session=session,
             is_parent=True,
             algo_type=request.algo_type.value,
             algo_params=request.algo_params.model_dump(),
         )
-        # Capture arrival price from in-memory market data cache
-        if self._market_data_service is not None:
-            snap = await self._market_data_service.get_latest_price(request.instrument_id)
-            if snap is not None:
-                parent.arrival_mid_price = snap.mid
-                parent.arrival_spread = snap.ask - snap.bid
-                parent.arrival_timestamp = snap.timestamp
 
-        parent = await self._order_repo.save(parent, session=session)
-
-        # 2. Compliance check (once for the parent — children inherit)
-        apply_transition(OrderState(parent.state), OrderState.PENDING_COMPLIANCE)
-        parent = await self._order_repo.update_state(
-            UUID(parent.id), OrderState.PENDING_COMPLIANCE.value, session=session
+        parent, compliance_data, approved = await self._run_compliance_gate(
+            parent, request, fund_slug, actor_id, session=session
         )
-
-        check_request = TradeCheckRequest(
-            portfolio_id=request.portfolio_id,
-            instrument_id=request.instrument_id,
-            side=request.side.value,
-            quantity=request.quantity,
-            price=request.limit_price or Decimal("100.00"),
-        )
-        decision = await self._compliance_gateway.check(check_request)
-
-        compliance_data = [
-            {
-                "rule_id": str(r.rule_id),
-                "rule_name": r.rule_name,
-                "passed": r.passed,
-                "severity": r.severity,
-                "message": r.message,
-            }
-            for r in decision.results
-        ]
-
-        if not decision.approved:
-            apply_transition(OrderState(parent.state), OrderState.REJECTED)
-            reason = "; ".join(decision.blocked_by)
-            parent = await self._order_repo.update_state(
-                UUID(parent.id),
-                OrderState.REJECTED.value,
-                rejection_reason=reason,
-                compliance_results=compliance_data,
-                session=session,
-            )
-            await self._publish_order_event(parent, AuditEventType.ORDER_CREATED, fund_slug)
-            await self._publish_trade_decision(parent, AuditEventType.TRADE_REJECTED, fund_slug)
-            await self._audit_event(
-                AuditEventType.ORDER_REJECTED,
-                actor_id=actor_id,
-                fund_slug=fund_slug,
-                order=parent,
-                extra={"rejection_reason": reason, "compliance_results": compliance_data},
-                session=session,
-            )
+        if not approved:
             return self._to_summary(parent)
 
-        # 3. Approved → transition to WORKING and start algo
-        apply_transition(OrderState(parent.state), OrderState.APPROVED)
-        parent = await self._order_repo.update_state(
-            UUID(parent.id),
-            OrderState.APPROVED.value,
-            compliance_results=compliance_data,
-            session=session,
-        )
-        await self._publish_order_event(parent, AuditEventType.ORDER_CREATED, fund_slug)
-        await self._publish_trade_decision(parent, AuditEventType.TRADE_APPROVED, fund_slug)
-
+        # Approved → WORKING and kick off the algo
         apply_transition(OrderState(parent.state), OrderState.WORKING)
         parent = await self._order_repo.update_state(
             UUID(parent.id), OrderState.WORKING.value, session=session
         )
-
-        # 4. Start algo engine — spawns child orders over time
         await self._algo_engine.start_algo(parent, fund_slug)
 
         await self._audit_event(
@@ -441,7 +225,7 @@ class OrderService:
             fund_slug=fund_slug,
             parent_order_id=parent_order_id,
         )
-        child = await self._order_repo.save(child)
+        child = await self._order_repo.insert(child)
 
         # Skip compliance — inherited from parent. DRAFT → APPROVED → SENT
         apply_transition(OrderState(child.state), OrderState.PENDING_COMPLIANCE)
@@ -451,8 +235,8 @@ class OrderService:
         apply_transition(OrderState(child.state), OrderState.SENT)
         child = await self._order_repo.update_state(UUID(child.id), OrderState.SENT.value)
 
-        # Submit to broker
-        ack = await self._broker.submit_order(
+        # Submit to broker via the gateway (uses default adapter)
+        ack = await self._broker_gateway.submit(
             client_order_id=child.id,
             instrument_id=parent.instrument_id,
             side=parent.side,
@@ -462,14 +246,12 @@ class OrderService:
         )
 
         if ack.status == "filled":
-            status_report = await self._broker.get_order_status(ack.exchange_order_id)
+            status_report = await self._broker_gateway.poll_status(ack.exchange_order_id)
             fill_price = status_report.avg_fill_price or Decimal("0")
             fill_qty = status_report.filled_quantity
             child = await self._process_fill(child, fill_price, fill_qty, fund_slug)
 
         return self._to_summary(child)
-
-    _FILL_RETRY_DELAYS = (0.1, 0.3, 1.0)  # seconds — handles race with order commit
 
     async def process_execution_report(
         self,
@@ -488,36 +270,14 @@ class OrderService:
         Retries lookup briefly to handle the race where a fill arrives before
         the order row is committed (fill_delay_ms can be very low).
         """
-        # Search across all fund schemas to find the order.
-        # This runs outside a request context, so we don't know which fund
-        # the order belongs to. The number of funds is small (<50).
-        order = None
-        fund_slug = None
-
-        for attempt_delay in self._FILL_RETRY_DELAYS:
-            for slug in self._fund_slugs:
-                async with self._session_factory.fund_scope(slug):
-                    found = await self._order_repo.get_by_id(UUID(client_order_id))
-                if found is not None:
-                    order = found
-                    fund_slug = slug
-                    break
-            if order is not None:
-                break
-            await asyncio.sleep(attempt_delay)
-
+        order, fund_slug = await self._locate_order_across_funds(client_order_id)
         if order is None or fund_slug is None:
-            logger.warning(
-                "execution_report_unknown_order",
-                client_order_id=client_order_id,
-            )
+            logger.warning("execution_report_unknown_order", client_order_id=client_order_id)
             return
 
         if order.state not in (OrderState.SENT.value, OrderState.PARTIALLY_FILLED.value):
             logger.warning(
-                "execution_report_invalid_state",
-                order_id=order.id,
-                state=order.state,
+                "execution_report_invalid_state", order_id=order.id, state=order.state
             )
             return
 
@@ -632,6 +392,248 @@ class OrderService:
             for f in fills
         ]
 
+    # ------------------------------------------------------------------
+    # Private helpers — shared order-creation lifecycle
+    # ------------------------------------------------------------------
+
+    async def _persist_new_order(
+        self,
+        request: CreateOrderRequest | CreateAlgoOrderRequest,
+        fund_slug: str,
+        *,
+        session: AsyncSession | None = None,
+        is_parent: bool = False,
+        algo_type: str | None = None,
+        algo_params: dict | None = None,
+    ) -> OrderRecord:
+        """Construct the DRAFT OrderRecord, stamp arrival price, and insert."""
+        order = OrderRecord(
+            id=str(uuid4()),
+            portfolio_id=str(request.portfolio_id),
+            instrument_id=request.instrument_id,
+            side=request.side.value,
+            order_type=request.order_type.value,
+            quantity=request.quantity,
+            filled_quantity=Decimal(0),
+            limit_price=request.limit_price,
+            stop_price=getattr(request, "stop_price", None),
+            state=OrderState.DRAFT.value,
+            time_in_force=request.time_in_force.value,
+            fund_slug=fund_slug,
+            is_parent=is_parent,
+            algo_type=algo_type,
+            algo_params=algo_params,
+        )
+        await self._capture_arrival_price(order, request.instrument_id)
+        return await self._order_repo.insert(order, session=session)
+
+    async def _run_compliance_gate(
+        self,
+        order: OrderRecord,
+        request: CreateOrderRequest | CreateAlgoOrderRequest,
+        fund_slug: str,
+        actor_id: str,
+        *,
+        session: AsyncSession | None = None,
+    ) -> tuple[OrderRecord, list[dict[str, object]], bool]:
+        """Run DRAFT → PENDING_COMPLIANCE → pre_check → REJECTED|APPROVED.
+
+        Emits ``orders.created`` and ``trades.approved|rejected`` events, audits
+        the outcome, and returns ``(order, compliance_data, approved)``.
+        """
+        apply_transition(OrderState(order.state), OrderState.PENDING_COMPLIANCE)
+        order = await self._order_repo.update_state(
+            UUID(order.id), OrderState.PENDING_COMPLIANCE.value, session=session
+        )
+
+        decision, compliance_data = await self._compliance_orchestrator.pre_check(
+            portfolio_id=request.portfolio_id,
+            instrument_id=request.instrument_id,
+            side=request.side.value,
+            quantity=request.quantity,
+            limit_price=request.limit_price,
+        )
+
+        if not decision.approved:
+            apply_transition(OrderState(order.state), OrderState.REJECTED)
+            reason = "; ".join(decision.blocked_by)
+            order = await self._order_repo.update_state(
+                UUID(order.id),
+                OrderState.REJECTED.value,
+                rejection_reason=reason,
+                compliance_results=compliance_data,
+                session=session,
+            )
+            logger.info("order_rejected", order_id=order.id, reason=reason)
+            await self._event_publisher.publish_created(
+                order, AuditEventType.ORDER_CREATED, fund_slug
+            )
+            await self._event_publisher.publish_trade_decision(
+                order, AuditEventType.TRADE_REJECTED, fund_slug
+            )
+            await self._audit_event(
+                AuditEventType.ORDER_REJECTED,
+                actor_id=actor_id,
+                fund_slug=fund_slug,
+                order=order,
+                extra={"rejection_reason": reason, "compliance_results": compliance_data},
+                session=session,
+            )
+            return order, compliance_data, False
+
+        apply_transition(OrderState(order.state), OrderState.APPROVED)
+        order = await self._order_repo.update_state(
+            UUID(order.id),
+            OrderState.APPROVED.value,
+            compliance_results=compliance_data,
+            session=session,
+        )
+        await self._event_publisher.publish_created(
+            order, AuditEventType.ORDER_CREATED, fund_slug
+        )
+        await self._event_publisher.publish_trade_decision(
+            order, AuditEventType.TRADE_APPROVED, fund_slug
+        )
+        return order, compliance_data, True
+
+    async def _resolve_broker_id(
+        self, request: CreateOrderRequest, order_id: str, fund_slug: str
+    ) -> str | None:
+        """Consult the routing engine to pick a broker for this order."""
+        if not (self._routing_engine and self._broker_registry):
+            return None
+        slices = await self._routing_engine.route_order(
+            order_id=order_id,
+            instrument_id=request.instrument_id,
+            instrument_class=None,
+            side=request.side.value,
+            quantity=request.quantity,
+            order_type=request.order_type.value,
+            fund_slug=fund_slug,
+        )
+        if len(slices) == 1:
+            return slices[0].broker_id
+        # TODO: multi-broker split creates child orders (future enhancement)
+        return None
+
+    async def _transition_to_sent(
+        self,
+        order: OrderRecord,
+        broker_id: str | None,
+        *,
+        session: AsyncSession | None = None,
+    ) -> OrderRecord:
+        apply_transition(OrderState(order.state), OrderState.SENT)
+        return await self._order_repo.update_state(
+            UUID(order.id),
+            OrderState.SENT.value,
+            broker_id=broker_id,
+            session=session,
+        )
+
+    async def _handle_broker_ack(
+        self,
+        order: OrderRecord,
+        ack,
+        fund_slug: str,
+        actor_id: str,
+        compliance_data: list[dict[str, object]],
+        broker_id: str | None,
+        *,
+        session: AsyncSession | None = None,
+    ) -> OrderRecord:
+        """Apply the effect of a broker acknowledgement on the order."""
+        if ack.status == "filled":
+            # Synchronous fill (in-process adapter) — query fill details and process
+            status_report = await self._broker_gateway.poll_status(
+                ack.exchange_order_id, broker_id=broker_id
+            )
+            fill_price = status_report.avg_fill_price or Decimal("0")
+            fill_qty = status_report.filled_quantity
+            order = await self._process_fill(
+                order, fill_price, fill_qty, fund_slug,
+                broker_id=broker_id, session=session,
+            )
+            logger.info(
+                "order_filled",
+                order_id=order.id,
+                fill_price=str(fill_price),
+                fill_qty=str(fill_qty),
+                broker_id=broker_id,
+            )
+            await self._audit_event(
+                AuditEventType.ORDER_FILLED,
+                actor_id=actor_id,
+                fund_slug=fund_slug,
+                order=order,
+                extra={
+                    "fill_price": str(fill_price),
+                    "fill_quantity": str(fill_qty),
+                    "compliance_results": compliance_data,
+                    "broker_id": broker_id,
+                },
+                session=session,
+            )
+            return order
+
+        if ack.status == "rejected":
+            apply_transition(OrderState(order.state), OrderState.CANCELLED)
+            order = await self._order_repo.update_state(
+                UUID(order.id),
+                OrderState.CANCELLED.value,
+                rejection_reason=f"Broker rejected: {ack.status}",
+                session=session,
+            )
+            logger.warning(
+                "order_rejected_by_broker",
+                order_id=order.id,
+                exchange_order_id=ack.exchange_order_id,
+                broker_id=broker_id,
+            )
+            return order
+
+        # Async fill (mock-exchange, FIX, etc.) — stays SENT until exec report.
+        logger.info(
+            "order_sent_to_broker",
+            order_id=order.id,
+            exchange_order_id=ack.exchange_order_id,
+            status=ack.status,
+            broker_id=broker_id,
+        )
+        return order
+
+    async def _capture_arrival_price(self, order: OrderRecord, instrument_id: str) -> None:
+        """Stamp arrival-price fields on an order from the market-data cache."""
+        if self._market_data_service is None:
+            return
+        snap = await self._market_data_service.get_latest_price(instrument_id)
+        if snap is None:
+            return
+        order.arrival_mid_price = snap.mid
+        order.arrival_spread = snap.ask - snap.bid
+        order.arrival_timestamp = snap.timestamp
+
+    async def _locate_order_across_funds(
+        self, client_order_id: str
+    ) -> tuple[OrderRecord | None, str | None]:
+        """Search every fund schema for a committed order, retrying briefly.
+
+        Handles the race where a fill arrives before the order row is
+        committed (``fill_delay_ms`` can be very low in mock-exchange).
+        """
+        for attempt_delay in self._FILL_RETRY_DELAYS:
+            for slug in self._fund_slugs:
+                async with self._session_factory.fund_scope(slug):
+                    found = await self._order_repo.get_by_id(UUID(client_order_id))
+                if found is not None:
+                    return found, slug
+            await asyncio.sleep(attempt_delay)
+        return None, None
+
+    # ------------------------------------------------------------------
+    # Private helpers — fill processing
+    # ------------------------------------------------------------------
+
     async def _process_fill(
         self,
         order: OrderRecord,
@@ -659,11 +661,8 @@ class OrderService:
 
         trade_id = uuid4()
         now = filled_at or datetime.now(UTC)
-
-        # Use broker_id from order if not explicitly passed
         effective_broker_id = broker_id or order.broker_id
 
-        # Create fill record
         fill = OrderFillRecord(
             id=str(trade_id),
             order_id=order.id,
@@ -672,31 +671,15 @@ class OrderService:
             broker_id=effective_broker_id,
             filled_at=now,
         )
-        await self._order_fill_repo.save_fill(fill, session=session)
+        await self._order_fill_repo.insert_fill(fill, session=session)
 
-        # Update broker scorecard (fire-and-forget)
-        if self._scorecard_service and effective_broker_id:
-            try:
-                slippage = Decimal("0")
-                commission = Decimal("5")  # default 5 bps
-                await self._scorecard_service.record_fill(
-                    broker_id=effective_broker_id,
-                    slippage_bps=slippage,
-                    fill_time_ms=0,
-                    commission_bps=commission,
-                    fund_slug=fund_slug,
-                )
-            except Exception:
-                logger.exception("scorecard_update_failed")
+        await self._record_scorecard(effective_broker_id, fund_slug)
 
-        # Update order state
+        # Update order state + VWAP
         new_filled = order.filled_quantity + fill_quantity
-        if new_filled >= order.quantity:
-            target_state = OrderState.FILLED
-        else:
-            target_state = OrderState.PARTIALLY_FILLED
-
-        # Compute VWAP across all fills
+        target_state = (
+            OrderState.FILLED if new_filled >= order.quantity else OrderState.PARTIALLY_FILLED
+        )
         if order.filled_quantity > 0 and order.avg_fill_price is not None:
             avg_price = (
                 order.avg_fill_price * order.filled_quantity + fill_price * fill_quantity
@@ -713,39 +696,21 @@ class OrderService:
             session=session,
         )
 
-        # Publish trade event — TradeHandler subscribes and creates the
-        # position (event-sourced).  Downstream cascade (exposure, risk,
-        # compliance, cash) reacts to positions.changed / trades.executed.
-        side = order.side
-        event = BaseEvent(
-            event_type=(AuditEventType.TRADE_BUY if side == "buy" else AuditEventType.TRADE_SELL),
-            data=trade_executed_data(
-                portfolio_id=str(order.portfolio_id),
-                instrument_id=order.instrument_id,
-                side=side,
-                quantity=fill_quantity,
-                price=fill_price,
-                trade_id=str(trade_id),
-            ),
+        # Emit downstream events (trade + fill) and post-fill hooks
+        await self._event_publisher.publish_trade_executed(
+            order=order,
+            trade_id=str(trade_id),
+            fill_quantity=fill_quantity,
+            fill_price=fill_price,
             fund_slug=fund_slug,
         )
-        await self._event_bus.publish(fund_topic(fund_slug, "trades.executed"), event)
-
-        # Publish order fill event
-        fill_event = BaseEvent(
-            event_type=AuditEventType.ORDER_FILLED,
-            data=order_filled_data(
-                order_id=order.id,
-                portfolio_id=str(order.portfolio_id),
-                instrument_id=order.instrument_id,
-                side=side,
-                fill_quantity=fill_quantity,
-                fill_price=fill_price,
-                state=order.state,
-            ),
+        await self._event_publisher.publish_filled(
+            order=order,
+            fill_quantity=fill_quantity,
+            fill_price=fill_price,
             fund_slug=fund_slug,
         )
-        await self._event_bus.publish(fund_topic(fund_slug, "orders.filled"), fill_event)
+        await self._compliance_orchestrator.post_fill(fill)
 
         # Trigger TCA computation when order is fully filled
         if target_state == OrderState.FILLED and self._tca_service is not None:
@@ -759,11 +724,27 @@ class OrderService:
             await self._update_parent_from_children(
                 UUID(str(order.parent_order_id)), fund_slug, session=session
             )
-            # Notify algo engine for Iceberg replenishment
             if self._algo_engine is not None:
                 await self._algo_engine.on_child_filled(order, fund_slug)
 
         return order
+
+    async def _record_scorecard(
+        self, broker_id: str | None, fund_slug: str
+    ) -> None:
+        """Fire-and-forget scorecard update. Errors are logged and swallowed."""
+        if not (self._scorecard_service and broker_id):
+            return
+        try:
+            await self._scorecard_service.record_fill(
+                broker_id=broker_id,
+                slippage_bps=Decimal("0"),
+                fill_time_ms=0,
+                commission_bps=_DEFAULT_COMMISSION_BPS,
+                fund_slug=fund_slug,
+            )
+        except Exception:
+            logger.exception("scorecard_update_failed")
 
     async def _update_parent_from_children(
         self,
@@ -781,8 +762,7 @@ class OrderService:
         if not children:
             return
 
-        child_states = [OrderState(c.state) for c in children]
-        new_state = derive_parent_state(child_states)
+        new_state = derive_parent_state([OrderState(c.state) for c in children])
 
         # Aggregate fill quantities and compute VWAP across all children
         total_filled = sum((c.filled_quantity for c in children), Decimal(0))
@@ -816,51 +796,6 @@ class OrderService:
             avg_fill_price=avg_price,
             session=session,
         )
-
-    async def _publish_order_event(
-        self,
-        order: OrderRecord,
-        event_type: AuditEventType,
-        fund_slug: str,
-    ) -> None:
-        """Publish an order lifecycle event to Kafka."""
-        event = BaseEvent(
-            event_type=event_type,
-            data=order_created_data(
-                order_id=order.id,
-                portfolio_id=str(order.portfolio_id),
-                instrument_id=order.instrument_id,
-                side=order.side,
-                order_type=order.order_type,
-                quantity=order.quantity,
-                state=order.state,
-            ),
-            fund_slug=fund_slug,
-        )
-        await self._event_bus.publish(fund_topic(fund_slug, "orders.created"), event)
-
-    async def _publish_trade_decision(
-        self,
-        order: OrderRecord,
-        event_type: AuditEventType,
-        fund_slug: str,
-    ) -> None:
-        """Publish trade.approved or trade.rejected event."""
-        event = BaseEvent(
-            event_type=event_type,
-            data=trade_executed_data(
-                portfolio_id=str(order.portfolio_id),
-                instrument_id=order.instrument_id,
-                side=order.side,
-                quantity=order.quantity,
-                price=order.limit_price or Decimal("0"),
-                trade_id=order.id,
-            ),
-            fund_slug=fund_slug,
-        )
-        is_approved = event_type == AuditEventType.TRADE_APPROVED
-        topic_base = "trades.approved" if is_approved else "trades.rejected"
-        await self._event_bus.publish(fund_topic(fund_slug, topic_base), event)
 
     async def _audit_event(
         self,

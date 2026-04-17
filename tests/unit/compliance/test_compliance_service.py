@@ -99,12 +99,12 @@ def _make_service(
     with_positions: bool = False,
 ) -> ComplianceService:
     rule_repo = AsyncMock()
-    rule_repo.get_all = AsyncMock(return_value=rules or [])
+    rule_repo.list_all = AsyncMock(return_value=rules or [])
     rule_repo.insert = AsyncMock(side_effect=_insert_with_id)
     rule_repo.update = AsyncMock(return_value=None)
 
     violation_repo = AsyncMock()
-    violation_repo.get_active_by_portfolio = AsyncMock(return_value=violations or [])
+    violation_repo.list_active_by_portfolio = AsyncMock(return_value=violations or [])
     violation_repo.resolve = AsyncMock(return_value=None)
 
     pre_trade_gate = AsyncMock()

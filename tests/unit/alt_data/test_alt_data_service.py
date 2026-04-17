@@ -124,7 +124,7 @@ class TestCreateFeed:
     async def test_returns_feed_dto(
         self, service: AltDataService, feed_repo: AsyncMock, point_repo: AsyncMock
     ):
-        feed_repo.create_feed.side_effect = lambda r, **kw: _seed_feed_record(r)
+        feed_repo.insert_feed.side_effect = lambda r, **kw: _seed_feed_record(r)
 
         feed = await service.create_feed(
             name="satellite-ships",
@@ -147,7 +147,7 @@ class TestCreateFeed:
         point_repo: AsyncMock,
         capture: EventCapture,
     ):
-        feed_repo.create_feed.side_effect = lambda r, **kw: _seed_feed_record(r)
+        feed_repo.insert_feed.side_effect = lambda r, **kw: _seed_feed_record(r)
 
         await service.create_feed(
             name="web-sentiment",
@@ -162,7 +162,7 @@ class TestCreateFeed:
     async def test_empty_instruments_defaults_to_empty_list(
         self, service: AltDataService, feed_repo: AsyncMock, point_repo: AsyncMock
     ):
-        feed_repo.create_feed.side_effect = lambda r, **kw: _seed_feed_record(r)
+        feed_repo.insert_feed.side_effect = lambda r, **kw: _seed_feed_record(r)
 
         feed = await service.create_feed(
             name="no-instruments",

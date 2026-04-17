@@ -1,4 +1,4 @@
-"""Unit tests for ExposureService — get_current, get_history, take_snapshot."""
+"""Unit tests for ExposureService — get_current, list_history, take_snapshot."""
 
 from __future__ import annotations
 
@@ -52,14 +52,14 @@ def _make_service(
     instruments: list | None = None,
 ) -> tuple[ExposureService, AsyncMock, AsyncMock, AsyncMock]:
     exposure_repo = AsyncMock()
-    exposure_repo.save_snapshot = AsyncMock()
-    exposure_repo.get_history = AsyncMock(return_value=[])
+    exposure_repo.insert_snapshot = AsyncMock()
+    exposure_repo.list_history = AsyncMock(return_value=[])
 
     position_service = AsyncMock()
     position_service.get_by_portfolio = AsyncMock(return_value=positions or [])
 
     sm_service = AsyncMock()
-    sm_service.get_all_active = AsyncMock(return_value=instruments or [])
+    sm_service.list_active = AsyncMock(return_value=instruments or [])
 
     event_bus = AsyncMock()
 
@@ -158,8 +158,8 @@ class TestGetCurrent:
 
         The service converts market_value to base currency, but the equity
         normalizer computes exposure as quantity * market_price (which stays
-        in the original currency). The converted market_value appears in the
-        breakdowns via _breakdown_by_dimension which reads market_value directly.
+        in the original currency). The breakdowns use the normalizer output
+        (quantity * market_price), not the FX-converted market_value.
         """
         positions = [
             _make_position("VOD.L", Decimal("100"), Decimal("300000"), currency="GBP"),
@@ -179,7 +179,7 @@ class TestGetCurrent:
             base_currency="USD",
         )
         svc._position_service.get_by_portfolio = AsyncMock(return_value=positions)
-        svc._security_master_service.get_all_active = AsyncMock(return_value=instruments)
+        svc._security_master_service.list_active = AsyncMock(return_value=instruments)
 
         result = await svc.get_current(_PORT_ID)
 
@@ -187,23 +187,24 @@ class TestGetCurrent:
         fx_converter.convert.assert_called_once_with(
             Decimal("300000"), "GBP", "USD"
         )
-        # The breakdowns use the FX-converted market_value
+        # Breakdowns use the normalizer (quantity * market_price), not the
+        # FX-converted market_value, so the value stays at 300000.
         country_bd = {bd.key: bd for bd in result.breakdowns.get("country", [])}
-        assert country_bd["GB"].gross_value == Decimal("375000")
+        assert country_bd["GB"].gross_value == Decimal("300000")
 
 
 class TestGetHistory:
     @pytest.mark.asyncio
     async def test_returns_empty_history(self) -> None:
         svc, exposure_repo, _, _ = _make_service()
-        exposure_repo.get_history.return_value = []
+        exposure_repo.list_history.return_value = []
 
         start = datetime(2026, 1, 1, tzinfo=timezone.utc)
         end = datetime(2026, 3, 31, tzinfo=timezone.utc)
         result = await svc.get_history(_PORT_ID, start, end, fund_slug=_FUND_SLUG)
 
         assert result == []
-        exposure_repo.get_history.assert_called_once()
+        exposure_repo.list_history.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_maps_records_to_snapshots(self) -> None:
@@ -219,7 +220,7 @@ class TestGetHistory:
         record.long_count = 5
         record.short_count = 1
         record.snapshot_at = datetime(2026, 3, 15, tzinfo=timezone.utc)
-        exposure_repo.get_history.return_value = [record]
+        exposure_repo.list_history.return_value = [record]
 
         start = datetime(2026, 1, 1, tzinfo=timezone.utc)
         end = datetime(2026, 3, 31, tzinfo=timezone.utc)
@@ -242,8 +243,8 @@ class TestTakeSnapshot:
 
         await svc.take_snapshot(_PORT_ID, fund_slug=_FUND_SLUG)
 
-        exposure_repo.save_snapshot.assert_called_once()
-        saved = exposure_repo.save_snapshot.call_args[0][0]
+        exposure_repo.insert_snapshot.assert_called_once()
+        saved = exposure_repo.insert_snapshot.call_args[0][0]
         assert saved.gross_exposure == Decimal("500000")
         assert saved.portfolio_id == str(_PORT_ID)
 
@@ -284,7 +285,7 @@ class TestTakeSnapshot:
 
         await svc.take_snapshot(_PORT_ID, fund_slug=_FUND_SLUG)
 
-        exposure_repo.save_snapshot.assert_called_once()
+        exposure_repo.insert_snapshot.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_snapshot_includes_breakdowns(self) -> None:
@@ -300,6 +301,6 @@ class TestTakeSnapshot:
 
         await svc.take_snapshot(_PORT_ID, fund_slug=_FUND_SLUG)
 
-        saved = exposure_repo.save_snapshot.call_args[0][0]
+        saved = exposure_repo.insert_snapshot.call_args[0][0]
         assert saved.breakdowns is not None
         assert "sector" in saved.breakdowns

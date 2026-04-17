@@ -22,6 +22,12 @@ import httpx
 import structlog
 from aiokafka import AIOKafkaConsumer  # type: ignore[import-untyped]
 from aiokafka.errors import KafkaError  # type: ignore[import-untyped]
+from tenacity import (
+    AsyncRetrying,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_exponential_jitter,
+)
 
 from app.shared.adapters.broker import OrderAcknowledgement, OrderStatusReport
 from app.shared.circuit_breaker import CircuitBreaker
@@ -33,6 +39,26 @@ _EXTERNAL_EXECUTION_REPORTS_TOPIC = "shared.execution-reports"
 
 # Callback type: (client_order_id, fill_price, fill_quantity, filled_at, broker_id) -> None
 FillCallback = Callable[[str, Decimal, Decimal, datetime | None, str | None], Awaitable[None]]
+
+
+def _is_retryable_http_error(exc: BaseException) -> bool:
+    """True for 5xx responses and transport-level errors — retry these."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        return 500 <= exc.response.status_code < 600
+    return isinstance(exc, (httpx.ConnectError, httpx.TimeoutException, ConnectionError))
+
+
+async def _retry_http(coro_fn: Callable[[], Awaitable[object]]) -> object:
+    """Run *coro_fn* with 3 attempts and exponential backoff on transient errors."""
+    async for attempt in AsyncRetrying(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential_jitter(initial=0.5, max=2.0, jitter=0.25),
+        retry=retry_if_exception(_is_retryable_http_error),
+        reraise=True,
+    ):
+        with attempt:
+            return await coro_fn()
+    return None  # unreachable
 
 
 class MockExchangeBrokerAdapter:
@@ -83,10 +109,16 @@ class MockExchangeBrokerAdapter:
         if limit_price is not None:
             body["limit_price"] = str(limit_price)
 
-        async with httpx.AsyncClient(base_url=self._base_url, timeout=10.0) as client:
-            async with self._circuit():
+        async with httpx.AsyncClient(
+            base_url=self._base_url,
+            timeout=httpx.Timeout(10.0, connect=2.0),
+        ) as client:
+            async def _post() -> httpx.Response:
                 resp = await client.post("/api/v1/orders", json=body)
                 resp.raise_for_status()
+                return resp
+
+            resp = await self._circuit.call(_retry_http, _post)
             data = resp.json()
 
         return OrderAcknowledgement(
@@ -97,16 +129,27 @@ class MockExchangeBrokerAdapter:
         )
 
     async def cancel_order(self, exchange_order_id: str) -> bool:
-        async with httpx.AsyncClient(base_url=self._base_url, timeout=10.0) as client:
-            async with self._circuit():
-                resp = await client.delete(f"/api/v1/orders/{exchange_order_id}")
+        async with httpx.AsyncClient(
+            base_url=self._base_url,
+            timeout=httpx.Timeout(10.0, connect=2.0),
+        ) as client:
+            async def _delete() -> httpx.Response:
+                return await client.delete(f"/api/v1/orders/{exchange_order_id}")
+
+            resp = await self._circuit.call(_retry_http, _delete)
             return resp.status_code == 200
 
     async def get_order_status(self, exchange_order_id: str) -> OrderStatusReport:
-        async with httpx.AsyncClient(base_url=self._base_url, timeout=10.0) as client:
-            async with self._circuit():
+        async with httpx.AsyncClient(
+            base_url=self._base_url,
+            timeout=httpx.Timeout(10.0, connect=2.0),
+        ) as client:
+            async def _get() -> httpx.Response:
                 resp = await client.get(f"/api/v1/orders/{exchange_order_id}")
                 resp.raise_for_status()
+                return resp
+
+            resp = await self._circuit.call(_retry_http, _get)
             data = resp.json()
 
         return OrderStatusReport(
@@ -124,10 +167,16 @@ class MockExchangeBrokerAdapter:
         portfolio (via client_order_id prefix convention) and aggregate by
         instrument to build the broker's view of positions.
         """
-        async with httpx.AsyncClient(base_url=self._base_url, timeout=10.0) as client:
-            async with self._circuit():
+        async with httpx.AsyncClient(
+            base_url=self._base_url,
+            timeout=httpx.Timeout(10.0, connect=2.0),
+        ) as client:
+            async def _get() -> httpx.Response:
                 resp = await client.get("/api/v1/orders")
                 resp.raise_for_status()
+                return resp
+
+            resp = await self._circuit.call(_retry_http, _get)
             orders = resp.json()
 
         positions: dict[str, Decimal] = {}

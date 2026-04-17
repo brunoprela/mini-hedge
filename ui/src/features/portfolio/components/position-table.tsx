@@ -1,5 +1,6 @@
 "use client";
 
+import { CardSkeleton } from "@mini-hedge/ui";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRightLeft, Download, Filter } from "lucide-react";
 import Link from "next/link";
@@ -130,7 +131,7 @@ export function PositionTable({ portfolioId }: { portfolioId: string }) {
   });
 
   if (isLoading) {
-    return <p className="text-sm text-[var(--muted-foreground)]">Loading positions...</p>;
+    return <CardSkeleton count={6} />;
   }
 
   return (

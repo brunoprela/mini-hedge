@@ -48,17 +48,17 @@ class TestSeedDevData:
     ) -> None:
         app = MagicMock()
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[_make_fund("alpha")])
+        fund_repo.list_active = AsyncMock(return_value=[_make_fund("alpha")])
         app.state.fund_repo = fund_repo
 
         rate_repo = AsyncMock()
-        rate_repo.get_all = AsyncMock(return_value=[])
+        rate_repo.list_all = AsyncMock(return_value=[])
         rate_repo.upsert = AsyncMock()
         MockRateRepo.return_value = rate_repo
 
         forward_repo = AsyncMock()
         forward_repo.get_by_portfolio = AsyncMock(return_value=[])
-        forward_repo.create = AsyncMock()
+        forward_repo.insert = AsyncMock()
         MockFwdRepo.return_value = forward_repo
 
         session = AsyncMock()
@@ -76,16 +76,16 @@ class TestSeedDevData:
     ) -> None:
         app = MagicMock()
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[_make_fund("alpha")])
+        fund_repo.list_active = AsyncMock(return_value=[_make_fund("alpha")])
         app.state.fund_repo = fund_repo
 
         rate_repo = AsyncMock()
-        rate_repo.get_all = AsyncMock(return_value=[MagicMock()])
+        rate_repo.list_all = AsyncMock(return_value=[MagicMock()])
         MockRateRepo.return_value = rate_repo
 
         forward_repo = AsyncMock()
         forward_repo.get_by_portfolio = AsyncMock(return_value=[])
-        forward_repo.create = AsyncMock()
+        forward_repo.insert = AsyncMock()
         MockFwdRepo.return_value = forward_repo
 
         session = AsyncMock()
@@ -102,17 +102,17 @@ class TestSeedDevData:
     ) -> None:
         app = MagicMock()
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[_make_fund("alpha")])
+        fund_repo.list_active = AsyncMock(return_value=[_make_fund("alpha")])
         app.state.fund_repo = fund_repo
 
         rate_repo = AsyncMock()
-        rate_repo.get_all = AsyncMock(return_value=[])
+        rate_repo.list_all = AsyncMock(return_value=[])
         rate_repo.upsert = AsyncMock()
         MockRateRepo.return_value = rate_repo
 
         forward_repo = AsyncMock()
         forward_repo.get_by_portfolio = AsyncMock(return_value=[])
-        forward_repo.create = AsyncMock()
+        forward_repo.insert = AsyncMock()
         MockFwdRepo.return_value = forward_repo
 
         session = AsyncMock()
@@ -120,7 +120,7 @@ class TestSeedDevData:
         await seed_dev_data(app, _FakeSF(session))
 
         # Alpha fund has 4 forwards (2 equity LS + 2 global macro)
-        assert forward_repo.create.call_count == 4
+        assert forward_repo.insert.call_count == 4
 
     @pytest.mark.asyncio
     @patch("app.modules.fx_hedging.repositories.FXForwardRepository")
@@ -130,24 +130,24 @@ class TestSeedDevData:
     ) -> None:
         app = MagicMock()
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[_make_fund("gamma")])
+        fund_repo.list_active = AsyncMock(return_value=[_make_fund("gamma")])
         app.state.fund_repo = fund_repo
 
         rate_repo = AsyncMock()
-        rate_repo.get_all = AsyncMock(return_value=[])
+        rate_repo.list_all = AsyncMock(return_value=[])
         rate_repo.upsert = AsyncMock()
         MockRateRepo.return_value = rate_repo
 
         forward_repo = AsyncMock()
         forward_repo.get_by_portfolio = AsyncMock(return_value=[])
-        forward_repo.create = AsyncMock()
+        forward_repo.insert = AsyncMock()
         MockFwdRepo.return_value = forward_repo
 
         session = AsyncMock()
 
         await seed_dev_data(app, _FakeSF(session))
 
-        forward_repo.create.assert_not_called()
+        forward_repo.insert.assert_not_called()
 
     @pytest.mark.asyncio
     @patch("app.modules.fx_hedging.repositories.FXForwardRepository")
@@ -157,24 +157,24 @@ class TestSeedDevData:
     ) -> None:
         app = MagicMock()
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[_make_fund("alpha")])
+        fund_repo.list_active = AsyncMock(return_value=[_make_fund("alpha")])
         app.state.fund_repo = fund_repo
 
         rate_repo = AsyncMock()
-        rate_repo.get_all = AsyncMock(return_value=[])
+        rate_repo.list_all = AsyncMock(return_value=[])
         rate_repo.upsert = AsyncMock()
         MockRateRepo.return_value = rate_repo
 
         forward_repo = AsyncMock()
         forward_repo.get_by_portfolio = AsyncMock(return_value=[MagicMock()])
-        forward_repo.create = AsyncMock()
+        forward_repo.insert = AsyncMock()
         MockFwdRepo.return_value = forward_repo
 
         session = AsyncMock()
 
         await seed_dev_data(app, _FakeSF(session))
 
-        forward_repo.create.assert_not_called()
+        forward_repo.insert.assert_not_called()
 
     @pytest.mark.asyncio
     @patch("app.modules.fx_hedging.repositories.FXForwardRepository")
@@ -184,17 +184,17 @@ class TestSeedDevData:
     ) -> None:
         app = MagicMock()
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[_make_fund("beta")])
+        fund_repo.list_active = AsyncMock(return_value=[_make_fund("beta")])
         app.state.fund_repo = fund_repo
 
         rate_repo = AsyncMock()
-        rate_repo.get_all = AsyncMock(return_value=[])
+        rate_repo.list_all = AsyncMock(return_value=[])
         rate_repo.upsert = AsyncMock()
         MockRateRepo.return_value = rate_repo
 
         forward_repo = AsyncMock()
         forward_repo.get_by_portfolio = AsyncMock(return_value=[])
-        forward_repo.create = AsyncMock()
+        forward_repo.insert = AsyncMock()
         MockFwdRepo.return_value = forward_repo
 
         session = AsyncMock()
@@ -202,4 +202,4 @@ class TestSeedDevData:
         await seed_dev_data(app, _FakeSF(session))
 
         # Beta fund has 1 forward (stat arb EUR)
-        assert forward_repo.create.call_count == 1
+        assert forward_repo.insert.call_count == 1

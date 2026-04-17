@@ -3,11 +3,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { FundPortfolioPicker } from "@/shared/components/fund-portfolio-picker";
-import { ErrorState } from "@/shared/components/error-state";
-import { StatusBadge } from "@/shared/components/status-badge";
-import { TableSkeleton } from "@/shared/components/loading-skeleton";
-import { apiFetch } from "@/shared/lib/api";
-import type { ReconSummary, BreakWithSLA } from "@/shared/types";
+import { ErrorState } from "@mini-hedge/ui";
+import { StatusBadge } from "@mini-hedge/ui";
+import { TableSkeleton } from "@mini-hedge/ui";
+import { api } from "@/shared/lib/api-client";
 
 const SLA_VARIANT: Record<string, "success" | "warning" | "danger"> = {
   within_sla: "success",
@@ -29,10 +28,14 @@ export default function TradeReconPage() {
     refetch: refetchLatest,
   } = useQuery({
     queryKey: ["trade-recon", "latest", portfolioId],
-    queryFn: () =>
-      apiFetch<ReconSummary | null>(
-        `reconciliation/portfolios/${portfolioId}/latest`,
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/reconciliation/portfolios/{portfolio_id}/latest",
+        { params: { path: { portfolio_id: portfolioId } } },
+      );
+      if (error) throw error;
+      return data;
+    },
     enabled,
   });
 
@@ -44,10 +47,19 @@ export default function TradeReconPage() {
     refetch: refetchHistory,
   } = useQuery({
     queryKey: ["trade-recon", "history", portfolioId],
-    queryFn: () =>
-      apiFetch<ReconSummary[]>(
-        `reconciliation/portfolios/${portfolioId}/history?limit=20`,
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/reconciliation/portfolios/{portfolio_id}/history",
+        {
+          params: {
+            path: { portfolio_id: portfolioId },
+            query: { limit: 20 },
+          },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     enabled,
   });
 
@@ -59,10 +71,14 @@ export default function TradeReconPage() {
     refetch: refetchSla,
   } = useQuery({
     queryKey: ["trade-recon", "sla", portfolioId],
-    queryFn: () =>
-      apiFetch<BreakWithSLA[]>(
-        `reconciliation/portfolios/${portfolioId}/sla-status`,
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/reconciliation/portfolios/{portfolio_id}/sla-status",
+        { params: { path: { portfolio_id: portfolioId } } },
+      );
+      if (error) throw error;
+      return data;
+    },
     enabled,
   });
 

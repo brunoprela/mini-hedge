@@ -59,7 +59,7 @@ async def setup(
     # Subscribe to trades.executed for automatic settlement creation
     if event_bus is None or fund_repo is None:
         return
-    active_funds = await fund_repo.get_all_active()
+    active_funds = await fund_repo.list_active()
     for fund in active_funds:
         topic = fund_topic(fund.slug, "trades.executed")
         event_bus.subscribe(topic, cash_service.handle_trade_executed)

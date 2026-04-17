@@ -52,7 +52,7 @@ def _make_engine(
 
     routing_repo = AsyncMock()
     routing_repo.get_rules_for_fund = AsyncMock(return_value=rules or [])
-    routing_repo.save_decision = AsyncMock()
+    routing_repo.insert_decision = AsyncMock()
 
     return RoutingEngine(
         broker_registry=registry,
@@ -212,12 +212,12 @@ class TestDecisionRecording:
             "o-1", "AAPL", "equity", "buy", Decimal("100"), "market", "fund-a",
         )
 
-        engine._routing_repo.save_decision.assert_called_once()
+        engine._routing_repo.insert_decision.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_decision_save_failure_does_not_crash(self) -> None:
         engine = _make_engine(["sim"])
-        engine._routing_repo.save_decision = AsyncMock(side_effect=RuntimeError("db down"))
+        engine._routing_repo.insert_decision = AsyncMock(side_effect=RuntimeError("db down"))
 
         # Should not raise
         slices = await engine.route_order(

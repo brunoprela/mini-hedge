@@ -42,7 +42,7 @@ def _make_service(
     market_data.get_latest_price = AsyncMock(side_effect=_get_latest)
 
     sm_service = AsyncMock()
-    sm_service.get_all_active = AsyncMock(return_value=instruments or [])
+    sm_service.list_active = AsyncMock(return_value=instruments or [])
 
     svc = PriceFinalizationService(
         price_repo=price_repo,

@@ -178,12 +178,12 @@ class TestCashJournalRepository:
 
 
 class TestCashProjectionRepository:
-    async def test_save(self):
+    async def test_insert(self):
         sf, mock_session = _make_session_factory()
         repo = CashProjectionRepository(sf)
 
         record = MagicMock(spec=CashProjectionRecord)
-        await repo.save(record)
+        await repo.insert(record)
 
         mock_session.add.assert_called_once_with(record)
         mock_session.commit.assert_called_once()

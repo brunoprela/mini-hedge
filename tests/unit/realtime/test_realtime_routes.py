@@ -53,7 +53,7 @@ class TestStreamEvents:
         req = _make_request(redis=None)
 
         with patch("app.modules.realtime.routes.realtime.get_actor_context"):
-            resp = await stream_events(req, token="jwt", fund_slug=None)
+            resp = await stream_events(req, token="jwt")
 
         assert resp.status_code == 503
         body = b""
@@ -70,7 +70,7 @@ class TestStreamEvents:
         ctx.fund_slug = "alpha"
 
         with patch("app.modules.realtime.routes.realtime.get_actor_context", return_value=ctx):
-            resp = await stream_events(req, token="jwt", fund_slug=None)
+            resp = await stream_events(req, token="jwt")
 
         assert resp.status_code == 200
         assert resp.media_type == "text/event-stream"
@@ -86,7 +86,7 @@ class TestStreamEvents:
         ctx.fund_slug = None
 
         with patch("app.modules.realtime.routes.realtime.get_actor_context", return_value=ctx):
-            resp = await stream_events(req, token="jwt", fund_slug=None)
+            resp = await stream_events(req, token="jwt")
 
         assert resp.status_code == 200
 

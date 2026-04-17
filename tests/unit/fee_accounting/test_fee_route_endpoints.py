@@ -166,7 +166,7 @@ class TestListFeeSchedules:
         r1 = _mock_schedule_record(share_class="default")
         r2 = _mock_schedule_record(share_class="founders", management_fee_bps=100)
         schedule_repo = AsyncMock()
-        schedule_repo.get_all_by_fund = AsyncMock(return_value=[r1, r2])
+        schedule_repo.list_by_fund = AsyncMock(return_value=[r1, r2])
         session = AsyncMock()
 
         result = await list_fee_schedules(

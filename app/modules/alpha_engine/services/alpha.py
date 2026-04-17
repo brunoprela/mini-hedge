@@ -203,7 +203,7 @@ class AlphaService:
         *,
         session: AsyncSession | None = None,
     ) -> list[ScenarioRun]:
-        records = await self._scenario_repo.get_many(portfolio_id, session=session)
+        records = await self._scenario_repo.list_by_portfolio(portfolio_id, session=session)
         return [
             ScenarioRun(
                 id=UUID(r.id),
@@ -255,7 +255,7 @@ class AlphaService:
         *,
         session: AsyncSession | None = None,
     ) -> list[OptimizationResult]:
-        records = await self._opt_run_repo.get_many(portfolio_id, session=session)
+        records = await self._opt_run_repo.list_by_portfolio(portfolio_id, session=session)
         results = []
         for r in records:
             weight_records = await self._opt_weight_repo.get_by_run(r.id, session=session)
@@ -344,7 +344,7 @@ class AlphaService:
         session: AsyncSession | None = None,
     ) -> np.ndarray:
         """Build synthetic returns matrix from instrument reference data."""
-        instruments = await self._security_master_service.get_all_active(session=session)
+        instruments = await self._security_master_service.list_active(session=session)
         vol_map = {
             i.ticker: i.annual_volatility for i in instruments if i.annual_volatility is not None
         }
@@ -386,7 +386,7 @@ class AlphaService:
             },
             status="completed",
         )
-        await self._scenario_repo.save(record, session=session)
+        await self._scenario_repo.insert(record, session=session)
 
     async def _persist_optimization(
         self, result: OptimizationResult, *, session: AsyncSession | None = None
@@ -427,6 +427,6 @@ class AlphaService:
             for i in result.order_intents
         ]
 
-        await self._opt_run_repo.save(record, session=session)
-        await self._opt_weight_repo.save_many(weights, session=session)
-        await self._intent_repo.save_many(intents, session=session)
+        await self._opt_run_repo.insert(record, session=session)
+        await self._opt_weight_repo.insert_batch(weights, session=session)
+        await self._intent_repo.insert_batch(intents, session=session)

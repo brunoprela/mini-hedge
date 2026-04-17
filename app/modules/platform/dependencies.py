@@ -3,7 +3,11 @@
 from fastapi import HTTPException, Request
 
 from app.modules.platform.core.audit_verifier import AuditIntegrityVerifier
-from app.modules.platform.repositories import AuditLogRepository, PortfolioRepository
+from app.modules.platform.repositories import (
+    AuditLogRepository,
+    FundRepository,
+    PortfolioRepository,
+)
 from app.modules.platform.repositories.api_key import APIKeyRepository
 from app.modules.platform.services import AdminService, AuthService
 from app.shared.audit.archival_service import ArchivalService
@@ -20,6 +24,13 @@ def get_portfolio_repo(request: Request) -> PortfolioRepository:
     repo: PortfolioRepository | None = getattr(request.app.state, "portfolio_repo", None)
     if repo is None:
         raise HTTPException(status_code=503, detail="PortfolioRepository not initialized")
+    return repo
+
+
+def get_fund_repo(request: Request) -> FundRepository:
+    repo: FundRepository | None = getattr(request.app.state, "fund_repo", None)
+    if repo is None:
+        raise HTTPException(status_code=503, detail="FundRepository not initialized")
     return repo
 
 

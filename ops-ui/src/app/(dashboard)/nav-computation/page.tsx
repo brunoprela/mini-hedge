@@ -5,17 +5,9 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Loader2, Calculator, CheckCircle } from "lucide-react";
 import { FundPortfolioPicker } from "@/shared/components/fund-portfolio-picker";
-import { ErrorState } from "@/shared/components/error-state";
-import { StatusBadge } from "@/shared/components/status-badge";
-import { apiFetch } from "@/shared/lib/api";
-import type { EODRunSummary } from "@/shared/types";
-
-interface NAVHistoryPoint {
-  portfolio_id: string;
-  business_date: string;
-  nav: string;
-  nav_per_share: string;
-}
+import { ErrorState, TableSkeleton } from "@mini-hedge/ui";
+import { StatusBadge } from "@mini-hedge/ui";
+import { api, fundHeaders } from "@/shared/lib/api-client";
 
 type Tab = "history" | "runs";
 
@@ -53,10 +45,6 @@ function formatDatetime(iso: string): string {
   });
 }
 
-function truncateId(id: string): string {
-  return id.length > 12 ? `${id.slice(0, 12)}...` : id;
-}
-
 export default function NAVComputationPage() {
   const queryClient = useQueryClient();
   const [fundSlug, setFundSlug] = useState("");
@@ -68,25 +56,39 @@ export default function NAVComputationPage() {
 
   const navHistory = useQuery({
     queryKey: ["nav", "history", fundSlug],
-    queryFn: () =>
-      apiFetch<NAVHistoryPoint[]>(
-        `eod/nav/history?fund_slug=${encodeURIComponent(fundSlug)}&period=90d`,
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/eod/nav/history", {
+        params: { query: { period: "90d" } },
+        headers: fundHeaders(fundSlug),
+      });
+      if (error) throw error;
+      return data;
+    },
     enabled: !!fundSlug,
   });
 
   const eodHistory = useQuery({
     queryKey: ["eod", "history", fundSlug],
-    queryFn: () =>
-      apiFetch<EODRunSummary[]>(
-        `eod/history?fund_slug=${encodeURIComponent(fundSlug)}&limit=20`,
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/eod/history", {
+        params: { query: { limit: 20 } },
+        headers: fundHeaders(fundSlug),
+      });
+      if (error) throw error;
+      return data;
+    },
     enabled: !!fundSlug,
   });
 
   const calculateNav = useMutation({
-    mutationFn: (data: { fund_slug: string; business_date: string }) =>
-      apiFetch("eod/run", { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: async (data: { fund_slug: string; business_date: string }) => {
+      const { data: result, error } = await api.POST("/api/v1/eod/run", {
+        body: { business_date: data.business_date },
+        headers: fundHeaders(data.fund_slug),
+      });
+      if (error) throw error;
+      return result;
+    },
     onSuccess: () => {
       toast.success("NAV calculation triggered");
       queryClient.invalidateQueries({ queryKey: ["nav"] });
@@ -254,9 +256,7 @@ export default function NAVComputationPage() {
           {activeTab === "history" && (
             <>
               {navHistory.isLoading ? (
-                <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
-                  Loading...
-                </p>
+                <TableSkeleton rows={6} columns={4} />
               ) : navHistory.isError ? (
                 <ErrorState
                   message="Failed to load NAV history"
@@ -283,12 +283,12 @@ export default function NAVComputationPage() {
                       )}
                       {sortedNav.map((row) => (
                         <tr
-                          key={`${row.business_date}-${row.portfolio_id}`}
+                          key={row.business_date}
                           className="transition-colors hover:bg-[var(--table-row-hover)]"
                         >
                           <td className="px-3 py-2 text-sm font-mono">{row.business_date}</td>
-                          <td className="px-3 py-2 text-sm font-mono text-[var(--muted-foreground)]" title={row.portfolio_id}>
-                            {truncateId(row.portfolio_id)}
+                          <td className="px-3 py-2 text-sm font-mono text-[var(--muted-foreground)]">
+                            —
                           </td>
                           <td className="px-3 py-2 text-sm text-right font-mono">{formatCurrency(row.nav)}</td>
                           <td className="px-3 py-2 text-sm text-right font-mono">{formatNavPerShare(row.nav_per_share)}</td>
@@ -305,9 +305,7 @@ export default function NAVComputationPage() {
           {activeTab === "runs" && (
             <>
               {eodHistory.isLoading ? (
-                <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
-                  Loading...
-                </p>
+                <TableSkeleton rows={6} columns={5} />
               ) : eodHistory.isError ? (
                 <ErrorState
                   message="Failed to load computation runs"

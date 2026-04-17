@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 class RedemptionRequestRepository(BaseRepository):
     """CRUD for positions.redemption_requests."""
 
-    async def save(
+    async def insert(
         self, record: RedemptionRequestRecord, *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as s:

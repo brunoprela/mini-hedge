@@ -87,7 +87,7 @@ class FXHedgingService:
             status=FXForwardStatus.OPEN,
             counterparty=create.counterparty,
         )
-        record = await self._forward_repo.create(record, session=session)
+        record = await self._forward_repo.insert(record, session=session)
         logger.info(
             "fx_forward_opened",
             forward_id=record.id,
@@ -211,7 +211,7 @@ class FXHedgingService:
             counterparty=record.counterparty,
             roll_from_id=str(forward_id),
         )
-        new_record = await self._forward_repo.create(new_record, session=session)
+        new_record = await self._forward_repo.insert(new_record, session=session)
         logger.info(
             "fx_forward_rolled",
             old_forward_id=str(forward_id),
@@ -512,7 +512,7 @@ class FXHedgingService:
         *,
         session: AsyncSession | None = None,
     ) -> list[FXInterestRateRecord]:
-        return await self._rate_repo.get_all(session=session)
+        return await self._rate_repo.list_all(session=session)
 
     # -- Internal helpers --------------------------------------------------
 

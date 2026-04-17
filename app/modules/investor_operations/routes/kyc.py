@@ -16,6 +16,10 @@ from app.shared.auth import Permission, require_permission
 from app.shared.auth.request_context import RequestContext
 from app.shared.database import get_db
 
+_DEFAULT_REDEMPTION_FREQUENCY = "quarterly"
+_DEFAULT_GATE_PCT = Decimal("0.25")
+_DEFAULT_MIN_SUBSCRIPTION = Decimal("1000000")
+
 router = APIRouter(prefix="/investor-operations", tags=["investor-operations"])
 
 
@@ -28,9 +32,9 @@ class CreateFundTermsRequest(BaseModel):
     share_class: str
     lock_up_months: int = 12
     notice_period_days: int = 45
-    redemption_frequency: str = "quarterly"
-    gate_pct: Decimal = Decimal("0.25")
-    minimum_subscription: Decimal = Decimal("1000000")
+    redemption_frequency: str = _DEFAULT_REDEMPTION_FREQUENCY
+    gate_pct: Decimal = _DEFAULT_GATE_PCT
+    minimum_subscription: Decimal = _DEFAULT_MIN_SUBSCRIPTION
     minimum_redemption: Decimal = Decimal("100000")
     dealing_day: int = -1
     payment_days: int = 30

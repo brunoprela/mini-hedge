@@ -37,7 +37,7 @@ def _make_service(
     with_event_bus: bool = False,
 ) -> tuple[FundAdminService, AsyncMock, AsyncMock, AsyncMock]:
     fund_repo = AsyncMock()
-    fund_repo.get_all_paginated = AsyncMock(return_value=([], 0))
+    fund_repo.list_paginated = AsyncMock(return_value=([], 0))
     fund_repo.get_by_slug = AsyncMock(return_value=existing_fund)
 
     async def _insert_with_id(record, **kw):
@@ -69,7 +69,7 @@ class TestListFunds:
     async def test_returns_paginated_funds(self) -> None:
         svc, fund_repo, _, _ = _make_service()
         records = [_make_fund_record("f1", "fund-a", "Fund A"), _make_fund_record("f2", "fund-b", "Fund B")]
-        fund_repo.get_all_paginated = AsyncMock(return_value=(records, 2))
+        fund_repo.list_paginated = AsyncMock(return_value=(records, 2))
 
         result = await svc.list_funds(limit=10, offset=0)
 

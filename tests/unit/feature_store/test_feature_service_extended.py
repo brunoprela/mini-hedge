@@ -295,7 +295,7 @@ class TestCreateFeatureSet:
             record.id = str(uuid4())
             record.created_at = NOW
 
-        set_repo.create.side_effect = _seed_set
+        set_repo.insert.side_effect = _seed_set
 
         svc = _make_service(set_repo=set_repo)
         result = await svc.create_feature_set(
@@ -308,7 +308,7 @@ class TestCreateFeatureSet:
         assert result.name == "momentum_set"
         assert result.feature_names == ["sma_5", "rsi_14"]
         assert result.entity_type == "instrument"
-        set_repo.create.assert_called_once()
+        set_repo.insert.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

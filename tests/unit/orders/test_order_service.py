@@ -202,7 +202,7 @@ class TestCreateOrderApproved:
                 avg_fill_price=kwargs.get("avg_fill_price"),
             )
 
-        order_repo.save.side_effect = save_side_effect
+        order_repo.insert.side_effect = save_side_effect
         order_repo.update_state.side_effect = update_state_side_effect
 
         request = make_order_request(portfolio_id=UUID(portfolio_id))
@@ -219,7 +219,7 @@ class TestCreateOrderApproved:
     ):
         compliance_gw.check.return_value = _approved_decision()
         order_id = str(uuid4())
-        order_repo.save.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
+        order_repo.insert.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
         order_repo.update_state.side_effect = lambda oid, state, **kw: _make_order_record(
             id=order_id,
             state=state,
@@ -243,7 +243,7 @@ class TestCreateOrderApproved:
     ):
         compliance_gw.check.return_value = _approved_decision()
         order_id = str(uuid4())
-        order_repo.save.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
+        order_repo.insert.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
         order_repo.update_state.side_effect = lambda oid, state, **kw: _make_order_record(
             id=order_id, state=state
         )
@@ -271,7 +271,7 @@ class TestCreateOrderRejected:
     ):
         compliance_gw.check.return_value = _rejected_decision()
         order_id = str(uuid4())
-        order_repo.save.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
+        order_repo.insert.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
         order_repo.update_state.side_effect = lambda oid, state, **kw: _make_order_record(
             id=order_id, state=state, rejection_reason=kw.get("rejection_reason")
         )
@@ -288,7 +288,7 @@ class TestCreateOrderRejected:
     ):
         compliance_gw.check.return_value = _rejected_decision()
         order_id = str(uuid4())
-        order_repo.save.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
+        order_repo.insert.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
         order_repo.update_state.side_effect = lambda oid, state, **kw: _make_order_record(
             id=order_id, state=state
         )
@@ -307,7 +307,7 @@ class TestCreateOrderRejected:
     ):
         compliance_gw.check.return_value = _rejected_decision()
         order_id = str(uuid4())
-        order_repo.save.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
+        order_repo.insert.side_effect = lambda r, **kw: setattr(r, "id", order_id) or r
         order_repo.update_state.side_effect = lambda oid, state, **kw: _make_order_record(
             id=order_id, state=state
         )

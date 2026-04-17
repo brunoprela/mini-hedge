@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger()
 
+_DEFAULT_SPINOFF_ALLOCATION = Decimal("0.20")
+
 
 def compute_adjustments(
     action: CorporateAction,
@@ -84,7 +86,7 @@ def _stock_split(
 
     ``action.amount`` is the split ratio (e.g. 2.0 for a 2:1 split).
     """
-    ratio = action.amount or Decimal(1)
+    ratio = action.amount if action.amount and action.amount > 0 else Decimal(1)
     quantity_delta = quantity * (ratio - Decimal(1))
     # New total cost basis stays the same; per-share cost drops.
     # Adjustment = new_cost_basis - old_cost_basis = 0, but we express as
@@ -110,7 +112,7 @@ def _reverse_split(
     ``action.amount`` is the ratio (e.g. 3.0 for a 3:1 reverse split,
     meaning every 3 old shares become 1 new share).
     """
-    ratio = action.amount or Decimal(1)
+    ratio = action.amount if action.amount and action.amount > 0 else Decimal(1)
     # In a 3:1 reverse split the holder keeps quantity / ratio shares.
     quantity_delta = quantity * (Decimal(1) / ratio - Decimal(1))
     # Total cost basis unchanged; per-share cost increases by ratio.
@@ -142,7 +144,7 @@ def _spinoff(
        The child instrument_id is encoded as ``<parent>-SPINOFF`` by the
        mock exchange; a real feed would supply the actual new ticker.
     """
-    ratio = action.amount or Decimal("0.20")  # default 20% allocation
+    ratio = action.amount or _DEFAULT_SPINOFF_ALLOCATION
     allocated_basis = cost_basis * ratio
 
     child_instrument_id = f"{action.instrument_id}-SPINOFF"

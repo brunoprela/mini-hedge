@@ -58,7 +58,7 @@ def _make_service(
     sf = MagicMock()
     repo = AsyncMock()
     repo.get_by_action_id = AsyncMock(return_value=existing_record)
-    repo.save = AsyncMock(side_effect=_stamp)
+    repo.insert = AsyncMock(side_effect=_stamp)
     repo.list_all = AsyncMock(return_value=[])
 
     adapter = AsyncMock()
@@ -105,8 +105,8 @@ class TestProcessingExceptionPath:
         assert results[0].status == ProcessingStatus.FAILED
 
         # Verify the failed record was persisted
-        svc._repo.save.assert_called_once()
-        saved_record = svc._repo.save.call_args.args[0]
+        svc._repo.insert.assert_called_once()
+        saved_record = svc._repo.insert.call_args.args[0]
         assert saved_record.status == ProcessingStatus.FAILED.value
         assert saved_record.error_message == "boom"
 

@@ -109,13 +109,13 @@ class TestFundRepository:
         assert result is fund
 
     @pytest.mark.asyncio
-    async def test_get_all_active(self) -> None:
+    async def test_list_active(self) -> None:
         repo = self._make_repo()
         session = _mock_session()
         funds = [MagicMock(spec=FundRecord), MagicMock(spec=FundRecord)]
         session.execute.return_value = _scalars_result(funds)
 
-        result = await repo.get_all_active(session=session)
+        result = await repo.list_active(session=session)
 
         assert len(result) == 2
 
@@ -126,18 +126,18 @@ class TestFundRepository:
         funds = [MagicMock(spec=FundRecord)]
         session.execute.return_value = _scalars_result(funds)
 
-        result = await repo.get_all(session=session)
+        result = await repo.list_all(session=session)
 
         assert len(result) == 1
 
     @pytest.mark.asyncio
-    async def test_get_all_paginated(self) -> None:
+    async def test_list_paginated(self) -> None:
         repo = self._make_repo()
         session = _mock_session()
         funds = [MagicMock(spec=FundRecord)]
         session.execute.side_effect = _count_then_list(5, funds)
 
-        result, total = await repo.get_all_paginated(limit=10, offset=0, session=session)
+        result, total = await repo.list_paginated(limit=10, offset=0, session=session)
 
         assert total == 5
         assert len(result) == 1
@@ -213,24 +213,24 @@ class TestCustomerRepository:
         assert result is customer
 
     @pytest.mark.asyncio
-    async def test_get_all_active(self) -> None:
+    async def test_list_active(self) -> None:
         repo = self._make_repo()
         session = _mock_session()
         customers = [MagicMock(spec=CustomerRecord)]
         session.execute.return_value = _scalars_result(customers)
 
-        result = await repo.get_all_active(session=session)
+        result = await repo.list_active(session=session)
 
         assert len(result) == 1
 
     @pytest.mark.asyncio
-    async def test_get_all_paginated(self) -> None:
+    async def test_list_paginated(self) -> None:
         repo = self._make_repo()
         session = _mock_session()
         customers = [MagicMock(spec=CustomerRecord)]
         session.execute.side_effect = _count_then_list(3, customers)
 
-        records, total = await repo.get_all_paginated(limit=10, offset=0, session=session)
+        records, total = await repo.list_paginated(limit=10, offset=0, session=session)
 
         assert total == 3
         assert len(records) == 1
@@ -401,13 +401,13 @@ class TestUserRepository:
         session.refresh.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_all_active(self) -> None:
+    async def test_list_active(self) -> None:
         repo = self._make_repo()
         session = _mock_session()
         users = [MagicMock(spec=UserRecord)]
         session.execute.return_value = _scalars_result(users)
 
-        result = await repo.get_all_active(session=session)
+        result = await repo.list_active(session=session)
 
         assert len(result) == 1
 
@@ -418,18 +418,18 @@ class TestUserRepository:
         users = [MagicMock(spec=UserRecord)]
         session.execute.return_value = _scalars_result(users)
 
-        result = await repo.get_all(session=session)
+        result = await repo.list_all(session=session)
 
         assert len(result) == 1
 
     @pytest.mark.asyncio
-    async def test_get_all_paginated(self) -> None:
+    async def test_list_paginated(self) -> None:
         repo = self._make_repo()
         session = _mock_session()
         users = [MagicMock(spec=UserRecord)]
         session.execute.side_effect = _count_then_list(10, users)
 
-        records, total = await repo.get_all_paginated(limit=5, offset=0, session=session)
+        records, total = await repo.list_paginated(limit=5, offset=0, session=session)
 
         assert total == 10
         assert len(records) == 1
@@ -586,13 +586,13 @@ class TestOperatorRepository:
         session.refresh.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_all_active(self) -> None:
+    async def test_list_active(self) -> None:
         repo = self._make_repo()
         session = _mock_session()
         ops = [MagicMock(spec=OperatorRecord)]
         session.execute.return_value = _scalars_result(ops)
 
-        result = await repo.get_all_active(session=session)
+        result = await repo.list_active(session=session)
 
         assert len(result) == 1
 
@@ -603,18 +603,18 @@ class TestOperatorRepository:
         ops = [MagicMock(spec=OperatorRecord)]
         session.execute.return_value = _scalars_result(ops)
 
-        result = await repo.get_all(session=session)
+        result = await repo.list_all(session=session)
 
         assert len(result) == 1
 
     @pytest.mark.asyncio
-    async def test_get_all_paginated(self) -> None:
+    async def test_list_paginated(self) -> None:
         repo = self._make_repo()
         session = _mock_session()
         ops = [MagicMock(spec=OperatorRecord)]
         session.execute.side_effect = _count_then_list(7, ops)
 
-        records, total = await repo.get_all_paginated(limit=10, offset=0, session=session)
+        records, total = await repo.list_paginated(limit=10, offset=0, session=session)
 
         assert total == 7
         assert len(records) == 1

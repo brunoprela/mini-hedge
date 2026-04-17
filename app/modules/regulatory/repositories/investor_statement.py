@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class InvestorStatementRepository(BaseRepository):
     """CRUD for InvestorStatementRecord."""
 
-    async def save(
+    async def insert(
         self, record: InvestorStatementRecord, *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as session:

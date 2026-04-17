@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 class FXForwardRepository(BaseRepository):
     """CRUD for FX forward contracts."""
 
-    async def create(
+    async def insert(
         self,
         record: FXForwardRecord,
         *,

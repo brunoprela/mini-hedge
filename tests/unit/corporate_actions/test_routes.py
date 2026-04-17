@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from app.modules.corporate_actions.routes.corporate_action import (
+    ProcessCorporateActionsRequest,
     list_corporate_actions,
     process_corporate_actions,
 )
@@ -38,15 +39,20 @@ class TestProcessCorporateActions:
         service = AsyncMock()
         service.fetch_and_process = AsyncMock(return_value=[])
         session = AsyncMock()
+        portfolio_repo = AsyncMock()
         ctx = MagicMock()
         ctx.fund_slug = "alpha"
 
-        result = await process_corporate_actions(
+        body = ProcessCorporateActionsRequest(
             portfolio_id="p1",
             start_date=date(2026, 4, 1),
             end_date=date(2026, 4, 30),
+        )
+        result = await process_corporate_actions(
+            body=body,
             request_context=ctx,
             service=service,
+            portfolio_repo=portfolio_repo,
             session=session,
         )
 
@@ -65,16 +71,21 @@ class TestProcessCorporateActions:
 
         service = AsyncMock()
         session = AsyncMock()
+        portfolio_repo = AsyncMock()
         ctx = MagicMock()
         ctx.fund_slug = None
 
+        body = ProcessCorporateActionsRequest(
+            portfolio_id="p1",
+            start_date=date(2026, 4, 1),
+            end_date=date(2026, 4, 30),
+        )
         with pytest.raises(HTTPException) as exc_info:
             await process_corporate_actions(
-                portfolio_id="p1",
-                start_date=date(2026, 4, 1),
-                end_date=date(2026, 4, 30),
+                body=body,
                 request_context=ctx,
                 service=service,
+                portfolio_repo=portfolio_repo,
                 session=session,
             )
 
@@ -86,16 +97,21 @@ class TestProcessCorporateActions:
 
         service = AsyncMock()
         session = AsyncMock()
+        portfolio_repo = AsyncMock()
         ctx = MagicMock()
         ctx.fund_slug = ""
 
+        body = ProcessCorporateActionsRequest(
+            portfolio_id="p1",
+            start_date=date(2026, 4, 1),
+            end_date=date(2026, 4, 30),
+        )
         with pytest.raises(HTTPException) as exc_info:
             await process_corporate_actions(
-                portfolio_id="p1",
-                start_date=date(2026, 4, 1),
-                end_date=date(2026, 4, 30),
+                body=body,
                 request_context=ctx,
                 service=service,
+                portfolio_repo=portfolio_repo,
                 session=session,
             )
 

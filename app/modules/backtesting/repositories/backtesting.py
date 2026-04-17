@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 class BacktestRepository(BaseRepository):
     """CRUD operations for backtest runs."""
 
-    async def create(
+    async def insert(
         self,
         record: BacktestRunRecord,
         *,
@@ -32,14 +32,16 @@ class BacktestRepository(BaseRepository):
         self,
         backtest_id: str,
         *,
+        fund_slug: str | None = None,
         session: AsyncSession | None = None,
     ) -> BacktestRunRecord | None:
         async with self._session(session) as s:
-            result = await s.execute(
-                select(BacktestRunRecord).where(
-                    BacktestRunRecord.id == backtest_id,
-                )
+            stmt = select(BacktestRunRecord).where(
+                BacktestRunRecord.id == backtest_id,
             )
+            if fund_slug is not None:
+                stmt = stmt.where(BacktestRunRecord.fund_slug == fund_slug)
+            result = await s.execute(stmt)
             return result.scalar_one_or_none()
 
     async def list_all(
@@ -97,12 +99,15 @@ class BacktestRepository(BaseRepository):
         self,
         backtest_id: str,
         *,
+        fund_slug: str | None = None,
         session: AsyncSession | None = None,
     ) -> None:
         async with self._session(session) as s:
-            await s.execute(
-                delete(BacktestRunRecord).where(
-                    BacktestRunRecord.id == backtest_id,
-                )
+            stmt = delete(BacktestRunRecord).where(
+                BacktestRunRecord.id == backtest_id,
+            )
+            if fund_slug is not None:
+                stmt = stmt.where(BacktestRunRecord.fund_slug == fund_slug)
+            await s.execute(stmt
             )
             await s.commit()

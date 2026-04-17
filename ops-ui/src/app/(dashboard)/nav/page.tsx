@@ -3,16 +3,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { FundPortfolioPicker } from "@/shared/components/fund-portfolio-picker";
-import { ErrorState } from "@/shared/components/error-state";
-import { TableSkeleton } from "@/shared/components/loading-skeleton";
-import { apiFetch } from "@/shared/lib/api";
-
-interface NAVHistoryPoint {
-  portfolio_id: string;
-  business_date: string;
-  nav: string;
-  nav_per_share: string;
-}
+import { ErrorState } from "@mini-hedge/ui";
+import { TableSkeleton } from "@mini-hedge/ui";
+import { api, fundHeaders } from "@/shared/lib/api-client";
 
 function formatCurrency(value: string | number) {
   return Number(value).toLocaleString("en-US", {
@@ -33,10 +26,14 @@ export default function NAVReviewPage() {
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["nav", "history", fundSlug],
-    queryFn: () =>
-      apiFetch<NAVHistoryPoint[]>(
-        `eod/nav/history?fund_slug=${fundSlug}&period=90d`,
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/eod/nav/history", {
+        params: { query: { period: "90d" } },
+        headers: fundHeaders(fundSlug),
+      });
+      if (error) throw error;
+      return data;
+    },
     enabled,
   });
 

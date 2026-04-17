@@ -26,7 +26,16 @@ if TYPE_CHECKING:
 logger = structlog.get_logger()
 
 # Paths that skip authentication
-PUBLIC_PATHS = {"/health", "/healthz", "/readyz", "/metrics", "/docs", "/openapi.json", "/redoc"}
+PUBLIC_PATHS = {
+    "/health",
+    "/health/ready",
+    "/healthz",
+    "/readyz",
+    "/metrics",
+    "/docs",
+    "/openapi.json",
+    "/redoc",
+}
 
 # Paths where the JWT is in the query string (e.g. browser EventSource API)
 _QUERY_TOKEN_PATHS = {"/api/v1/stream/events"}

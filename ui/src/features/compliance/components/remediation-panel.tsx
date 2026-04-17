@@ -38,7 +38,7 @@ export function RemediationPanel({ portfolioId }: { portfolioId: string; fundSlu
                 Quantity
               </th>
               <th scope="col" className="whitespace-nowrap px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-                Reason
+                Rule
               </th>
               <th scope="col" className="whitespace-nowrap px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
                 Action
@@ -64,7 +64,7 @@ export function RemediationPanel({ portfolioId }: { portfolioId: string; fundSlu
                   </span>
                 </td>
                 <td className="px-3 py-1.5 text-[var(--muted-foreground)]">{s.quantity}</td>
-                <td className="px-3 py-1.5 text-[var(--muted-foreground)]">{s.reason}</td>
+                <td className="px-3 py-1.5 text-[var(--muted-foreground)]">{s.rule_name}</td>
                 <td className="px-3 py-1.5">
                   <Link
                     href={`/${fundSlug}/portfolio/${portfolioId}?tab=positions&trade_instrument=${encodeURIComponent(s.instrument_id)}&trade_side=${s.side.toLowerCase()}&trade_qty=${s.quantity}`}

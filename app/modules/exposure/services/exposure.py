@@ -66,7 +66,7 @@ class ExposureService:
     ) -> list[PositionValue]:
         """Build valued position list from live positions + security master."""
         positions = await self._position_service.get_by_portfolio(portfolio_id, session=session)
-        instruments = await self._security_master_service.get_all_active(session=session)
+        instruments = await self._security_master_service.list_active(session=session)
         instr_map = {i.ticker: i for i in instruments}
 
         position_values: list[PositionValue] = []
@@ -123,7 +123,7 @@ class ExposureService:
         session: AsyncSession | None = None,
     ) -> list[ExposureSnapshot]:
         """Return persisted exposure snapshots for a time range."""
-        records = await self._exposure_repo.get_history(portfolio_id, start, end, session=session)
+        records = await self._exposure_repo.list_history(portfolio_id, start, end, session=session)
         return [
             ExposureSnapshot(
                 id=UUID(r.id),
@@ -175,7 +175,7 @@ class ExposureService:
             breakdowns=breakdowns_json,
             snapshot_at=exposure.calculated_at,
         )
-        await self._exposure_repo.save_snapshot(record, session=session)
+        await self._exposure_repo.insert_snapshot(record, session=session)
         await self._publish_exposure_event(exposure, fund_slug)
         logger.debug(
             "exposure_snapshot_saved",

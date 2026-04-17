@@ -46,7 +46,7 @@ class RoutingRepository(BaseRepository):
             result = await session.execute(stmt)
             return list(result.scalars().all())
 
-    async def save_rule(
+    async def insert_rule(
         self,
         record: RoutingRuleRecord,
         *,
@@ -78,7 +78,7 @@ class RoutingRepository(BaseRepository):
 
     # --- Routing decisions (audit trail) ---
 
-    async def save_decision(
+    async def insert_decision(
         self,
         record: RoutingDecisionRecord,
         *,

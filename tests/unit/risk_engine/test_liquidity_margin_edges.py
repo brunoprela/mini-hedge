@@ -46,21 +46,21 @@ def _make_service(
     cash_service: AsyncMock | None = None,
 ) -> tuple[LiquidityMarginService, AsyncMock, AsyncMock]:
     liquidity_repo = AsyncMock()
-    liquidity_repo.save_liquidity_profile = AsyncMock()
+    liquidity_repo.insert_liquidity_profile = AsyncMock()
     margin_repo = AsyncMock()
-    margin_repo.save_margin_requirement = AsyncMock()
+    margin_repo.insert_margin_requirement = AsyncMock()
 
     position_service = AsyncMock()
-    position_service.get_positions = AsyncMock(return_value=positions or [])
+    position_service.get_by_portfolio = AsyncMock(return_value=positions or [])
 
     sm_service = AsyncMock()
 
-    async def _get_instrument(instrument_id: str, **kw) -> MagicMock | None:
+    async def _get_by_ticker(instrument_id: str, **kw) -> MagicMock | None:
         if instruments and instrument_id in instruments:
             return instruments[instrument_id]
         return _make_instrument(instrument_id)
 
-    sm_service.get_instrument = AsyncMock(side_effect=_get_instrument)
+    sm_service.get_by_ticker = AsyncMock(side_effect=_get_by_ticker)
 
     svc = LiquidityMarginService(
         liquidity_repo=liquidity_repo,
@@ -90,7 +90,7 @@ class TestCalculateMarginCashService:
         cash_svc.get_total_balance.assert_called_once()
         # margin_available should be 2M from cash service
         assert result.margin_available == Decimal("2000000")
-        margin_repo.save_margin_requirement.assert_called_once()
+        margin_repo.insert_margin_requirement.assert_called_once()
 
     async def test_cash_service_failure_falls_back(self) -> None:
         """When cash service raises, should fall back to estimated cash."""
@@ -104,7 +104,7 @@ class TestCalculateMarginCashService:
 
         assert result.portfolio_id == _PORT_ID
         # Should still work with estimated cash (60% of NAV)
-        margin_repo.save_margin_requirement.assert_called_once()
+        margin_repo.insert_margin_requirement.assert_called_once()
 
     async def test_margin_call_logged(self) -> None:
         """Margin call should be triggered when cash is insufficient."""
@@ -118,4 +118,4 @@ class TestCalculateMarginCashService:
         result = await svc.calculate_margin(_PORT_ID)
 
         assert result.margin_call_triggered is True
-        margin_repo.save_margin_requirement.assert_called_once()
+        margin_repo.insert_margin_requirement.assert_called_once()

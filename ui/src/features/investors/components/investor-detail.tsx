@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
+import { LoadingSkeleton } from "@mini-hedge/ui";
 import {
   investorHistoryQueryOptions,
   investorTransactionsQueryOptions,
@@ -74,7 +75,7 @@ export function InvestorDetail({ investorId }: { investorId: string }) {
         />
       )}
 
-      {historyLoading && <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>}
+      {historyLoading && <LoadingSkeleton variant="text" rows={3} />}
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-[var(--border)]">

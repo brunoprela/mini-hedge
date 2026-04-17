@@ -1,52 +1,55 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ErrorState } from "@/shared/components/error-state";
+import { CardSkeleton, ErrorState } from "@mini-hedge/ui";
 import { PayloadCell } from "@/shared/components/payload-cell";
-import { StatusBadge } from "@/shared/components/status-badge";
-import { apiFetch } from "@/shared/lib/api";
+import { StatusBadge } from "@mini-hedge/ui";
+import { api } from "@/shared/lib/api-client";
 import { eventCategory } from "@/shared/lib/audit-utils";
-import type { AuditEntry, Page } from "@/shared/types";
-
-interface FundInfo {
-  id: string;
-  slug: string;
-  name: string;
-}
-
-interface UserInfo {
-  id: string;
-  email: string;
-}
-
-interface CustomerInfo {
-  id: string;
-  slug: string;
-  name: string;
-}
 
 export default function CrossClientPage() {
   const customersQuery = useQuery({
     queryKey: ["cross-client", "customers"],
-    queryFn: () =>
-      apiFetch<Page<CustomerInfo>>("admin/customers?limit=100"),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/admin/customers", {
+        params: { query: { limit: 100 } },
+      });
+      if (error) throw error;
+      return data;
+    },
   });
 
   const fundsQuery = useQuery({
     queryKey: ["cross-client", "funds"],
-    queryFn: () =>
-      apiFetch<Page<FundInfo>>("admin/funds?limit=100"),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/admin/funds", {
+        params: { query: { limit: 100 } },
+      });
+      if (error) throw error;
+      return data;
+    },
   });
 
   const usersQuery = useQuery({
     queryKey: ["cross-client", "users"],
-    queryFn: () => apiFetch<Page<UserInfo>>("admin/users?limit=1"),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/admin/users", {
+        params: { query: { limit: 1 } },
+      });
+      if (error) throw error;
+      return data;
+    },
   });
 
   const auditQuery = useQuery({
     queryKey: ["cross-client", "audit"],
-    queryFn: () =>
-      apiFetch<Page<AuditEntry>>("admin/audit?limit=20"),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/admin/audit", {
+        params: { query: { limit: 20 } },
+      });
+      if (error) throw error;
+      return data;
+    },
   });
 
   const isLoading =
@@ -77,11 +80,7 @@ export default function CrossClientPage() {
     <div>
       <h2 className="mb-6 text-xl font-semibold">Cross-Client Dashboard</h2>
 
-      {isLoading && (
-        <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
-          Loading...
-        </p>
-      )}
+      {isLoading && <CardSkeleton count={4} />}
 
       {hasError && (
         <ErrorState

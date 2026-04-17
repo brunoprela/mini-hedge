@@ -54,8 +54,10 @@ def _mock_session() -> AsyncMock:
     return AsyncMock()
 
 
-def _mock_ctx() -> MagicMock:
-    return MagicMock()
+def _mock_ctx(fund_slug: str = "alpha") -> MagicMock:
+    ctx = MagicMock()
+    ctx.fund_slug = fund_slug
+    return ctx
 
 
 def _mf_link(**overrides) -> MasterFeederLink:
@@ -155,14 +157,8 @@ class TestGetFeederMaster:
     @pytest.mark.asyncio
     async def test_returns_link_when_found(self) -> None:
         svc = _mock_service()
-        record = MagicMock()
-        record.id = str(uuid4())
-        record.master_fund_slug = "alpha"
-        record.feeder_fund_slug = "beta"
-        record.allocation_pct = Decimal("0.40")
-        record.is_active = True
-        record.created_at = NOW
-        svc._mf_repo.get_master_for_feeder.return_value = record
+        link = _mf_link(master_fund_slug="alpha", feeder_fund_slug="beta")
+        svc.get_master_for_feeder.return_value = link
         session = _mock_session()
 
         result = await get_feeder_master(
@@ -172,13 +168,13 @@ class TestGetFeederMaster:
             session=session,
         )
 
-        assert isinstance(result, MasterFeederLink)
-        assert result.master_fund_slug == "alpha"
+        assert result is link
+        svc.get_master_for_feeder.assert_awaited_once_with("beta", session=session)
 
     @pytest.mark.asyncio
     async def test_returns_none_when_not_found(self) -> None:
         svc = _mock_service()
-        svc._mf_repo.get_master_for_feeder.return_value = None
+        svc.get_master_for_feeder.return_value = None
         session = _mock_session()
 
         result = await get_feeder_master(
@@ -282,17 +278,8 @@ class TestUpdateBook:
     @pytest.mark.asyncio
     async def test_returns_updated_book(self) -> None:
         svc = _mock_service()
-        record = MagicMock()
-        record.id = str(uuid4())
-        record.fund_slug = "alpha"
-        record.name = "Updated"
-        record.level = "strategy"
-        record.parent_id = None
-        record.portfolio_id = None
-        record.target_allocation_pct = Decimal("0.7")
-        record.is_active = True
-        svc._sb_repo.update.return_value = record
-        svc._to_strategy_book.return_value = _strategy_book(name="Updated")
+        updated = _strategy_book(name="Updated", target_allocation_pct=Decimal("0.7"))
+        svc.update_book.return_value = updated
         book_id = uuid4()
         body = UpdateBookRequest(name="Updated", target_allocation_pct=Decimal("0.7"))
         session = _mock_session()
@@ -305,8 +292,8 @@ class TestUpdateBook:
             session=session,
         )
 
-        assert result is not None
-        svc._sb_repo.update.assert_awaited_once_with(
+        assert result is updated
+        svc.update_book.assert_awaited_once_with(
             str(book_id),
             name="Updated",
             target_pct=Decimal("0.7"),
@@ -316,7 +303,7 @@ class TestUpdateBook:
     @pytest.mark.asyncio
     async def test_returns_none_when_not_found(self) -> None:
         svc = _mock_service()
-        svc._sb_repo.update.return_value = None
+        svc.update_book.return_value = None
         body = UpdateBookRequest(name="X")
         session = _mock_session()
 
@@ -345,7 +332,7 @@ class TestDeleteBook:
             session=session,
         )
 
-        svc._sb_repo.delete.assert_awaited_once_with(str(book_id), session=session)
+        svc.delete_book.assert_awaited_once_with(str(book_id), session=session)
 
 
 class TestCheckRebalance:

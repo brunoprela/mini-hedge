@@ -67,12 +67,12 @@ def capture(event_bus: InProcessEventBus) -> EventCapture:
 def analysis_repo() -> AsyncMock:
     repo = AsyncMock()
 
-    # save_result mutates the passed record (assigns id/created_at server-side)
-    async def _save_result(record, *, session=None):
+    # insert_result mutates the passed record (assigns id/created_at server-side)
+    async def _insert_result(record, *, session=None):
         record.id = FAKE_UUID
         record.created_at = NOW
 
-    repo.save_result.side_effect = _save_result
+    repo.insert_result.side_effect = _insert_result
     return repo
 
 
@@ -80,11 +80,11 @@ def analysis_repo() -> AsyncMock:
 def note_repo() -> AsyncMock:
     repo = AsyncMock()
 
-    async def _save_note(record, *, session=None):
+    async def _insert_note(record, *, session=None):
         record.id = FAKE_UUID
         record.created_at = NOW
 
-    repo.save_note.side_effect = _save_note
+    repo.insert_note.side_effect = _insert_note
     return repo
 
 
@@ -143,7 +143,7 @@ class TestRunAnalysisStructuredJSON:
             context={"market_data": {"spx": -1.2}},
             instruments=["SPY"],
         )
-        result = await service.run_analysis(request)
+        result = await service.run_analysis(request, fund_slug="alpha")
 
         assert result.summary == "Markets sold off on inflation data."
         assert result.sentiment == SentimentScore.BEARISH
@@ -163,7 +163,7 @@ class TestRunAnalysisStructuredJSON:
             context={"risk_metrics": {}, "positions": []},
             instruments=["AAPL"],
         )
-        result = await service.run_analysis(request)
+        result = await service.run_analysis(request, fund_slug="alpha")
 
         assert "risk_engine" in result.data_sources
         assert "portfolio_positions" in result.data_sources
@@ -184,7 +184,7 @@ class TestRunAnalysisPlainTextFallback:
             analysis_type=AnalysisType.MARKET_COMMENTARY,
             context={"news": "Fed holds rates"},
         )
-        result = await service.run_analysis(request)
+        result = await service.run_analysis(request, fund_slug="alpha")
 
         assert result.summary == plain[:500]
         assert result.body == plain
@@ -201,9 +201,9 @@ class TestRunAnalysisPlainTextFallback:
             analysis_type=AnalysisType.NEWS_DIGEST,
             context={"news": "Something happened"},
         )
-        await service.run_analysis(request)
+        await service.run_analysis(request, fund_slug="alpha")
 
-        analysis_repo.save_result.assert_awaited_once()
+        analysis_repo.insert_result.assert_awaited_once()
 
 
 # ---------------------------------------------------------------------------
@@ -265,9 +265,10 @@ class TestCreateResearchNote:
             analysis_type=AnalysisType.PORTFOLIO_REVIEW,
             instruments=["AAPL", "MSFT"],
             tags=["tech", "q1-2026"],
+            fund_slug="alpha",
         )
 
-        note_repo.save_note.assert_awaited_once()
+        note_repo.insert_note.assert_awaited_once()
         assert note.title == "Tech Sector Outlook"
         assert note.instruments == ["AAPL", "MSFT"]
         assert note.tags == ["tech", "q1-2026"]
@@ -291,7 +292,7 @@ class TestEventPublishing:
             context={"prices": [150, 155]},
             instruments=["AAPL"],
         )
-        await service.run_analysis(request)
+        await service.run_analysis(request, fund_slug="alpha")
 
         audit_events = capture.get_by_topic("audit")
         completed = [e for e in audit_events if e.event_type == AuditEventType.ANALYSIS_COMPLETED]
@@ -307,6 +308,7 @@ class TestEventPublishing:
             content="Fed kept rates unchanged.",
             analysis_type=AnalysisType.MARKET_COMMENTARY,
             tags=["macro"],
+            fund_slug="alpha",
         )
 
         audit_events = capture.get_by_topic("audit")

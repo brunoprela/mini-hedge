@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 class ViolationRepository(BaseRepository):
     """CRUD for compliance violations."""
 
-    async def get_active_by_portfolio(
+    async def list_active_by_portfolio(
         self, portfolio_id: UUID, *, session: AsyncSession | None = None
     ) -> list[ComplianceViolationRecord]:
         async with self._session(session) as session:
@@ -28,6 +28,19 @@ class ViolationRepository(BaseRepository):
                     ComplianceViolationRecord.portfolio_id == str(portfolio_id),
                     ComplianceViolationRecord.resolved_at.is_(None),
                 )
+                .order_by(ComplianceViolationRecord.detected_at.desc())
+            )
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
+
+    async def list_active(
+        self, *, session: AsyncSession | None = None
+    ) -> list[ComplianceViolationRecord]:
+        """List all active (unresolved) violations in the current fund schema."""
+        async with self._session(session) as session:
+            stmt = (
+                select(ComplianceViolationRecord)
+                .where(ComplianceViolationRecord.resolved_at.is_(None))
                 .order_by(ComplianceViolationRecord.detected_at.desc())
             )
             result = await session.execute(stmt)

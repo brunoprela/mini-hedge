@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { CardSkeleton } from "@mini-hedge/ui";
 import { orderIntentsQueryOptions } from "@/features/alpha/api";
 import { OptimizationPanel } from "@/features/alpha/components/optimization-panel";
 import { OrderIntentGantt } from "@/features/alpha/components/order-intent-gantt";
@@ -47,7 +48,7 @@ export function AlphaPageClient() {
         )}
       </div>
 
-      {isLoading && <p className="text-xs text-[var(--muted-foreground)]">Loading...</p>}
+      {isLoading && <CardSkeleton count={3} />}
 
       {activePortfolioId && (
         <SectionPanel

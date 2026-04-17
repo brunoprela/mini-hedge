@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class MarginRepository(BaseRepository):
-    async def save_margin_requirement(
+    async def insert_margin_requirement(
         self, record: MarginRequirementRecord, *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as session:

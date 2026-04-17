@@ -52,23 +52,23 @@ def _make_repo(repo_cls):
 
 class TestBrinsonFachlerRepository:
     @pytest.mark.asyncio
-    async def test_save_adds_and_commits(self) -> None:
+    async def test_insert_adds_and_commits(self) -> None:
         repo, session = _make_repo(BrinsonFachlerRepository)
         record = MagicMock()
 
-        await repo.save(record)
+        await repo.insert(record)
 
         session.add.assert_called_once_with(record)
         session.flush.assert_awaited_once()
         session.commit.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_save_with_explicit_session(self) -> None:
+    async def test_insert_with_explicit_session(self) -> None:
         repo, _ = _make_repo(BrinsonFachlerRepository)
         explicit = _mock_session()
         record = MagicMock()
 
-        await repo.save(record, session=explicit)
+        await repo.insert(record, session=explicit)
 
         explicit.add.assert_called_once_with(record)
         explicit.flush.assert_awaited_once()
@@ -94,11 +94,11 @@ class TestBrinsonFachlerRepository:
 
 class TestBrinsonFachlerSectorRepository:
     @pytest.mark.asyncio
-    async def test_save_many(self) -> None:
+    async def test_insert_batch(self) -> None:
         repo, session = _make_repo(BrinsonFachlerSectorRepository)
         records = [MagicMock(), MagicMock()]
 
-        await repo.save_many(records)
+        await repo.insert_batch(records)
 
         assert session.add.call_count == 2
         session.commit.assert_awaited_once()
@@ -123,11 +123,11 @@ class TestBrinsonFachlerSectorRepository:
 
 class TestCumulativeAttributionRepository:
     @pytest.mark.asyncio
-    async def test_save(self) -> None:
+    async def test_insert(self) -> None:
         repo, session = _make_repo(CumulativeAttributionRepository)
         record = MagicMock()
 
-        await repo.save(record)
+        await repo.insert(record)
 
         session.add.assert_called_once_with(record)
         session.commit.assert_awaited_once()
@@ -152,11 +152,11 @@ class TestCumulativeAttributionRepository:
 
 class TestRiskBasedRepository:
     @pytest.mark.asyncio
-    async def test_save_adds_and_commits(self) -> None:
+    async def test_insert_adds_and_commits(self) -> None:
         repo, session = _make_repo(RiskBasedRepository)
         record = MagicMock()
 
-        await repo.save(record)
+        await repo.insert(record)
 
         session.add.assert_called_once_with(record)
         session.flush.assert_awaited_once()
@@ -181,11 +181,11 @@ class TestRiskBasedRepository:
 
 class TestRiskFactorContributionRepository:
     @pytest.mark.asyncio
-    async def test_save_many(self) -> None:
+    async def test_insert_batch(self) -> None:
         repo, session = _make_repo(RiskFactorContributionRepository)
         records = [MagicMock(), MagicMock(), MagicMock()]
 
-        await repo.save_many(records)
+        await repo.insert_batch(records)
 
         assert session.add.call_count == 3
         session.commit.assert_awaited_once()

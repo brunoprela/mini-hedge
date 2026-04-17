@@ -141,7 +141,7 @@ async def create_routing_rule(
         preferred_broker_id=body.preferred_broker_id,
         priority=body.priority,
     )
-    saved = await repo.save_rule(record, session=session)
+    saved = await repo.insert_rule(record, session=session)
     return RoutingRule(
         id=UUID(saved.id),
         fund_slug=saved.fund_slug,

@@ -1,21 +1,22 @@
 import { queryOptions } from "@tanstack/react-query";
-import { clientFetch } from "@/shared/lib/api";
+import { api, fundHeaders } from "@/shared/lib/api-client";
 import type {
-  BlockAllocationSummary,
   CreateAlgoOrderRequest,
   CreateBlockAllocationRequest,
   CreateOrderRequest,
-  FillDetail,
-  OrderSummary,
 } from "./types";
 
 export function ordersQueryOptions(fundSlug: string, portfolioId: string) {
   return queryOptions({
     queryKey: ["orders", fundSlug, portfolioId],
-    queryFn: () =>
-      clientFetch<OrderSummary[]>(`/orders?portfolio_id=${portfolioId}`, {
-        fundSlug,
-      }),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/orders", {
+        params: { query: { portfolio_id: portfolioId } },
+        headers: fundHeaders(fundSlug),
+      });
+      if (error) throw error;
+      return data;
+    },
     staleTime: 60_000,
   });
 }
@@ -23,45 +24,57 @@ export function ordersQueryOptions(fundSlug: string, portfolioId: string) {
 export function orderFillsQueryOptions(fundSlug: string, orderId: string) {
   return queryOptions({
     queryKey: ["order-fills", fundSlug, orderId],
-    queryFn: () => clientFetch<FillDetail[]>(`/orders/${orderId}/fills`, { fundSlug }),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/orders/{order_id}/fills", {
+        params: { path: { order_id: orderId } },
+        headers: fundHeaders(fundSlug),
+      });
+      if (error) throw error;
+      return data;
+    },
   });
 }
 
 export function orderChildrenQueryOptions(fundSlug: string, orderId: string) {
   return queryOptions({
     queryKey: ["order-children", fundSlug, orderId],
-    queryFn: () => clientFetch<OrderSummary[]>(`/orders/${orderId}/children`, { fundSlug }),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/orders/{order_id}/children", {
+        params: { path: { order_id: orderId } },
+        headers: fundHeaders(fundSlug),
+      });
+      if (error) throw error;
+      return data;
+    },
     staleTime: 10_000,
   });
 }
 
-export async function createOrder(
-  fundSlug: string,
-  order: CreateOrderRequest,
-): Promise<OrderSummary> {
-  return clientFetch<OrderSummary>("/orders", {
-    fundSlug,
-    method: "POST",
+export async function createOrder(fundSlug: string, order: CreateOrderRequest) {
+  const { data, error } = await api.POST("/api/v1/orders", {
     body: order,
+    headers: fundHeaders(fundSlug),
   });
+  if (error) throw error;
+  return data;
 }
 
-export async function createAlgoOrder(
-  fundSlug: string,
-  order: CreateAlgoOrderRequest,
-): Promise<OrderSummary> {
-  return clientFetch<OrderSummary>("/orders/algo", {
-    fundSlug,
-    method: "POST",
+export async function createAlgoOrder(fundSlug: string, order: CreateAlgoOrderRequest) {
+  const { data, error } = await api.POST("/api/v1/orders/algo", {
     body: order,
+    headers: fundHeaders(fundSlug),
   });
+  if (error) throw error;
+  return data;
 }
 
-export async function cancelOrder(fundSlug: string, orderId: string): Promise<OrderSummary> {
-  return clientFetch<OrderSummary>(`/orders/${orderId}/cancel`, {
-    fundSlug,
-    method: "POST",
+export async function cancelOrder(fundSlug: string, orderId: string) {
+  const { data, error } = await api.POST("/api/v1/orders/{order_id}/cancel", {
+    params: { path: { order_id: orderId } },
+    headers: fundHeaders(fundSlug),
   });
+  if (error) throw error;
+  return data;
 }
 
 // Block allocation API
@@ -69,29 +82,35 @@ export async function cancelOrder(fundSlug: string, orderId: string): Promise<Or
 export async function createBlockAllocation(
   fundSlug: string,
   request: CreateBlockAllocationRequest,
-): Promise<BlockAllocationSummary> {
-  return clientFetch<BlockAllocationSummary>("/allocations", {
-    fundSlug,
-    method: "POST",
+) {
+  const { data, error } = await api.POST("/api/v1/allocations", {
     body: request,
+    headers: fundHeaders(fundSlug),
   });
+  if (error) throw error;
+  return data;
 }
 
 export function allocationQueryOptions(fundSlug: string, allocationId: string) {
   return queryOptions({
     queryKey: ["allocation", fundSlug, allocationId],
-    queryFn: () =>
-      clientFetch<BlockAllocationSummary>(`/allocations/${allocationId}`, { fundSlug }),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/allocations/{allocation_id}", {
+        params: { path: { allocation_id: allocationId } },
+        headers: fundHeaders(fundSlug),
+      });
+      if (error) throw error;
+      return data;
+    },
     staleTime: 10_000,
   });
 }
 
-export async function cancelBlockAllocation(
-  fundSlug: string,
-  allocationId: string,
-): Promise<BlockAllocationSummary> {
-  return clientFetch<BlockAllocationSummary>(`/allocations/${allocationId}/cancel`, {
-    fundSlug,
-    method: "POST",
+export async function cancelBlockAllocation(fundSlug: string, allocationId: string) {
+  const { data, error } = await api.POST("/api/v1/allocations/{allocation_id}/cancel", {
+    params: { path: { allocation_id: allocationId } },
+    headers: fundHeaders(fundSlug),
   });
+  if (error) throw error;
+  return data;
 }

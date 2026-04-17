@@ -50,7 +50,7 @@ class AllocationService:
         order_service: OrderService,
         order_repo: OrderRepository,
         compliance_gateway: ComplianceGateway,
-        event_bus: EventBus,
+        event_bus: EventBus | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._allocation_repo = allocation_repo
@@ -90,7 +90,7 @@ class AllocationService:
             algo_params=request.algo_params.model_dump() if request.algo_params else None,
             created_by=actor_id,
         )
-        allocation = await self._allocation_repo.save_allocation(allocation)
+        allocation = await self._allocation_repo.insert_allocation(allocation)
 
         # Create legs with target quantities
         legs: list[AllocationLegRecord] = []
@@ -115,7 +115,7 @@ class AllocationService:
                 filled_quantity=ZERO,
                 state=AllocationState.PENDING_COMPLIANCE.value,
             )
-            leg = await self._allocation_repo.save_leg(leg)
+            leg = await self._allocation_repo.insert_leg(leg)
             legs.append(leg)
 
         # Compliance check per leg (per fund/portfolio)
@@ -293,7 +293,8 @@ class AllocationService:
                 },
                 fund_slug=leg.fund_slug,
             )
-            await self._event_bus.publish(fund_topic(leg.fund_slug, "trades.executed"), event)
+            if self._event_bus:
+                await self._event_bus.publish(fund_topic(leg.fund_slug, "trades.executed"), event)
 
         # Update allocation as fully allocated
         await self._allocation_repo.update_allocation_state(

@@ -1,5 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
-import { clientFetch } from "@/shared/lib/api";
+import { api, fundHeaders } from "@/shared/lib/api-client";
 import type {
   FXForwardClose,
   FXForwardContract,
@@ -18,8 +18,17 @@ import type {
 export function fxForwardsQueryOptions(fundSlug: string, portfolioId: string) {
   return queryOptions({
     queryKey: ["fx-forwards", fundSlug, portfolioId],
-    queryFn: () =>
-      clientFetch<FXForwardContract[]>(`/fx-hedging/forwards/${portfolioId}`, { fundSlug }),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/fx-hedging/forwards/{portfolio_id}",
+        {
+          params: { path: { portfolio_id: portfolioId } },
+          headers: fundHeaders(fundSlug),
+        },
+      );
+      if (error) throw error;
+      return (data ?? []) as FXForwardContract[];
+    },
     staleTime: 30_000,
   });
 }
@@ -27,8 +36,17 @@ export function fxForwardsQueryOptions(fundSlug: string, portfolioId: string) {
 export function fxHedgingSummaryQueryOptions(fundSlug: string, portfolioId: string) {
   return queryOptions({
     queryKey: ["fx-hedging-summary", fundSlug, portfolioId],
-    queryFn: () =>
-      clientFetch<FXHedgingSummary>(`/fx-hedging/summary/${portfolioId}`, { fundSlug }),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/fx-hedging/summary/{portfolio_id}",
+        {
+          params: { path: { portfolio_id: portfolioId } },
+          headers: fundHeaders(fundSlug),
+        },
+      );
+      if (error) throw error;
+      return data as FXHedgingSummary;
+    },
     staleTime: 30_000,
   });
 }
@@ -41,11 +59,20 @@ export function hedgeRecommendationsQueryOptions(
 ) {
   return queryOptions({
     queryKey: ["hedge-recommendations", fundSlug, portfolioId, hedgeRatio, tenorDays],
-    queryFn: () =>
-      clientFetch<HedgeRecommendation[]>(
-        `/fx-hedging/recommendations/${portfolioId}/hedges?hedge_ratio=${hedgeRatio}&tenor_days=${tenorDays}`,
-        { fundSlug },
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/fx-hedging/recommendations/{portfolio_id}/hedges",
+        {
+          params: {
+            path: { portfolio_id: portfolioId },
+            query: { hedge_ratio: hedgeRatio, tenor_days: tenorDays },
+          },
+          headers: fundHeaders(fundSlug),
+        },
+      );
+      if (error) throw error;
+      return (data ?? []) as unknown as HedgeRecommendation[];
+    },
     staleTime: 60_000,
   });
 }
@@ -53,10 +80,17 @@ export function hedgeRecommendationsQueryOptions(
 export function rollRecommendationsQueryOptions(fundSlug: string, portfolioId: string) {
   return queryOptions({
     queryKey: ["roll-recommendations", fundSlug, portfolioId],
-    queryFn: () =>
-      clientFetch<RollRecommendation[]>(`/fx-hedging/recommendations/${portfolioId}/rolls`, {
-        fundSlug,
-      }),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/fx-hedging/recommendations/{portfolio_id}/rolls",
+        {
+          params: { path: { portfolio_id: portfolioId } },
+          headers: fundHeaders(fundSlug),
+        },
+      );
+      if (error) throw error;
+      return (data ?? []) as unknown as RollRecommendation[];
+    },
     staleTime: 60_000,
   });
 }
@@ -64,7 +98,13 @@ export function rollRecommendationsQueryOptions(fundSlug: string, portfolioId: s
 export function fxInterestRatesQueryOptions(fundSlug: string) {
   return queryOptions({
     queryKey: ["fx-interest-rates", fundSlug],
-    queryFn: () => clientFetch<FXInterestRate[]>("/fx-hedging/interest-rates", { fundSlug }),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/fx-hedging/interest-rates", {
+        headers: fundHeaders(fundSlug),
+      });
+      if (error) throw error;
+      return (data ?? []) as FXInterestRate[];
+    },
     staleTime: 120_000,
   });
 }
@@ -75,44 +115,59 @@ export function fxInterestRatesQueryOptions(fundSlug: string) {
 
 export async function openForward(
   fundSlug: string,
-  data: FXForwardCreate,
+  body: FXForwardCreate,
 ): Promise<FXForwardContract> {
-  return clientFetch<FXForwardContract>("/fx-hedging/forwards", {
-    fundSlug,
-    method: "POST",
-    body: data,
+  const { data, error } = await api.POST("/api/v1/fx-hedging/forwards", {
+    body: body as never,
+    headers: fundHeaders(fundSlug),
   });
+  if (error) throw error;
+  return data as FXForwardContract;
 }
 
 export async function closeForward(
   fundSlug: string,
   forwardId: string,
-  data: FXForwardClose,
+  body: FXForwardClose,
 ): Promise<FXForwardContract> {
-  return clientFetch<FXForwardContract>(`/fx-hedging/forwards/${forwardId}/close`, {
-    fundSlug,
-    method: "POST",
-    body: data,
-  });
+  const { data, error } = await api.POST(
+    "/api/v1/fx-hedging/forwards/{forward_id}/close",
+    {
+      params: { path: { forward_id: forwardId } },
+      body: body as never,
+      headers: fundHeaders(fundSlug),
+    },
+  );
+  if (error) throw error;
+  return data as FXForwardContract;
 }
 
 export async function rollForward(
   fundSlug: string,
   forwardId: string,
-  data: FXForwardRoll,
+  body: FXForwardRoll,
 ): Promise<FXForwardContract> {
-  return clientFetch<FXForwardContract>(`/fx-hedging/forwards/${forwardId}/roll`, {
-    fundSlug,
-    method: "POST",
-    body: data,
-  });
+  const { data, error } = await api.POST(
+    "/api/v1/fx-hedging/forwards/{forward_id}/roll",
+    {
+      params: { path: { forward_id: forwardId } },
+      body: body as never,
+      headers: fundHeaders(fundSlug),
+    },
+  );
+  if (error) throw error;
+  return data as FXForwardContract;
 }
 
 export async function triggerMTM(fundSlug: string, portfolioId: string): Promise<void> {
-  await clientFetch(`/fx-hedging/forwards/${portfolioId}/mtm`, {
-    fundSlug,
-    method: "POST",
-  });
+  const { error } = await api.POST(
+    "/api/v1/fx-hedging/forwards/{portfolio_id}/mtm",
+    {
+      params: { path: { portfolio_id: portfolioId } },
+      headers: fundHeaders(fundSlug),
+    },
+  );
+  if (error) throw error;
 }
 
 export async function setInterestRate(
@@ -122,11 +177,15 @@ export async function setInterestRate(
   tenorDays = 30,
   source = "manual",
 ): Promise<void> {
-  await clientFetch(
-    `/fx-hedging/interest-rates/${currency}?rate=${rate}&tenor_days=${tenorDays}&source=${source}`,
+  const { error } = await api.PUT(
+    "/api/v1/fx-hedging/interest-rates/{currency}",
     {
-      fundSlug,
-      method: "PUT",
+      params: {
+        path: { currency },
+        query: { rate, tenor_days: tenorDays, source },
+      },
+      headers: fundHeaders(fundSlug),
     },
   );
+  if (error) throw error;
 }

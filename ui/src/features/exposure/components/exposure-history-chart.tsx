@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { LoadingSkeleton } from "@mini-hedge/ui";
 import { exposureHistoryQueryOptions } from "@/features/exposure/api";
 import { LineChart } from "@/shared/components/charts";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
@@ -131,7 +132,7 @@ export function ExposureHistoryChart({ portfolioId }: { portfolioId: string }) {
         </div>
       </div>
 
-      {isLoading && <p className="text-xs text-[var(--muted-foreground)]">Loading...</p>}
+      {isLoading && <LoadingSkeleton height="15rem" />}
 
       {/* Line chart with limit overlays */}
       {!isLoading && chartSeries.length > 0 && (

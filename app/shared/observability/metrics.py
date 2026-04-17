@@ -74,6 +74,22 @@ kafka_dlq_events_total = Counter(
 )
 
 # ---------------------------------------------------------------------------
+# Circuit breaker metrics (updated by CircuitBreaker state transitions)
+# ---------------------------------------------------------------------------
+
+circuit_breaker_state_transitions_total = Counter(
+    "circuit_breaker_state_transitions_total",
+    "Total circuit breaker state transitions",
+    ["circuit", "from_state", "to_state"],
+)
+
+circuit_breaker_state = Gauge(
+    "circuit_breaker_state",
+    "Current circuit breaker state (0=CLOSED, 1=HALF_OPEN, 2=OPEN)",
+    ["circuit"],
+)
+
+# ---------------------------------------------------------------------------
 # Path normalisation
 # ---------------------------------------------------------------------------
 

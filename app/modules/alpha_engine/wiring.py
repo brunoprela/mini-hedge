@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import structlog
+
+logger = structlog.get_logger()
+
 from app.modules.alpha_engine.repositories import (
     OptimizationRunRepository,
     OptimizationWeightRepository,
@@ -54,4 +58,4 @@ async def setup(
 
             await seed_dev_data(app, sf)
         except Exception:
-            pass
+            logger.warning("seed_dev_data_failed", exc_info=True)

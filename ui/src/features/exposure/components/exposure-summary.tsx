@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { LoadingSkeleton } from "@mini-hedge/ui";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { exposureQueryOptions } from "../api";
 
@@ -31,7 +32,7 @@ export function useExposureSummary(portfolioId: string) {
 /** Standalone component — renders as inline strip */
 export function ExposureSummary({ portfolioId }: { portfolioId: string }) {
   const items = useExposureSummary(portfolioId);
-  if (!items) return <div className="text-xs text-[var(--muted-foreground)]">Loading...</div>;
+  if (!items) return <LoadingSkeleton height="2.5rem" />;
 
   return (
     <div className="flex items-center gap-4 rounded-md border border-[var(--border)] bg-[var(--card)] px-3 py-2">

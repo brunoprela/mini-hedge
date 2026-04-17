@@ -30,6 +30,11 @@ from app.modules.risk_engine.interfaces.var import VaRContribution, VaRMethod, V
 ZERO = Decimal(0)
 _Q4 = Decimal("0.0001")
 
+_TRADING_DAYS_PER_YEAR = 252
+_MAINTENANCE_MARGIN_RATIO = Decimal("0.75")
+_ILLIQUID_DAYS_PROXY = Decimal(999)
+_DEFAULT_MARGIN_TIER = "default"
+
 
 def _to_dec(v: float) -> Decimal:
     if np.isnan(v) or np.isinf(v):
@@ -333,7 +338,7 @@ def calculate_factor_decomposition(
     sector_exposures: list[FactorExposure] = []
 
     # Market factor exposure
-    market_exposure_value = market_beta * nav * np.sqrt(market_var) * np.sqrt(252)
+    market_exposure_value = market_beta * nav * np.sqrt(market_var) * np.sqrt(_TRADING_DAYS_PER_YEAR)
     sector_systematic_var = 0.0
 
     for sector_name in sectors:
@@ -359,7 +364,7 @@ def calculate_factor_decomposition(
                 factor=RiskFactor.SECTOR,
                 factor_name=sector_name,
                 beta=_to_dec(s_beta),
-                exposure_value=_to_dec(s_beta * nav * np.sqrt(s_var) * np.sqrt(252)),
+                exposure_value=_to_dec(s_beta * nav * np.sqrt(s_var) * np.sqrt(_TRADING_DAYS_PER_YEAR)),
                 pct_of_total=_to_dec(s_contrib / port_var) if port_var > 1e-12 else ZERO,
             )
         )
@@ -390,7 +395,7 @@ def calculate_factor_decomposition(
                     factor=RiskFactor.CURRENCY,
                     factor_name=ccy,
                     beta=_to_dec(c_beta),
-                    exposure_value=_to_dec(c_beta * nav * np.sqrt(c_var) * np.sqrt(252)),
+                    exposure_value=_to_dec(c_beta * nav * np.sqrt(c_var) * np.sqrt(_TRADING_DAYS_PER_YEAR)),
                     pct_of_total=_to_dec(c_contrib / port_var) if port_var > 1e-12 else ZERO,
                 )
             )
@@ -400,9 +405,9 @@ def calculate_factor_decomposition(
     )
     idiosyncratic_var = max(port_var - total_systematic, 0.0)
 
-    total_risk = _to_dec(np.sqrt(port_var) * np.sqrt(252) * nav)
-    systematic_risk = _to_dec(np.sqrt(total_systematic) * np.sqrt(252) * nav)
-    idio_risk = _to_dec(np.sqrt(idiosyncratic_var) * np.sqrt(252) * nav)
+    total_risk = _to_dec(np.sqrt(port_var) * np.sqrt(_TRADING_DAYS_PER_YEAR) * nav)
+    systematic_risk = _to_dec(np.sqrt(total_systematic) * np.sqrt(_TRADING_DAYS_PER_YEAR) * nav)
+    idio_risk = _to_dec(np.sqrt(idiosyncratic_var) * np.sqrt(_TRADING_DAYS_PER_YEAR) * nav)
     sys_pct = _to_dec(total_systematic / port_var) if port_var > 1e-12 else ZERO
 
     all_exposures = [
@@ -446,11 +451,11 @@ _MARGIN_RATES: dict[str, float] = {
     "fx": 0.03,
     "commodity": 0.15,
     "option": 1.00,
-    "default": 0.50,
+    _DEFAULT_MARGIN_TIER: 0.50,
 }
 
 # Participation rate: max fraction of ADV we can trade per day
-_PARTICIPATION_RATE = 0.20  # 20% of ADV
+_DEFAULT_PARTICIPATION_RATE = 0.20  # 20% of ADV
 
 
 def calculate_liquidity_profile(
@@ -472,10 +477,10 @@ def calculate_liquidity_profile(
     for inst_id, mv, adv in positions:
         abs_mv = abs(mv)
         if adv > 0:
-            daily_capacity = adv * Decimal(str(_PARTICIPATION_RATE))
-            days = abs_mv / daily_capacity if daily_capacity > 0 else Decimal(999)
+            daily_capacity = adv * Decimal(str(_DEFAULT_PARTICIPATION_RATE))
+            days = abs_mv / daily_capacity if daily_capacity > 0 else _ILLIQUID_DAYS_PROXY
         else:
-            days = Decimal(999)
+            days = _ILLIQUID_DAYS_PROXY
 
         if days <= 1:
             bucket = "1d"
@@ -552,9 +557,9 @@ def calculate_margin_requirements(
     total_maintenance = ZERO
 
     for inst_id, mv, asset_class in positions:
-        rate = Decimal(str(_MARGIN_RATES.get(asset_class, _MARGIN_RATES["default"])))
+        rate = Decimal(str(_MARGIN_RATES.get(asset_class, _MARGIN_RATES[_DEFAULT_MARGIN_TIER])))
         initial = (abs(mv) * rate).quantize(Decimal("0.01"))
-        maint = (initial * Decimal("0.75")).quantize(Decimal("0.01"))  # 75% of initial
+        maint = (initial * _MAINTENANCE_MARGIN_RATIO).quantize(Decimal("0.01"))  # 75% of initial
         total_initial += initial
         total_maintenance += maint
         pos_margins.append(
@@ -568,7 +573,7 @@ def calculate_margin_requirements(
         )
 
     excess = cash_balance - total_initial
-    util = (total_initial / cash_balance).quantize(_Q4) if cash_balance > 0 else Decimal(999)
+    util = (total_initial / cash_balance).quantize(_Q4) if cash_balance > 0 else _ILLIQUID_DAYS_PROXY
     margin_call = excess < 0
 
     summary = MarginSummary(

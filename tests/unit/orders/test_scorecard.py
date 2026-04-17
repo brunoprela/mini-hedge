@@ -61,7 +61,7 @@ def _make_service(
     scorecard_repo = AsyncMock()
     scorecard_repo.get_by_broker = AsyncMock(return_value=existing_record)
     scorecard_repo.upsert = AsyncMock()
-    scorecard_repo.get_all = AsyncMock(return_value=all_records or [])
+    scorecard_repo.list_all = AsyncMock(return_value=all_records or [])
 
     session_factory = MagicMock()
     # fund_scope returns an async context manager yielding a mock session

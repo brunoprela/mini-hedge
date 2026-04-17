@@ -67,6 +67,24 @@ class SettlementRepository(BaseRepository):
             )
             await session.commit()
 
+    async def mark_pending(
+        self, settlement_id: str, *, session: AsyncSession | None = None
+    ) -> CashSettlementRecord | None:
+        """Reset a failed settlement back to pending for retry."""
+        async with self._session(session) as session:
+            await session.execute(
+                update(CashSettlementRecord)
+                .where(CashSettlementRecord.id == settlement_id)
+                .values(status="pending")
+            )
+            await session.commit()
+            result = await session.execute(
+                select(CashSettlementRecord).where(
+                    CashSettlementRecord.id == settlement_id
+                )
+            )
+            return result.scalar_one_or_none()
+
     async def get_due_settlements(
         self, as_of: date, *, session: AsyncSession | None = None
     ) -> list[CashSettlementRecord]:

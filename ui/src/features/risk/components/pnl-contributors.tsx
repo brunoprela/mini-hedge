@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
+import { LoadingSkeleton } from "@mini-hedge/ui";
 import { positionsQueryOptions } from "@/features/portfolio/api";
 import { HBarChart } from "@/shared/components/charts";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
@@ -29,7 +30,7 @@ export function PnLContributors({ portfolioId }: { portfolioId: string }) {
   }, [positions]);
 
   if (isLoading) {
-    return <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>;
+    return <LoadingSkeleton height="16rem" />;
   }
 
   if (!positions || positions.length === 0) return null;

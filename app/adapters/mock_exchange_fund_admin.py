@@ -24,7 +24,10 @@ class MockExchangeFundAdminAdapter:
 
     async def get_positions(self) -> dict[str, Decimal]:
         """Return the administrator's independent position view."""
-        async with httpx.AsyncClient(base_url=self._base_url, timeout=10.0) as client:
+        async with httpx.AsyncClient(
+            base_url=self._base_url,
+            timeout=httpx.Timeout(10.0, connect=2.0),
+        ) as client:
             async with self._circuit():
                 resp = await client.get("/api/v1/admin/positions")
                 resp.raise_for_status()
@@ -34,7 +37,10 @@ class MockExchangeFundAdminAdapter:
 
     async def get_cash_balances(self) -> dict[str, Decimal]:
         """Return the administrator's independent cash balance view."""
-        async with httpx.AsyncClient(base_url=self._base_url, timeout=10.0) as client:
+        async with httpx.AsyncClient(
+            base_url=self._base_url,
+            timeout=httpx.Timeout(10.0, connect=2.0),
+        ) as client:
             async with self._circuit():
                 resp = await client.get("/api/v1/admin/cash")
                 resp.raise_for_status()
@@ -47,7 +53,7 @@ class MockExchangeFundAdminAdapter:
     ) -> str:
         """Register a subscription and return a wire reference."""
         async with (
-            httpx.AsyncClient(base_url=self._base_url, timeout=10.0) as client,
+            httpx.AsyncClient(base_url=self._base_url, timeout=httpx.Timeout(10.0, connect=2.0)) as client,
             self._circuit(),
         ):
             resp = await client.post(
@@ -64,7 +70,7 @@ class MockExchangeFundAdminAdapter:
     async def confirm_wire_receipt(self, wire_reference: str) -> bool:
         """Confirm bank wire receipt."""
         async with (
-            httpx.AsyncClient(base_url=self._base_url, timeout=10.0) as client,
+            httpx.AsyncClient(base_url=self._base_url, timeout=httpx.Timeout(10.0, connect=2.0)) as client,
             self._circuit(),
         ):
             resp = await client.post(
@@ -76,7 +82,7 @@ class MockExchangeFundAdminAdapter:
     async def register_redemption(self, request_id: str, investor_id: str, amount: Decimal) -> None:
         """Register a pending redemption payment."""
         async with (
-            httpx.AsyncClient(base_url=self._base_url, timeout=10.0) as client,
+            httpx.AsyncClient(base_url=self._base_url, timeout=httpx.Timeout(10.0, connect=2.0)) as client,
             self._circuit(),
         ):
             resp = await client.post(
@@ -92,7 +98,7 @@ class MockExchangeFundAdminAdapter:
     async def send_redemption_payment(self, request_id: str) -> str | None:
         """Send a wire for a redemption. Returns payment reference."""
         async with (
-            httpx.AsyncClient(base_url=self._base_url, timeout=10.0) as client,
+            httpx.AsyncClient(base_url=self._base_url, timeout=httpx.Timeout(10.0, connect=2.0)) as client,
             self._circuit(),
         ):
             resp = await client.post(

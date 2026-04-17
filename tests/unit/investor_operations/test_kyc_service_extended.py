@@ -173,7 +173,7 @@ class TestListFundTerms:
     async def test_returns_list_of_summaries(self) -> None:
         records = [_terms_record(share_class="A"), _terms_record(share_class="B")]
         terms_repo = AsyncMock()
-        terms_repo.get_all_active = AsyncMock(return_value=records)
+        terms_repo.list_active = AsyncMock(return_value=records)
 
         service = _make_service(terms_repo=terms_repo)
         result = await service.list_fund_terms()
@@ -185,7 +185,7 @@ class TestListFundTerms:
     @pytest.mark.asyncio
     async def test_returns_empty_list(self) -> None:
         terms_repo = AsyncMock()
-        terms_repo.get_all_active = AsyncMock(return_value=[])
+        terms_repo.list_active = AsyncMock(return_value=[])
 
         service = _make_service(terms_repo=terms_repo)
         result = await service.list_fund_terms()

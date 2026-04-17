@@ -66,9 +66,9 @@ def _make_repo(repo_cls):
 
 class TestEODRunRepository:
     @pytest.mark.asyncio
-    async def test_create_run(self) -> None:
+    async def test_insert_run(self) -> None:
         repo, session = _make_repo(EODRunRepository)
-        await repo.create_run(
+        await repo.insert_run(
             run_id="run-1",
             business_date=date(2026, 4, 12),
             fund_slug="alpha",
@@ -118,9 +118,9 @@ class TestEODRunRepository:
         assert result == records
 
     @pytest.mark.asyncio
-    async def test_save_step(self) -> None:
+    async def test_upsert_step(self) -> None:
         repo, session = _make_repo(EODRunRepository)
-        await repo.save_step(
+        await repo.upsert_step(
             run_id="run-1",
             step="market_close",
             status="completed",
@@ -142,7 +142,7 @@ class TestEODRunRepository:
         assert result == step_records
 
     @pytest.mark.asyncio
-    async def test_create_run_with_explicit_session(self) -> None:
+    async def test_insert_run_with_explicit_session(self) -> None:
         repo, _ = _make_repo(EODRunRepository)
         explicit_session = _make_session()
 
@@ -153,7 +153,7 @@ class TestEODRunRepository:
 
         repo._session = _session
 
-        await repo.create_run(
+        await repo.insert_run(
             run_id="run-2",
             business_date=date(2026, 4, 12),
             fund_slug="alpha",
@@ -287,19 +287,19 @@ class TestReconciliationRepository:
 
 class TestReconciliationBreakRepository:
     @pytest.mark.asyncio
-    async def test_create(self) -> None:
+    async def test_insert(self) -> None:
         repo, session = _make_repo(ReconciliationBreakRepository)
         record = MagicMock()
-        result = await repo.create(record)
+        result = await repo.insert(record)
         session.add.assert_called_once_with(record)
         session.commit.assert_awaited_once()
         session.refresh.assert_awaited_once_with(record)
 
     @pytest.mark.asyncio
-    async def test_create_many(self) -> None:
+    async def test_insert_batch(self) -> None:
         repo, session = _make_repo(ReconciliationBreakRepository)
         records = [MagicMock(), MagicMock()]
-        await repo.create_many(records)
+        await repo.insert_batch(records)
         session.add_all.assert_called_once_with(records)
         session.commit.assert_awaited_once()
 

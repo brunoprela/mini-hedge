@@ -118,11 +118,13 @@ async def check_trade(
 
 @router.get("/violations", response_model=list[Violation])
 async def list_violations(
-    portfolio_id: UUID = Query(...),
+    portfolio_id: UUID | None = Query(None),
     request_context: RequestContext = require_permission(Permission.COMPLIANCE_READ),
     compliance_service: ComplianceService = Depends(get_compliance_service),
     session: AsyncSession = Depends(get_db),
 ) -> list[Violation]:
+    """List active violations. When portfolio_id is omitted, returns fund-wide
+    violations (scoped by the X-Fund-Slug schema)."""
     return await compliance_service.get_violations(portfolio_id, session=session)
 
 

@@ -12,7 +12,7 @@ import { useExportCSV } from "@/shared/hooks/use-export-csv";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { usePermission } from "@/shared/hooks/use-permission";
 import { useTableState } from "@/shared/hooks/use-table-state";
-import { clientFetch } from "@/shared/lib/api";
+import { api, fundHeaders } from "@/shared/lib/api-client";
 import { Permission } from "@/shared/lib/permissions";
 import { violationsQueryOptions, waiveViolation } from "../api";
 import type { Violation } from "../types";
@@ -66,12 +66,18 @@ export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
   const exportCSV = useExportCSV();
 
   const resolveMutation = useMutation({
-    mutationFn: (violationId: string) =>
-      clientFetch<Violation>(`/compliance/violations/${violationId}/resolve`, {
-        fundSlug,
-        method: "POST",
-        body: { resolved_by: "current_user" },
-      }),
+    mutationFn: async (violationId: string) => {
+      const { data, error } = await api.POST(
+        "/api/v1/compliance/violations/{violation_id}/resolve",
+        {
+          params: { path: { violation_id: violationId } },
+          body: { resolved_by: "current_user" } as never,
+          headers: fundHeaders(fundSlug),
+        },
+      );
+      if (error) throw error;
+      return data as Violation;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["violations"] });
       toast.success("Violation resolved");
@@ -96,13 +102,17 @@ export function ViolationsPanel({ portfolioId }: { portfolioId: string }) {
   const bulkResolveMutation = useMutation({
     mutationFn: async (ids: string[]) => {
       await Promise.all(
-        ids.map((id) =>
-          clientFetch<Violation>(`/compliance/violations/${id}/resolve`, {
-            fundSlug,
-            method: "POST",
-            body: { resolved_by: "current_user" },
-          }),
-        ),
+        ids.map(async (id) => {
+          const { error } = await api.POST(
+            "/api/v1/compliance/violations/{violation_id}/resolve",
+            {
+              params: { path: { violation_id: id } },
+              body: { resolved_by: "current_user" } as never,
+              headers: fundHeaders(fundSlug),
+            },
+          );
+          if (error) throw error;
+        }),
       );
     },
     onSuccess: (_data, ids) => {

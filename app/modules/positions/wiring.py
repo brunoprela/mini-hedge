@@ -70,7 +70,7 @@ async def setup(
     # When an order is filled, OrderService publishes trades.executed;
     # TradeHandler picks it up here, creates the position, and publishes
     # positions.changed — triggering the exposure/risk/compliance cascade.
-    active_funds = await fund_repo.get_all_active()
+    active_funds = await fund_repo.list_active()
     for fund in active_funds:
         event_bus.subscribe(
             fund_topic(fund.slug, "trades.executed"),
@@ -90,7 +90,7 @@ async def setup(
         admin_svc._fund_service.register_on_fund_created(_on_fund_created)
 
     async def get_fund_slugs() -> list[str]:
-        funds = await fund_repo.get_all_active()
+        funds = await fund_repo.list_active()
         return [f.slug for f in funds]
 
     async def get_asset_class(instrument_id: str) -> AssetClass | None:

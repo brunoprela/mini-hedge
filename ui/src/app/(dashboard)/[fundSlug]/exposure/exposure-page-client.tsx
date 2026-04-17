@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { CardSkeleton } from "@mini-hedge/ui";
 import { exposureQueryOptions } from "@/features/exposure/api";
 import { ExposureBreakdowns } from "@/features/exposure/components/exposure-breakdowns";
 import { ExposureComparison } from "@/features/exposure/components/exposure-comparison";
@@ -67,7 +68,7 @@ export function ExposurePageClient() {
         </div>
       </div>
 
-      {isLoading && <p className="text-xs text-[var(--muted-foreground)]">Loading...</p>}
+      {isLoading && <CardSkeleton count={3} />}
 
       {/* Cross-portfolio comparison mode */}
       {comparing && portfolios && portfolios.length > 1 && (

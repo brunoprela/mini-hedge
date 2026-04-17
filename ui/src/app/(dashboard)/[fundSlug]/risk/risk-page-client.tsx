@@ -1,5 +1,6 @@
 "use client";
 
+import { CardSkeleton, LoadingSkeleton } from "@mini-hedge/ui";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
@@ -56,7 +57,12 @@ export function RiskPageClient() {
         </div>
       </div>
 
-      {isLoading && <p className="text-xs text-[var(--muted-foreground)]">Loading...</p>}
+      {isLoading && (
+        <div className="space-y-3">
+          <CardSkeleton count={4} />
+          <LoadingSkeleton variant="rectangle" height="18rem" />
+        </div>
+      )}
 
       {activePortfolioId && (
         <>

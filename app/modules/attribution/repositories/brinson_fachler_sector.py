@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class BrinsonFachlerSectorRepository(BaseRepository):
     """CRUD for BrinsonFachlerSectorRecord."""
 
-    async def save_many(
+    async def insert_batch(
         self,
         records: list[BrinsonFachlerSectorRecord],
         *,

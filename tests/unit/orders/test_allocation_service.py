@@ -112,13 +112,13 @@ def _make_service(
             record.id = str(uuid4())
         return record
 
-    def _save_leg(record, **kw):
+    def _insert_leg(record, **kw):
         if not isinstance(record.id, str):
             record.id = str(uuid4())
         return record
 
-    allocation_repo.save_allocation = AsyncMock(side_effect=_save_alloc)
-    allocation_repo.save_leg = AsyncMock(side_effect=_save_leg)
+    allocation_repo.insert_allocation = AsyncMock(side_effect=_save_alloc)
+    allocation_repo.insert_leg = AsyncMock(side_effect=_insert_leg)
     allocation_repo.update_allocation_state = AsyncMock()
     allocation_repo.update_leg = AsyncMock()
     allocation_repo.get_allocation_by_id = AsyncMock(return_value=allocation)

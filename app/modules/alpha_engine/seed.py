@@ -80,7 +80,7 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
 
     fund_repo: FundRepository = app.state.fund_repo
     portfolio_repo: PortfolioRepository = app.state.portfolio_repo
-    active_funds = await fund_repo.get_all_active()
+    active_funds = await fund_repo.list_active()
 
     seeded_scenarios = 0
     seeded_opts = 0
@@ -97,7 +97,7 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
             pid = portfolio.id
 
             # Check if already seeded
-            existing = await scenario_repo.get_many(
+            existing = await scenario_repo.list_by_portfolio(
                 portfolio_id=pid,
                 limit=1,
             )
@@ -115,7 +115,7 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
                     status="completed",
                     created_at=now,
                 )
-                await scenario_repo.save(record)
+                await scenario_repo.insert(record)
                 seeded_scenarios += 1
 
             # Seed one optimization run with weights and intents
@@ -129,7 +129,7 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
                 sharpe_ratio=Decimal("2.003"),
                 created_at=now,
             )
-            await opt_repo.save(opt_record)
+            await opt_repo.insert(opt_record)
 
             weights = []
             intents = []
@@ -162,8 +162,8 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
                         )
                     )
 
-            await weight_repo.save_many(weights)
-            await intent_repo.save_many(intents)
+            await weight_repo.insert_batch(weights)
+            await intent_repo.insert_batch(intents)
             seeded_opts += 1
 
     if seeded_scenarios or seeded_opts:

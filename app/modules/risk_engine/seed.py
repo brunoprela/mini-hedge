@@ -131,7 +131,7 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
 
     fund_repo: FundRepository = app.state.fund_repo
     portfolio_repo: PortfolioRepository = app.state.portfolio_repo
-    active_funds = await fund_repo.get_all_active()
+    active_funds = await fund_repo.list_active()
 
     cpty_seeded = 0
     snap_seeded = 0
@@ -145,7 +145,7 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
             for cpty in _COUNTERPARTIES:
                 if cpty.id in existing_ids:
                     continue
-                await cpty_repo.save_counterparty(cpty)
+                await cpty_repo.insert_counterparty(cpty)
                 cpty_seeded += 1
 
             # Seed risk snapshots (one per portfolio, 5 days of history)
@@ -174,7 +174,7 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
                         sharpe_ratio=profile["sharpe_ratio"],
                         snapshot_at=snap_time,
                     )
-                    await snapshot_repo.save_snapshot(record)
+                    await snapshot_repo.insert_snapshot(record)
                     snap_seeded += 1
 
     if cpty_seeded or snap_seeded:

@@ -17,7 +17,7 @@ import { SectionPanel, ToolbarTab } from "@/shared/components/section-panel";
 import { useExportCSV } from "@/shared/hooks/use-export-csv";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { usePermission } from "@/shared/hooks/use-permission";
-import { clientFetch } from "@/shared/lib/api";
+import { api, fundHeaders } from "@/shared/lib/api-client";
 import { cn } from "@/shared/lib/cn";
 import { Permission } from "@/shared/lib/permissions";
 
@@ -75,12 +75,18 @@ export function CompliancePageClient() {
 
   // Mutations
   const resolveMutation = useMutation({
-    mutationFn: (violationId: string) =>
-      clientFetch<Violation>(`/compliance/violations/${violationId}/resolve`, {
-        fundSlug,
-        method: "POST",
-        body: { resolved_by: "current_user" },
-      }),
+    mutationFn: async (violationId: string) => {
+      const { data, error } = await api.POST(
+        "/api/v1/compliance/violations/{violation_id}/resolve",
+        {
+          params: { path: { violation_id: violationId } },
+          body: { resolved_by: "current_user" } as never,
+          headers: fundHeaders(fundSlug),
+        },
+      );
+      if (error) throw error;
+      return data as Violation;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["violations"] });
       toast.success("Violation resolved");

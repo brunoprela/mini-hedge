@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
+from app.shared.auth.request_context import ActorType
+
 if TYPE_CHECKING:
     from app.modules.platform.interfaces.fund import FundInfo
-    from app.shared.auth.request_context import ActorType, RequestContext
+    from app.shared.auth.request_context import RequestContext
 
 
 class AuthReader(Protocol):

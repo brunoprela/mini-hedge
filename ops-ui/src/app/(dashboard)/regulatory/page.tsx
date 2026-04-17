@@ -4,8 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { FundPortfolioPicker } from "@/shared/components/fund-portfolio-picker";
-import { StatusBadge } from "@/shared/components/status-badge";
-import { apiFetch } from "@/shared/lib/api";
+import { LoadingSkeleton, StatusBadge } from "@mini-hedge/ui";
+import { api } from "@/shared/lib/api-client";
 
 interface FilingRecord {
   id: string;
@@ -36,46 +36,74 @@ export default function RegulatoryPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["regulatory", "filings"],
-    queryFn: () => apiFetch<FilingRecord[]>("regulatory/filings?limit=50"),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/regulatory/filings");
+      if (error) throw error;
+      return data as unknown as FilingRecord[];
+    },
   });
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["regulatory", "filings"] });
 
   const generateFormPF = useMutation({
-    mutationFn: () =>
-      apiFetch(`regulatory/form-pf?fund_slug=${fundSlug}&reporting_date=${asOfDate}`, {
-        method: "POST",
-      }),
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/api/v1/regulatory/form-pf", {
+        params: { query: { fund_slug: fundSlug, reporting_date: asOfDate } },
+      });
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => { invalidate(); toast.success("Form PF generated"); },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const generate13F = useMutation({
-    mutationFn: () =>
-      apiFetch(`regulatory/13f?fund_slug=${fundSlug}&reporting_date=${asOfDate}`, {
-        method: "POST",
-      }),
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/api/v1/regulatory/13f", {
+        params: { query: { fund_slug: fundSlug, reporting_date: asOfDate } },
+      });
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => { invalidate(); toast.success("13F generated"); },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const generateStatement = useMutation({
-    mutationFn: () =>
-      apiFetch(`regulatory/investor-statement?investor_id=${investorId}&period_start=${periodStart}&period_end=${periodEnd}`, {
-        method: "POST",
-      }),
+    mutationFn: async () => {
+      const { data, error } = await api.POST(
+        "/api/v1/regulatory/investor-statement",
+        {
+          params: {
+            query: {
+              investor_id: investorId,
+              period_start: periodStart,
+              period_end: periodEnd,
+            },
+          },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => { invalidate(); toast.success("Investor statement generated"); },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const generateLetter = useMutation({
-    mutationFn: () =>
-      apiFetch(`regulatory/performance-letter?fund_slug=${fundSlug}&period_end=${periodEnd}`, {
-        method: "POST",
-      }),
+    mutationFn: async () => {
+      const { data, error } = await api.POST(
+        "/api/v1/regulatory/performance-letter",
+        {
+          params: { query: { fund_slug: fundSlug, period_end: periodEnd } },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => { invalidate(); toast.success("Performance letter generated"); },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const filings = data ?? [];
@@ -224,7 +252,9 @@ export default function RegulatoryPage() {
               <tbody className="divide-y divide-[var(--table-border)]">
                 {isLoading && (
                   <tr>
-                    <td colSpan={5} className="px-3 py-6 text-center text-sm text-[var(--muted-foreground)]">Loading...</td>
+                    <td colSpan={5} className="px-3 py-4">
+                      <LoadingSkeleton variant="table-row" rows={4} columns={5} />
+                    </td>
                   </tr>
                 )}
                 {!isLoading && filings.length === 0 && (

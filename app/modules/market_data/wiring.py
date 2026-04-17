@@ -100,7 +100,7 @@ async def setup(
     price_repo = PriceRepository(sf)
     fx_repo = FXRateRepository(sf)
     vol_surface_repo = VolatilitySurfaceRepository(sf)
-    market_data_service = MarketDataService(repository=price_repo, fx_repository=fx_repo)
+    market_data_service = MarketDataService(price_repo=price_repo, fx_repo=fx_repo)
     app.state.market_data_service = market_data_service
     app.state.vol_surface_repo = vol_surface_repo
 
@@ -118,6 +118,6 @@ async def setup(
 
             await seed_dev_data(app, sf)
         except Exception:
-            pass
+            logger.warning("seed_dev_data_failed", exc_info=True)
 
     return market_data_service

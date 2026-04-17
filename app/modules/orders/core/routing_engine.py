@@ -238,6 +238,6 @@ class RoutingEngine:
                 decision_reason=slice_.reason,
                 decided_at=datetime.now(UTC),
             )
-            await self._routing_repo.save_decision(record)
+            await self._routing_repo.insert_decision(record)
         except Exception:
             logger.exception("routing_decision_save_failed", order_id=order_id)

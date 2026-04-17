@@ -2,16 +2,21 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ErrorState } from "@/shared/components/error-state";
-import { StatusBadge } from "@/shared/components/status-badge";
-import { apiFetch } from "@/shared/lib/api";
-import type { CustomerInfo, Page } from "@/shared/types";
+import { ErrorState, TableSkeleton } from "@mini-hedge/ui";
+import { StatusBadge } from "@mini-hedge/ui";
+import { api } from "@/shared/lib/api-client";
+import type { CustomerInfo } from "@/shared/types";
 
 export default function ClientSwitcherPage() {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["client-switcher"],
-    queryFn: () =>
-      apiFetch<Page<CustomerInfo>>("admin/customers?limit=100"),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/admin/customers", {
+        params: { query: { limit: 100 } },
+      });
+      if (error) throw error;
+      return data;
+    },
   });
 
   const rows = data?.items ?? [];
@@ -28,11 +33,7 @@ export default function ClientSwitcherPage() {
     <div>
       <h2 className="mb-6 text-xl font-semibold">Client Switcher</h2>
 
-      {isLoading && (
-        <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
-          Loading...
-        </p>
-      )}
+      {isLoading && <TableSkeleton rows={6} columns={5} />}
 
       {isError && <ErrorState message={error.message} onRetry={refetch} />}
 

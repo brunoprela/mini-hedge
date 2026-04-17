@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 class FundOfFundsRepository(BaseRepository):
-    async def add_holding(
+    async def insert_holding(
         self,
         record: FundOfFundsHoldingRecord,
         *,
@@ -58,7 +58,7 @@ class FundOfFundsRepository(BaseRepository):
             )
             await s.commit()
 
-    async def remove_holding(
+    async def delete_holding(
         self,
         holding_id: str,
         *,

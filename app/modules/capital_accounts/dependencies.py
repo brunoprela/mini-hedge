@@ -2,7 +2,7 @@
 
 from fastapi import HTTPException, Request
 
-from app.modules.capital_accounts.repositories.investor import InvestorRepository
+from app.modules.platform.repositories.investor import InvestorRepository
 from app.modules.capital_accounts.services import CapitalAccountService, CapitalTransactionService
 
 

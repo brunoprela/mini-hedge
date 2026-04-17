@@ -84,7 +84,7 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
 
     fund_repo: FundRepository = app.state.fund_repo
     portfolio_repo: PortfolioRepository = app.state.portfolio_repo
-    active_funds = await fund_repo.get_all_active()
+    active_funds = await fund_repo.list_active()
 
     runs_seeded = 0
     navs_seeded = 0
@@ -108,7 +108,7 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
                 biz_date.year, biz_date.month, biz_date.day, 17, 0, 0, tzinfo=UTC
             )
 
-            await run_repo.create_run(
+            await run_repo.insert_run(
                 run_id=run_id,
                 business_date=biz_date,
                 fund_slug=fund.slug,
@@ -119,7 +119,7 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
             step_time = started
             for step_name in _STEPS:
                 step_duration = timedelta(seconds=15)
-                await run_repo.save_step(
+                await run_repo.upsert_step(
                     run_id=run_id,
                     step=step_name,
                     status="completed",

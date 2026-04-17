@@ -29,7 +29,7 @@ async def _seed_instruments(
     *,
     reference_adapter: ReferenceDataAdapter | None = None,
 ) -> None:
-    existing = await repo.get_all_active()
+    existing = await repo.list_active()
     if existing:
         return
 
@@ -57,7 +57,7 @@ async def setup(
     instrument_repo = InstrumentRepository(sf)
     identifier_repo = IdentifierRepository(sf)
     app.state.security_master_service = SecurityMasterService(
-        repository=instrument_repo,
+        instrument_repo=instrument_repo,
         identifier_repo=identifier_repo,
         event_bus=event_bus,
     )

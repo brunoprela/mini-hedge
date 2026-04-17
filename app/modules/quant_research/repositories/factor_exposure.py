@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class FactorExposureRepository(BaseRepository):
     """CRUD for quant_research FactorExposureRecord."""
 
-    async def save_many(
+    async def insert_batch(
         self, records: list[FactorExposureRecord], *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as s:

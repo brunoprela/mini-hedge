@@ -11,7 +11,7 @@ import pytest
 from app.modules.capital_accounts.models.capital_account import CapitalAccountRecord
 from app.modules.capital_accounts.models.capital_transaction import CapitalTransactionRecord
 from app.modules.capital_accounts.repositories.account import CapitalAccountRepository
-from app.modules.capital_accounts.repositories.investor import InvestorRepository
+from app.modules.platform.repositories.investor import InvestorRepository
 from app.modules.capital_accounts.repositories.transaction import CapitalTransactionRepository
 from app.modules.platform.models.investor import InvestorRecord
 
@@ -167,12 +167,12 @@ class TestCapitalAccountRepository:
 
 class TestInvestorRepository:
     @pytest.mark.asyncio
-    async def test_get_all_active(self) -> None:
+    async def test_list_active(self) -> None:
         inv = MagicMock(spec=InvestorRecord)
         session = _make_session(scalars_result=[inv])
         repo = InvestorRepository(_make_session_factory())
 
-        result = await repo.get_all_active(session=session)
+        result = await repo.list_active(session=session)
 
         assert result == [inv]
 

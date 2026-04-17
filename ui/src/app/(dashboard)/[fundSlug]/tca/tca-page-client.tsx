@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { CardSkeleton } from "@mini-hedge/ui";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
 import { BrokerScorecardComparison } from "@/features/tca/components/broker-scorecard-comparison";
 import { FundTCASummaryCard } from "@/features/tca/components/fund-tca-summary";
@@ -38,7 +39,7 @@ export function TCAPageClient() {
         )}
       </div>
 
-      {isLoading && <p className="text-xs text-[var(--muted-foreground)]">Loading...</p>}
+      {isLoading && <CardSkeleton count={3} />}
 
       <SectionPanel
         title="Execution Quality"

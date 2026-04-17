@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 class SubscriptionRequestRepository(BaseRepository):
     """CRUD for positions.subscription_requests."""
 
-    async def save(
+    async def insert(
         self, record: SubscriptionRequestRecord, *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as s:

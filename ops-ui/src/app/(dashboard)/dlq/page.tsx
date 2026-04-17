@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Eye, RotateCcw } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { apiFetch } from "@/shared/lib/api";
+import { LoadingSkeleton } from "@mini-hedge/ui";
+import { api } from "@/shared/lib/api-client";
 
 interface DLQTopic {
   topic: string;
@@ -25,28 +26,43 @@ export default function DLQPage() {
 
   const { data: topics, isLoading: topicsLoading } = useQuery({
     queryKey: ["dlq", "topics"],
-    queryFn: () => apiFetch<DLQTopic[]>("admin/dlq"),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/admin/dlq");
+      if (error) throw error;
+      return data as unknown as DLQTopic[];
+    },
   });
 
   const {
     data: messages,
     isLoading: messagesLoading,
-    refetch: refetchMessages,
   } = useQuery({
     queryKey: ["dlq", "messages", peekedTopic],
-    queryFn: () => apiFetch<DLQMessage[]>(`admin/dlq/${peekedTopic}`),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/admin/dlq/{topic}", {
+        params: { path: { topic: peekedTopic! } },
+      });
+      if (error) throw error;
+      return data as unknown as DLQMessage[];
+    },
     enabled: !!peekedTopic,
   });
 
   const replay = useMutation({
-    mutationFn: (topic: string) =>
-      apiFetch(`admin/dlq/${topic}/replay`, { method: "POST" }),
+    mutationFn: async (topic: string) => {
+      const { data, error } = await api.POST(
+        "/api/v1/admin/dlq/{topic}/replay",
+        { params: { path: { topic } } },
+      );
+      if (error) throw error;
+      return data;
+    },
     onSuccess: (_data, topic) => {
       queryClient.invalidateQueries({ queryKey: ["dlq", "topics"] });
       queryClient.invalidateQueries({ queryKey: ["dlq", "messages", topic] });
       toast.success(`Replayed messages for ${topic}`);
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const handlePeek = (topic: string) => {
@@ -70,7 +86,9 @@ export default function DLQPage() {
           <tbody className="divide-y divide-[var(--table-border)]">
             {topicsLoading && (
               <tr>
-                <td colSpan={3} className="px-3 py-6 text-center text-sm text-[var(--muted-foreground)]">Loading...</td>
+                <td colSpan={3} className="px-3 py-4">
+                  <LoadingSkeleton variant="table-row" rows={3} columns={3} />
+                </td>
               </tr>
             )}
             {!topicsLoading && (!topics || topics.length === 0) && (
@@ -122,7 +140,9 @@ export default function DLQPage() {
               <tbody className="divide-y divide-[var(--table-border)]">
                 {messagesLoading && (
                   <tr>
-                    <td colSpan={4} className="px-3 py-6 text-center text-sm text-[var(--muted-foreground)]">Loading...</td>
+                    <td colSpan={4} className="px-3 py-4">
+                      <LoadingSkeleton variant="table-row" rows={3} columns={4} />
+                    </td>
                   </tr>
                 )}
                 {!messagesLoading && (!messages || messages.length === 0) && (

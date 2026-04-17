@@ -55,7 +55,7 @@ class TradeHandler:
         session_factory: TenantSessionFactory,
         event_store: EventStoreRepository,
         projector: PositionProjector,
-        event_bus: EventBus,
+        event_bus: EventBus | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._event_store = event_store
@@ -108,20 +108,21 @@ class TradeHandler:
             if request_context.fund_slug
             else "trades.executed"
         )
-        await self._event_bus.publish(
-            trade_topic,
-            BaseEvent(
-                event_type=(
-                    PositionEventType.TRADE_BUY
-                    if side == TradeSide.BUY
-                    else PositionEventType.TRADE_SELL
+        if self._event_bus:
+            await self._event_bus.publish(
+                trade_topic,
+                BaseEvent(
+                    event_type=(
+                        PositionEventType.TRADE_BUY
+                        if side == TradeSide.BUY
+                        else PositionEventType.TRADE_SELL
+                    ),
+                    data=trade_data,
+                    actor_id=request_context.actor_id,
+                    actor_type=request_context.actor_type.value,
+                    fund_slug=request_context.fund_slug,
                 ),
-                data=trade_data,
-                actor_id=request_context.actor_id,
-                actor_type=request_context.actor_type.value,
-                fund_slug=request_context.fund_slug,
-            ),
-        )
+            )
 
         # Publish downstream (positions.changed, pnl.updated)
         await self._publish_downstream(
@@ -434,13 +435,14 @@ class TradeHandler:
             data = asdict(de.data)
             serialized_data = {k: str(v) for k, v in data.items()}
 
-            await self._event_bus.publish(
-                topic,
-                BaseEvent(
-                    event_type=de.event_type,
-                    data=serialized_data,
-                    actor_id=actor_id,
-                    actor_type=actor_type,
-                    fund_slug=fund_slug,
-                ),
-            )
+            if self._event_bus:
+                await self._event_bus.publish(
+                    topic,
+                    BaseEvent(
+                        event_type=de.event_type,
+                        data=serialized_data,
+                        actor_id=actor_id,
+                        actor_type=actor_type,
+                        fund_slug=fund_slug,
+                    ),
+                )

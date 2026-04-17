@@ -1,0 +1,62 @@
+name: API Contract
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  openapi-drift:
+    name: OpenAPI types drift check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Install Python deps
+        run: uv sync --frozen
+
+      - name: Enable pnpm via corepack
+        run: corepack enable pnpm
+
+      - name: Install JS deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Regenerate OpenAPI schema from FastAPI app (offline)
+        run: |
+          uv run python -c "import json; from app.main import app; open('/tmp/openapi.json', 'w').write(json.dumps(app.openapi(), indent=2))"
+          cp /tmp/openapi.json packages/api-types/generated/openapi.json
+
+      - name: Regenerate TypeScript types
+        working-directory: packages/api-types
+        run: node scripts/generate.mjs --from-file generated/openapi.json
+
+      - name: Fail if api-types are stale
+        run: |
+          if ! git diff --exit-code packages/api-types/generated/; then
+            echo ""
+            echo "::error::Backend routes changed but api-types weren't regenerated."
+            echo "::error::Run 'make gen-types' and commit the updated files in packages/api-types/generated/."
+            exit 1
+          fi
+
+  contract-tests:
+    name: Schemathesis contract tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Install Python deps
+        run: uv sync --frozen
+
+      - name: Run OpenAPI contract tests
+        # pyproject.toml sets addopts = "-m 'not contract'" by default; override here.
+        run: uv run python -m pytest tests/contract -q -m contract -o "addopts="

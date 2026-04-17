@@ -1,0 +1,57 @@
+{{- if .Values.migrations.enabled -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # Name must be unique per release; we append a short sha of chart version
+  # so that hooks are regenerated cleanly on each upgrade.
+  name: {{ include "mini-hedge.migrations.fullname" . }}-{{ .Chart.Version | replace "." "-" | trunc 20 }}-{{ .Release.Revision }}
+  labels:
+    {{- include "mini-hedge.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrations
+  annotations:
+    # Run before install AND before every upgrade — migrations are forward-only.
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "{{ .Values.migrations.hookWeight }}"
+    # Clean up old hooks before running, and on success keep nothing around.
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  activeDeadlineSeconds: {{ .Values.migrations.activeDeadlineSeconds }}
+  backoffLimit: {{ .Values.migrations.backoffLimit }}
+  ttlSecondsAfterFinished: {{ .Values.migrations.ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      labels:
+        {{- include "mini-hedge.labels" . | nindent 8 }}
+        app.kubernetes.io/component: migrations
+    spec:
+      serviceAccountName: {{ include "mini-hedge.serviceAccountName" . }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      restartPolicy: Never
+      securityContext:
+        {{- toYaml .Values.backend.podSecurityContext | nindent 8 }}
+      containers:
+        - name: migrate
+          image: {{ include "mini-hedge.migrations.image" . }}
+          imagePullPolicy: {{ .Values.migrations.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.backend.containerSecurityContext | nindent 12 }}
+          command:
+            {{- toYaml .Values.migrations.command | nindent 12 }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "mini-hedge.backend.fullname" . }}-config
+                optional: true
+            - secretRef:
+                name: {{ .Values.backend.secrets.appSecretName }}
+          resources:
+            {{- toYaml .Values.migrations.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}

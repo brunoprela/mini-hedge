@@ -39,7 +39,7 @@ class CustomerAdminService:
     async def list_customers(
         self, *, limit: int = 100, offset: int = 0, session: AsyncSession | None = None
     ) -> CustomerPage:
-        records, total = await self._customer_repo.get_all_paginated(
+        records, total = await self._customer_repo.list_paginated(
             limit=limit, offset=offset, session=session
         )
         return CustomerPage(

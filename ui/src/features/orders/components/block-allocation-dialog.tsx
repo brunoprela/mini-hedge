@@ -1,41 +1,112 @@
 "use client";
 
-import { DialogTitle, Modal } from "@mini-hedge/ui";
+import { DialogTitle, FormField, Modal } from "@mini-hedge/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useFieldArray } from "react-hook-form";
 import { toast } from "sonner";
 import { createBlockAllocation } from "@/features/orders/api";
 import type { CreateBlockAllocationRequest } from "@/features/orders/types";
 import { portfoliosQueryOptions } from "@/features/portfolio/api";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
+import { useForm, z, zodResolver } from "@/shared/lib/forms";
 
 interface BlockAllocationDialogProps {
   open: boolean;
   onClose: () => void;
 }
 
-interface LegEntry {
-  portfolio_id: string;
-  target_pct: string;
-}
+/* ------------------------------------------------------------------ */
+/*  Schema                                                             */
+/* ------------------------------------------------------------------ */
+
+const legSchema = z.object({
+  portfolio_id: z.string().min(1, "Select a portfolio"),
+  target_pct: z
+    .string()
+    .trim()
+    .min(1, "Required")
+    .refine((v) => {
+      const n = parseFloat(v);
+      return !Number.isNaN(n) && n > 0 && n <= 100;
+    }, "Must be between 0 and 100"),
+});
+
+const blockAllocationSchema = z
+  .object({
+    instrumentId: z.string().trim().min(1, "Instrument ID is required"),
+    side: z.enum(["buy", "sell"]),
+    totalQuantity: z
+      .string()
+      .trim()
+      .min(1, "Total quantity is required")
+      .refine((v) => {
+        const n = parseFloat(v);
+        return !Number.isNaN(n) && n > 0;
+      }, "Must be greater than 0"),
+    orderType: z.enum(["market", "limit"]),
+    limitPrice: z.string().optional(),
+    legs: z.array(legSchema).min(1, "Add at least one leg"),
+  })
+  .superRefine((data, ctx) => {
+    if (data.orderType === "limit") {
+      const n = parseFloat(data.limitPrice ?? "");
+      if (Number.isNaN(n) || n <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Limit price must be greater than 0",
+          path: ["limitPrice"],
+        });
+      }
+    }
+    const sum = data.legs.reduce((acc, l) => acc + (parseFloat(l.target_pct) || 0), 0);
+    if (Math.abs(sum - 100) > 0.01) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Allocations must sum to 100% (currently ${sum.toFixed(1)}%)`,
+        path: ["legs"],
+      });
+    }
+  });
+
+type BlockAllocationValues = z.infer<typeof blockAllocationSchema>;
+
+/* ------------------------------------------------------------------ */
+/*  Component                                                          */
+/* ------------------------------------------------------------------ */
 
 export function BlockAllocationDialog({ open, onClose }: BlockAllocationDialogProps) {
   const { fundSlug } = useFundContext();
   const queryClient = useQueryClient();
   const { data: portfolios } = useQuery(portfoliosQueryOptions(fundSlug));
 
-  const [instrumentId, setInstrumentId] = useState("");
-  const [side, setSide] = useState<"buy" | "sell">("buy");
-  const [totalQuantity, setTotalQuantity] = useState("");
-  const [orderType, setOrderType] = useState<"market" | "limit">("market");
-  const [limitPrice, setLimitPrice] = useState("");
-  const [legs, setLegs] = useState<LegEntry[]>([{ portfolio_id: "", target_pct: "" }]);
+  const form = useForm<BlockAllocationValues>({
+    resolver: zodResolver(blockAllocationSchema),
+    defaultValues: {
+      instrumentId: "",
+      side: "buy",
+      totalQuantity: "",
+      orderType: "market",
+      limitPrice: "",
+      legs: [{ portfolio_id: "", target_pct: "" }],
+    },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "legs",
+  });
+
+  const orderType = form.watch("orderType");
+  const side = form.watch("side");
+  const legs = form.watch("legs");
+  const legPctTotal = legs.reduce((sum, leg) => sum + (parseFloat(leg.target_pct) || 0), 0);
 
   const mutation = useMutation({
     mutationFn: (request: CreateBlockAllocationRequest) => createBlockAllocation(fundSlug, request),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       toast.success("Block allocation created successfully");
+      form.reset();
       onClose();
     },
     onError: (error: Error) => {
@@ -43,54 +114,29 @@ export function BlockAllocationDialog({ open, onClose }: BlockAllocationDialogPr
     },
   });
 
-  const legPctTotal = legs.reduce((sum, leg) => sum + (parseFloat(leg.target_pct) || 0), 0);
-  const totalQty = parseFloat(totalQuantity) || 0;
-  const pctMismatch = legPctTotal > 0 && Math.abs(legPctTotal - 100) > 0.01;
-
-  function addLeg() {
-    setLegs([...legs, { portfolio_id: "", target_pct: "" }]);
-  }
-
-  function removeLeg(index: number) {
-    setLegs(legs.filter((_, i) => i !== index));
-  }
-
-  function updateLeg(index: number, field: keyof LegEntry, value: string) {
-    setLegs(legs.map((leg, i) => (i === index ? { ...leg, [field]: value } : leg)));
-  }
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    if (pctMismatch) {
-      toast.error("Allocation percentages must sum to 100%");
-      return;
-    }
-
+  const onSubmit = form.handleSubmit((values) => {
     const request: CreateBlockAllocationRequest = {
-      instrument_id: instrumentId,
-      side,
-      total_quantity: totalQty,
-      order_type: orderType,
-      ...(orderType === "limit" ? { limit_price: parseFloat(limitPrice) } : {}),
-      legs: legs.map((leg) => ({
+      instrument_id: values.instrumentId,
+      side: values.side,
+      total_quantity: parseFloat(values.totalQuantity),
+      order_type: values.orderType,
+      ...(values.orderType === "limit"
+        ? { limit_price: parseFloat(values.limitPrice ?? "0") }
+        : {}),
+      legs: values.legs.map((leg) => ({
         fund_slug: fundSlug,
         portfolio_id: leg.portfolio_id,
         target_pct: parseFloat(leg.target_pct) / 100,
       })),
     };
-
     mutation.mutate(request);
-  }
+  });
 
-  const canSubmit =
-    instrumentId &&
-    totalQty > 0 &&
-    !pctMismatch &&
-    legs.length > 0 &&
-    legs.every((l) => l.portfolio_id && parseFloat(l.target_pct) > 0) &&
-    (orderType !== "limit" || parseFloat(limitPrice) > 0) &&
-    !mutation.isPending;
+  const legsError = form.formState.errors.legs;
+  const legsMessage =
+    legsError && !Array.isArray(legsError) && "message" in legsError
+      ? legsError.message
+      : undefined;
 
   return (
     <Modal open={open} onClose={onClose}>
@@ -100,21 +146,21 @@ export function BlockAllocationDialog({ open, onClose }: BlockAllocationDialogPr
         </DialogTitle>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form onSubmit={onSubmit} className="space-y-3">
         {/* Instrument ID */}
-        <div>
-          <label htmlFor="block-instrument-id" className="mb-1 block text-sm font-medium">
-            Instrument ID
-          </label>
+        <FormField
+          label="Instrument ID"
+          required
+          error={form.formState.errors.instrumentId?.message}
+        >
           <input
             id="block-instrument-id"
             type="text"
-            value={instrumentId}
-            onChange={(e) => setInstrumentId(e.target.value)}
             placeholder="e.g. AAPL"
             className="w-full rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm"
+            {...form.register("instrumentId")}
           />
-        </div>
+        </FormField>
 
         {/* Side */}
         <div>
@@ -122,7 +168,7 @@ export function BlockAllocationDialog({ open, onClose }: BlockAllocationDialogPr
           <div className="flex gap-1 rounded-md border border-[var(--border)] p-0.5">
             <button
               type="button"
-              onClick={() => setSide("buy")}
+              onClick={() => form.setValue("side", "buy")}
               className={`flex-1 rounded px-3 py-1 text-sm font-medium transition-colors ${
                 side === "buy"
                   ? "bg-[var(--primary)] text-white"
@@ -133,7 +179,7 @@ export function BlockAllocationDialog({ open, onClose }: BlockAllocationDialogPr
             </button>
             <button
               type="button"
-              onClick={() => setSide("sell")}
+              onClick={() => form.setValue("side", "sell")}
               className={`flex-1 rounded px-3 py-1 text-sm font-medium transition-colors ${
                 side === "sell"
                   ? "bg-[var(--destructive)] text-white"
@@ -146,55 +192,55 @@ export function BlockAllocationDialog({ open, onClose }: BlockAllocationDialogPr
         </div>
 
         {/* Total Quantity */}
-        <div>
-          <label htmlFor="block-total-quantity" className="mb-1 block text-sm font-medium">
-            Total Quantity
-          </label>
+        <FormField
+          label="Total Quantity"
+          required
+          error={form.formState.errors.totalQuantity?.message}
+        >
           <input
             id="block-total-quantity"
             type="number"
-            value={totalQuantity}
-            onChange={(e) => setTotalQuantity(e.target.value)}
             min="0"
             step="any"
             placeholder="0"
             className="w-full rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm"
+            {...form.register("totalQuantity")}
           />
-        </div>
+        </FormField>
 
         {/* Order Type */}
-        <div>
-          <label htmlFor="block-order-type" className="mb-1 block text-sm font-medium">
-            Order Type
-          </label>
+        <FormField
+          label="Order Type"
+          required
+          error={form.formState.errors.orderType?.message}
+        >
           <select
             id="block-order-type"
-            value={orderType}
-            onChange={(e) => setOrderType(e.target.value as "market" | "limit")}
             className="w-full rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm"
+            {...form.register("orderType")}
           >
             <option value="market">Market</option>
             <option value="limit">Limit</option>
           </select>
-        </div>
+        </FormField>
 
         {/* Limit Price */}
         {orderType === "limit" && (
-          <div>
-            <label htmlFor="block-limit-price" className="mb-1 block text-sm font-medium">
-              Limit Price
-            </label>
+          <FormField
+            label="Limit Price"
+            required
+            error={form.formState.errors.limitPrice?.message}
+          >
             <input
               id="block-limit-price"
               type="number"
-              value={limitPrice}
-              onChange={(e) => setLimitPrice(e.target.value)}
               min="0"
               step="any"
               placeholder="0.00"
               className="w-full rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm"
+              {...form.register("limitPrice")}
             />
-          </div>
+          </FormField>
         )}
 
         {/* Allocation Legs */}
@@ -203,53 +249,65 @@ export function BlockAllocationDialog({ open, onClose }: BlockAllocationDialogPr
             <span className="text-sm font-medium">Allocation Legs</span>
             <button
               type="button"
-              onClick={addLeg}
+              onClick={() => append({ portfolio_id: "", target_pct: "" })}
               className="text-sm text-[var(--primary)] hover:underline"
             >
               Add Portfolio
             </button>
           </div>
           <div className="space-y-2">
-            {legs.map((leg, index) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: dynamic form rows
-              <div key={index} className="flex items-center gap-2">
-                <select
-                  value={leg.portfolio_id}
-                  onChange={(e) => updateLeg(index, "portfolio_id", e.target.value)}
-                  className="flex-1 rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm"
-                >
-                  <option value="">Select portfolio</option>
-                  {portfolios?.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  value={leg.target_pct}
-                  onChange={(e) => updateLeg(index, "target_pct", e.target.value)}
-                  min="0"
-                  max="100"
-                  step="any"
-                  placeholder="%"
-                  className="w-28 rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm"
-                />
-                {legs.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeLeg(index)}
-                    className="text-sm text-[var(--destructive)] hover:underline"
-                  >
-                    Remove
-                  </button>
-                )}
-              </div>
-            ))}
+            {fields.map((field, index) => {
+              const rowErrors = Array.isArray(legsError) ? legsError[index] : undefined;
+              const portfolioErr = rowErrors?.portfolio_id?.message;
+              const pctErr = rowErrors?.target_pct?.message;
+              return (
+                <div key={field.id} className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <select
+                      className="flex-1 rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm"
+                      {...form.register(`legs.${index}.portfolio_id` as const)}
+                    >
+                      <option value="">Select portfolio</option>
+                      {portfolios?.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="any"
+                      placeholder="%"
+                      className="w-28 rounded-md border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm"
+                      {...form.register(`legs.${index}.target_pct` as const)}
+                    />
+                    {fields.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => remove(index)}
+                        className="text-sm text-[var(--destructive)] hover:underline"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  {(portfolioErr || pctErr) && (
+                    <p className="pl-1 text-xs text-[var(--destructive)]">
+                      {portfolioErr || pctErr}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </div>
-          {pctMismatch && legPctTotal > 0 && (
-            <p className="mt-1 text-xs text-[var(--destructive)]">
-              Allocations sum to {legPctTotal.toFixed(1)}% (must be 100%)
+          {legsMessage && (
+            <p className="mt-1 text-xs text-[var(--destructive)]">{legsMessage}</p>
+          )}
+          {!legsMessage && legPctTotal > 0 && Math.abs(legPctTotal - 100) > 0.01 && (
+            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+              Current total: {legPctTotal.toFixed(1)}%
             </p>
           )}
         </div>
@@ -265,7 +323,7 @@ export function BlockAllocationDialog({ open, onClose }: BlockAllocationDialogPr
           </button>
           <button
             type="submit"
-            disabled={!canSubmit}
+            disabled={mutation.isPending}
             className="rounded-md bg-[var(--primary)] px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
           >
             {mutation.isPending ? "Creating..." : "Create Allocation"}

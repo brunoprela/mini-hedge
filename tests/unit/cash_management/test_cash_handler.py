@@ -73,14 +73,14 @@ class TestHandleTradeExecuted:
             price=Decimal("150.00"),
         )
 
-        with AsyncMock() as mock_create:
-            service.create_settlement = mock_create
-            await service.handle_trade_executed(event)
+        mock_create = AsyncMock()
+        service.create_settlement = mock_create
+        await service.handle_trade_executed(event)
 
-            mock_create.assert_called_once()
-            call_kwargs = mock_create.call_args
-            # Buy: amount = -(quantity * price) = -15000
-            assert call_kwargs.kwargs["amount"] == Decimal("-15000.00")
+        mock_create.assert_called_once()
+        call_kwargs = mock_create.call_args
+        # Buy: amount = -(quantity * price) = -15000
+        assert call_kwargs.kwargs["amount"] == Decimal("-15000.00")
 
     async def test_sell_creates_positive_settlement(
         self,
@@ -93,14 +93,14 @@ class TestHandleTradeExecuted:
             price=Decimal("200.00"),
         )
 
-        with AsyncMock() as mock_create:
-            service.create_settlement = mock_create
-            await service.handle_trade_executed(event)
+        mock_create = AsyncMock()
+        service.create_settlement = mock_create
+        await service.handle_trade_executed(event)
 
-            mock_create.assert_called_once()
-            call_kwargs = mock_create.call_args
-            # Sell: amount = quantity * price = 10000
-            assert call_kwargs.kwargs["amount"] == Decimal("10000.00")
+        mock_create.assert_called_once()
+        call_kwargs = mock_create.call_args
+        # Sell: amount = quantity * price = 10000
+        assert call_kwargs.kwargs["amount"] == Decimal("10000.00")
 
     async def test_missing_portfolio_id_is_noop(
         self,
@@ -129,18 +129,18 @@ class TestHandleTradeExecuted:
 
         mock_session_factory.fund_scope.assert_called_once_with("alpha")
 
-    async def test_handler_error_is_caught(
+    async def test_handler_error_is_reraised(
         self,
         service: CashManagementService,
     ) -> None:
-        """Exceptions in the handler should be caught and logged, not propagated."""
+        """Exceptions in the handler are logged and re-raised."""
         event = make_trades_executed_event()
 
         # Make create_settlement raise
         service.create_settlement = AsyncMock(side_effect=RuntimeError("DB error"))
 
-        # Should not propagate
-        await service.handle_trade_executed(event)
+        with pytest.raises(RuntimeError, match="DB error"):
+            await service.handle_trade_executed(event)
 
     async def test_currency_defaults_to_usd(
         self,

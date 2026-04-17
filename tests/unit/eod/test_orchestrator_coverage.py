@@ -27,8 +27,8 @@ def _mock_deps():
     """Minimal mocked dependencies."""
     run_repo = AsyncMock()
     run_repo.get_latest_run.return_value = None
-    run_repo.create_run = AsyncMock()
-    run_repo.save_step = AsyncMock()
+    run_repo.insert_run = AsyncMock()
+    run_repo.upsert_step = AsyncMock()
     run_repo.complete_run = AsyncMock()
 
     fund_repo = AsyncMock()
@@ -109,7 +109,7 @@ class TestRunEodPriorRun:
 
         assert result.is_successful is True
         assert result.run_id == UUID(prior.run_id)
-        deps["run_repo"].create_run.assert_not_called()
+        deps["run_repo"].insert_run.assert_not_called()
 
 
 class TestRunEodFundNotFound:
@@ -311,7 +311,7 @@ class TestCapitalAllocationStep:
 
     @pytest.mark.asyncio
     async def test_capital_allocation_zero_shares(self) -> None:
-        """When total_shares == 0, nav_per_share defaults to 1."""
+        """When total_shares == 0, orchestrator skips allocation."""
         deps = _mock_deps()
         cap_tx_service = AsyncMock()
         cap_tx_service.allocate_daily.return_value = 1
@@ -331,8 +331,8 @@ class TestCapitalAllocationStep:
             step_data=step_data,
         )
 
-        call_kwargs = cap_tx_service.allocate_daily.call_args.kwargs
-        assert call_kwargs["nav_per_share"] == Decimal("1")
+        assert result == {"message": "no_shares_outstanding", "skipped": True}
+        cap_tx_service.allocate_daily.assert_not_called()
 
 
 class TestDealingDateExecutionStep:
@@ -401,7 +401,8 @@ class TestDealingDateExecutionStep:
             step_data={},
         )
 
-        assert result == {"message": "no_portfolios_for_dealing_execution"}
+        # With no portfolios, nav_snapshots is empty so total_shares == 0
+        assert result == {"message": "no_shares_outstanding", "skipped": True}
 
     @pytest.mark.asyncio
     async def test_dealing_only_subscriptions(self) -> None:
@@ -431,7 +432,8 @@ class TestDealingDateExecutionStep:
         assert result["redemptions_executed"] == 0
 
     @pytest.mark.asyncio
-    async def test_dealing_zero_shares_uses_default_nav_per_share(self) -> None:
+    async def test_dealing_zero_shares_skips_execution(self) -> None:
+        """When total_shares == 0, dealing execution is skipped."""
         deps = _mock_deps()
         sub_service = AsyncMock()
         sub_service.execute_subscriptions.return_value = []
@@ -450,7 +452,8 @@ class TestDealingDateExecutionStep:
             step_data=step_data,
         )
 
-        assert result["nav_per_share"] == "1"
+        assert result == {"message": "no_shares_outstanding", "skipped": True}
+        sub_service.execute_subscriptions.assert_not_called()
 
 
 class TestPerformanceAttributionStep:

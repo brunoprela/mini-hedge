@@ -26,8 +26,8 @@ function fmtPrice(v: string) {
   });
 }
 
-function fmtDuration(seconds: string) {
-  const s = parseFloat(seconds);
+function fmtDuration(seconds: number) {
+  const s = seconds;
   if (s < 60) return `${s.toFixed(1)}s`;
   if (s < 3600) return `${(s / 60).toFixed(1)}m`;
   return `${(s / 3600).toFixed(1)}h`;
@@ -82,10 +82,10 @@ export function TCAOrderDetail({ orderId }: { orderId: string }) {
     <div className="space-y-3">
       {/* Cost breakdown cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <CostCard label="Commission" bps={report.commission_bps} />
+        <CostCard label="Commission" bps={report.commission_cost_bps} />
         <CostCard label="Spread" bps={report.spread_cost_bps} />
         <CostCard label="Timing" bps={report.timing_cost_bps} />
-        <CostCard label="Impact" bps={report.impact_cost_bps} />
+        <CostCard label="Impact" bps={report.market_impact_cost_bps} />
         <CostCard label="Opportunity" bps={report.opportunity_cost_bps} />
         <CostCard label="Total" bps={report.total_cost_bps} highlight />
       </div>
@@ -97,10 +97,10 @@ export function TCAOrderDetail({ orderId }: { orderId: string }) {
         </p>
         <CostBar
           items={[
-            { label: "Commission", value: parseFloat(report.commission_bps), color: "#6366f1" },
+            { label: "Commission", value: parseFloat(report.commission_cost_bps), color: "#6366f1" },
             { label: "Spread", value: parseFloat(report.spread_cost_bps), color: "#f59e0b" },
             { label: "Timing", value: parseFloat(report.timing_cost_bps), color: "#ef4444" },
-            { label: "Impact", value: parseFloat(report.impact_cost_bps), color: "#8b5cf6" },
+            { label: "Impact", value: parseFloat(report.market_impact_cost_bps), color: "#8b5cf6" },
             {
               label: "Opportunity",
               value: parseFloat(report.opportunity_cost_bps),
@@ -118,15 +118,19 @@ export function TCAOrderDetail({ orderId }: { orderId: string }) {
         <div className="grid grid-cols-3 gap-3">
           <div>
             <p className="text-xs text-[var(--muted-foreground)]">Arrival Price</p>
-            <p className="font-mono text-sm font-semibold">{fmtPrice(report.arrival_price)}</p>
+            <p className="font-mono text-sm font-semibold">{fmtPrice(report.arrival_mid_price)}</p>
           </div>
           <div>
             <p className="text-xs text-[var(--muted-foreground)]">Avg Fill Price</p>
-            <p className="font-mono text-sm font-semibold">{fmtPrice(report.avg_fill_price)}</p>
+            <p className="font-mono text-sm font-semibold">
+              {report.avg_fill_price ? fmtPrice(report.avg_fill_price) : "-"}
+            </p>
           </div>
           <div>
             <p className="text-xs text-[var(--muted-foreground)]">VWAP</p>
-            <p className="font-mono text-sm font-semibold">{fmtPrice(report.vwap)}</p>
+            <p className="font-mono text-sm font-semibold">
+              {report.vwap_benchmark ? fmtPrice(report.vwap_benchmark) : "-"}
+            </p>
           </div>
         </div>
       </div>
@@ -142,7 +146,7 @@ export function TCAOrderDetail({ orderId }: { orderId: string }) {
         <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">
           <p className="text-xs text-[var(--muted-foreground)]">Participation Rate</p>
           <p className="mt-0.5 font-mono text-sm font-semibold">
-            {fmtBps(report.participation_rate_pct)}%
+            {report.participation_rate ? `${fmtBps(report.participation_rate)}%` : "-"}
           </p>
         </div>
         <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-3">

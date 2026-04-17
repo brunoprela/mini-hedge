@@ -64,7 +64,7 @@ def _make_service(
 ) -> ComplianceService:
     rule_repo = AsyncMock()
     violation_repo = AsyncMock()
-    violation_repo.get_active_by_portfolio = AsyncMock(return_value=violations or [])
+    violation_repo.list_active_by_portfolio = AsyncMock(return_value=violations or [])
 
     pre_trade_gate = AsyncMock()
     pre_trade_gate.check_trade = AsyncMock(

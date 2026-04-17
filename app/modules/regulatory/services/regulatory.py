@@ -45,6 +45,13 @@ _2 = Decimal("0.01")
 _4 = Decimal("0.0001")
 _THOU = Decimal("1000")
 
+_DEFAULT_MINIMUM_INVESTMENT = Decimal("1000000")
+_DEFAULT_REDEMPTION_FREQUENCY = "quarterly"
+_DEFAULT_PRIMARY_STRATEGY = "Long/Short Equity"
+_DEFAULT_STRATEGY_DESCRIPTION = "Fundamental long/short equity with sector rotation"
+_13F_SHARE_CLASS = "COM"
+_13F_INVESTMENT_DISCRETION = "SOLE"
+
 
 class RegulatoryService:
     """Generates regulatory filings and investor reports."""
@@ -131,7 +138,7 @@ class RegulatoryService:
             gross_asset_value=nav,
             net_asset_value=nav,
             total_investors=investor_count,
-            minimum_investment=Decimal("1000000"),
+            minimum_investment=_DEFAULT_MINIMUM_INVESTMENT,
             gross_notional=gross_notional or nav,
             net_notional=nav,
             leverage_ratio_gross=(
@@ -148,14 +155,14 @@ class RegulatoryService:
             pct_liquidatable_90_days=pct_90d,
             pct_illiquid=pct_illiq,
             investor_liquidity={
-                "redemption_frequency": "quarterly",
+                "redemption_frequency": _DEFAULT_REDEMPTION_FREQUENCY,
                 "notice_period_days": 45,
                 "gate_pct": "0.25",
             },
             asset_class_breakdown=asset_breakdown,
             geographic_breakdown=geo_breakdown,
-            primary_strategy="Long/Short Equity",
-            strategy_description="Fundamental long/short equity with sector rotation",
+            primary_strategy=_DEFAULT_PRIMARY_STRATEGY,
+            strategy_description=_DEFAULT_STRATEGY_DESCRIPTION,
             generated_at=now,
         )
 
@@ -168,7 +175,7 @@ class RegulatoryService:
             data=data.model_dump(mode="json"),
             generated_at=now,
         )
-        await self._filing_repo.save(record, session=session)
+        await self._filing_repo.insert(record, session=session)
 
         logger.info("form_pf_generated", fund_slug=fund_slug, period=str(reporting_date))
 
@@ -252,10 +259,10 @@ class RegulatoryService:
                             issuer_name=name,
                             cusip=cusip,
                             ticker=pos.instrument_id,
-                            share_class="COM",
+                            share_class=_13F_SHARE_CLASS,
                             quantity=pos.quantity,
                             market_value=mv_thousands,
-                            investment_discretion="SOLE",
+                            investment_discretion=_13F_INVESTMENT_DISCRETION,
                             voting_authority_sole=pos.quantity,
                             voting_authority_shared=ZERO,
                             voting_authority_none=ZERO,
@@ -281,7 +288,7 @@ class RegulatoryService:
             data=report.model_dump(mode="json"),
             generated_at=now,
         )
-        await self._filing_repo.save(record, session=session)
+        await self._filing_repo.insert(record, session=session)
 
         logger.info(
             "13f_generated",
@@ -392,7 +399,7 @@ class RegulatoryService:
             data=statement.model_dump(mode="json"),
             generated_at=now,
         )
-        await self._statement_repo.save(record, session=session)
+        await self._statement_repo.insert(record, session=session)
 
         if self._event_bus is not None:
             from app.shared.schema_registry import shared_topic
@@ -463,7 +470,7 @@ class RegulatoryService:
             data=letter.model_dump(mode="json"),
             generated_at=now,
         )
-        await self._letter_repo.save(record, session=session)
+        await self._letter_repo.insert(record, session=session)
 
         logger.info("performance_letter_generated", fund_slug=fund_slug, period=str(period_end))
 

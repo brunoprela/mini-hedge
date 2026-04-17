@@ -27,7 +27,7 @@ class CorporateActionsRepository(BaseRepository):
             result = await session.execute(stmt)
             return result.scalar_one_or_none()
 
-    async def save(
+    async def insert(
         self,
         record: ProcessedCorporateActionRecord,
         *,

@@ -4,20 +4,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ErrorState } from "@/shared/components/error-state";
+import { ErrorState, TableSkeleton } from "@mini-hedge/ui";
 import { FundPortfolioPicker } from "@/shared/components/fund-portfolio-picker";
-import { StatusBadge } from "@/shared/components/status-badge";
-import { apiFetch } from "@/shared/lib/api";
-
-interface FinalizedPrice {
-  instrument_id: string;
-  ticker: string;
-  source_price: string;
-  finalized_price: string;
-  spread_pct: number;
-  is_stale: boolean;
-  finalized_at: string;
-}
+import { StatusBadge } from "@mini-hedge/ui";
+import { api, fundHeaders } from "@/shared/lib/api-client";
 
 export default function PriceValidationPage() {
   const queryClient = useQueryClient();
@@ -31,28 +21,37 @@ export default function PriceValidationPage() {
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["price-validation", fundSlug, businessDate],
-    queryFn: () =>
-      apiFetch<FinalizedPrice[]>(
-        `eod/finalized-prices?fund_slug=${fundSlug}&business_date=${businessDate}`,
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/eod/finalized-prices",
+        {
+          params: { query: { business_date: businessDate } },
+          headers: fundHeaders(fundSlug),
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     enabled,
   });
 
   const overrideMutation = useMutation({
-    mutationFn: (vars: {
+    mutationFn: async (vars: {
       instrument_id: string;
-      override_price: number;
-      reason: string;
-    }) =>
-      apiFetch("eod/finalize-price", {
-        method: "POST",
-        body: JSON.stringify({
-          fund_slug: fundSlug,
+      close_price: number;
+    }) => {
+      const { data, error } = await api.POST("/api/v1/eod/finalize-price", {
+        body: {
           instrument_id: vars.instrument_id,
-          override_price: vars.override_price,
-          reason: vars.reason,
-        }),
-      }),
+          business_date: businessDate,
+          close_price: vars.close_price,
+          source: "manual",
+        },
+        headers: fundHeaders(fundSlug),
+      });
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["price-validation"] });
       toast.success("Price override applied");
@@ -60,27 +59,16 @@ export default function PriceValidationPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
-  function handleOverride(row: FinalizedPrice) {
-    const price = prompt(`Override price for ${row.ticker}:`);
+  function handleOverride(row: { instrument_id: string }) {
+    const price = prompt(`Override price for ${row.instrument_id}:`);
     if (!price) return;
-    const reason = prompt("Reason for override:");
-    if (!reason) return;
     overrideMutation.mutate({
       instrument_id: row.instrument_id,
-      override_price: Number(price),
-      reason,
+      close_price: Number(price),
     });
   }
 
   const rows = data ?? [];
-  const staleCount = rows.filter((r) => r.is_stale).length;
-  const highSpreadCount = rows.filter((r) => r.spread_pct > 5).length;
-  const lastFinalized =
-    rows.length > 0
-      ? rows.reduce((latest, r) =>
-          r.finalized_at > latest.finalized_at ? r : latest,
-        ).finalized_at
-      : null;
 
   return (
     <div>
@@ -113,11 +101,7 @@ export default function PriceValidationPage() {
         </p>
       )}
 
-      {fundSlug && isLoading && (
-        <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
-          Loading...
-        </p>
-      )}
+      {fundSlug && isLoading && <TableSkeleton rows={6} columns={7} />}
 
       {fundSlug && isError && (
         <ErrorState message={error.message} onRetry={refetch} />
@@ -126,10 +110,10 @@ export default function PriceValidationPage() {
       {fundSlug && !isLoading && !isError && (
         <>
           {/* KPI strip */}
-          <dl className="mb-6 grid grid-cols-1 gap-px overflow-hidden rounded-lg bg-[var(--border)] sm:grid-cols-4">
+          <dl className="mb-6 grid grid-cols-1 gap-px overflow-hidden rounded-lg bg-[var(--border)] sm:grid-cols-3">
             <div className="bg-[var(--card)] px-4 py-4">
               <dt className="text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
-                Total Instruments
+                Total Finalized
               </dt>
               <dd className="mt-1 font-mono text-xl font-bold text-[var(--foreground-bright)]">
                 {rows.length}
@@ -137,28 +121,18 @@ export default function PriceValidationPage() {
             </div>
             <div className="bg-[var(--card)] px-4 py-4">
               <dt className="text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
-                Stale Prices
+                Manual Overrides
               </dt>
               <dd className="mt-1 font-mono text-xl font-bold text-[var(--foreground-bright)]">
-                {staleCount}
+                {rows.filter((r) => r.source === "manual").length}
               </dd>
             </div>
             <div className="bg-[var(--card)] px-4 py-4">
               <dt className="text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
-                High Spread (&gt;5%)
+                Business Date
               </dt>
               <dd className="mt-1 font-mono text-xl font-bold text-[var(--foreground-bright)]">
-                {highSpreadCount}
-              </dd>
-            </div>
-            <div className="bg-[var(--card)] px-4 py-4">
-              <dt className="text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
-                Last Finalized
-              </dt>
-              <dd className="mt-1 font-mono text-xl font-bold text-[var(--foreground-bright)]">
-                {lastFinalized
-                  ? new Date(lastFinalized).toLocaleString()
-                  : "—"}
+                {businessDate}
               </dd>
             </div>
           </dl>
@@ -172,37 +146,25 @@ export default function PriceValidationPage() {
                     scope="col"
                     className="px-3 py-2 text-left text-[10px] font-semibold whitespace-nowrap text-[var(--muted-foreground)]"
                   >
-                    Ticker
+                    Instrument
                   </th>
                   <th
                     scope="col"
                     className="px-3 py-2 text-right text-[10px] font-semibold whitespace-nowrap text-[var(--muted-foreground)]"
                   >
-                    Source Price
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-3 py-2 text-right text-[10px] font-semibold whitespace-nowrap text-[var(--muted-foreground)]"
-                  >
-                    Finalized Price
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-3 py-2 text-right text-[10px] font-semibold whitespace-nowrap text-[var(--muted-foreground)]"
-                  >
-                    Spread %
+                    Close Price
                   </th>
                   <th
                     scope="col"
                     className="px-3 py-2 text-left text-[10px] font-semibold whitespace-nowrap text-[var(--muted-foreground)]"
                   >
-                    Stale
+                    Source
                   </th>
                   <th
                     scope="col"
                     className="px-3 py-2 text-left text-[10px] font-semibold whitespace-nowrap text-[var(--muted-foreground)]"
                   >
-                    Finalized At
+                    Finalized By
                   </th>
                   <th
                     scope="col"
@@ -219,26 +181,19 @@ export default function PriceValidationPage() {
                     className="transition-colors hover:bg-[var(--table-row-hover)]"
                   >
                     <td className="px-3 py-2 text-sm font-medium">
-                      {row.ticker}
+                      {row.instrument_id}
                     </td>
                     <td className="px-3 py-2 text-sm text-right font-mono">
-                      {row.source_price}
-                    </td>
-                    <td className="px-3 py-2 text-sm text-right font-mono">
-                      {row.finalized_price}
-                    </td>
-                    <td className="px-3 py-2 text-sm text-right font-mono">
-                      {row.spread_pct.toFixed(2)}%
+                      {row.close_price}
                     </td>
                     <td className="px-3 py-2 text-sm">
-                      {row.is_stale ? (
-                        <StatusBadge label="Stale" variant="danger" />
-                      ) : (
-                        <StatusBadge label="Fresh" variant="success" />
-                      )}
+                      <StatusBadge
+                        label={row.source}
+                        variant={row.source === "manual" ? "warning" : "neutral"}
+                      />
                     </td>
                     <td className="px-3 py-2 text-sm font-mono text-[var(--muted-foreground)]">
-                      {new Date(row.finalized_at).toLocaleString()}
+                      {row.finalized_by}
                     </td>
                     <td className="px-3 py-2 text-sm">
                       <button
@@ -258,7 +213,7 @@ export default function PriceValidationPage() {
                 {rows.length === 0 && (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={5}
                       className="px-3 py-8 text-center text-sm text-[var(--muted-foreground)]"
                     >
                       No finalized prices found for this date.

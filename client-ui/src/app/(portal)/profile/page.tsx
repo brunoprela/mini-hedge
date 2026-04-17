@@ -1,10 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { apiFetch } from "@/shared/lib/api";
-import { ErrorState } from "@/shared/components/error-state";
+import { api, fundHeaders } from "@/shared/lib/api-client";
+import { ErrorState, LoadingSkeleton } from "@mini-hedge/ui";
 import { useFunds } from "@/shared/components/fund-selector";
-import type { InvestorInfo } from "@/shared/types";
 
 export default function ProfilePage() {
   const { data: fundsPage, isLoading: fundsLoading, error: fundsError, refetch } = useFunds();
@@ -17,7 +16,13 @@ export default function ProfilePage() {
     error: investorsError,
   } = useQuery({
     queryKey: ["profile-investors", firstSlug],
-    queryFn: () => apiFetch<InvestorInfo[]>(`capital/investors?fund_slug=${firstSlug}`),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/capital/investors", {
+        headers: fundHeaders(firstSlug!),
+      });
+      if (error) throw error;
+      return data;
+    },
     enabled: !!firstSlug,
   });
 
@@ -33,11 +38,11 @@ export default function ProfilePage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold text-[var(--foreground-bright)]">Profile</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold text-[var(--foreground-bright)]">Profile</h1>
           <p className="text-sm text-[var(--muted-foreground)]">Your investor account details.</p>
         </div>
-        <div className="max-w-lg rounded-lg border border-[var(--border)] bg-[var(--card)] p-8 text-center text-[var(--muted-foreground)]">
-          Loading...
+        <div className="max-w-lg rounded-lg border border-[var(--border)] bg-[var(--card)] p-8">
+          <LoadingSkeleton variant="text" rows={5} />
         </div>
       </div>
     );
@@ -47,7 +52,7 @@ export default function ProfilePage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold text-[var(--foreground-bright)]">Profile</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold text-[var(--foreground-bright)]">Profile</h1>
           <p className="text-sm text-[var(--muted-foreground)]">Your investor account details.</p>
         </div>
         <div className="max-w-lg rounded-lg border border-[var(--border)] bg-[var(--card)] p-8 text-center text-[var(--muted-foreground)]">

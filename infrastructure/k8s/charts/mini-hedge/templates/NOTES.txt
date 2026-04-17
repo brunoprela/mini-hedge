@@ -1,0 +1,26 @@
+mini-hedge {{ .Chart.AppVersion }} installed into namespace "{{ .Release.Namespace }}" (release: {{ .Release.Name }}).
+
+Components enabled:
+{{- if .Values.backend.enabled }}
+  • backend:    {{ include "mini-hedge.backend.fullname" . }} ({{ include "mini-hedge.backend.image" . }})
+                ingress host: {{ .Values.backend.ingress.host }}
+{{- end }}
+{{- if .Values.uis.desk.enabled }}
+  • desk-ui:    https://{{ .Values.uis.desk.host }}
+{{- end }}
+{{- if .Values.uis.ops.enabled }}
+  • ops-ui:     https://{{ .Values.uis.ops.host }}
+{{- end }}
+{{- if .Values.uis.client.enabled }}
+  • client-ui:  https://{{ .Values.uis.client.host }}
+{{- end }}
+
+Checks:
+  kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "mini-hedge.backend.fullname" . }}
+
+If the migration Job failed, inspect it with:
+  kubectl -n {{ .Release.Namespace }} logs -l app.kubernetes.io/component=migrations --tail=200
+
+Rollback:
+  helm -n {{ .Release.Namespace }} rollback {{ .Release.Name }}

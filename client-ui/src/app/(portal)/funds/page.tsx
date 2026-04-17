@@ -1,15 +1,11 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { apiFetch } from "@/shared/lib/api";
-import { ErrorState } from "@/shared/components/error-state";
+import { api, fundHeaders } from "@/shared/lib/api-client";
+import { ErrorState, TableSkeleton } from "@mini-hedge/ui";
 import Link from "next/link";
 import { useFunds } from "@/shared/components/fund-selector";
-import type {
-  FundCapitalOverview,
-  CapitalAccountSummary,
-  InvestorInfo,
-} from "@/shared/types";
+import type { CapitalAccountSummary } from "@/shared/types";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
@@ -25,15 +21,29 @@ export default function FundsPage() {
     queryFn: async () => {
       return Promise.all(
         funds.map(async (f) => {
-          const [overview, investors] = await Promise.all([
-            apiFetch<FundCapitalOverview>(`capital/overview?fund_slug=${f.slug}`),
-            apiFetch<InvestorInfo[]>(`capital/investors?fund_slug=${f.slug}`),
-          ]);
+          const headers = fundHeaders(f.slug);
+          const { data: overview, error: overviewError } = await api.GET(
+            "/api/v1/capital/overview",
+            { headers },
+          );
+          if (overviewError) throw overviewError;
+          const { data: investorsData, error: investorsError } = await api.GET(
+            "/api/v1/capital/investors",
+            { headers },
+          );
+          if (investorsError) throw investorsError;
+          const investors = investorsData ?? [];
           let accounts: CapitalAccountSummary[] = [];
           if (investors.length > 0) {
-            accounts = await apiFetch<CapitalAccountSummary[]>(
-              `capital/investors/${investors[0].id}/history?fund_slug=${f.slug}`,
+            const { data, error } = await api.GET(
+              "/api/v1/capital/investors/{investor_id}/history",
+              {
+                params: { path: { investor_id: investors[0].id } },
+                headers,
+              },
             );
+            if (error) throw error;
+            accounts = data ?? [];
           }
           return { fund: f, overview, accounts };
         }),
@@ -52,14 +62,14 @@ export default function FundsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-[var(--foreground-bright)]">My Funds</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold text-[var(--foreground-bright)]">My Funds</h1>
         <p className="text-sm text-[var(--muted-foreground)]">
           Funds where you hold capital accounts.
         </p>
       </div>
 
-      <div className="rounded-lg border border-[var(--border)] bg-[var(--card)]">
-        <table className="w-full text-sm">
+      <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] overflow-x-auto">
+        <table className="w-full text-sm min-w-[640px]">
           <thead>
             <tr className="border-b border-[var(--border)] bg-[var(--table-header)]">
               <th className="px-4 py-3 text-left text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wide">
@@ -82,8 +92,8 @@ export default function FundsPage() {
           <tbody className="divide-y divide-[var(--table-border)]">
             {isLoading ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-[var(--muted-foreground)]">
-                  Loading...
+                <td colSpan={5} className="px-4 py-8">
+                  <TableSkeleton rows={4} columns={5} />
                 </td>
               </tr>
             ) : !fundData || fundData.length === 0 ? (

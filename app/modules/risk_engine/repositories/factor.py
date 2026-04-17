@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 
 class FactorExposureRepository(BaseRepository):
-    async def save_factor_exposures(
+    async def insert_factor_exposures(
         self, records: list[FactorExposureRecord], *, session: AsyncSession | None = None
     ) -> None:
         async with self._session(session) as session:

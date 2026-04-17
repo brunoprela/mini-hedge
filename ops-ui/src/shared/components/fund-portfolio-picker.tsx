@@ -1,8 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { apiFetch } from "@/shared/lib/api";
-import type { FundDetail, Page, PortfolioInfo } from "@/shared/types";
+import { api, fundHeaders } from "@/shared/lib/api-client";
 
 interface FundPortfolioPickerProps {
   fundSlug: string;
@@ -21,12 +20,24 @@ export function FundPortfolioPicker({
 }: FundPortfolioPickerProps) {
   const { data: fundsPage } = useQuery({
     queryKey: ["admin", "funds", "all"],
-    queryFn: () => apiFetch<Page<FundDetail>>("admin/funds?limit=100"),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/admin/funds", {
+        params: { query: { limit: 100 } },
+      });
+      if (error) throw error;
+      return data;
+    },
   });
 
   const { data: portfolios } = useQuery({
     queryKey: ["portfolios", fundSlug],
-    queryFn: () => apiFetch<PortfolioInfo[]>(`portfolios?fund_slug=${fundSlug}`),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/portfolios", {
+        headers: fundHeaders(fundSlug),
+      });
+      if (error) throw error;
+      return data;
+    },
     enabled: !!fundSlug && showPortfolio,
   });
 

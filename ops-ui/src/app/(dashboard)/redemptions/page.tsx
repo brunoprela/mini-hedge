@@ -3,9 +3,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { StatusBadge } from "@/shared/components/status-badge";
-import { apiFetch } from "@/shared/lib/api";
-import type { RedemptionRequestSummary, RedemptionState } from "@/shared/types";
+import { StatusBadge, TableSkeleton } from "@mini-hedge/ui";
+import { api } from "@/shared/lib/api-client";
+import type { RedemptionState } from "@/shared/types";
 
 const STATES: { label: string; value: string }[] = [
   { label: "All", value: "" },
@@ -35,52 +35,83 @@ export default function RedemptionsPage() {
   const queryClient = useQueryClient();
   const [stateFilter, setStateFilter] = useState("");
 
-  const path = stateFilter
-    ? `investor-operations/redemptions?state=${stateFilter}`
-    : "investor-operations/redemptions";
-
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["redemptions", stateFilter],
-    queryFn: () => apiFetch<RedemptionRequestSummary[]>(path),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/investor-operations/redemptions",
+        {
+          params: {
+            query: stateFilter ? { state: stateFilter } : {},
+          },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
   });
 
   const validate = useMutation({
-    mutationFn: (id: string) =>
-      apiFetch(`investor-operations/redemptions/${id}/validate`, {
-        method: "POST",
-        body: JSON.stringify({}),
-      }),
+    mutationFn: async (id: string) => {
+      const { data, error } = await api.POST(
+        "/api/v1/investor-operations/redemptions/{request_id}/validate",
+        {
+          params: { path: { request_id: id } },
+          body: { share_class: "default" },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["redemptions"] });
       toast.success("Redemption validated");
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const confirmPayment = useMutation({
-    mutationFn: ({ id, payment_reference }: { id: string; payment_reference: string }) =>
-      apiFetch(`investor-operations/redemptions/${id}/confirm-payment`, {
-        method: "POST",
-        body: JSON.stringify({ payment_reference }),
-      }),
+    mutationFn: async ({
+      id,
+      payment_reference,
+    }: {
+      id: string;
+      payment_reference: string;
+    }) => {
+      const { data, error } = await api.POST(
+        "/api/v1/investor-operations/redemptions/{request_id}/confirm-payment",
+        {
+          params: { path: { request_id: id } },
+          body: { payment_reference },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["redemptions"] });
       toast.success("Payment confirmed");
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const cancelRedemption = useMutation({
-    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
-      apiFetch(`investor-operations/redemptions/${id}/cancel`, {
-        method: "POST",
-        body: JSON.stringify({ reason, cancelled_by: "ops-console" }),
-      }),
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      const { data, error } = await api.POST(
+        "/api/v1/investor-operations/redemptions/{request_id}/cancel",
+        {
+          params: { path: { request_id: id } },
+          body: { reason, cancelled_by: "ops-console" },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["redemptions"] });
       toast.success("Redemption cancelled");
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const items = data ?? [];
@@ -127,7 +158,7 @@ export default function RedemptionsPage() {
       </dl>
 
       {isLoading ? (
-        <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>
+        <TableSkeleton rows={6} columns={5} />
       ) : isError ? (
         <p className="text-sm text-red-600">{(error as Error).message}</p>
       ) : items.length === 0 ? (

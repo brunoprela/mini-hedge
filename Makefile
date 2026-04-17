@@ -158,11 +158,13 @@ format:
 	cd client-ui && pnpm lint:fix
 
 gen-types:
-	@echo "Exporting OpenAPI schema from FastAPI..."
-	uv run python packages/api-types/scripts/export_schema.py
+	@echo "Exporting OpenAPI schema from FastAPI (offline, no server boot)..."
+	@mkdir -p packages/api-types/generated
+	uv run python -c "import json; from app.main import app; open('packages/api-types/generated/openapi.json', 'w').write(json.dumps(app.openapi(), indent=2))"
 	@echo "Generating TypeScript types..."
-	cd packages/api-types && npx openapi-typescript generated/openapi.json -o generated/openapi.d.ts
+	cd packages/api-types && node scripts/generate.mjs --from-file generated/openapi.json
 	@echo "Types generated at packages/api-types/generated/"
+	@echo "Commit any changes under packages/api-types/generated/ to keep CI green."
 
 typecheck:
 	uv run mypy app/

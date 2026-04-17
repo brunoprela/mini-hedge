@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { LoadingSkeleton } from "@mini-hedge/ui";
 import { InfoTooltip } from "@/shared/components/table-controls";
 import { useFundContext } from "@/shared/hooks/use-fund-context";
 import { riskSnapshotQueryOptions } from "../api";
@@ -31,7 +32,11 @@ export function RiskSummaryCard({ portfolioId }: { portfolioId: string }) {
         </Link>
       </div>
 
-      {isLoading && <p className="mt-2 text-xs text-[var(--muted-foreground)]">Loading...</p>}
+      {isLoading && (
+        <div className="mt-2">
+          <LoadingSkeleton variant="text" rows={2} />
+        </div>
+      )}
 
       {!isLoading && !snapshot && (
         <p className="mt-2 text-xs text-[var(--muted-foreground)]">No snapshot</p>

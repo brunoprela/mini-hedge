@@ -26,7 +26,7 @@ class TestCorporateActionConsumer:
         mock_fund = MagicMock()
         mock_fund.slug = "test-fund"
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[mock_fund])
+        fund_repo.list_active = AsyncMock(return_value=[mock_fund])
 
         sm_service = MagicMock()
 
@@ -69,7 +69,7 @@ class TestCorporateActionConsumer:
         mock_fund = MagicMock()
         mock_fund.slug = "test-fund"
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[mock_fund])
+        fund_repo.list_active = AsyncMock(return_value=[mock_fund])
 
         # Mock position repo to return positions holding the instrument
         mock_position = MagicMock()
@@ -148,7 +148,7 @@ class TestCorporateActionConsumer:
         mock_fund = MagicMock()
         mock_fund.slug = "test-fund"
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[mock_fund])
+        fund_repo.list_active = AsyncMock(return_value=[mock_fund])
 
         mock_position_repo = MagicMock()
         mock_position_repo.get_by_instrument = AsyncMock(return_value=[])

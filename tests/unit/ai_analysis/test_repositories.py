@@ -38,22 +38,22 @@ def _make_repo(repo_cls):
 
 class TestAnalysisResultRepository:
     @pytest.mark.asyncio
-    async def test_save_result_adds_and_commits(self):
+    async def test_insert_result_adds_and_commits(self):
         repo, session = _make_repo(AnalysisResultRepository)
         record = MagicMock()
 
-        await repo.save_result(record)
+        await repo.insert_result(record)
 
         session.add.assert_called_once_with(record)
         session.commit.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_save_result_with_explicit_session(self):
+    async def test_insert_result_with_explicit_session(self):
         repo, _ = _make_repo(AnalysisResultRepository)
         explicit = _mock_session()
         record = MagicMock()
 
-        await repo.save_result(record, session=explicit)
+        await repo.insert_result(record, session=explicit)
 
         explicit.add.assert_called_once_with(record)
         explicit.commit.assert_awaited_once()
@@ -91,7 +91,7 @@ class TestAnalysisResultRepository:
         result_proxy.scalars.return_value = scalars_mock
         session.execute.return_value = result_proxy
 
-        results = await repo.list_results()
+        results = await repo.list_results("alpha")
 
         assert len(results) == 2
         session.execute.assert_awaited_once()
@@ -105,7 +105,7 @@ class TestAnalysisResultRepository:
         result_proxy.scalars.return_value = scalars_mock
         session.execute.return_value = result_proxy
 
-        results = await repo.list_results(analysis_type="risk_assessment", limit=10)
+        results = await repo.list_results("alpha", analysis_type="risk_assessment", limit=10)
 
         assert results == []
         session.execute.assert_awaited_once()
@@ -118,22 +118,22 @@ class TestAnalysisResultRepository:
 
 class TestResearchNoteRepository:
     @pytest.mark.asyncio
-    async def test_save_note_adds_and_commits(self):
+    async def test_insert_note_adds_and_commits(self):
         repo, session = _make_repo(ResearchNoteRepository)
         record = MagicMock()
 
-        await repo.save_note(record)
+        await repo.insert_note(record)
 
         session.add.assert_called_once_with(record)
         session.commit.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_save_note_with_explicit_session(self):
+    async def test_insert_note_with_explicit_session(self):
         repo, _ = _make_repo(ResearchNoteRepository)
         explicit = _mock_session()
         record = MagicMock()
 
-        await repo.save_note(record, session=explicit)
+        await repo.insert_note(record, session=explicit)
 
         explicit.add.assert_called_once_with(record)
         explicit.commit.assert_awaited_once()
@@ -147,7 +147,7 @@ class TestResearchNoteRepository:
         result_proxy.scalars.return_value = scalars_mock
         session.execute.return_value = result_proxy
 
-        notes = await repo.list_notes()
+        notes = await repo.list_notes("alpha")
 
         assert len(notes) == 1
 
@@ -160,7 +160,7 @@ class TestResearchNoteRepository:
         result_proxy.scalars.return_value = scalars_mock
         session.execute.return_value = result_proxy
 
-        notes = await repo.list_notes(tags=["macro", "fed"], limit=10)
+        notes = await repo.list_notes("alpha", tags=["macro", "fed"], limit=10)
 
         assert notes == []
         session.execute.assert_awaited_once()

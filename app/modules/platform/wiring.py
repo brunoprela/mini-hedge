@@ -21,6 +21,7 @@ from app.modules.platform.repositories import (
     AuditLogRepository,
     CustomerRepository,
     FundRepository,
+    InvestorRepository,
     OperatorRepository,
     PortfolioRepository,
     ServicingEdgeRepository,
@@ -59,21 +60,21 @@ async def _seed_platform(
     the data needed for authentication and fund discovery.
     """
     # Customers must be seeded before funds/users (FK dependency)
-    existing_customers = await customer_repo.get_all_active()
+    existing_customers = await customer_repo.list_active()
     if not existing_customers:
         customers = build_seed_customers()
         for customer in customers:
             await customer_repo.insert(customer)
         logger.info("customers_seeded", count=len(customers))
 
-    existing_funds = await fund_repo.get_all_active()
+    existing_funds = await fund_repo.list_active()
     if not existing_funds:
         funds = build_seed_funds()
         for fund in funds:
             await fund_repo.insert(fund)
         logger.info("funds_seeded", count=len(funds))
 
-    existing_users = await user_repo.get_all_active()
+    existing_users = await user_repo.list_active()
     if not existing_users:
         users = build_seed_users()
         for user in users:
@@ -88,7 +89,7 @@ async def _seed_platform(
         )
 
     # Seed operators
-    existing_operators = await operator_repo.get_all_active()
+    existing_operators = await operator_repo.list_active()
     if not existing_operators:
         operators = build_seed_operators()
         for op in operators:
@@ -136,9 +137,6 @@ async def setup(
     operator_repo = OperatorRepository(sf)
     api_key_repo = APIKeyRepository(sf)
     servicing_edge_repo = ServicingEdgeRepository(sf)
-
-    # InvestorRepository lives in capital_accounts module
-    from app.modules.capital_accounts.repositories.investor import InvestorRepository
 
     investor_repo = InvestorRepository(sf)
 

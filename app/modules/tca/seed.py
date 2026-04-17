@@ -33,7 +33,7 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
 
     from app.modules.orders.models.order import OrderRecord
 
-    active_funds = await fund_repo.get_all_active()
+    active_funds = await fund_repo.list_active()
     seeded = 0
 
     for fund in active_funds:

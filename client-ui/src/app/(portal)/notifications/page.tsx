@@ -3,16 +3,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Wallet, ArrowDownRight, TrendingUp, Bell } from "lucide-react";
-import { apiFetch } from "@/shared/lib/api";
-import { ErrorState } from "@/shared/components/error-state";
+import { api, fundHeaders } from "@/shared/lib/api-client";
+import { CardSkeleton, ErrorState } from "@mini-hedge/ui";
 import { useFunds, FundSelector } from "@/shared/components/fund-selector";
-import type { SubscriptionRequestSummary, RedemptionRequestSummary } from "@/shared/types";
-
-interface NAVHistoryPoint {
-  business_date: string;
-  nav: string;
-  nav_per_share: string;
-}
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -45,10 +38,14 @@ export default function NotificationsPage() {
     error: subsError,
   } = useQuery({
     queryKey: ["notif-subs", slug],
-    queryFn: () =>
-      apiFetch<SubscriptionRequestSummary[]>(
-        `investor-operations/subscriptions?fund_slug=${slug}`,
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/investor-operations/subscriptions",
+        { headers: fundHeaders(slug) },
+      );
+      if (error) throw error;
+      return data;
+    },
     enabled: !!slug,
   });
 
@@ -58,10 +55,14 @@ export default function NotificationsPage() {
     error: redsError,
   } = useQuery({
     queryKey: ["notif-reds", slug],
-    queryFn: () =>
-      apiFetch<RedemptionRequestSummary[]>(
-        `investor-operations/redemptions?fund_slug=${slug}`,
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/investor-operations/redemptions",
+        { headers: fundHeaders(slug) },
+      );
+      if (error) throw error;
+      return data;
+    },
     enabled: !!slug,
   });
 
@@ -71,10 +72,14 @@ export default function NotificationsPage() {
     error: navError,
   } = useQuery({
     queryKey: ["notif-nav", slug],
-    queryFn: () =>
-      apiFetch<NAVHistoryPoint[]>(
-        `eod/nav/history?fund_slug=${slug}&period=30d`,
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/eod/nav/history", {
+        params: { query: { period: "30d" } },
+        headers: fundHeaders(slug),
+      });
+      if (error) throw error;
+      return data;
+    },
     enabled: !!slug,
   });
 
@@ -117,7 +122,7 @@ export default function NotificationsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-[var(--foreground-bright)]">
+          <h1 className="text-xl sm:text-2xl font-semibold text-[var(--foreground-bright)]">
             Notifications
           </h1>
           <p className="text-sm text-[var(--muted-foreground)]">
@@ -128,7 +133,7 @@ export default function NotificationsPage() {
 
       {/* Fund Selector */}
       {funds.length > 1 && (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
           <label className="text-sm text-[var(--muted-foreground)]">Fund:</label>
           <FundSelector
             funds={funds}
@@ -139,7 +144,7 @@ export default function NotificationsPage() {
       )}
 
       {isLoading ? (
-        <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>
+        <CardSkeleton count={3} />
       ) : (
         <>
           {/* Section 1: Pending Activity */}

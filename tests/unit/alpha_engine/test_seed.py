@@ -43,17 +43,17 @@ class TestSeedDevData:
         mock_portfolio.id = pid
 
         scenario_repo = AsyncMock()
-        scenario_repo.get_many = AsyncMock(return_value=[])  # not already seeded
-        scenario_repo.save = AsyncMock()
+        scenario_repo.list_by_portfolio = AsyncMock(return_value=[])  # not already seeded
+        scenario_repo.insert = AsyncMock()
 
         opt_run_repo = AsyncMock()
-        opt_run_repo.save = AsyncMock()
+        opt_run_repo.insert = AsyncMock()
 
         opt_weight_repo = AsyncMock()
-        opt_weight_repo.save_many = AsyncMock()
+        opt_weight_repo.insert_batch = AsyncMock()
 
         intent_repo = AsyncMock()
-        intent_repo.save_many = AsyncMock()
+        intent_repo.insert_batch = AsyncMock()
 
         alpha_service = MagicMock()
         alpha_service._scenario_repo = scenario_repo
@@ -62,7 +62,7 @@ class TestSeedDevData:
         alpha_service._intent_repo = intent_repo
 
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[mock_fund])
+        fund_repo.list_active = AsyncMock(return_value=[mock_fund])
 
         portfolio_repo = AsyncMock()
         portfolio_repo.get_by_fund = AsyncMock(return_value=[mock_portfolio])
@@ -77,12 +77,12 @@ class TestSeedDevData:
         await seed_dev_data(app, sf)
 
         # 2 scenarios seeded (_SCENARIOS has 2 entries)
-        assert scenario_repo.save.call_count == 2
+        assert scenario_repo.insert.call_count == 2
         # 1 optimization run
-        opt_run_repo.save.assert_called_once()
+        opt_run_repo.insert.assert_called_once()
         # weights and intents saved
-        opt_weight_repo.save_many.assert_called_once()
-        intent_repo.save_many.assert_called_once()
+        opt_weight_repo.insert_batch.assert_called_once()
+        intent_repo.insert_batch.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_skips_when_already_seeded(self) -> None:
@@ -93,8 +93,8 @@ class TestSeedDevData:
         mock_portfolio.id = str(uuid4())
 
         scenario_repo = AsyncMock()
-        scenario_repo.get_many = AsyncMock(return_value=[MagicMock()])  # already exists
-        scenario_repo.save = AsyncMock()
+        scenario_repo.list_by_portfolio = AsyncMock(return_value=[MagicMock()])  # already exists
+        scenario_repo.insert = AsyncMock()
 
         alpha_service = MagicMock()
         alpha_service._scenario_repo = scenario_repo
@@ -103,7 +103,7 @@ class TestSeedDevData:
         alpha_service._intent_repo = AsyncMock()
 
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[mock_fund])
+        fund_repo.list_active = AsyncMock(return_value=[mock_fund])
 
         portfolio_repo = AsyncMock()
         portfolio_repo.get_by_fund = AsyncMock(return_value=[mock_portfolio])
@@ -117,7 +117,7 @@ class TestSeedDevData:
 
         await seed_dev_data(app, sf)
 
-        scenario_repo.save.assert_not_called()
+        scenario_repo.insert.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_skips_fund_with_no_portfolios(self) -> None:
@@ -125,7 +125,7 @@ class TestSeedDevData:
         mock_fund.id = "fund-1"
 
         scenario_repo = AsyncMock()
-        scenario_repo.save = AsyncMock()
+        scenario_repo.insert = AsyncMock()
 
         alpha_service = MagicMock()
         alpha_service._scenario_repo = scenario_repo
@@ -134,7 +134,7 @@ class TestSeedDevData:
         alpha_service._intent_repo = AsyncMock()
 
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[mock_fund])
+        fund_repo.list_active = AsyncMock(return_value=[mock_fund])
 
         portfolio_repo = AsyncMock()
         portfolio_repo.get_by_fund = AsyncMock(return_value=[])  # no portfolios
@@ -148,7 +148,7 @@ class TestSeedDevData:
 
         await seed_dev_data(app, sf)
 
-        scenario_repo.save.assert_not_called()
+        scenario_repo.insert.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_seeds_correct_number_of_weights_and_intents(self) -> None:
@@ -162,11 +162,11 @@ class TestSeedDevData:
         mock_portfolio.id = pid
 
         scenario_repo = AsyncMock()
-        scenario_repo.get_many = AsyncMock(return_value=[])
-        scenario_repo.save = AsyncMock()
+        scenario_repo.list_by_portfolio = AsyncMock(return_value=[])
+        scenario_repo.insert = AsyncMock()
 
         opt_run_repo = AsyncMock()
-        opt_run_repo.save = AsyncMock()
+        opt_run_repo.insert = AsyncMock()
 
         saved_weights = []
         saved_intents = []
@@ -178,10 +178,10 @@ class TestSeedDevData:
             saved_intents.extend(records)
 
         opt_weight_repo = AsyncMock()
-        opt_weight_repo.save_many = AsyncMock(side_effect=capture_weights)
+        opt_weight_repo.insert_batch = AsyncMock(side_effect=capture_weights)
 
         intent_repo = AsyncMock()
-        intent_repo.save_many = AsyncMock(side_effect=capture_intents)
+        intent_repo.insert_batch = AsyncMock(side_effect=capture_intents)
 
         alpha_service = MagicMock()
         alpha_service._scenario_repo = scenario_repo
@@ -190,7 +190,7 @@ class TestSeedDevData:
         alpha_service._intent_repo = intent_repo
 
         fund_repo = AsyncMock()
-        fund_repo.get_all_active = AsyncMock(return_value=[mock_fund])
+        fund_repo.list_active = AsyncMock(return_value=[mock_fund])
 
         portfolio_repo = AsyncMock()
         portfolio_repo.get_by_fund = AsyncMock(return_value=[mock_portfolio])

@@ -30,19 +30,19 @@ class FundRepository(BaseRepository):
             result = await session.execute(select(FundRecord).where(FundRecord.slug == slug))
             return result.scalar_one_or_none()
 
-    async def get_all_active(self, *, session: AsyncSession | None = None) -> list[FundRecord]:
+    async def list_active(self, *, session: AsyncSession | None = None) -> list[FundRecord]:
         async with self._session(session) as session:
             result = await session.execute(
                 select(FundRecord).where(FundRecord.status == FundStatus.ACTIVE)
             )
             return list(result.scalars().all())
 
-    async def get_all(self, *, session: AsyncSession | None = None) -> list[FundRecord]:
+    async def list_all(self, *, session: AsyncSession | None = None) -> list[FundRecord]:
         async with self._session(session) as session:
             result = await session.execute(select(FundRecord))
             return list(result.scalars().all())
 
-    async def get_all_paginated(
+    async def list_paginated(
         self, *, limit: int = 100, offset: int = 0, session: AsyncSession | None = None
     ) -> tuple[list[FundRecord], int]:
         async with self._session(session) as session:

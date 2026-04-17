@@ -37,7 +37,7 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
     rate_repo = FXInterestRateRepository(sf)
 
     fund_repo: FundRepository = app.state.fund_repo
-    active_funds = await fund_repo.get_all_active()
+    active_funds = await fund_repo.list_active()
 
     # Seed interest rates for major currencies
     seed_rates = [
@@ -52,7 +52,7 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
 
     for fund in active_funds:
         async with sf.fund_scope(fund.slug), sf() as session:
-            existing_rates = await rate_repo.get_all(session=session)
+            existing_rates = await rate_repo.list_all(session=session)
             if not existing_rates:
                 for ccy, rate, tenor in seed_rates:
                     await rate_repo.upsert(
@@ -161,7 +161,7 @@ async def seed_dev_data(app: FastAPI, sf: TenantSessionFactory) -> None:
                 }
                 if pid not in portfolio_ids_for_fund.get(fund.slug, set()):
                     continue
-                await forward_repo.create(
+                await forward_repo.insert(
                     FXForwardRecord(
                         portfolio_id=pid,
                         base_currency=base,

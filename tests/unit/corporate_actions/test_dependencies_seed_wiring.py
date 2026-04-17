@@ -59,20 +59,27 @@ class TestSeedDevData:
 
         ca_repo = AsyncMock()
         ca_repo.get_by_action_id = AsyncMock(return_value=None)
-        ca_repo.save = AsyncMock()
+        ca_repo.insert = AsyncMock()
 
         service = MagicMock()
         service._repo = ca_repo
 
+        fund = MagicMock()
+        fund.slug = "alpha"
+        fund_repo = AsyncMock()
+        fund_repo.list_active = AsyncMock(return_value=[fund])
+
         app = MagicMock()
         app.state.corporate_actions_service = service
+        app.state.fund_repo = fund_repo
 
         sf = MagicMock()
+        sf.fund_scope = MagicMock(return_value=AsyncMock())
 
         await seed_dev_data(app, sf)
 
         # 4 seed actions defined in _SEED_ACTIONS
-        assert ca_repo.save.call_count == 4
+        assert ca_repo.insert.call_count == 4
         assert ca_repo.get_by_action_id.call_count == 4
 
     @pytest.mark.asyncio
@@ -82,19 +89,26 @@ class TestSeedDevData:
 
         ca_repo = AsyncMock()
         ca_repo.get_by_action_id = AsyncMock(return_value=MagicMock())  # already exists
-        ca_repo.save = AsyncMock()
+        ca_repo.insert = AsyncMock()
 
         service = MagicMock()
         service._repo = ca_repo
 
+        fund = MagicMock()
+        fund.slug = "alpha"
+        fund_repo = AsyncMock()
+        fund_repo.list_active = AsyncMock(return_value=[fund])
+
         app = MagicMock()
         app.state.corporate_actions_service = service
+        app.state.fund_repo = fund_repo
 
         sf = MagicMock()
+        sf.fund_scope = MagicMock(return_value=AsyncMock())
 
         await seed_dev_data(app, sf)
 
-        ca_repo.save.assert_not_called()
+        ca_repo.insert.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

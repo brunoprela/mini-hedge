@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { FundPortfolioPicker } from "@/shared/components/fund-portfolio-picker";
-import { apiFetch } from "@/shared/lib/api";
+import { api } from "@/shared/lib/api-client";
 
 export default function DataQualityPage() {
   const [fundSlug, setFundSlug] = useState("");
@@ -11,7 +11,11 @@ export default function DataQualityPage() {
 
   const { data: instruments } = useQuery({
     queryKey: ["instruments", "count"],
-    queryFn: () => apiFetch<unknown[]>("instruments?limit=1"),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/instruments");
+      if (error) throw error;
+      return data;
+    },
   });
 
   return (

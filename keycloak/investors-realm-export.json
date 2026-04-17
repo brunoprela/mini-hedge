@@ -79,6 +79,22 @@
         }
       ],
       "realmRoles": ["investor"]
+    },
+    {
+      "username": "e2e-bot",
+      "email": "e2e-bot@test.local",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "E2E",
+      "lastName": "Bot",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "e2e-bot-password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["investor"]
     }
   ]
 }

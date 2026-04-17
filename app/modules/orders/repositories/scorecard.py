@@ -36,7 +36,7 @@ class ScorecardRepository(BaseRepository):
             result = await session.execute(stmt)
             return result.scalar_one_or_none()
 
-    async def get_all(
+    async def list_all(
         self,
         *,
         session: AsyncSession | None = None,

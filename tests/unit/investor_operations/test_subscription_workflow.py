@@ -51,7 +51,7 @@ def _make_sub_record(**overrides) -> MagicMock:
 def _make_service() -> tuple[SubscriptionService, AsyncMock, AsyncMock]:
     event_bus = AsyncMock()
     sub_repo = AsyncMock()
-    sub_repo.save = AsyncMock()
+    sub_repo.insert = AsyncMock()
     sub_repo.update_state = AsyncMock()
     sub_repo.list_by_dealing_date = AsyncMock(return_value=[])
     terms_repo = AsyncMock()
@@ -80,7 +80,7 @@ class TestSubmitSubscription:
 
         assert result.state == SubscriptionState.PENDING_KYC
         assert result.requested_amount == Decimal("500000")
-        svc._subscription_repo.save.assert_called_once()
+        svc._subscription_repo.insert.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_submit_rejects_below_minimum(self) -> None:

@@ -71,7 +71,7 @@ def _make_gate(
     with_cash: bool = False,
 ) -> PreTradeGate:
     rule_repo = AsyncMock()
-    rule_repo.get_active = AsyncMock(return_value=rules or [])
+    rule_repo.list_active = AsyncMock(return_value=rules or [])
 
     position_service = AsyncMock()
     position_service.get_by_portfolio = AsyncMock(return_value=positions or [])
@@ -172,7 +172,7 @@ class TestCheckTrade:
     async def test_fail_closed_on_error(self) -> None:
         """If an exception occurs, the gate should reject (fail-closed)."""
         rule_repo = AsyncMock()
-        rule_repo.get_active = AsyncMock(side_effect=RuntimeError("db down"))
+        rule_repo.list_active = AsyncMock(side_effect=RuntimeError("db down"))
 
         gate = PreTradeGate(
             rule_repo=rule_repo,

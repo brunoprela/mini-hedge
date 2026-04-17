@@ -54,11 +54,11 @@ def _make_service() -> tuple[CounterpartyRiskService, AsyncMock, AsyncMock]:
     cpty_repo.list_counterparties = AsyncMock(return_value=[])
     cpty_repo.get_counterparty = AsyncMock(return_value=None)
     cpty_repo.get_counterparty_map = AsyncMock(return_value={})
-    cpty_repo.save_counterparty = AsyncMock()
+    cpty_repo.insert_counterparty = AsyncMock()
 
     exposure_repo = AsyncMock()
     exposure_repo.get_counterparty_exposures = AsyncMock(return_value=[])
-    exposure_repo.save_counterparty_exposure = AsyncMock()
+    exposure_repo.insert_counterparty_exposure = AsyncMock()
 
     svc = CounterpartyRiskService(
         counterparty_repo=cpty_repo,
@@ -141,8 +141,8 @@ class TestRecordCounterpartyExposure:
             net_exposure=Decimal("8000000"),
         )
 
-        exposure_repo.save_counterparty_exposure.assert_called_once()
-        saved = exposure_repo.save_counterparty_exposure.call_args.args[0]
+        exposure_repo.insert_counterparty_exposure.assert_called_once()
+        saved = exposure_repo.insert_counterparty_exposure.call_args.args[0]
         assert saved.gross_exposure == Decimal("10000000")
         assert saved.breach is False
 
@@ -160,7 +160,7 @@ class TestRecordCounterpartyExposure:
             net_exposure=Decimal("8000000"),
         )
 
-        saved = exposure_repo.save_counterparty_exposure.call_args.args[0]
+        saved = exposure_repo.insert_counterparty_exposure.call_args.args[0]
         assert saved.breach is True
 
     @pytest.mark.asyncio
@@ -176,7 +176,7 @@ class TestRecordCounterpartyExposure:
             net_exposure=Decimal("500000"),
         )
 
-        saved = exposure_repo.save_counterparty_exposure.call_args.args[0]
+        saved = exposure_repo.insert_counterparty_exposure.call_args.args[0]
         assert saved.credit_limit == Decimal(0)
         # No breach when limit is 0 (no limit set)
         assert saved.breach is False
@@ -196,6 +196,6 @@ class TestRecordCounterpartyExposure:
             collateral_posted=Decimal("1000000"),
         )
 
-        saved = exposure_repo.save_counterparty_exposure.call_args.args[0]
+        saved = exposure_repo.insert_counterparty_exposure.call_args.args[0]
         assert saved.collateral_held == Decimal("2000000")
         assert saved.collateral_posted == Decimal("1000000")

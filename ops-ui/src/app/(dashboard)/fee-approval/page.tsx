@@ -4,10 +4,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ErrorState } from "@/shared/components/error-state";
+import { ErrorState, TableSkeleton } from "@mini-hedge/ui";
 import { FundPortfolioPicker } from "@/shared/components/fund-portfolio-picker";
-import { StatusBadge } from "@/shared/components/status-badge";
-import { apiFetch } from "@/shared/lib/api";
+import { StatusBadge } from "@mini-hedge/ui";
+import { api, fundHeaders } from "@/shared/lib/api-client";
 import type { FeeAccrualResponse } from "@/shared/types";
 
 function fmtUSD(value: string): string {
@@ -29,24 +29,59 @@ export default function FeeApprovalPage() {
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["fee-approval", fundSlug],
-    queryFn: () =>
-      apiFetch<FeeAccrualResponse[]>(
-        `funds/${fundSlug}/fees/accruals?status=crystallized`,
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/funds/{fund_slug}/fees/accruals",
+        {
+          params: { path: { fund_slug: fundSlug }, query: {} },
+          headers: fundHeaders(fundSlug),
+        },
+      );
+      if (error) throw error;
+      // Filter client-side — the `status` query param isn't declared in the
+      // OpenAPI spec; backend returns all accruals for the fund.
+      return (data ?? []).filter((row) => row.status === "crystallized");
+    },
     enabled,
   });
 
+  // Optimistic fee approval: immediately drop the approved row from the
+  // crystallized-only list; roll back on failure.
   const approveFee = useMutation({
-    mutationFn: (accrualId: string) =>
-      apiFetch(`funds/${fundSlug}/fees/approve`, {
-        method: "POST",
-        body: JSON.stringify({ accrual_ids: [accrualId] }),
-      }),
+    mutationFn: async (accrualId: string) => {
+      const { data, error } = await api.POST(
+        "/api/v1/funds/{fund_slug}/fees/approve",
+        {
+          params: { path: { fund_slug: fundSlug } },
+          body: { accrual_ids: [accrualId] },
+          headers: fundHeaders(fundSlug),
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
+    onMutate: async (accrualId) => {
+      const queryKey = ["fee-approval", fundSlug];
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<FeeAccrualResponse[]>(queryKey);
+      queryClient.setQueryData<FeeAccrualResponse[] | undefined>(
+        queryKey,
+        (old) => old?.filter((row) => row.id !== accrualId),
+      );
+      return { previous, queryKey };
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["fee-approval"] });
       toast.success("Fee approved");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error, _vars, context) => {
+      if (context?.previous && context.queryKey) {
+        queryClient.setQueryData(context.queryKey, context.previous);
+      }
+      toast.error(err.message);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["fee-approval"] });
+    },
   });
 
   const rows = data ?? [];
@@ -75,11 +110,7 @@ export default function FeeApprovalPage() {
         </p>
       )}
 
-      {fundSlug && isLoading && (
-        <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
-          Loading...
-        </p>
-      )}
+      {fundSlug && isLoading && <TableSkeleton rows={6} columns={7} />}
 
       {fundSlug && isError && (
         <ErrorState message={error.message} onRetry={refetch} />

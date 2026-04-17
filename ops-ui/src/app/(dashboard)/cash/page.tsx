@@ -2,11 +2,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { ErrorState } from "@/shared/components/error-state";
+import { ErrorState, TableSkeleton } from "@mini-hedge/ui";
 import { FundPortfolioPicker } from "@/shared/components/fund-portfolio-picker";
-import { StatusBadge } from "@/shared/components/status-badge";
-import { apiFetch } from "@/shared/lib/api";
-import type { CashBalance, SettlementRecord, SettlementLadder } from "@/shared/types";
+import { StatusBadge } from "@mini-hedge/ui";
+import { api } from "@/shared/lib/api-client";
 
 type Tab = "balances" | "settlements" | "ladder";
 
@@ -34,7 +33,14 @@ export default function CashPage() {
     refetch: refetchBalances,
   } = useQuery({
     queryKey: ["cash", "balances", portfolioId],
-    queryFn: () => apiFetch<CashBalance[]>(`cash/${portfolioId}/balances`),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/cash/{portfolio_id}/balances",
+        { params: { path: { portfolio_id: portfolioId } } },
+      );
+      if (error) throw error;
+      return data;
+    },
     enabled,
   });
 
@@ -46,7 +52,14 @@ export default function CashPage() {
     refetch: refetchSettlements,
   } = useQuery({
     queryKey: ["cash", "settlements", portfolioId],
-    queryFn: () => apiFetch<SettlementRecord[]>(`cash/${portfolioId}/settlements`),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/cash/{portfolio_id}/settlements",
+        { params: { path: { portfolio_id: portfolioId } } },
+      );
+      if (error) throw error;
+      return data;
+    },
     enabled,
   });
 
@@ -58,7 +71,14 @@ export default function CashPage() {
     refetch: refetchLadder,
   } = useQuery({
     queryKey: ["cash", "ladder", portfolioId],
-    queryFn: () => apiFetch<SettlementLadder>(`cash/${portfolioId}/ladder`),
+    queryFn: async () => {
+      const { data, error } = await api.GET(
+        "/api/v1/cash/{portfolio_id}/ladder",
+        { params: { path: { portfolio_id: portfolioId } } },
+      );
+      if (error) throw error;
+      return data;
+    },
     enabled,
   });
 
@@ -129,9 +149,7 @@ export default function CashPage() {
             ))}
           </div>
 
-          {isLoading && (
-            <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>
-          )}
+          {isLoading && <TableSkeleton rows={5} columns={5} />}
 
           {isError && (
             <ErrorState message={errorMessage} onRetry={handleRetry} />

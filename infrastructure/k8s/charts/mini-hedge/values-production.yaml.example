@@ -1,0 +1,116 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# PRODUCTION overrides (example — copy to values-production.yaml and edit).
+#
+# Secrets MUST NOT be committed. Provision the `mini-hedge-app` Secret via
+# one of:
+#   • SealedSecrets (bitnami-labs/sealed-secrets)
+#   • external-secrets.io (set backend.secrets.externalSecret.enabled=true)
+#   • sops-encrypted file decrypted at deploy time
+#   • cloud-native Secret Manager (AWS SM, GCP SM, Azure KV) via ESO
+# ─────────────────────────────────────────────────────────────────────────────
+
+global:
+  environment: production
+  imageRegistry: ghcr.io/YOUR-ORG/mini-hedge  # <— set me
+  imagePullSecrets:
+    - name: ghcr-credentials
+  domain: minihedge.example.com
+
+backend:
+  replicaCount: 3  # only used if autoscaling disabled
+  autoscaling:
+    minReplicas: 3
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 70
+  resources:
+    requests:
+      cpu: "1"
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+  podDisruptionBudget:
+    minAvailable: 2
+
+  config:
+    LOG_LEVEL: INFO
+    LOG_FORMAT: json
+    CORS_ORIGINS: "https://desk.minihedge.example.com,https://ops.minihedge.example.com,https://client.minihedge.example.com"
+    # Assumes CloudNativePG primary service in `data` namespace with SSL required.
+    # The DATABASE_URL lives in the Secret (contains the password).
+    KAFKA_BOOTSTRAP_SERVERS: "mini-hedge-kafka-bootstrap.data.svc.cluster.local:9093"
+    OPENFGA_URL: "http://openfga.auth.svc.cluster.local:8080"
+    KEYCLOAK_URL: "https://auth.minihedge.example.com"
+    KEYCLOAK_REALM: minihedge
+    REDIS_URL: "redis://mini-hedge-redis-master.data.svc.cluster.local:6379/0"
+
+  secrets:
+    appSecretName: mini-hedge-app
+    # Recommended: pull from Vault / cloud SM via external-secrets.io.
+    externalSecret:
+      enabled: true
+      secretStoreRef:
+        kind: ClusterSecretStore
+        name: vault-backend
+      refreshInterval: 1h
+      dataFrom:
+        - extract:
+            key: secret/data/mini-hedge/production/app
+
+  ingress:
+    host: api.minihedge.example.com
+    tls:
+      enabled: true
+      secretName: mini-hedge-api-tls  # cert-manager-managed
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+
+  serviceMonitor:
+    enabled: true
+
+uis:
+  defaults:
+    replicaCount: 3
+    autoscaling:
+      minReplicas: 3
+      maxReplicas: 10
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 512Mi
+    podDisruptionBudget:
+      minAvailable: 2
+
+  desk:
+    host: desk.minihedge.example.com
+    tlsSecretName: mini-hedge-desk-tls
+    env:
+      NEXT_PUBLIC_API_BASE_URL: "https://api.minihedge.example.com"
+      NEXT_PUBLIC_KEYCLOAK_URL: "https://auth.minihedge.example.com"
+      NEXT_PUBLIC_KEYCLOAK_REALM: minihedge
+      NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: desk-ui
+
+  ops:
+    host: ops.minihedge.example.com
+    tlsSecretName: mini-hedge-ops-tls
+    env:
+      NEXT_PUBLIC_API_BASE_URL: "https://api.minihedge.example.com"
+      NEXT_PUBLIC_KEYCLOAK_URL: "https://auth.minihedge.example.com"
+      NEXT_PUBLIC_KEYCLOAK_REALM: minihedge
+      NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: ops-ui
+      PORT: "3100"
+
+  client:
+    host: client.minihedge.example.com
+    tlsSecretName: mini-hedge-client-tls
+    env:
+      NEXT_PUBLIC_API_BASE_URL: "https://api.minihedge.example.com"
+      NEXT_PUBLIC_KEYCLOAK_URL: "https://auth.minihedge.example.com"
+      NEXT_PUBLIC_KEYCLOAK_REALM: minihedge
+      NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: client-ui
+
+networkPolicy:
+  enabled: true

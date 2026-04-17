@@ -3,7 +3,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive } from "lucide-react";
 import { toast } from "sonner";
-import { apiFetch } from "@/shared/lib/api";
+import { LoadingSkeleton } from "@mini-hedge/ui";
+import { api } from "@/shared/lib/api-client";
 
 interface ArchivedMonth {
   fund_slug: string;
@@ -18,28 +19,48 @@ export default function ArchivalPage() {
 
   const { data: archives, isLoading } = useQuery({
     queryKey: ["archival"],
-    queryFn: () => apiFetch<ArchivedMonth[]>("admin/archival"),
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/admin/archival");
+      if (error) throw error;
+      return data as unknown as ArchivedMonth[];
+    },
   });
 
   const runFull = useMutation({
-    mutationFn: () => apiFetch("admin/archival/run", { method: "POST" }),
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/api/v1/admin/archival/run");
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["archival"] });
       toast.success("Full archival triggered");
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const archiveMonth = useMutation({
-    mutationFn: (row: ArchivedMonth) =>
-      apiFetch(`admin/archival/${row.fund_slug}/${row.year}/${row.month}`, {
-        method: "POST",
-      }),
+    mutationFn: async (row: ArchivedMonth) => {
+      const { data, error } = await api.POST(
+        "/api/v1/admin/archival/{fund_slug}/{year}/{month}",
+        {
+          params: {
+            path: {
+              fund_slug: row.fund_slug,
+              year: row.year,
+              month: row.month,
+            },
+          },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["archival"] });
       toast.success("Month archived");
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   return (
@@ -73,7 +94,9 @@ export default function ArchivalPage() {
           <tbody className="divide-y divide-[var(--table-border)]">
             {isLoading && (
               <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-sm text-[var(--muted-foreground)]">Loading...</td>
+                <td colSpan={5} className="px-3 py-4">
+                  <LoadingSkeleton variant="table-row" rows={4} columns={5} />
+                </td>
               </tr>
             )}
             {!isLoading && (!archives || archives.length === 0) && (

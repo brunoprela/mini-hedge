@@ -3,6 +3,7 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useMemo } from "react";
+import { LoadingSkeleton } from "@mini-hedge/ui";
 import { violationsQueryOptions } from "@/features/compliance/api";
 import { ordersQueryOptions } from "@/features/orders/api";
 import { portfolioSummaryQueryOptions, portfoliosQueryOptions } from "@/features/portfolio/api";
@@ -163,7 +164,7 @@ export function FundOverview({ fundSlug }: { fundSlug: string }) {
                 </div>
               )
             ) : (
-              <p className="text-xs text-[var(--muted-foreground)]">Loading...</p>
+              <LoadingSkeleton variant="text" rows={2} />
             )}
             <Link
               href={`/${fundSlug}/compliance`}
